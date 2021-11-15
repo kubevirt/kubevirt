@@ -11055,6 +11055,14 @@
       "description": "Disk represents the hotplug disk that will be plugged into the running VMI",
       "$ref": "#/definitions/v1.Disk"
      },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "name": {
       "description": "Name represents the name that will be used to map the disk to the corresponding volume. This overrides any name set inside the Disk struct itself.",
       "type": "string"
@@ -13344,6 +13352,14 @@
      "name"
     ],
     "properties": {
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "name": {
       "description": "Name represents the name that maps to both the disk and volume that should be removed",
       "type": "string"

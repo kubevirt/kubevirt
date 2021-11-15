@@ -5649,6 +5649,16 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  dryRun:
+                    description: 'When present, indicates that modifications should
+                      not be persisted. An invalid or unrecognized dryRun directive
+                      will result in an error response and no further processing of
+                      the request. Valid values are: - All: all dry run stages will
+                      be processed'
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
                   name:
                     description: Name represents the name that will be used to map
                       the disk to the corresponding volume. This overrides any name
@@ -5706,6 +5716,16 @@ var CRDsValidation map[string]string = map[string]string{
                   be removed. The details within this field specify how to add the
                   volume
                 properties:
+                  dryRun:
+                    description: 'When present, indicates that modifications should
+                      not be persisted. An invalid or unrecognized dryRun directive
+                      will result in an error response and no further processing of
+                      the request. Valid values are: - All: all dry run stages will
+                      be processed'
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
                   name:
                     description: Name represents the name that maps to both the disk
                       and volume that should be removed
@@ -16184,6 +16204,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - name
                                 type: object
+                              dryRun:
+                                description: 'When present, indicates that modifications
+                                  should not be persisted. An invalid or unrecognized
+                                  dryRun directive will result in an error response
+                                  and no further processing of the request. Valid
+                                  values are: - All: all dry run stages will be processed'
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               name:
                                 description: Name represents the name that will be
                                   used to map the disk to the corresponding volume.
@@ -16243,6 +16273,16 @@ var CRDsValidation map[string]string = map[string]string{
                               volume should be removed. The details within this field
                               specify how to add the volume
                             properties:
+                              dryRun:
+                                description: 'When present, indicates that modifications
+                                  should not be persisted. An invalid or unrecognized
+                                  dryRun directive will result in an error response
+                                  and no further processing of the request. Valid
+                                  values are: - All: all dry run stages will be processed'
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                               name:
                                 description: Name represents the name that maps to
                                   both the disk and volume that should be removed

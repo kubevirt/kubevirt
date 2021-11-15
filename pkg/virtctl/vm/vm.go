@@ -194,6 +194,7 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().StringVar(&serial, "serial", "", "serial number you want to assign to the disk")
 	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
 
 	return cmd
 }
@@ -213,6 +214,7 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
 	return cmd
 }
 
@@ -283,7 +285,7 @@ func usageRemoveVolume() string {
 	return usage
 }
 
-func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
@@ -298,6 +300,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 			},
 		},
 		VolumeSource: volumeSource,
+		DryRun:       *dryRunOption,
 	}
 	if serial != "" {
 		hotplugRequest.Disk.Serial = serial
@@ -316,15 +319,17 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	return nil
 }
 
-func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	var err error
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
-			Name: volumeName,
+			Name:   volumeName,
+			DryRun: *dryRunOption,
 		})
 	} else {
 		err = virtClient.VirtualMachine(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
-			Name: volumeName,
+			Name:   volumeName,
+			DryRun: *dryRunOption,
 		})
 	}
 	if err != nil {
@@ -452,9 +457,9 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_ADDVOLUME:
-		return addVolume(args[0], volumeName, namespace, virtClient)
+		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_REMOVEVOLUME:
-		return removeVolume(args[0], volumeName, namespace, virtClient)
+		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
