@@ -258,7 +258,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				secret.Data = map[string][]byte{
-					"random": []byte("nonsense"),
+					"tls.crt": []byte(""),
+					"tls.key": []byte(""),
 				}
 
 				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
@@ -344,7 +345,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					return err
 				}
 				secret.Data = map[string][]byte{
-					"random": []byte("nonsense"),
+					"tls.crt": []byte(""),
+					"tls.key": []byte(""),
 				}
 				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
 
