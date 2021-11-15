@@ -34,7 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("ContainerDisk", func() {
@@ -45,7 +47,7 @@ var _ = Describe("ContainerDisk", func() {
 	}
 
 	VerifyDiskType := func(diskExtension string) {
-		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi := api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		appendContainerDisk(vmi, "r0")
 
@@ -89,12 +91,12 @@ var _ = Describe("ContainerDisk", func() {
 			)
 			It("by verifying error when no disk is present", func() {
 
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
 			})
 
 			It("by verifying host directory locations", func() {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.UID = "6789"
 				vmi.Status.ActivePods = map[types.UID]string{
 					"1234": "myhost",
@@ -127,7 +129,7 @@ var _ = Describe("ContainerDisk", func() {
 			})
 
 			It("by verifying error occurs if multiple host directory locations exist somehow", func() {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.UID = "6789"
 				vmi.Status.ActivePods = map[types.UID]string{
 					"1234": "myhost",
@@ -152,7 +154,7 @@ var _ = Describe("ContainerDisk", func() {
 			})
 
 			It("by verifying launcher directory locations", func() {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.UID = "6789"
 
 				// This should fail if no file exists
@@ -172,7 +174,7 @@ var _ = Describe("ContainerDisk", func() {
 
 			It("by verifying that resources are set if the VMI wants the guaranteed QOS class", func() {
 
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -194,7 +196,7 @@ var _ = Describe("ContainerDisk", func() {
 			})
 			It("by verifying that ephemeral storage request is set to every container", func() {
 
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
 				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "/var/run/libvirt")
 
@@ -210,7 +212,7 @@ var _ = Describe("ContainerDisk", func() {
 				}
 			})
 			It("by verifying container generation", func() {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r1")
 				appendContainerDisk(vmi, "r0")
 				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "bin-volume")
@@ -237,7 +239,7 @@ var _ = Describe("ContainerDisk", func() {
 					f, err = os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid"))
 					Expect(err).ToNot(HaveOccurred())
 					f.Close()
-					vmi = v1.NewMinimalVMI("fake-vmi")
+					vmi = api.NewMinimalVMI("fake-vmi")
 					vmi.Status.ActivePods = map[types.UID]string{"poduid": ""}
 					appendContainerDisk(vmi, "r0")
 					appendContainerDisk(vmi, "r1")
@@ -266,7 +268,7 @@ var _ = Describe("ContainerDisk", func() {
 
 		Context("should use the right containerID", func() {
 			It("for a new migration pod with two containerDisks", func() {
-				vmi := v1.NewMinimalVMI("myvmi")
+				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				appendNonContainerDisk(vmi, "disk3")
 				appendContainerDisk(vmi, "disk2")
@@ -284,7 +286,7 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(newContainers[1].Image).To(Equal("someimage@sha256:1"))
 			})
 			It("for a new migration pod with a containerDisk and a kernel image", func() {
-				vmi := v1.NewMinimalVMI("myvmi")
+				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				appendNonContainerDisk(vmi, "disk3")
 
@@ -306,7 +308,7 @@ var _ = Describe("ContainerDisk", func() {
 			})
 
 			It("should fail if it can't detect a reproducible imageID", func() {
-				vmi := v1.NewMinimalVMI("myvmi")
+				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				pod := createMigrationSourcePod(vmi)
 				pod.Status.ContainerStatuses[0].ImageID = "rubish"

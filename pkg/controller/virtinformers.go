@@ -48,11 +48,11 @@ import (
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	"kubevirt.io/client-go/apis/core"
+	"kubevirt.io/api/core"
 
-	kubev1 "kubevirt.io/client-go/apis/core/v1"
-	flavorv1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	kubev1 "kubevirt.io/api/core/v1"
+	flavorv1 "kubevirt.io/api/flavor/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"

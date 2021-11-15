@@ -24,8 +24,10 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
-	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+	"kubevirt.io/client-go/api"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -1339,7 +1341,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should ignore non-matching VMIs", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
-			nonMatchingVMI := virtv1.NewMinimalVMI("testvmi1")
+			nonMatchingVMI := api.NewMinimalVMI("testvmi1")
 			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
 			addVirtualMachine(vm)
@@ -2474,7 +2476,7 @@ func VirtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, star
 }
 
 func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) {
-	vmi := virtv1.NewMinimalVMI(vmiName)
+	vmi := api.NewMinimalVMI(vmiName)
 	vmi.GenerateName = "prettyrandom"
 	vmi.Status.Phase = virtv1.Running
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)

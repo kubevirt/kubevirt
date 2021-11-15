@@ -33,7 +33,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -83,7 +85,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	It("should reject valid VirtualMachineInstance spec on update", func() {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 
 		updateVmi := vmi.DeepCopy()
 		updateVmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -120,7 +122,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	table.DescribeTable(
 		"Should allow VMI upon modification of non kubevirt.io/ labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -163,7 +165,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	table.DescribeTable(
 		"Should allow VMI upon modification of kubevirt.io/ labels by kubevirt internal service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string, serviceAccount string) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -205,7 +207,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	table.DescribeTable(
 		"Should reject VMI upon modification of kubevirt.io/ reserved labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -408,7 +410,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	table.DescribeTable("Should return proper admission response", func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
-		newVMI := v1.NewMinimalVMI("testvmi")
+		newVMI := api.NewMinimalVMI("testvmi")
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 
@@ -488,7 +490,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	table.DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Volumes = makeVolumes(1)
 		vmi.Spec.Domain.Devices.Disks = makeDisks(1)
 		vmi.Status.VolumeStatus = makeStatus(1, 0)

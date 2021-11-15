@@ -39,8 +39,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/client-go/apis/core"
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/api/core"
+	v1 "kubevirt.io/api/core/v1"
 
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"

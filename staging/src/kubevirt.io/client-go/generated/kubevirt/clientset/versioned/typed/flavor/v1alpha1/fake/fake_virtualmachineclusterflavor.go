@@ -28,7 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
 
-	v1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+	v1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 )
 
 // FakeVirtualMachineClusterFlavors implements VirtualMachineClusterFlavorInterface

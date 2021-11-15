@@ -45,11 +45,13 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -2606,7 +2608,7 @@ func NewPvcWithOwner(namespace string, name string, ownerName string, isControll
 }
 
 func NewPendingVirtualMachine(name string) *virtv1.VirtualMachineInstance {
-	vmi := virtv1.NewMinimalVMI(name)
+	vmi := api.NewMinimalVMI(name)
 	vmi.UID = "1234"
 	vmi.Status.Phase = virtv1.Pending
 	setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)

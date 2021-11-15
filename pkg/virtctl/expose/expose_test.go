@@ -16,7 +16,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
@@ -37,8 +39,8 @@ var _ = Describe("Expose", func() {
 	var obtainedService *k8sv1.Service
 
 	BeforeEach(func() {
-		vmi = v1.NewMinimalVMI(vmName)
-		vmNoLabel = v1.NewMinimalVMI(vmNoLabelName)
+		vmi = api.NewMinimalVMI(vmName)
+		vmNoLabel = api.NewMinimalVMI(vmNoLabelName)
 		vm = kubecli.NewMinimalVM(vmName)
 		vmrs = kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
 

@@ -15,7 +15,6 @@ require (
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/client-go v0.0.0
-	github.com/pborman/uuid v1.2.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.20.2
 	k8s.io/apiextensions-apiserver v0.20.2
@@ -23,6 +22,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
+	kubevirt.io/api v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer-api v1.41.0
 )
 
@@ -56,4 +56,6 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.20.2
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.20.2
 	k8s.io/sample-controller => k8s.io/sample-controller v0.20.2
+
+	kubevirt.io/api => ../api
 )

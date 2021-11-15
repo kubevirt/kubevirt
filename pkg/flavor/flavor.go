@@ -10,8 +10,8 @@ import (
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
-	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+	virtv1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 )
 
 type Methods interface {

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	. "github.com/onsi/ginkgo"
@@ -35,7 +36,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -48,7 +49,7 @@ var _ = Describe("ContainerDisk", func() {
 	BeforeEach(func() {
 		tmpDir, err = ioutil.TempDir("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 
 		m = &mounter{

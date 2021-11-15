@@ -32,9 +32,11 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/client-go/api"
+
 	"github.com/mitchellh/go-ps"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -51,7 +53,7 @@ var _ = Describe("Isolation Detector", func() {
 		var cgroupParser *cgroup.MockParser
 
 		podUID = "pid-uid-1234"
-		vm := v1.NewMinimalVMIWithNS("default", "testvm")
+		vm := api.NewMinimalVMIWithNS("default", "testvm")
 		vm.UID = "1234"
 		vm.Status = v1.VirtualMachineInstanceStatus{
 			ActivePods: map[types.UID]string{

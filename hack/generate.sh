@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 
 source $(dirname "$0")/common.sh
 source $(dirname "$0")/config.sh
@@ -10,17 +10,23 @@ CLIENT_GEN_BASE=kubevirt.io/client-go/generated
 rm -rf ${KUBEVIRT_DIR}/staging/src/${CLIENT_GEN_BASE}
 
 # KubeVirt stuff
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/schema.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/flavor/v1alpha1/types.go
 
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/apis/flavor/v1alpha1/types.go
-
-deepcopy-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,kubevirt.io/client-go/apis/flavor/v1alpha1 \
-    --bounding-dirs kubevirt.io/client-go/apis \
+deepcopy-gen --input-dirs kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/flavor/v1alpha1,kubevirt.io/api/core/v1 \
+    --bounding-dirs kubevirt.io/api \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-openapi-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,kubevirt.io/client-go/apis/flavor/v1alpha1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/client-go/apis/core/v1 \
+defaulter-gen --input-dirs kubevirt.io/api/core/v1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package kubevirt.io/client-go/apis/snapshot/v1alpha1 \
+    --output-package kubevirt.io/api/core/v1 \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+openapi-gen --input-dirs kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/api/core/v1,kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/flavor/v1alpha1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --output-package kubevirt.io/client-go/api/ \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt >${KUBEVIRT_DIR}/api/api-rule-violations.list
 
 if cmp ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule-violations-known.list; then
@@ -33,7 +39,7 @@ else
 fi
 
 client-gen --clientset-name versioned \
-    --input-base kubevirt.io/client-go/apis \
+    --input-base kubevirt.io/api \
     --input snapshot/v1alpha1,flavor/v1alpha1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/kubevirt/clientset \
@@ -79,12 +85,12 @@ deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
         # supress -mod=vendor
-        GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=./apis/core/v1/
+        GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=../api/core/v1/
     #include snapshot
-    GOFLAGS= controller-gen crd paths=./apis/snapshot/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/snapshot/v1alpha1/
 
     #include flavor
-    GOFLAGS= controller-gen crd paths=./apis/flavor/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/flavor/v1alpha1/
 
     #remove some weird stuff from controller-gen
     cd config/crd

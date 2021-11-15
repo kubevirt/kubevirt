@@ -38,7 +38,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	api2 "kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
@@ -2164,7 +2166,7 @@ var _ = Describe("migratableDomXML", func() {
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi := api2.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

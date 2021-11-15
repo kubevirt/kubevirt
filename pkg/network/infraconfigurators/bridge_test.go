@@ -27,9 +27,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	"github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
@@ -701,7 +703,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 })
 
 func newVMIWithBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi := api.NewMinimalVMIWithNS(namespace, name)
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)

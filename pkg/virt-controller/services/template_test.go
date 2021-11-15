@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"github.com/golang/mock/gomock"
@@ -44,7 +45,7 @@ import (
 
 	testutils2 "kubevirt.io/client-go/testutils"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -153,7 +154,7 @@ var _ = Describe("Template", func() {
 	Describe("Rendering", func() {
 
 		newMinimalWithContainerDisk := func(name string) *v1.VirtualMachineInstance {
-			vmi := v1.NewMinimalVMI(name)
+			vmi := api.NewMinimalVMI(name)
 			vmi.Annotations = map[string]string{v1.NonRootVMIAnnotation: ""}
 
 			volumes := []v1.Volume{
@@ -869,7 +870,7 @@ var _ = Describe("Template", func() {
 		Context("migration over unix sockets", func() {
 			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -2988,7 +2989,7 @@ var _ = Describe("Template", func() {
 		Context("Ephemeral storage request", func() {
 
 			table.DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 
 				ephemeralStorageRequests := resource.MustParse("30M")
 				ephemeralStorageLimit := resource.MustParse("70M")
@@ -3104,7 +3105,7 @@ var _ = Describe("Template", func() {
 		})
 
 		table.DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			switch interfaceType {
 			case "bridge":
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
@@ -3131,7 +3132,7 @@ var _ = Describe("Template", func() {
 		)
 
 		It("should not require NET_BIND_SERVICE", func() {
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface("test")}
 
 			pod, err := svc.RenderLaunchManifest(vmi)

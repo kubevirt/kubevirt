@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt VirtualMachine Client", func() {
@@ -41,7 +41,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines"
 	vmiPath := basePath + "/testvm"
-	subBasePath := fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/default/virtualmachines", virtv1.SubresourceStorageGroupVersion.Version)
+	subBasePath := fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/default/virtualmachines", v1.SubresourceStorageGroupVersion.Version)
 	subVMIPath := subBasePath + "/testvm"
 
 	BeforeEach(func() {
@@ -170,7 +170,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("PUT", subVMIPath+"/restart"),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm", &virtv1.RestartOptions{})
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm", &v1.RestartOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

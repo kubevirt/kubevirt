@@ -27,7 +27,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 
-	v1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+	v1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	scheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 )
 

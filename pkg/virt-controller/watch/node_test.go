@@ -22,7 +22,9 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -457,7 +459,7 @@ func NewVirtHandlerPod(nodeName string) *k8sv1.Pod {
 }
 
 func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *virtv1.VirtualMachineInstance {
-	vmi := virtv1.NewMinimalVMI(vmiName)
+	vmi := api.NewMinimalVMI(vmiName)
 	vmi.UID = types.UID(uuid.NewRandom().String())
 	vmi.Status.Phase = virtv1.Running
 	vmi.Status.NodeName = node.Name

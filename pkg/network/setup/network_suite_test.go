@@ -3,7 +3,8 @@ package network
 import (
 	"testing"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
+	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -13,7 +14,7 @@ func TestNetwork(t *testing.T) {
 }
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi := api2.NewMinimalVMIWithNS(namespace, name)
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
 }

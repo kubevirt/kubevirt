@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
