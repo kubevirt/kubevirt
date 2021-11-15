@@ -882,10 +882,16 @@ func (app *virtAPIApp) Run() {
 	// Run informers for webhooks usage
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
 
+	kubeVirtInformer := kubeInformerFactory.KubeVirt()
+	// Wire up health check trigger
+	kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		apiHealthVersion.Clear()
+		cache.DefaultWatchErrorHandler(r, err)
+	})
+
 	kubeInformerFactory.ApiAuthConfigMap()
 	kubeInformerFactory.KubeVirtCAConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
-	kubeVirtInformer := kubeInformerFactory.KubeVirt()
 	vmiInformer := kubeInformerFactory.VMI()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	namespaceLimitsInformer := kubeInformerFactory.LimitRanges()

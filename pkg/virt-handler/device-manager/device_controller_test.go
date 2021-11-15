@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
