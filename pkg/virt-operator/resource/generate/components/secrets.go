@@ -251,7 +251,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 	return secrets
 }
 
-// NextRotationDeadline returns a value for the threshold at which the
+// nextRotationDeadline returns a value for the threshold at which the
 // current certificate should be rotated, 80% of the expiration of the
 // certificate.
 func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) time.Time {
@@ -295,10 +295,10 @@ func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, renewBefor
 }
 
 func ValidateSecret(secret *k8sv1.Secret) error {
-	if v, ok := secret.Data[bootstrap.CertBytesValue]; !ok || len(v) == 0 {
+	if _, ok := secret.Data[bootstrap.CertBytesValue]; !ok {
 		return fmt.Errorf("%s value not found in %s secret\n", bootstrap.CertBytesValue, secret.Name)
 	}
-	if v, ok := secret.Data[bootstrap.KeyBytesValue]; !ok || len(v) == 0 {
+	if _, ok := secret.Data[bootstrap.KeyBytesValue]; !ok {
 		return fmt.Errorf("%s value not found in %s secret\n", bootstrap.KeyBytesValue, secret.Name)
 	}
 	return nil
