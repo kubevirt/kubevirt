@@ -76,11 +76,9 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	devicemanager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
-	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -309,18 +307,13 @@ func (app *virtHandlerApp) Run() {
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		deviceController := &devicemanager.DeviceController{}
-		if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
-			nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
-			if err != nil {
-				panic(err)
-			}
-			capabilities = nodeLabellerController.HostCapabilities()
-
-			go nodeLabellerController.Run(10, stop)
-		} else {
-			logger.V(1).Level(log.INFO).Log("node-labeller is disabled, cannot work without KVM device.")
+		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+		if err != nil {
+			panic(err)
 		}
+		capabilities = nodeLabellerController.HostCapabilities()
+
+		go nodeLabellerController.Run(10, stop)
 	}
 
 	vmController := virthandler.NewController(
