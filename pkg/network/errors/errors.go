@@ -3,11 +3,16 @@ package errors
 import "fmt"
 
 type CriticalNetworkError struct {
-	Msg string
+	wrappedErr error
+	Msg        string
 }
 
 func (e CriticalNetworkError) Error() string { return e.Msg }
+func (e CriticalNetworkError) Unwrap() error { return e.wrappedErr }
 
 func CreateCriticalNetworkError(err error) *CriticalNetworkError {
-	return &CriticalNetworkError{Msg: fmt.Sprintf("Critical network error: %v", err)}
+	return &CriticalNetworkError{
+		wrappedErr: err,
+		Msg:        fmt.Sprintf("Critical network error: %v", err),
+	}
 }

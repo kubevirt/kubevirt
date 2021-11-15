@@ -367,7 +367,7 @@ var _ = Describe("Apply Apps", func() {
 			managedBy, ok := deployment.Labels["app.kubernetes.io/managed-by"]
 
 			Expect(ok).To(BeTrue())
-			Expect(managedBy).To(Equal("virt-operator"))
+			Expect(managedBy).To(Equal("kubevirt-operator"))
 
 			version, ok := deployment.Annotations["kubevirt.io/install-strategy-version"]
 			Expect(ok).To(BeTrue())

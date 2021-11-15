@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -33,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -98,6 +99,24 @@ const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
 const enableNetworkInterfaceMultiqueueForTemplate = true
 const EthernetAdaptorModelToEnableMultiqueue = "virtio"
+
+const (
+	cloudConfigHeader = "#cloud-config"
+
+	cloudConfigInstallAndStartService = `packages:
+  - nginx
+runcmd:
+  - [ "systemctl", "enable", "--now", "nginx" ]`
+
+	cloudConfigUserPassword = `password: fedora
+chpasswd: { expire: False }`
+
+	secondaryIfaceDhcpNetworkData = `version: 2
+ethernets:
+  eth1:
+    dhcp4: true
+`
+)
 
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
@@ -392,7 +411,7 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
 }
 
@@ -442,7 +461,9 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 	vm.Spec.Networks = []v1.Network{{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+	addNoCloudDiskWitUserData(
+		&vm.Spec,
+		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
 
 	slirp := &v1.InterfaceSlirp{}
 	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
@@ -456,9 +477,11 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
-	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx"
 	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
-	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, userData, networkData)
+	addNoCloudDiskWitUserDataNetworkData(
+		&vm.Spec,
+		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
+		networkData)
 
 	masquerade := &v1.InterfaceMasquerade{}
 	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
@@ -472,7 +495,7 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
+	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}
@@ -485,7 +508,7 @@ func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\n")
+	addNoCloudDiskWitUserData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 
@@ -497,7 +520,7 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
+	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -690,7 +713,7 @@ func GetTemplateFedoraWithContainerDisk(containerDisk string) *Template {
 func getFedoraVMWithoutDisk() *v1.VirtualMachine {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
 	spec := &vm.Spec.Template.Spec
-	addNoCloudDiskWitUserData(spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	addNoCloudDiskWitUserData(spec, generateCloudConfigString(cloudConfigUserPassword))
 
 	setDefaultNetworkAndInterface(spec, v1.InterfaceBindingMethod{
 		Masquerade: &v1.InterfaceMasquerade{},
@@ -1016,7 +1039,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
 	vmi.ObjectMeta.Annotations = map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
@@ -1036,7 +1059,7 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Devices.GPUs = GPUs
 	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
 }
 
@@ -1046,7 +1069,7 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vmi.Spec.Networks = []v1.Network{{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
 	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx")
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
 
 	macvtap := &v1.InterfaceMacvtap{}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
@@ -1061,4 +1084,9 @@ func GetVMIARM() *v1.VirtualMachineInstance {
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
 	return vmi
+}
+
+func generateCloudConfigString(cloudConfigElement ...string) string {
+	return strings.Join(
+		append([]string{cloudConfigHeader}, cloudConfigElement...), "\n")
 }

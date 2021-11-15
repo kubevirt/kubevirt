@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -120,7 +120,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -128,7 +128,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				vmi := tests.NewRandomVMI()
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
-				err := virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vmi.Name)
+				err := virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vmi.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -144,7 +144,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Trying to start VM via Restart subresource")
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -174,7 +174,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -210,7 +210,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {

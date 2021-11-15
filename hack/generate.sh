@@ -41,7 +41,7 @@ client-gen --clientset-name versioned \
 
 # dependencies
 client-gen --clientset-name versioned \
-    --input-base kubevirt.io/containerized-data-importer/pkg/apis \
+    --input-base kubevirt.io/containerized-data-importer-api/pkg/apis \
     --input core/v1beta1,upload/v1beta1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/containerized-data-importer/clientset \

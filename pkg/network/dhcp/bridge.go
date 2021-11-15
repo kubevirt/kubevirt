@@ -16,6 +16,7 @@ type BridgeConfigGenerator struct {
 	launcherPID      string
 	vmiSpecIfaces    []v1.Interface
 	vmiSpecIface     *v1.Interface
+	subdomain        string
 }
 
 func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
@@ -40,6 +41,7 @@ func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 		return nil, err
 	}
 	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
+	dhcpConfig.Subdomain = d.subdomain
 
 	return dhcpConfig, nil
 }

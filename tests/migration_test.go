@@ -48,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
@@ -64,7 +65,7 @@ import (
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
@@ -1141,7 +1142,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 
 				cfg := getCurrentKv()
-				cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+				migrationBandwidth := resource.MustParse("40Mi")
+				cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
@@ -2236,6 +2238,40 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 						return errors.IsNotFound(err)
 					}, 60*time.Second, 500*time.Millisecond).Should(BeTrue())
 				}
+			})
+
+			It("[sig-compute]should delete PDBs created by an old virt-controller", func() {
+				By("creating the VMI")
+				createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				By("waiting for VMI")
+				tests.WaitForSuccessfulVMIStartWithTimeout(createdVMI, 60)
+
+				By("Adding a fake old virt-controller PDB")
+				two := intstr.FromInt(2)
+				pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(createdVMI.Namespace).Create(context.Background(), &v1beta1.PodDisruptionBudget{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							*metav1.NewControllerRef(createdVMI, v1.VirtualMachineInstanceGroupVersionKind),
+						},
+						GenerateName: "kubevirt-disruption-budget-",
+					},
+					Spec: v1beta1.PodDisruptionBudgetSpec{
+						MinAvailable: &two,
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								v1.CreatedByLabel: string(createdVMI.UID),
+							},
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("checking that the PDB disappeared")
+				Eventually(func() bool {
+					_, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(util.NamespaceTestDefault).Get(context.Background(), pdb.Name, metav1.GetOptions{})
+					return errors.IsNotFound(err)
+				}, 60*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {

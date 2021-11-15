@@ -47,7 +47,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
@@ -131,7 +131,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			ipProtocol := k8sv1.IPv4Protocol
 			os := string(cd.ContainerDiskAlpine)
-			size := "5Gi"
+			size := "1Gi"
 
 			AfterEach(func() {
 				tests.DeleteAlpineWithNonQEMUPermissions()

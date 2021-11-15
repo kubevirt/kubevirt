@@ -528,7 +528,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(oldVMI)
 			// the domain is dead because the watchdog is expired
 			mockWatchdog.Expire(oldVMI)
-			controller.phase1NetworkSetupCache.Store(oldVMI.UID, 1)
+			controller.phase1NetworkSetupCache.Store(oldVMI.UID, 0)
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
@@ -548,7 +548,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 
-			controller.phase1NetworkSetupCache.Store(vmi.UID, 1)
+			controller.phase1NetworkSetupCache.Store(vmi.UID, 0)
 			vmiFeeder.Add(vmi)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
@@ -576,7 +576,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 
-			controller.phase1NetworkSetupCache.Store(vmi.UID, 1)
+			controller.phase1NetworkSetupCache.Store(vmi.UID, 0)
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())

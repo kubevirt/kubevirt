@@ -34,7 +34,7 @@ import (
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/precond"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // For versioning of the virt-handler and -launcher communication,
@@ -336,7 +336,8 @@ type FeatureState struct {
 }
 
 type FeatureKVM struct {
-	Hidden *FeatureState `xml:"hidden,omitempty"`
+	Hidden        *FeatureState `xml:"hidden,omitempty"`
+	HintDedicated *FeatureState `xml:"hint-dedicated,omitempty"`
 }
 
 type Metadata struct {
@@ -529,6 +530,8 @@ type HostDevice struct {
 	Model     string           `xml:"model,attr,omitempty"`
 	Address   *Address         `xml:"address,emitempty"`
 	Alias     *Alias           `xml:"alias,omitempty"`
+	Display   string           `xml:"display,attr,omitempty"`
+	RamFB     string           `xml:"ramfb,attr,omitempty"`
 }
 
 type HostDeviceSource struct {

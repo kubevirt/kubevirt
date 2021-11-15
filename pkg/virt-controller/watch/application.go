@@ -219,6 +219,7 @@ type VirtControllerApp struct {
 	nodeTopologyUpdater      topology.NodeTopologyUpdater
 	nodeTopologyUpdatePeriod time.Duration
 	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
+	leaderElector            *leaderelection.LeaderElector
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -311,7 +312,7 @@ func Execute() {
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
 
 	app.vmiCache = app.vmiInformer.GetStore()
-	app.vmiRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
+	app.vmiRecorder = app.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	app.rsInformer = app.informerFactory.VMIReplicaSet()
 
@@ -415,40 +416,12 @@ func (vca *VirtControllerApp) Run() {
 		}
 	}()
 
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultEndpointName)
-
-	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
-		vca.kubevirtNamespace,
-		leaderelectionconfig.DefaultEndpointName,
-		vca.clientSet.CoreV1(),
-		vca.clientSet.CoordinationV1(),
-		resourcelock.ResourceLockConfig{
-			Identity:      vca.host,
-			EventRecorder: recorder,
-		})
-	if err != nil {
-		golog.Fatal(err)
-	}
-
-	leaderElector, err := leaderelection.NewLeaderElector(
-		leaderelection.LeaderElectionConfig{
-			Lock:          rl,
-			LeaseDuration: vca.LeaderElection.LeaseDuration.Duration,
-			RenewDeadline: vca.LeaderElection.RenewDeadline.Duration,
-			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
-			Callbacks: leaderelection.LeaderCallbacks{
-				OnStartedLeading: vca.onStartedLeading(),
-				OnStoppedLeading: func() {
-					golog.Fatal("leaderelection lost")
-				},
-			},
-		})
-	if err != nil {
+	if err := vca.setupLeaderElector(); err != nil {
 		golog.Fatal(err)
 	}
 
 	readyGauge.Set(1)
-	leaderElector.Run(vca.ctx)
+	vca.leaderElector.Run(vca.ctx)
 	readyGauge.Set(0)
 	panic("unreachable")
 }
@@ -485,7 +458,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 	}
 }
 
-func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {
+func (vca *VirtControllerApp) newRecorder(namespace string, componentName string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: vca.clientSet.CoreV1().Events(namespace)})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
@@ -530,7 +503,7 @@ func (vca *VirtControllerApp) initCommon() {
 		topologyHinter,
 	)
 
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	vca.migrationController = NewMigrationController(
 		vca.templateService,
@@ -549,12 +522,12 @@ func (vca *VirtControllerApp) initCommon() {
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
 	vca.rsController = NewVMIReplicaSet(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 }
 
 func (vca *VirtControllerApp) initVirtualMachines() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	vca.vmController = NewVMController(
 		vca.vmiInformer,
@@ -568,7 +541,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 }
 
 func (vca *VirtControllerApp) initDisruptionBudgetController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
 	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
 		vca.vmiInformer,
 		vca.pdbInformer,
@@ -581,7 +554,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 }
 
 func (vca *VirtControllerApp) initWorkloadUpdaterController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "workload-update-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "workload-update-controller")
 	vca.workloadUpdateController = workloadupdater.NewWorkloadUpdateController(
 		vca.launcherImage,
 		vca.vmiInformer,
@@ -594,7 +567,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 }
 
 func (vca *VirtControllerApp) initEvacuationController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
 	vca.evacuationController = evacuation.NewEvacuationController(
 		vca.vmiInformer,
 		vca.migrationInformer,
@@ -607,7 +580,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 }
 
 func (vca *VirtControllerApp) initSnapshotController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "snapshot-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
 	vca.snapshotController = &snapshot.VMSnapshotController{
 		Client:                    vca.clientSet,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
@@ -627,7 +600,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 }
 
 func (vca *VirtControllerApp) initRestoreController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "restore-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
 	vca.restoreController = &snapshot.VMRestoreController{
 		Client:                    vca.clientSet,
 		VMRestoreInformer:         vca.vmRestoreInformer,
@@ -735,4 +708,51 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.promKeyFilePath, "prom-key-file", defaultPromKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
+}
+
+func (vca *VirtControllerApp) setupLeaderElector() (err error) {
+	clientConfig, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		return
+	}
+
+	clientConfig.RateLimiter =
+		flowcontrol.NewTokenBucketRateLimiter(
+			virtconfig.DefaultVirtControllerQPS,
+			virtconfig.DefaultVirtControllerBurst)
+
+	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		return
+	}
+
+	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
+		vca.kubevirtNamespace,
+		leaderelectionconfig.DefaultEndpointName,
+		clientSet.CoreV1(),
+		clientSet.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity:      vca.host,
+			EventRecorder: vca.newRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultEndpointName),
+		})
+
+	if err != nil {
+		return
+	}
+
+	vca.leaderElector, err = leaderelection.NewLeaderElector(
+		leaderelection.LeaderElectionConfig{
+			Lock:          rl,
+			LeaseDuration: vca.LeaderElection.LeaseDuration.Duration,
+			RenewDeadline: vca.LeaderElection.RenewDeadline.Duration,
+			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
+			Callbacks: leaderelection.LeaderCallbacks{
+				OnStartedLeading: vca.onStartedLeading(),
+				OnStoppedLeading: func() {
+					golog.Fatal("leaderelection lost")
+				},
+			},
+		})
+
+	return
 }

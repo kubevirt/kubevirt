@@ -202,15 +202,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		if webhooks.IsPPC64() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		} else if webhooks.IsARM64() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.CPUModeHostPassthrough))
 		} else {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		}
 
+		Expect(v1.DefaultCPUModel).To(Equal(v1.CPUModeHostModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
 		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))

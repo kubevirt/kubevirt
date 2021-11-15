@@ -95,7 +95,7 @@ import (
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
@@ -767,7 +767,7 @@ func AdjustKubeVirtResource() {
 	data, err := json.Marshal(kv.Spec)
 	Expect(err).ToNot(HaveOccurred())
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
+	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
 	util2.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
@@ -796,7 +796,7 @@ func RestoreKubeVirtResource() {
 		data, err := json.Marshal(originalKV.Spec)
 		Expect(err).ToNot(HaveOccurred())
 		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
+		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
 		util2.PanicOnError(err)
 	}
 }
@@ -1982,7 +1982,7 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
 				Registry: &cdiv1.DataVolumeSourceRegistry{
-					URL: imageUrl,
+					URL: &imageUrl,
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -4470,7 +4470,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
 	Expect(err).ToNot(HaveOccurred())
 
-	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch)
+	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch, &metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	waitForConfigToBePropagated(kv.ResourceVersion)
@@ -5249,4 +5249,29 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 	VerifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
 
 	return addVolumeName
+}
+
+func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource.Quantity) *k8sv1.PersistentVolumeClaim {
+	sc, exists := GetCephStorageClass()
+	if !exists {
+		Skip("Skip OCS tests when Ceph is not present")
+	}
+	mode := k8sv1.PersistentVolumeBlock
+	createdPvc, err := virtClient.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Create(context.Background(), &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			VolumeMode:       &mode,
+			StorageClassName: &sc,
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					"storage": size,
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	return createdPvc
+
 }

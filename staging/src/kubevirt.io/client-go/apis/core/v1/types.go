@@ -22,7 +22,7 @@ package v1
 //go:generate swagger-doc
 //go:generate deepcopy-gen -i . --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
 //go:generate defaulter-gen -i . --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
-//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/apis/core/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/apis/core/v1  --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate openapi-gen -i kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/apis/core/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/apis/core/v1  --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const DefaultGracePeriodSeconds int64 = 30
@@ -729,7 +729,7 @@ const (
 	AppComponent = "kubevirt"
 	// This label will be set on all resources created by the operator
 	ManagedByLabel              = AppLabelPrefix + "/managed-by"
-	ManagedByLabelOperatorValue = "virt-operator"
+	ManagedByLabelOperatorValue = "kubevirt-operator"
 	// This annotation represents the kubevirt version for an install strategy configmap.
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
@@ -1298,6 +1298,9 @@ const (
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
 	VirtualMachineStatusDataVolumeError VirtualMachinePrintableStatus = "DataVolumeError"
+	// VirtualMachineStatusWaitingForVolumeBinding indicates that some PersistentVolumeClaims backing
+	// the virtual machine volume are still not bound.
+	VirtualMachineStatusWaitingForVolumeBinding VirtualMachinePrintableStatus = "WaitingForVolumeBinding"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
@@ -1826,13 +1829,22 @@ const (
 type RestartOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// The duration in seconds before the object should be force-restared. Value must be non-negative integer.
+	// The duration in seconds before the object should be force-restarted. Value must be non-negative integer.
 	// The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the
 	// specified type will be used to determine on how much time to give the VMI to restart.
 	// Defaults to a per object value if not specified. zero means restart immediately.
 	// Allowed Values: nil and 0
 	// +optional
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
+
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,2,rep,name=dryRun"`
 }
 
 // StartOptions may be provided on start request.
@@ -1844,6 +1856,14 @@ type StartOptions struct {
 	// Indicates that VM will be started in paused state.
 	// +optional
 	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,5,rep,name=dryRun"`
 }
 
 const (
@@ -1860,6 +1880,14 @@ type StopOptions struct {
 	// this updates the VMIs terminationGracePeriodSeconds during shutdown
 	// +optional
 	GracePeriod *int64 `json:"gracePeriod,omitempty" protobuf:"varint,1,opt,name=gracePeriod"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,2,rep,name=dryRun"`
 }
 
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent

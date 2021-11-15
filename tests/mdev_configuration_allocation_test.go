@@ -64,17 +64,21 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 	}
-	Context("with ephemeral disk", func() {
-		It("Should successfully passthrough a mediated device", func() {
-			deviceName := "nvidia.com/GRID_T4-1B"
-			mdevSelector := "GRID T4-1B"
-			parentDeviceID := "10de:1eb8"
-			desiredMdevTypeName := "nvidia-222"
-			expectedInstancesNum := 16
+	Context("with mediated devices configuration", func() {
+		var vmi *v1.VirtualMachineInstance
+		var deviceName string = "nvidia.com/GRID_T4-1B"
+		var mdevSelector string = "GRID T4-1B"
+		var parentDeviceID string = "10de:1eb8"
+		var desiredMdevTypeName string = "nvidia-222"
+		var expectedInstancesNum int = 16
+		var config v1.KubeVirtConfiguration
+
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
 			kv := util.GetCurrentKv(virtClient)
 
 			By("Creating a configuration for mediated devices")
-			config := kv.Spec.Configuration
+			config = kv.Spec.Configuration
 			config.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{desiredMdevTypeName},
@@ -91,19 +95,37 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 
 			By("Verifying that an expected amount of devices has been created")
 			checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum)
+		})
 
-			By("Creating a Fedora VMI with the sound card as a host device")
-			randomVMI := tests.NewRandomFedoraVMIWithGuestAgent()
-			randomVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+		cleanupConfiguredMdevs := func() {
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			By("Creating a configuration for mediated devices")
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+			By("Verifying that an expected amount of devices has been created")
+			checkAllMDEVRemoved()
+		}
+
+		AfterEach(func() {
+			cleanupConfiguredMdevs()
+		})
+
+		It("Should successfully passthrough a mediated device", func() {
+
+			By("Creating a Fedora VMI")
+			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{
 					Name:       "gpu1",
 					DeviceName: deviceName,
 				},
 			}
-			randomVMI.Spec.Domain.Devices.GPUs = vGPUs
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi.Spec.Domain.Devices.GPUs = vGPUs
+			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -113,13 +135,41 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				&expect.BExp{R: console.RetValue("1")},
 			}, 250)).To(Succeed(), "Device not found")
 
-			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
-			By("Creating a configuration for mediated devices")
-			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
-			By("Verifying that an expected amount of devices has been created")
-			checkAllMDEVRemoved()
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// make sure that one mdev has display and ramfb on
+			By("Maiking sure that a boot display is enabled")
+			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
+			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+		})
+		It("Should successfully passthrough a mediated device with a disabled display", func() {
+			_false := false
+			By("Creating a Fedora VMI")
+			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+			vGPUs := []v1.GPU{
+				{
+					Name:       "gpu2",
+					DeviceName: deviceName,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: &_false,
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.GPUs = vGPUs
+			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			vmi = createdVmi
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// make sure that another mdev explicitly turned off its display
+			By("Maiking sure that a boot display is disabled")
+			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
+			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
 		})
 	})
 })

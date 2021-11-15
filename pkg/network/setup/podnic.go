@@ -270,14 +270,16 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 			l.handler,
 			l.podInterfaceName,
 			l.vmi.Spec.Domain.Devices.Interfaces,
-			l.vmiSpecIface)
+			l.vmiSpecIface,
+			l.vmi.Spec.Subdomain)
 	} else if l.vmiSpecIface.Masquerade != nil {
 		dhcpConfigurator = dhcpconfigurator.NewMasqueradeConfigurator(
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
 			l.handler,
 			l.vmiSpecIface,
 			l.vmiSpecNetwork,
-			l.podInterfaceName)
+			l.podInterfaceName,
+			l.vmi.Spec.Subdomain)
 	}
 	return dhcpConfigurator
 }

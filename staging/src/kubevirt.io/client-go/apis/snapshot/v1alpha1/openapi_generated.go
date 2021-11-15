@@ -425,6 +425,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredential":                          schema_client_go_apis_core_v1_UserPasswordAccessCredential(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredentialPropagationMethod":         schema_client_go_apis_core_v1_UserPasswordAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredentialSource":                    schema_client_go_apis_core_v1_UserPasswordAccessCredentialSource(ref),
+		"kubevirt.io/client-go/apis/core/v1.VGPUDisplayOptions":                                    schema_client_go_apis_core_v1_VGPUDisplayOptions(ref),
+		"kubevirt.io/client-go/apis/core/v1.VGPUOptions":                                           schema_client_go_apis_core_v1_VGPUOptions(ref),
 		"kubevirt.io/client-go/apis/core/v1.VirtualMachine":                                        schema_client_go_apis_core_v1_VirtualMachine(ref),
 		"kubevirt.io/client-go/apis/core/v1.VirtualMachineCondition":                               schema_client_go_apis_core_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/client-go/apis/core/v1.VirtualMachineInstance":                                schema_client_go_apis_core_v1_VirtualMachineInstance(ref),
@@ -14785,7 +14787,7 @@ func schema_client_go_apis_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "DataVolumeSpec contains the DataVolume specification.",
-							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec"),
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSpec"),
 						},
 					},
 					"status": {
@@ -14799,7 +14801,7 @@ func schema_client_go_apis_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSpec"},
 	}
 }
 
@@ -15945,10 +15947,17 @@ func schema_client_go_apis_core_v1_GPU(ref common.ReferenceCallback) common.Open
 							Format: "",
 						},
 					},
+					"virtualGPUOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/core/v1.VGPUOptions"),
+						},
+					},
 				},
 				Required: []string{"name", "deviceName"},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.VGPUOptions"},
 	}
 }
 
@@ -18294,9 +18303,28 @@ func schema_client_go_apis_core_v1_RestartOptions(ref common.ReferenceCallback) 
 					},
 					"gracePeriodSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The duration in seconds before the object should be force-restared. Value must be non-negative integer. The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the specified type will be used to determine on how much time to give the VMI to restart. Defaults to a per object value if not specified. zero means restart immediately. Allowed Values: nil and 0",
+							Description: "The duration in seconds before the object should be force-restarted. Value must be non-negative integer. The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the specified type will be used to determine on how much time to give the VMI to restart. Defaults to a per object value if not specified. zero means restart immediately. Allowed Values: nil and 0",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -18516,6 +18544,25 @@ func schema_client_go_apis_core_v1_StartOptions(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -18548,6 +18595,25 @@ func schema_client_go_apis_core_v1_StopOptions(ref common.ReferenceCallback) com
 							Description: "this updates the VMIs terminationGracePeriodSeconds during shutdown",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -18765,6 +18831,52 @@ func schema_client_go_apis_core_v1_UserPasswordAccessCredentialSource(ref common
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/apis/core/v1.AccessCredentialSecretSource"},
+	}
+}
+
+func schema_client_go_apis_core_v1_VGPUDisplayOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"ramFB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enables a boot framebuffer, until the guest OS loads a real GPU driver Defaults to true.",
+							Ref:         ref("kubevirt.io/client-go/apis/core/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.FeatureState"},
+	}
+}
+
+func schema_client_go_apis_core_v1_VGPUOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"display": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/core/v1.VGPUDisplayOptions"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.VGPUDisplayOptions"},
 	}
 }
 

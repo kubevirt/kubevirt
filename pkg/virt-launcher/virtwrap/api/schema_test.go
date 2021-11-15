@@ -94,6 +94,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <smm></smm>
     <kvm>
       <hidden state="on"></hidden>
+      <hint-dedicated state="on"></hint-dedicated>
     </kvm>
     <pvspinlock state="off"></pvspinlock>
     <pmu state="off"></pmu>
@@ -173,6 +174,7 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
     <smm></smm>
     <kvm>
       <hidden state="on"></hidden>
+      <hint-dedicated state="on"></hint-dedicated>
     </kvm>
     <pvspinlock state="off"></pvspinlock>
     <pmu state="off"></pmu>
@@ -253,6 +255,7 @@ var exampleXMLarm64 = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas
     <smm></smm>
     <kvm>
       <hidden state="on"></hidden>
+      <hint-dedicated state="on"></hint-dedicated>
     </kvm>
     <pvspinlock state="off"></pvspinlock>
     <pmu state="off"></pmu>
@@ -364,7 +367,8 @@ var _ = Describe("Schema", func() {
 			ACPI: &FeatureEnabled{},
 			SMM:  &FeatureEnabled{},
 			KVM: &FeatureKVM{
-				Hidden: &FeatureState{State: "on"},
+				Hidden:        &FeatureState{State: "on"},
+				HintDedicated: &FeatureState{State: "on"},
 			},
 			PVSpinlock: &FeaturePVSpinlock{State: "off"},
 			PMU:        &FeatureState{State: "off"},

@@ -37,6 +37,7 @@ function main() {
     cd kubevirtci
     info=$(git log $PREVIOUS..$CURRENT --format="%h %s" | sed 's! (#!](https://github.com/kubevirt/kubevirtci/pull/!g')
     info=$(echo "$info" | sed 's/^/\[/')
+    info+='\n\n```release-note\nNONE\n```'
     decorated_info=$(echo -e "Bump kubevirtci\n\n${info}")
     echo "$decorated_info"
 }
