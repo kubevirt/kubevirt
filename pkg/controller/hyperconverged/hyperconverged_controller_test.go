@@ -2000,8 +2000,8 @@ progressTimeout: 150`,
 				badBandwidthPerMigration := "64Mi"
 				customBandwidthPerMigration := "32Mi"
 
-				It("should drop spec.livemigrationconfig.bandwidthpermigration if == 64Mi", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+				It("should drop spec.livemigrationconfig.bandwidthpermigration if == 64Mi when upgrading from < 1.5.0", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, "1.4.99")
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &badBandwidthPerMigration
 
 					cl := expected.initClient()
@@ -2014,9 +2014,24 @@ progressTimeout: 150`,
 					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(BeNil())
 				})
 
-				It("should preserve spec.livemigrationconfig.bandwidthpermigration if != 64Mi", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+				It("should preserve spec.livemigrationconfig.bandwidthpermigration if != 64Mi when upgrading from < 1.5.0", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, "1.4.99")
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &customBandwidthPerMigration
+
+					cl := expected.initClient()
+					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
+					_, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
+					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(customBandwidthPerMigration))
+				})
+
+				It("should preserve spec.livemigrationconfig.bandwidthpermigration even if == 64Mi when upgrading from >= 1.5.1", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, "1.5.1")
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &badBandwidthPerMigration
 
 					cl := expected.initClient()
 					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
@@ -2024,7 +2039,7 @@ progressTimeout: 150`,
 					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
 					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
-					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(customBandwidthPerMigration))
+					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(badBandwidthPerMigration))
 				})
 
 				It("should amend spec.featureGates.sriovLiveMigration upgrading from <= 1.5.0", func() {

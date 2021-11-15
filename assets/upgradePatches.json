@@ -9,6 +9,20 @@
           "value": true
         }
       ]
+    },
+    {
+      "semverRange": ">=1.4.0 <1.5.0",
+      "jsonPatch": [
+        {
+          "op": "test",
+          "path": "/spec/liveMigrationConfig/bandwidthPerMigration",
+          "value": "64Mi"
+        },
+        {
+          "op": "remove",
+          "path": "/spec/liveMigrationConfig/bandwidthPerMigration"
+        }
+      ]
     }
   ]
 }

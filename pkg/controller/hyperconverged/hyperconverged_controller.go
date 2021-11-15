@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"reflect"
 	"strings"
@@ -1070,11 +1071,6 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	defaultsAmended, err := r.amendBadDefaults(req)
-	if err != nil {
-		return false, err
-	}
-
 	upgradePatched, err := r.applyUpgradePatches(req)
 	if err != nil {
 		return false, err
@@ -1082,7 +1078,7 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 
 	removeOldQuickStartGuides(req, r.client, r.operandHandler.GetQuickStartNames())
 
-	return kvConfigModified || cdiConfigModified || defaultsAmended || upgradePatched, nil
+	return kvConfigModified || cdiConfigModified || upgradePatched, nil
 }
 
 func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
@@ -1121,17 +1117,6 @@ func (r ReconcileHyperConverged) migrateCdiConfigurations(req *common.HcoRequest
 	}
 
 	return adoptCdiConfigs(req, cdi.Spec.Config), nil
-}
-
-func (r ReconcileHyperConverged) amendBadDefaults(req *common.HcoRequest) (bool, error) {
-	modified := false
-	if req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration != nil && *req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration == "64Mi" {
-		req.Logger.Info("rejecting spec.livemigrationconfig.bandwidthpermigration==64Mi because it was a bad default value")
-		req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration = nil
-		modified = true
-		req.Dirty = true
-	}
-	return modified, nil
 }
 
 func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bool, error) {
@@ -1183,6 +1168,10 @@ func (r ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJs
 		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", p.SemverRange, "patches", p.JSONPatch)
 		patchedBytes, err := p.JSONPatch.Apply(hcoJson)
 		if err != nil {
+			if errors.Cause(err) == jsonpatch.ErrTestFailed {
+				return hcoJson, nil
+			}
+
 			return hcoJson, err
 		}
 		return patchedBytes, nil
