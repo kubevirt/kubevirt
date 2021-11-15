@@ -54,6 +54,7 @@ const (
 	virtOperatorJobAppLabel    = "virt-operator-strategy-dumper"
 	installStrategyKeyTemplate = "%s-%d"
 	defaultAddDelay            = 5 * time.Second
+	deprecatedCmName           = "kubevirt-config"
 )
 
 type KubeVirtController struct {
@@ -636,6 +637,11 @@ func (c *KubeVirtController) execute(key string) error {
 
 	logger.Info("Handling KubeVirt resource")
 
+	err = c.emmitEventIfConfigMap(kv)
+	if err != nil {
+		log.Log.Reason(err)
+	}
+
 	// only process the kubevirt deployment if all expectations are satisfied.
 	needsSync := c.kubeVirtExpectations.SatisfiedExpectations(key)
 	if !needsSync {
@@ -1149,5 +1155,24 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	}
 
 	logger.Info("Processed deletion for this round")
+	return nil
+}
+
+func (c *KubeVirtController) emmitEventIfConfigMap(kv *v1.KubeVirt) error {
+	cm := &k8sv1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deprecatedCmName,
+			Namespace: c.operatorNamespace,
+		},
+	}
+
+	_, exists, err := c.informers.ConfigMap.GetIndexer().Get(cm)
+	if err != nil {
+		return fmt.Errorf("can't get the %s configMap; %w", deprecatedCmName, err)
+	}
+
+	if exists {
+		c.recorder.Eventf(kv, k8sv1.EventTypeNormal, "DeprecatedConfigMapExists", "the %s configMap is still deployed. KubeVirt does not support this configMap and it can be safely removed", deprecatedCmName)
+	}
 	return nil
 }
