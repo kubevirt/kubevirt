@@ -61,8 +61,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	memoryLimit := "128M"
 	cpuModelFromConfig := "Haswell"
 	machineTypeFromConfig := "pc-q35-3.0"
-	cpuRequestFromConfig := "800m"
-	cpuReq := resource.MustParse(cpuRequestFromConfig)
+	cpuReq := resource.MustParse("800m")
 
 	admitVMI := func() *admissionv1.AdmissionResponse {
 		vmiBytes, err := json.Marshal(vmi)
@@ -234,7 +233,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
-		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpuRequestFromConfig))
+		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
 	})
 
 	table.DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
