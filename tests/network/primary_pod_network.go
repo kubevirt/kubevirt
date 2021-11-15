@@ -92,7 +92,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				BeforeEach(func() {
 					var err error
 
-					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding())
+					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))
 					Expect(err).NotTo(HaveOccurred())
 
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
