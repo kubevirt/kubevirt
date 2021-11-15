@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 )
 
@@ -38,7 +39,7 @@ var _ = Describe("controller", func() {
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netCtrl = netsetup.NewController(nil)
+		netCtrl = netsetup.NewController(&interfaceCacheFactoryStub{})
 
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 	})
@@ -51,7 +52,7 @@ var _ = Describe("controller", func() {
 	It("runs teardown successfully", func() {
 		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
 		Expect(netCtrl.SetupCompleted(vmi)).To(BeTrue())
-		Expect(netCtrl.Teardown(vmi, netTeardownDummyNoop)).To(Succeed())
+		Expect(netCtrl.Teardown(vmi)).To(Succeed())
 		Expect(netCtrl.SetupCompleted(vmi)).To(BeFalse())
 	})
 
@@ -72,15 +73,44 @@ var _ = Describe("controller", func() {
 	})
 
 	It("fails the teardown run", func() {
-		Expect(netCtrl.Teardown(vmi, netTeardownFail)).NotTo(Succeed())
+		factory := &interfaceCacheFactoryStub{podInterfaceCacheStoreStub{failRemove: true}}
+		netCtrl = netsetup.NewController(factory)
+		Expect(netCtrl.Teardown(vmi)).NotTo(Succeed())
 		Expect(netCtrl.SetupCompleted(vmi)).To(BeFalse())
 	})
 })
 
+type interfaceCacheFactoryStub struct{ podInterfaceCacheStore podInterfaceCacheStoreStub }
+
+func (i interfaceCacheFactoryStub) CacheForVMI(vmi *v1.VirtualMachineInstance) cache.PodInterfaceCacheStore {
+	return i.podInterfaceCacheStore
+}
+func (i interfaceCacheFactoryStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
+	return nil
+}
+func (i interfaceCacheFactoryStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
+	return nil
+}
+
+type podInterfaceCacheStoreStub struct{ failRemove bool }
+
+func (p podInterfaceCacheStoreStub) Read(iface string) (*cache.PodCacheInterface, error) {
+	return nil, nil
+}
+
+func (p podInterfaceCacheStoreStub) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
+	return nil
+}
+
+func (p podInterfaceCacheStoreStub) Remove() error {
+	if p.failRemove {
+		return fmt.Errorf("remove failed")
+	}
+	return nil
+}
+
 func doNetNSDummyNoop(func() error) error { return nil }
 func netPreSetupDummyNoop() error         { return nil }
-func netTeardownDummyNoop() error         { return nil }
 
-func doNetNSFail(func() error) error { return fmt.Errorf("do-netns dailure") }
+func doNetNSFail(func() error) error { return fmt.Errorf("do-netns failure") }
 func netPreSetupFail() error         { return fmt.Errorf("pre-setup failure") }
-func netTeardownFail() error         { return fmt.Errorf("teardown failure") }

@@ -37,6 +37,7 @@ import (
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -209,7 +210,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			nil,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
-		controller.networkCacheStoreFactory = netcache.NewInterfaceCacheFactoryWithBasePath(shareDir)
+		controller.networkController = netsetup.NewController(netcache.NewInterfaceCacheFactoryWithBasePath(shareDir))
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
 		vmiTestUUID = uuid.NewUUID()
@@ -2477,12 +2478,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.UID = vmiTestUUID
 				vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 
-				podCacheInterface := makePodCacheInterface(interfaceName, interfaceIp, interfaceIp, interfaceIpv6)
-				Expect(controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(interfaceName, podCacheInterface)).To(Succeed())
-
-				podCacheSecondaryInterface := makePodCacheInterface(secondaryInterfaceName, secondaryInterfaceIp, secondaryInterfaceIp, secondaryInterfaceIpv6)
-				Expect(controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(secondaryInterfaceName, podCacheSecondaryInterface)).To(Succeed())
-
 				mockWatchdog.CreateFile(vmi)
 				domain.Status.Status = api.Running
 			})
@@ -2524,6 +2519,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 						},
 					}
 				}
+
+				podCacheInterface := makePodCacheInterface(interfaceName, interfaceIp, interfaceIp, interfaceIpv6)
+				controller.networkController.CachePodInterfaceVolatileData(vmi, interfaceName, podCacheInterface)
+
+				podCacheSecondaryInterface := makePodCacheInterface(secondaryInterfaceName, secondaryInterfaceIp, secondaryInterfaceIp, secondaryInterfaceIpv6)
+				controller.networkController.CachePodInterfaceVolatileData(vmi, secondaryInterfaceName, podCacheSecondaryInterface)
+
 				vmiFeeder.Add(vmi)
 				domainFeeder.Add(domain)
 
@@ -2539,7 +2541,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				controller.Execute()
 				testutils.ExpectEvent(recorder, VMIStarted)
-				Expect(controller.podInterfaceCache.Size()).To(Equal(2))
+				Expect(controller.networkController.PodInterfaceVolatileDataIsCached(vmi, interfaceName)).To(BeTrue())
+				Expect(controller.networkController.PodInterfaceVolatileDataIsCached(vmi, secondaryInterfaceName)).To(BeTrue())
 			},
 				table.Entry("using info from the pod interface", false),
 				table.Entry("guest agent interface info overrides the pod interface cache", true),
@@ -2582,8 +2585,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
-			err = controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(interfaceName, podCacheInterface)
-			Expect(err).ToNot(HaveOccurred())
+			controller.networkController.CachePodInterfaceVolatileData(vmi, interfaceName, podCacheInterface)
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
