@@ -67,6 +67,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
@@ -198,6 +199,7 @@ func NewController(
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -271,6 +273,7 @@ type VirtualMachineController struct {
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
+	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 
 	netConf netconf
 	netStat netstat
@@ -1801,6 +1804,8 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.teardownNetwork(vmi)
 
+	d.sriovHotplugExecutorPool.Delete(vmi.UID)
+
 	// Watch dog file and command client must be the last things removed here
 	err = d.closeLauncherClient(vmi)
 	if err != nil {
@@ -2557,9 +2562,17 @@ func (d *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachine
 	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
 	sriovStatusInterfaces := netvmispec.FilterStatusInterfacesByNames(vmi.Status.Interfaces, netvmispec.InterfacesNames(sriovSpecInterfaces))
 	if len(sriovSpecInterfaces) == len(sriovStatusInterfaces) {
+		d.sriovHotplugExecutorPool.Delete(vmi.UID)
 		return nil
 	}
 
+	rateLimitedExecutor := d.sriovHotplugExecutorPool.LoadOrStore(vmi.UID)
+	return rateLimitedExecutor.Exec(func() error {
+		return d.hotplugSriovInterfacesCommand(vmi)
+	})
+}
+
+func (d *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.VirtualMachineInstance) error {
 	const errMsgPrefix = "failed to hot-plug SR-IOV interfaces"
 
 	client, err := d.getVerifiedLauncherClient(vmi)
