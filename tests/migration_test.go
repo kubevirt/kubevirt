@@ -1279,11 +1279,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(migrationConfiguration *v1.MigrationConfiguration, mode v1.MigrationMode) {
+			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(mode v1.MigrationMode) {
 				memoryRequestSize := resource.MustParse(fedoraVMSize)
-				if migrationConfiguration != nil {
+				if mode == v1.MigrationPostCopy {
 					config := getCurrentKv()
-					config.MigrationConfiguration = migrationConfiguration
+					config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+					config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
 					tests.UpdateKubeVirtConfigValueAndWait(config)
 					memoryRequestSize = resource.MustParse("1Gi")
 				}
@@ -1313,7 +1314,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
-				if migrationConfiguration != nil {
+				if mode == v1.MigrationPostCopy {
 					By("Running stress test to allow transition to post-copy")
 					runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
 				}
@@ -1345,11 +1346,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			},
-				table.Entry("[test_id:2653] with default migration configuration", nil, v1.MigrationPreCopy),
-				table.Entry("[QUARANTINE][test_id:5004] with postcopy", &v1.MigrationConfiguration{
-					AllowPostCopy:           pointer.BoolPtr(true),
-					CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
-				}, v1.MigrationPostCopy),
+				table.Entry("[test_id:2653] with default migration configuration", v1.MigrationPreCopy),
+				table.Entry("[QUARANTINE][test_id:5004] with postcopy", v1.MigrationPostCopy),
 			)
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
