@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/config"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -2477,9 +2479,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		origVMI.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
 
 		// Override cluster-wide migration configuration if migration policy exists
-		migrationList, err := d.clientset.MigrationPolicy(vmi.Namespace).List(&metav1.ListOptions{})
+		migrationList, err := d.clientset.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
 
-		var migrationPolicy *v1.MigrationPolicy
+		var migrationPolicy *migrationsv1.MigrationPolicy
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Warningf("could not fetch migration policy")
 		} else if len(migrationList.Items) > 0 {

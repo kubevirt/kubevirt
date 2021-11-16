@@ -24,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/api/migrations"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -213,6 +215,17 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
 				},
 			},
+			{
+				APIGroups: []string{
+					migrations.GroupName,
+				},
+				Resources: []string{
+					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
@@ -338,6 +351,17 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"get", "list",
 				},
 			},
+			{
+				APIGroups: []string{
+					migrations.GroupName,
+				},
+				Resources: []string{
+					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
@@ -415,6 +439,17 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachinepools",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					migrations.GroupName,
+				},
+				Resources: []string{
+					migrations.ResourceMigrationPolicies,
 				},
 				Verbs: []string{
 					"get", "list", "watch",

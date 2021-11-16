@@ -23,13 +23,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	v12 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
@@ -48,12 +48,12 @@ func NewMigrationPolicyAdmitter(client kubecli.KubevirtClient) *MigrationPolicyA
 
 // Admit validates an AdmissionReview
 func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if ar.Request.Resource.Group != v1.MigrationPolicyKind.Group ||
-		ar.Request.Resource.Resource != "migrationpolicies" {
+	if ar.Request.Resource.Group != migrationsv1.MigrationPolicyKind.Group ||
+		ar.Request.Resource.Resource != migrations.ResourceMigrationPolicies {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	policy := &v12.MigrationPolicy{}
+	policy := &migrationsv1.MigrationPolicy{}
 	err := json.Unmarshal(ar.Request.Object.Raw, policy)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -63,28 +63,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
-		policies, err := admitter.Client.MigrationPolicy(ar.Request.Namespace).List(&metav1.ListOptions{})
-
-		if errors.IsNotFound(err) {
-			// That's perfectly fine
-		} else if err != nil {
-			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		if policiesFound := len(policies.Items); policiesFound > 0 {
-			const errMessage = "%s namespace already has a policy named %s defined; number of policies per namespace must be at most 1"
-			return webhookutils.ToAdmissionResponseError(fmt.Errorf(errMessage, ar.Request.Namespace, policies.Items[0].Name))
-		}
-
-		for _, existingPolicy := range policies.Items {
-			if existingPolicy.Name != ar.Request.Name {
-				const errMessage = "a migration policy (named %s) creation is denied since another migration policy (named %s) " +
-					"already exists in this namespace (%s). Please remove existing policy to add the current one, or update " +
-					"the existing policy"
-				return webhookutils.ToAdmissionResponseError(fmt.Errorf(errMessage, ar.Request.Name, existingPolicy.Name,
-					ar.Request.Namespace))
-			}
-		}
+		break
 
 	case admissionv1.Update:
 		break

@@ -82,7 +82,6 @@ var (
 	VirtualMachineGroupVersionKind                   = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 	VirtualMachineInstanceMigrationGroupVersionKind  = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 	KubeVirtGroupVersionKind                         = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
-	MigrationPolicyKind                              = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "MigrationPolicy"}
 )
 
 var (

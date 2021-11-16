@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations"
 )
 
 const HandlerServiceAccountName = "kubevirt-handler"
@@ -146,26 +147,13 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"kubevirt.io",
+					migrations.GroupName,
 				},
 				Resources: []string{
-					"migrationpolicies",
+					migrations.ResourceMigrationPolicies,
 				},
 				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"namespaces",
-				},
-				Verbs: []string{
-					"get",
+					"get", "list", "watch",
 				},
 			},
 		},

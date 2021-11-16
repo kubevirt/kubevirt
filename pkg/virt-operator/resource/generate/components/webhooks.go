@@ -7,6 +7,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/api/core"
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
@@ -615,7 +618,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
-				Name:                    "migration-policy-create-validator.kubevirt.io",
+				Name:                    "migration-policy-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
 				TimeoutSeconds:          &defaultTimeoutSeconds,
@@ -623,11 +626,12 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{core.GroupName},
-						APIVersions: virtv1.ApiSupportedWebhookVersions,
-						Resources:   []string{"migrationpolicies"},
+						APIGroups:   []string{migrationsv1.SchemeGroupVersion.Group},
+						APIVersions: []string{migrationsv1.SchemeGroupVersion.Version},
+						Resources:   []string{migrations.ResourceMigrationPolicies},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{

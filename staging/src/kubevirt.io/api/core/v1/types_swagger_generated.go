@@ -148,6 +148,7 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":                               "+k8s:openapi-gen=true",
 		"startTimestamp":                 "The time the migration action began\n+nullable",
 		"endTimestamp":                   "The time the migration action ended\n+nullable",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
@@ -636,37 +637,6 @@ func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "MigrationConfiguration holds migration options",
-	}
-}
-
-func (MigrationPolicy) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":       "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
-		"status": "+nullable",
-	}
-}
-
-func (MigrationPolicySpec) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":                        "+k8s:openapi-gen=true",
-		"allowAutoConverge":       "+optional",
-		"bandwidthPerMigration":   "+optional",
-		"completionTimeoutPerGiB": "+optional",
-		"allowPostCopy":           "+optional",
-		"disableTLS":              "+optional",
-	}
-}
-
-func (MigrationPolicyStatus) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "+k8s:openapi-gen=true",
-	}
-}
-
-func (MigrationPolicyList) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":      "MigrationPolicyList is a list of MigrationPolicy\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
-		"items": "+listType=atomic",
 	}
 }
 

@@ -30,6 +30,10 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
 
@@ -54,6 +58,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -95,6 +101,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *container_disk.MockMounter
 	var mockHotplugVolumeMounter *hotplug_volume.MockVolumeMounter
+	var migrationsClient *kubevirtfake.Clientset
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -176,6 +183,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtClient.EXPECT().CoreV1().Return(clientTest.CoreV1()).AnyTimes()
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+
+		migrationsClient = kubevirtfake.NewSimpleClientset()
+		virtClient.EXPECT().MigrationPolicy().Return(
+			migrationsClient.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
@@ -291,12 +302,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
-	expectMigrationPolicy := func(policy *v1.MigrationPolicy) {
+	expectMigrationPolicy := func(policy *migrationsv1.MigrationPolicy) {
 		By("Setting expectation for migration policy")
-		mockMigrationPolicy := kubecli.NewMockMigrationPolicyInterface(ctrl)
 		policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
-		mockMigrationPolicy.EXPECT().List(gomock.Any()).Times(1).Return(policyList, nil)
-		virtClient.EXPECT().MigrationPolicy(metav1.NamespaceDefault).Times(1).Return(mockMigrationPolicy)
+		migrationsClient.Fake.PrependReactor("list", migrations.ResourceMigrationPolicies, func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			_, ok := action.(testing.ListAction)
+			Expect(ok).To(BeTrue())
+			return true, policyList, nil
+		})
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
@@ -1708,7 +1721,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 			client.EXPECT().MigrateVirtualMachine(vmi, getDefaultMigrationOptions())
-			expectMigrationPolicy(&v1.MigrationPolicy{})
+			expectMigrationPolicy(&migrationsv1.MigrationPolicy{})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIMigrating)
 		}, 3)
@@ -3085,7 +3098,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	Context("Migration policy", func() {
 
 		var vmi *v1.VirtualMachineInstance
-		var migrationPolicy *v1.MigrationPolicy
+		var migrationPolicy *migrationsv1.MigrationPolicy
 		var stubNumber int64
 		var stubResourceQuantity resource.Quantity
 
@@ -3094,7 +3107,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			stubResourceQuantity = resource.MustParse("25Mi")
 
 			By("Initialize VMI")
-			vmi = v1.NewMinimalVMI("testvmi")
+			vmi = api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -3124,10 +3137,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			By("Initialize migration policy")
-			migrationPolicy = kubecli.NewMinimalMigrationPolicy("testpolicy", metav1.NamespaceDefault)
+			migrationPolicy = kubecli.NewMinimalMigrationPolicy("testpolicy")
 		})
 
-		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*v1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
+		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy")
 			setMigrationPolicy(&migrationPolicy.Spec)
 
@@ -3153,7 +3166,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIMigrating)
 		},
 			table.Entry("allow auto coverage",
-				func(p *v1.MigrationPolicySpec) { p.AllowAutoConverge = &_true },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = &_true },
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeTrue())
@@ -3161,7 +3174,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				true,
 			),
 			table.Entry("deny auto coverage",
-				func(p *v1.MigrationPolicySpec) { p.AllowAutoConverge = &_false },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = &_false },
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeFalse())
@@ -3169,7 +3182,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				true,
 			),
 			table.Entry("set bandwidth per migration",
-				func(p *v1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
+				func(p *migrationsv1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.BandwidthPerMigration).ToNot(BeNil())
 					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
@@ -3177,7 +3190,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				true,
 			),
 			table.Entry("set completion time per GiB",
-				func(p *v1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
+				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
 					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
@@ -3185,7 +3198,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				true,
 			),
 			table.Entry("allow post copy",
-				func(p *v1.MigrationPolicySpec) { p.AllowPostCopy = &_true },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = &_true },
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
 					Expect(*c.AllowPostCopy).To(BeTrue())
@@ -3193,7 +3206,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				true,
 			),
 			table.Entry("deny post copy",
-				func(p *v1.MigrationPolicySpec) { p.AllowPostCopy = &_false },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = &_false },
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
 					Expect(*c.AllowPostCopy).To(BeFalse())
@@ -3201,7 +3214,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				true,
 			),
 			table.Entry("nothing is changed",
-				func(p *v1.MigrationPolicySpec) {},
+				func(p *migrationsv1.MigrationPolicySpec) {},
 				func(c *v1.MigrationConfiguration) {},
 				false,
 			),

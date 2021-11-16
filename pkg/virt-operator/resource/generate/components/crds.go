@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -51,7 +53,7 @@ var (
 	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
-	MIGRATIONPOLICY                  = "migrationpolicies." + v1.MigrationPolicyKind.Group
+	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	PreserveUnknownFieldsFalse       = false
 )
 
@@ -568,19 +570,26 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	}
 	return crd, nil
 }
+
 func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = MIGRATIONPOLICY
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group:    v1.MigrationPolicyKind.Group,
-		Versions: newCRDVersions(),
-		Scope:    "Namespaced",
+		Group: migrationsv1.MigrationPolicyKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    migrationsv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.ClusterScoped,
 
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:   "migrationpolicies",
+			Plural:   migrations.ResourceMigrationPolicies,
 			Singular: "migrationpolicy",
-			Kind:     v1.MigrationPolicyKind.Kind,
+			Kind:     migrationsv1.MigrationPolicyKind.Kind,
 			Categories: []string{
 				"all",
 			},

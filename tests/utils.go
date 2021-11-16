@@ -1871,10 +1871,10 @@ func cleanNamespaces() {
 		util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
 
 		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy(namespace).List(&metav1.ListOptions{})
+		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
 		util2.PanicOnError(err)
 		for _, policy := range migrationPolicyList.Items {
-			util2.PanicOnError(virtCli.MigrationPolicy(namespace).Delete(policy.Name, &metav1.DeleteOptions{}))
+			util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
 		}
 
 	}

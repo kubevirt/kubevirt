@@ -345,7 +345,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
+  - migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
@@ -545,6 +545,20 @@ rules:
   - list
   - watch
 - apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -593,19 +607,13 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
+  - migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
   - get
   - list
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
@@ -711,6 +719,14 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/console
@@ -803,6 +819,14 @@ rules:
   - get
   - list
 - apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/guestosinfo
@@ -845,6 +869,14 @@ rules:
   - pool.kubevirt.io
   resources:
   - virtualmachinepools
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
   verbs:
   - get
   - list
