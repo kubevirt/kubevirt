@@ -318,32 +318,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	}
 
 	getLibvirtdPid := func(pod *k8sv1.Pod) string {
-		stdout, stderr, errPsCmd := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
+		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
 			[]string{
-				"ps",
-				"-x",
+				"pidof",
+				"libvirtd",
 			})
-		errorMassageFormat := "faild after running `ps -x`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n extracted pid of libvirtd: `%v` should have been numeric\n"
-
-		pid := ""
-		for _, str := range strings.Split(stdout, "\n") {
-			if !strings.Contains(str, "libvirtd") {
-				continue
-			}
-			words := strings.Fields(str)
-
-			Expect(len(words)).To(Equal(7), fmt.Sprintf("Found %s", words))
-
-			// verify it is numeric
-			_, err = strconv.Atoi(words[0])
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, stdout, stderr, errPsCmd, pid))
-			pid = words[0]
-
-			break
-
-		}
-		Expect(pid).ToNot(BeEmpty(), fmt.Sprintf(errorMassageFormat, stdout, stderr, errPsCmd, pid))
-
+		errorMassageFormat := "faild after running `pidof libvirtd`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
+		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
 	}
 
@@ -680,13 +662,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// kill libvirtd
 				By(fmt.Sprintf("Killing libvirtd with pid %s", pid))
-				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
 					[]string{
 						"kill",
 						"-9",
 						pid,
 					})
-				Expect(err).ToNot(HaveOccurred())
+				errorMassageFormat := "faild after running `kill -9 %v`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, pid, stdout, stderr, err))
 
 				// wait for both libvirt to respawn and all connections to re-establish
 				time.Sleep(30 * time.Second)
