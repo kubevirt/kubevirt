@@ -1833,6 +1833,52 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 		}, 3)
+
+		It("code path check: startDomainNotifyPipe", func() {
+			domainPipeStopChan := make(chan struct{})
+			defer close(domainPipeStopChan)
+			vmi := v1.NewMinimalVMI("testvmi")
+			controller.startDomainNotifyPipe(domainPipeStopChan, vmi)
+		})
+
+		It("code path check: hasTargetDetectedDomain", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
+			vmi.Status.MigrationState.EndTimestamp = &metav1.Time{
+				Time: time.Now(),
+			}
+			controller.hasTargetDetectedDomain(vmi)
+		})
+
+		It("code path check: updateGuestInfoFromDomain", func() {
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.OSInfo = api.GuestOSInfo{
+				Name: "new-name",
+			}
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.GuestOSInfo = v1.VirtualMachineInstanceGuestOSInfo{
+				Name: "old-name",
+			}
+			controller.updateGuestInfoFromDomain(vmi, domain)
+		})
+
+		It("code path check: updateIsoSizeStatus", func() {
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{},
+				},
+			})
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			vmi = addActivePods(vmi, podTestUUID, host)
+			controller.updateIsoSizeStatus(vmi)
+			// TODO: make hard coded base path for volumes configurable
+			// code path towards VolumeStatus is not possible to unit test due to those hard coded base pathes
+			// as it calls isolation.GetFileSize
+		})
+
 	})
 
 	Context("check if migratable", func() {
@@ -3252,6 +3298,58 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			}
 		})
 	})
+})
+
+var _ = Describe("IsoGuestVolumePath", func() {
+	table.DescribeTable("volume path for", func(volume *v1.Volume, expectedVolumePath string, expectedResult bool) {
+		vmi := v1.NewMinimalVMI("testvmi")
+		volumePath, result := IsoGuestVolumePath(vmi, volume)
+		Expect(result).To(BeEquivalentTo(expectedResult))
+		Expect(volumePath).To(BeEquivalentTo(expectedVolumePath))
+	},
+		table.Entry("cloudInitNoCloud", &v1.Volume{
+			VolumeSource: v1.VolumeSource{
+				CloudInitNoCloud: &v1.CloudInitNoCloudSource{},
+			},
+		}, "/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/testvmi/noCloud.iso", true),
+		table.Entry("cloudInitConfigDrive", &v1.Volume{
+			VolumeSource: v1.VolumeSource{
+				CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{},
+			},
+		}, "/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/testvmi/configdrive.iso", true),
+		table.Entry("configMap", &v1.Volume{
+			Name: "test",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{},
+			},
+		}, "/var/run/kubevirt-private/config-map-disks/test.iso", true),
+		table.Entry("downwardApi", &v1.Volume{
+			Name: "test",
+			VolumeSource: v1.VolumeSource{
+				DownwardAPI: &v1.DownwardAPIVolumeSource{},
+			},
+		}, "/var/run/kubevirt-private/downwardapi-disks/test.iso", true),
+		table.Entry("secret", &v1.Volume{
+			Name: "test",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{},
+			},
+		}, "/var/run/kubevirt-private/secret-disks/test.iso", true),
+		table.Entry("serviceAccount", &v1.Volume{
+			VolumeSource: v1.VolumeSource{
+				ServiceAccount: &v1.ServiceAccountVolumeSource{},
+			},
+		}, "/var/run/kubevirt-private/service-account-disk/service-account.iso", true),
+		table.Entry("sysprep", &v1.Volume{
+			Name: "test",
+			VolumeSource: v1.VolumeSource{
+				Sysprep: &v1.SysprepSource{},
+			},
+		}, "/var/run/kubevirt-private/sysprep-disks/test.iso", true),
+		table.Entry("else", &v1.Volume{
+			VolumeSource: v1.VolumeSource{},
+		}, "", false),
+	)
 })
 
 type MockGracefulShutdown struct {
