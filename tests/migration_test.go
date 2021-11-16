@@ -336,8 +336,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		}
 	}
 
-	setMigrationBandwidthLimitation := func(limitation resource.Quantity) {
-
+	setMigrationBandwidthLimitation := func(migrationBandwidth resource.Quantity) {
+		cfg := getCurrentKv()
+		cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
+		tests.UpdateKubeVirtConfigValueAndWait(cfg)
 	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
@@ -1509,11 +1511,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			BeforeEach(func() {
 				pvName = "test-nfs" + rand.String(48)
-
-				cfg := getCurrentKv()
-				migrationBandwidth := resource.MustParse("40Mi")
-				cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
-				tests.UpdateKubeVirtConfigValueAndWait(cfg)
+				setMigrationBandwidthLimitation(resource.MustParse("40Mi"))
 			})
 
 			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(mode v1.MigrationMode) {
