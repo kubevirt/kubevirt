@@ -148,6 +148,19 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  - prometheusrules
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -1779,11 +1792,27 @@ rules:
   - list
   - watch
 - apiGroups:
+  - image.openshift.io
+  resources:
+  - imagestreams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - persistentvolumeclaims
   verbs:
   - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - dataimportcrons
+  verbs:
+  - get
+  - list
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

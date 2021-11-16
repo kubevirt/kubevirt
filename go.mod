@@ -173,7 +173,7 @@ replace (
 	kubevirt.io/client-go => kubevirt.io/client-go v0.47.1
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.40.0
+// Aligning with https://github.com/kubevirt/containerized-data-importer-api/blob/release-v1.41.1
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210817132244-67c28690af52
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c

@@ -19,6 +19,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	// TODO: move to kubevirt.io/containerized-data-importer-api when SSP will support it
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"

@@ -72,6 +72,16 @@ function get_updated_versions {
     ["HPP"]="kubevirt/hostpath-provisioner"
   )
 
+  IMPORT_REPOS=(
+    ["KUBEVIRT"]="kubevirt/kubevirt"
+    ["CDI"]="kubevirt/containerized-data-importer-cdi"
+    ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
+    ["SSP"]="kubevirt/ssp-operator"
+    ["NMO"]="kubevirt/node-maintenance-operator"
+    ["HPPO"]="kubevirt/hostpath-provisioner-operator"
+    ["HPP"]="kubevirt/hostpath-provisioner"
+  )
+
   UPDATED_VERSIONS=()
   if [[ -n ${UPDATED_COMPONENT} ]]; then
     if [[ -z ${UPDATED_VERSION} ]]; then
@@ -181,7 +191,7 @@ function update_go_mod() {
     MODULE_PATH="kubevirt.io"
 
     EXCLUSION_LIST=(
-      "containerized-data-importer"
+      "containerized-data-importer-api"
       "controller-lifecycle-operator-sdk"
       "qe-tools"
       "ssp-operator"
@@ -197,7 +207,7 @@ function update_go_mod() {
       fi
     done
   else
-    MODULE_PATH=$(echo ${COMPONENTS_REPOS[$UPDATED_COMPONENT]} | cut -d "/" -f 2)
+    MODULE_PATH=$(echo ${IMPORT_REPOS[$UPDATED_COMPONENT]} | cut -d "/" -f 2)
   fi
   sed -E -i "${EXCLUSION} s/(${MODULE_PATH}.*)v.+/\1${UPDATED_VERSION}/" go.mod
 }
