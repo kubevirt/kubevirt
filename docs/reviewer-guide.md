@@ -25,7 +25,7 @@ Make a few passes over the code you want to review.
 
 ## Pull Request structure
 
-* It's preferred that authors rebase on main instead of merging main into their PRs.
+* It's preferred that authors rebase on main instead of merging the main branch into their PRs.
 * We merge PRs into our branches.
 * Commits in a PR should make sense: Ask people to squash commits like "Fix reviewer comments", "wip", "addition", ...
 

@@ -144,7 +144,7 @@ deploy from KubeVirt sources though.
 
 In the following example, we configure the cluster using `local` provider which
 is part of kubevirt/kubevirt repo. Please consult
-[documentation](https://github.com/kubevirt/kubevirt/blob/master/cluster-up/cluster/local/README.md)
+[documentation](https://github.com/kubevirt/kubevirt/blob/main/cluster-up/cluster/local/README.md)
 for general information on setting up a host using the `local` provider.
 
 The `local` provider does not install default CNI plugins like `loopback`. So
@@ -272,7 +272,7 @@ make cluster-sync
 If all goes well, you should be able to post a VMI spec referring to the SR-IOV
 multus network and get a PCI device allocated to virt-launcher and passed
 through into qemu. Please consult
-[the VMI spec example](https://github.com/kubevirt/kubevirt/blob/master/examples/vmi-sriov.yaml).
+[the VMI spec example](https://github.com/kubevirt/kubevirt/blob/main/examples/vmi-sriov.yaml).
 
 As long as the VMI spec `networks` section refers to the proper
 `NetworkAttachmentDefinition` that describes a SR-IOV network, you should be

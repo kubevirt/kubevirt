@@ -27,13 +27,13 @@ Usage:
 
 ```bash
 export KUBEVIRT_PROVIDER=k8s-1.13.3 # choose this provider
-export KUBEVIRT_NUM_NODES=3 # master + two nodes
+export KUBEVIRT_NUM_NODES=3 # control-plane + two nodes
 make cluster-up
 ```
 
 ## Local
 
-Allows provisioning a single-master k8s cluster based on latest upstream k8s
+Allows provisioning a single-control-plane k8s cluster based on latest upstream k8s
 code.
 
 Requires:

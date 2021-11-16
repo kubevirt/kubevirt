@@ -18,11 +18,11 @@ KubeVirt release v0.1 is cut. At that point in time the latest Kubernetes
 version is v1.3. This means KubeVirt v0.1 will forever be compatible with
 Kubernetes v1.3, v1.2, and v1.1.
 
-## KubeVirt Master
+## KubeVirt Main
 
-KubeVirt master always follows the latest 3 Kubernetes releases. If a new
+KubeVirt main always follows the latest 3 Kubernetes releases. If a new
 Kubernetes v1.4 release is cut, that means support for v1.1 will be dropped
-for KubeVirt master.
+for KubeVirt main.
 
 Note that this support for the latest Kubernetes releases doesn't happen
 immediately. There is a period of time, usually a few weeks, where the new
@@ -32,11 +32,11 @@ KubeVirt release is cut.
 
 ## Old KubeVirt Release
 
-KubeVirt master supports Kubernetes releases v1.4, v1.3, and v1.2. However, the
+KubeVirt main supports Kubernetes releases v1.4, v1.3, and v1.2. However, the
 KubeVirt v0.1 release was cut when the latest Kubernetes release was v1.3.
 
 This means that KubeVirt v0.1 supports Kubernetes v1.3, v1.2, v1.1 while
-KubeVirt master is tracking support for Kubernetes v1.4, v1.3, v1.2.
+KubeVirt main is tracking support for Kubernetes v1.4, v1.3, v1.2.
 
 # Support Exceptions
 

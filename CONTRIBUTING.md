@@ -109,7 +109,7 @@ Please have a look at our [membership guidelines](https://github.com/kubevirt/co
   * [User Guide - Kubernetes](https://kubernetes.io/docs/user-guide/)
 * Details
   * [Declarative Management of Kubernetes Objects Using Configuration Files - Kubernetes](https://kubernetes.io/docs/concepts/tools/kubectl/object-management-using-declarative-config/)
-  * [Kubernetes Architecture](https://github.com/kubernetes/community/blob/main/contributors/design-proposals/architecture/architecture.md)
+  * [Kubernetes Architecture](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/architecture/architecture.md)
 
 ## Additional Topics
 

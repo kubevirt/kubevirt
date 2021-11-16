@@ -192,7 +192,7 @@ stage, will look like:
 
 Once the VM is booted, libvirt will consume the interface xml definition and
 create a tap device - named after the `target` parameter. That tap device will
-be attached to the in-pod bridge as its port, and the tap device's MAC address,
+be attached to the in-pod bridge, and the tap device's MAC address,
 and link MTU will be configured according to the values set in the domain xml.
 
 Finally, and depending if the pod networking interface had configured IP
