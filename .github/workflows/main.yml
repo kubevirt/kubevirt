@@ -1,0 +1,35 @@
+name: Build x86 Image
+
+on:
+  pull_request:
+    branches:
+      - exc-*
+  push:
+    branches:
+      - ecx-*
+
+jobs:
+  build:
+    name: Build x86
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.7
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Build
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          export DOCKER_TAG=$(cat VERSION)
+          export DOCKER_PREFIX=$DOCKER_USERNAME
+          make bazel-build
+          make bazel-build-images
+          make bazel-push-images
