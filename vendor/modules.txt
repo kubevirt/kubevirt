@@ -619,6 +619,10 @@ kubevirt.io/client-go/apis/core/v1
 ## explicit; go 1.14
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
+# kubevirt.io/containerized-data-importer-api v1.41.1
+## explicit; go 1.16
+kubevirt.io/containerized-data-importer-api/pkg/apis/core
+kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
 ## explicit; go 1.14
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
