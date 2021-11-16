@@ -1567,10 +1567,10 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 }
 
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {
-	vm := vmOrig.DeepCopy()
+	key := controller.VirtualMachineKey(vmOrig)
+	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vmOrig.Name})
 
-	key := fmt.Sprintf("%s/%s", vm.Namespace, vm.Name)
-	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vm.Name})
+	vm := vmOrig.DeepCopy()
 
 	created := vmi != nil
 	vm.Status.Created = created

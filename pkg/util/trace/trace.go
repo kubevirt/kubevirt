@@ -25,9 +25,16 @@ func (t *Tracer) StartTrace(key string, name string, field ...trace.Field) {
 }
 
 func (t *Tracer) StopTrace(key string) {
+	if key == "" {
+		return
+	}
 	t.mux.Lock()
 	defer t.mux.Unlock()
+	if _, ok := t.traceMap[key]; !ok {
+		return
+	}
 	t.traceMap[key].LogIfLong(t.Threshold)
+	delete(t.traceMap, key)
 	return
 }
 
