@@ -1066,11 +1066,6 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	cdiConfigModified, err := r.migrateCdiConfigurations(req)
-	if err != nil {
-		return false, err
-	}
-
 	upgradePatched, err := r.applyUpgradePatches(req)
 	if err != nil {
 		return false, err
@@ -1078,7 +1073,7 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 
 	removeOldQuickStartGuides(req, r.client, r.operandHandler.GetQuickStartNames())
 
-	return kvConfigModified || cdiConfigModified || upgradePatched, nil
+	return kvConfigModified || upgradePatched, nil
 }
 
 func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
@@ -1103,20 +1098,6 @@ func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest)
 	}
 
 	return modified, nil
-}
-
-func (r ReconcileHyperConverged) migrateCdiConfigurations(req *common.HcoRequest) (bool, error) {
-	cdi := operands.NewCDIWithNameOnly(req.Instance)
-
-	err := hcoutil.GetRuntimeObject(req.Ctx, r.client, cdi, req.Logger)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return adoptCdiConfigs(req, cdi.Spec.Config), nil
 }
 
 func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bool, error) {
@@ -1262,34 +1243,6 @@ func adoptOldKvConfigs(req *common.HcoRequest, cm *corev1.ConfigMap) bool {
 		kvConfigMapToHyperConvergedCr(req, kvCmLiveMigrationConfig)
 
 		modified = true
-		req.Dirty = true
-	}
-
-	return modified
-}
-
-func adoptCdiConfigs(req *common.HcoRequest, cdiCfg *cdiv1beta1.CDIConfigSpec) bool {
-	modified := false
-	if cdiCfg != nil {
-		if req.Instance.Spec.ScratchSpaceStorageClass == nil && cdiCfg.ScratchSpaceStorageClass != nil {
-			req.Instance.Spec.ScratchSpaceStorageClass = new(string)
-			*req.Instance.Spec.ScratchSpaceStorageClass = *cdiCfg.ScratchSpaceStorageClass
-			modified = true
-		}
-
-		if cdiCfg.PodResourceRequirements != nil {
-			if req.Instance.Spec.ResourceRequirements == nil {
-				req.Instance.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{}
-			}
-
-			if req.Instance.Spec.ResourceRequirements.StorageWorkloads == nil {
-				req.Instance.Spec.ResourceRequirements.StorageWorkloads = cdiCfg.PodResourceRequirements.DeepCopy()
-				modified = true
-			}
-		}
-	}
-
-	if modified {
 		req.Dirty = true
 	}
 
