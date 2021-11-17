@@ -2762,6 +2762,11 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
 	}
 
+	if err := client.HotplugHostDevices(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		return err
+	}
+
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return err
