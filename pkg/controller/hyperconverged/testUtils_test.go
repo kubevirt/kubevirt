@@ -25,6 +25,7 @@ import (
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	components "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
@@ -173,6 +174,8 @@ func getBasicDeployment() *BasicExpected {
 		},
 	}
 	res.hco = hco
+
+	components.GetOperatorCR().Spec.DeepCopyInto(&res.hco.Spec)
 
 	res.pc = operands.NewKubeVirtPriorityClass(hco)
 	res.mService = operands.NewMetricsService(hco, namespace)

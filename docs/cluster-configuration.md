@@ -420,15 +420,19 @@ spec:
   commonTemplatesNamespace: kubevirt
 ```
 
-## Optionally enable launcher updates
-The HyperConverged `spec.workloadUpdateStrategy` defines how to handle automated workload updates at the cluster
+## Enable eventual launcher updates by default
+us the HyperConverged `spec.workloadUpdateStrategy` object to define how to handle automated workload updates at the cluster
 level.
 
 The `workloadUpdateStrategy` fields are:
 * `batchEvictionInterval` - BatchEvictionInterval Represents the interval to wait before issuing the next batch of
   shutdowns. 
+
+  The Default value is `1m`
   
 * `batchEvictionSize` - Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval
+
+  The default value is `10`
 
 * `workloadUpdateMethods` - defines the methods that can be used to disrupt workloads
   during automated workload updates.
@@ -439,7 +443,7 @@ The `workloadUpdateStrategy` fields are:
   
   An empty list defaults to no automated workload updating.
 
-The feature is not enabled by default being potentially disruptive for the existing workloads. 
+  The default values is `LiveMigrate`; `Evict` is not enabled by default being potentially disruptive for the existing workloads.
 
 ### workloadUpdateStrategy example
 ```yaml

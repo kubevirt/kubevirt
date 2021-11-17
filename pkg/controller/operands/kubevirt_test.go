@@ -1777,7 +1777,7 @@ Version: 1.2.3`)
 				Expect(req.Conditions).To(BeEmpty())
 			})
 
-			It("should not set Workload Update Strategy if missing in HCO CR", func() {
+			It("should set Workload Update Strategy to defaults if missing in HCO CR", func() {
 				existingResource := NewKubeVirtWithNameOnly(hco)
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
@@ -1796,7 +1796,14 @@ Version: 1.2.3`)
 
 				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
 				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
-				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(0))
+				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
+				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(
+					ContainElements(
+						kubevirtcorev1.WorkloadUpdateMethodLiveMigrate,
+					),
+				)
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -1807,11 +1814,10 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 
 				modifiedBatchEvictionSize := 5
-				hco.Spec.WorkloadUpdateStrategy = &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
-					WorkloadUpdateMethods: []string{"aaa", "bbb", "ccc"},
-					BatchEvictionSize:     &modifiedBatchEvictionSize,
-					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 3},
-				}
+				hco.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []string{"aaa", "bbb", "ccc"}
+				hco.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: time.Minute * 3}
+				hco.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &modifiedBatchEvictionSize
+
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)

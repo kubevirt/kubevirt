@@ -23,6 +23,20 @@
           "path": "/spec/liveMigrationConfig/bandwidthPerMigration"
         }
       ]
+    },
+    {
+      "semverRange": ">=1.4.0 <1.6.0",
+      "jsonPatch": [
+        {
+          "op": "replace",
+          "path": "/spec/workloadUpdateStrategy",
+          "value": {
+            "batchEvictionInterval": "1m0s",
+            "batchEvictionSize": 10,
+            "workloadUpdateMethods": ["LiveMigrate"]
+          }
+        }
+      ]
     }
   ]
 }

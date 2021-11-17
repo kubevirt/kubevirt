@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/blang/semver/v4"
 

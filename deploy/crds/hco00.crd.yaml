@@ -1394,18 +1394,27 @@ spec:
                   providers
                 type: string
               workloadUpdateStrategy:
+                default:
+                  batchEvictionInterval: 1m0s
+                  batchEvictionSize: 10
+                  workloadUpdateMethods:
+                  - LiveMigrate
                 description: WorkloadUpdateStrategy defines at the cluster level how
                   to handle automated workload updates
                 properties:
                   batchEvictionInterval:
+                    default: 1m0s
                     description: BatchEvictionInterval Represents the interval to
                       wait before issuing the next batch of shutdowns
                     type: string
                   batchEvictionSize:
+                    default: 10
                     description: BatchEvictionSize Represents the number of VMIs that
                       can be forced updated per the BatchShutdownInteral interval
                     type: integer
                   workloadUpdateMethods:
+                    default:
+                    - LiveMigrate
                     description: WorkloadUpdateMethods defines the methods that can
                       be used to disrupt workloads during automated workload updates.
                       When multiple methods are present, the least disruptive method

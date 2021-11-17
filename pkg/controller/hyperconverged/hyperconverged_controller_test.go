@@ -890,9 +890,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected = getBasicDeployment()
 				origConditions = expected.hco.Status.Conditions
 				okConds = expected.hco.Status.Conditions
-			})
 
-			BeforeEach(func() {
 				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 
@@ -909,12 +907,11 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.ssp.Status.ObservedVersion = newComponentVersion
 
 				expected.hco.Status.Conditions = origConditions
+
 			})
 
 			It("Should update OperatorCondition Upgradeable to False", func() {
 				_ = commonTestUtils.GetScheme() // ensure the scheme is loaded so this test can be focused
-
-				expected := getBasicDeployment()
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -1177,9 +1174,15 @@ var _ = Describe("HyperconvergedController", func() {
 				parallelOutboundMigrationsPerNode := uint32(2)
 				progressTimeout := int64(150)
 
-				It("should drop KubeVirt configMap and create backup", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+				var oldKVCMVersion = "1.3.1"
 
+				BeforeEach(func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldKVCMVersion)
+					expected.hco.Spec = hcov1beta1.HyperConvergedSpec{}
+					expected.kv, _ = operands.NewKubeVirt(expected.hco, namespace)
+				})
+
+				It("should drop KubeVirt configMap and create backup", func() {
 					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      kvCmName,
@@ -1196,9 +1199,10 @@ var _ = Describe("HyperconvergedController", func() {
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
-					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
-					checkAvailability(foundResource, metav1.ConditionTrue)
+					foundResource, _, requeue = doReconcile(cl, foundResource, reconciler)
+					Expect(requeue).To(BeFalse())
 
 					foundKvCm, foundBackup := searchKvConfigMaps(cl)
 					Expect(foundKvCm).To(BeFalse())
@@ -1208,8 +1212,6 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("should adopt KubeVirt configMap into HC CR, drop it and create backup", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
 					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      kvCmName,
@@ -1283,7 +1285,6 @@ progressTimeout: 150`,
 				})
 
 				It("should adopt KubeVirt configMap into HC CR if the values are different, drop the cm and create backup", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
@@ -1363,7 +1364,6 @@ progressTimeout: 300`,
 				})
 
 				It("should adopt real KubeVirt configMap into HC CR if the values are different, drop the cm and create backup", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
@@ -1435,7 +1435,6 @@ progressTimeout: 300`,
 				})
 
 				It("should ignore KubeVirt configMap into HC CR if there is no change, drop the cm and create backup", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
@@ -1879,8 +1878,6 @@ progressTimeout: 150`,
 					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeTrue())
-					_, _, requeue = doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
 					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
 					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(customBandwidthPerMigration))
@@ -2916,6 +2913,13 @@ progressTimeout: 150`,
 			}
 
 			Context("Positive Tests - KV Config", func() {
+
+				BeforeEach(func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, "1.3.99")
+					expected.hco.Spec = hcov1beta1.HyperConvergedSpec{}
+					expected.kv, _ = operands.NewKubeVirt(expected.hco, namespace)
+				})
+
 				It("Should delete the CM and create a backup", func() {
 					resources := append(expected.toArray(), &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
