@@ -123,6 +123,7 @@ type DomainManager interface {
 	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
+	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
@@ -319,9 +320,9 @@ func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMa
 	return l.finalizeMigrationTarget(vmi)
 }
 
-// hotPlugHostDevices attach host-devices to running domain
+// HotplugHostDevices attach host-devices to running domain
 // Currently only SRIOV host-devices are supported
-func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
