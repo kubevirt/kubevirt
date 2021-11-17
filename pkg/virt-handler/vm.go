@@ -24,7 +24,6 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -34,8 +33,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v2"
 
 	"kubevirt.io/kubevirt/pkg/config"
 
@@ -144,7 +141,7 @@ func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	host string,
-	ipAddress string,
+	migrationIpAddress string,
 	virtShareDir string,
 	virtPrivateDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
@@ -166,7 +163,7 @@ func NewController(
 		recorder:                    recorder,
 		clientset:                   clientset,
 		host:                        host,
-		migrationIpAddress:          ipAddress,
+		migrationIpAddress:          migrationIpAddress,
 		virtShareDir:                virtShareDir,
 		vmiSourceInformer:           vmiSourceInformer,
 		vmiTargetInformer:           vmiTargetInformer,
@@ -683,27 +680,6 @@ type NetworkStatus struct {
 	Name      string   `yaml:"name"`
 	Ips       []string `yaml:"ips"`
 	Interface string   `yaml:"interface"`
-}
-
-// Using the downward API, look for dedicated migration network migration0 and, if found, set migration IP to its IP
-func findMigrationIP(migrationIp *string) error {
-	var networkStatus []NetworkStatus
-
-	dat, err := ioutil.ReadFile("/etc/podinfo/network-status")
-	if err != nil {
-		return fmt.Errorf("failed to read network status from downwards API")
-	}
-	err = yaml.Unmarshal(dat, &networkStatus)
-	if err != nil {
-		return fmt.Errorf("failed to un-marshall network status")
-	}
-	for _, ns := range networkStatus {
-		if ns.Interface == "migration0" && len(ns.Ips) > 0 {
-			*migrationIp = ns.Ips[0]
-		}
-	}
-
-	return nil
 }
 
 func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domainExists bool) error {
@@ -1456,12 +1432,6 @@ func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting virt-handler controller.")
-
-	err := findMigrationIP(&c.migrationIpAddress)
-	if err != nil {
-		log.Log.Reason(err)
-		return
-	}
 
 	go c.deviceManagerController.Run(stopCh)
 
