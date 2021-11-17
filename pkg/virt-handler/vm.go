@@ -2566,6 +2566,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
 	} else if vmi.IsRunning() {
+		if err := d.hotplugSriovInterfaces(vmi); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
+
 		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
 			return err
 		}
@@ -2595,6 +2599,33 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 	}
+	return nil
+}
+
+func (d *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
+	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
+	sriovStatusInterfaces := netvmispec.FilterStatusInterfacesByNames(vmi.Status.Interfaces, netvmispec.InterfacesNames(sriovSpecInterfaces))
+	if len(sriovSpecInterfaces) == len(sriovStatusInterfaces) {
+		return nil
+	}
+
+	const errMsgPrefix = "failed to hot-plug SR-IOV interfaces"
+
+	client, err := d.getVerifiedLauncherClient(vmi)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	log.Log.V(3).Object(vmi).Info("sending hot-plug host-devices command")
+	if err := client.HotplugHostDevices(vmi); err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
 	return nil
 }
 
@@ -2753,23 +2784,21 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 
 func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {
 	const errorMessage = "failed to finalize migration"
+
 	client, err := d.getVerifiedLauncherClient(vmi)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
+	// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
+	// perform hotplug host-devices on post migration.
 	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
 	}
 
-	if err := client.HotplugHostDevices(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Error(errorMessage)
-		return err
-	}
-
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
-		return err
+		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
 	return nil
