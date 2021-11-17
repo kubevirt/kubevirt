@@ -87,6 +87,9 @@ const (
 
 	// Add downwardMetrics volume to expose a limited set of host metrics to guests
 	kvDownwardMetricsGate = "DownwardMetrics"
+
+	// Expand disks to the largest size
+	kvExpandDisksGate = "ExpandDisks"
 )
 
 var (
@@ -98,6 +101,7 @@ var (
 		kvCPUNodeDiscoveryGate,
 		kvSnapshotGate,
 		kvHotplugVolumesGate,
+		kvExpandDisksGate,
 		kvGPUGate,
 		kvHostDevicesGate,
 		kvDownwardMetricsGate,
