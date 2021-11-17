@@ -80,6 +80,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+type netconf interface {
+	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, doNetNS func(func() error) error, preSetup func() error) error
+	Teardown(vmi *v1.VirtualMachineInstance) error
+	SetupCompleted(vmi *v1.VirtualMachineInstance) bool
+}
+
+type netstat interface {
+	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
+	Teardown(vmi *v1.VirtualMachineInstance)
+	PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool
+	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodCacheInterface)
+}
+
 const (
 	//VolumeReadyReason is the reason set when the volume is ready.
 	VolumeReadyReason = "VolumeReady"
@@ -207,7 +220,9 @@ func NewController(
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
 
-	c.networkController = netsetup.NewController(netcache.NewInterfaceCacheFactory())
+	ifaceCacheFactory := netcache.NewInterfaceCacheFactory()
+	c.netConf = netsetup.NewNetConf(ifaceCacheFactory)
+	c.netStat = netsetup.NewNetStat(ifaceCacheFactory)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -251,7 +266,8 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 
-	networkController netsetup.Controller
+	netConf netconf
+	netStat netstat
 
 	domainNotifyPipes           map[string]string
 	virtLauncherFSRunDirPattern string
@@ -464,9 +480,10 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 	if string(vmi.UID) == "" {
 		return
 	}
-	if err := d.networkController.Teardown(vmi); err != nil {
+	if err := d.netConf.Teardown(vmi); err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
+	d.netStat.Teardown(vmi)
 }
 
 func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) error {
@@ -477,7 +494,7 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 	rootMount := isolationRes.MountRoot()
 	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
 
-	return d.networkController.Setup(vmi, isolationRes.Pid(), isolationRes.DoNetNS, func() error {
+	return d.netConf.Setup(vmi, isolationRes.Pid(), isolationRes.DoNetNS, func() error {
 		if requiresDeviceClaim {
 			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
@@ -1042,7 +1059,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	d.updateGuestInfoFromDomain(vmi, domain)
 	d.updateVolumeStatusesFromDomain(vmi, domain)
 	d.updateFSFreezeStatus(vmi, domain)
-	err = d.networkController.UpdateStatus(vmi, domain)
+	err = d.netStat.UpdateStatus(vmi, domain)
 	if err != nil {
 		return err
 	}

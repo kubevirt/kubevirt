@@ -32,8 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type Controller struct {
-	setupCompleted    sync.Map
+type NetStat struct {
 	ifaceCacheFactory cache.InterfaceCacheFactory
 
 	// In memory cache, storing pod interface information.
@@ -42,68 +41,27 @@ type Controller struct {
 	podInterfaceVolatileCache PodInterfaceByVMIAndName
 }
 
-func NewController(ifaceCacheFactory cache.InterfaceCacheFactory) Controller {
-	return Controller{
-		setupCompleted:    sync.Map{},
-		ifaceCacheFactory: ifaceCacheFactory,
-
+func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
+	return &NetStat{
+		ifaceCacheFactory:         ifaceCacheFactory,
 		podInterfaceVolatileCache: PodInterfaceByVMIAndName{},
 	}
 }
 
-// Setup applies (privilege) network related changes for an existing virt-launcher pod.
-// As the changes are performed in the virt-launcher network namespace, which is relative expensive,
-// an early cache check is performed to avoid executing the same operation again (if the last one completed).
-func (c *Controller) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, doNetNS func(func() error) error, preSetup func() error) error {
-	id := vmi.UID
-	if _, exists := c.setupCompleted.Load(id); exists {
-		return nil
-	}
-
-	if err := preSetup(); err != nil {
-		return fmt.Errorf("setup failed, err: %w", err)
-	}
-
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.ifaceCacheFactory)
-	err := doNetNS(func() error {
-		return netConfigurator.SetupPodNetworkPhase1(launcherPid)
-	})
-	if err != nil {
-		return fmt.Errorf("setup failed, err: %w", err)
-	}
-
-	c.setupCompleted.Store(id, struct{}{})
-
-	return nil
-}
-
-func (c *Controller) Teardown(vmi *v1.VirtualMachineInstance) error {
-	c.setupCompleted.Delete(vmi.UID)
+func (c *NetStat) Teardown(vmi *v1.VirtualMachineInstance) {
 	c.podInterfaceVolatileCache.DeleteAllForVMI(vmi.UID)
-	if err := c.ifaceCacheFactory.CacheForVMI(vmi).Remove(); err != nil {
-		return fmt.Errorf("teardown failed, err: %w", err)
-	}
-
-	return nil
 }
 
-// SetupCompleted examines if the setup on a given VMI completed.
-// It uses the (soft) cache to determine the information.
-func (c *Controller) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
-	_, exists := c.setupCompleted.Load(vmi.UID)
-	return exists
-}
-
-func (c *Controller) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool {
+func (c *NetStat) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool {
 	_, exists := c.podInterfaceVolatileCache.Load(vmi.UID, ifaceName)
 	return exists
 }
 
-func (c *Controller) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodCacheInterface) {
+func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodCacheInterface) {
 	c.podInterfaceVolatileCache.Store(vmi.UID, ifaceName, data)
 }
 
-func (c *Controller) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain == nil {
 		return nil
 	}
@@ -240,7 +198,7 @@ func (c *Controller) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Do
 	return nil
 }
 
-func (c *Controller) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
+func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
 	podInterface, exists := c.podInterfaceVolatileCache.Load(vmi.UID, ifaceName)

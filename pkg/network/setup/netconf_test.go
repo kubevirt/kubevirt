@@ -32,51 +32,51 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 )
 
-var _ = Describe("controller", func() {
-	var netCtrl netsetup.Controller
+var _ = Describe("netconf", func() {
+	var netConf *netsetup.NetConf
 	var vmi *v1.VirtualMachineInstance
 
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netCtrl = netsetup.NewController(&interfaceCacheFactoryStub{})
+		netConf = netsetup.NewNetConf(&interfaceCacheFactoryStub{})
 
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 	})
 
 	It("runs setup successfully", func() {
-		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeTrue())
+		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
 	})
 
 	It("runs teardown successfully", func() {
-		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeTrue())
-		Expect(netCtrl.Teardown(vmi)).To(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeFalse())
+		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
+		Expect(netConf.Teardown(vmi)).To(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("skips secondary setup runs", func() {
-		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupFail)).To(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeTrue())
+		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupFail)).To(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
 	})
 
 	It("fails the pre-setup run", func() {
-		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupFail)).NotTo(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeFalse())
+		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupFail)).NotTo(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("fails the setup run", func() {
-		Expect(netCtrl.Setup(vmi, launcherPid, doNetNSFail, netPreSetupDummyNoop)).NotTo(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeFalse())
+		Expect(netConf.Setup(vmi, launcherPid, doNetNSFail, netPreSetupDummyNoop)).NotTo(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("fails the teardown run", func() {
 		factory := &interfaceCacheFactoryStub{podInterfaceCacheStoreStub{failRemove: true}}
-		netCtrl = netsetup.NewController(factory)
-		Expect(netCtrl.Teardown(vmi)).NotTo(Succeed())
-		Expect(netCtrl.SetupCompleted(vmi)).To(BeFalse())
+		netConf = netsetup.NewNetConf(factory)
+		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
+		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 })
 

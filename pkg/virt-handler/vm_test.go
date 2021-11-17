@@ -210,8 +210,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			nil,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
-		controller.networkController = netsetup.NewController(netcache.NewInterfaceCacheFactoryWithBasePath(shareDir))
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
+
+		ifaceCacheFactory := netcache.NewInterfaceCacheFactoryWithBasePath(shareDir)
+		controller.netConf = netsetup.NewNetConf(ifaceCacheFactory)
+		controller.netStat = netsetup.NewNetStat(ifaceCacheFactory)
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -544,8 +547,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(controller.networkController.SetupCompleted(vmi)).To(BeFalse())
-			Expect(controller.networkController.SetupCompleted(oldVMI)).To(BeFalse())
+			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
+			Expect(controller.netConf.SetupCompleted(oldVMI)).To(BeFalse())
 		}, 3)
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
@@ -565,7 +568,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(controller.networkController.SetupCompleted(vmi)).To(BeFalse())
+			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 		}, 3)
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
@@ -2521,10 +2524,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 
 				podCacheInterface := makePodCacheInterface(interfaceName, interfaceIp, interfaceIp, interfaceIpv6)
-				controller.networkController.CachePodInterfaceVolatileData(vmi, interfaceName, podCacheInterface)
+				controller.netStat.CachePodInterfaceVolatileData(vmi, interfaceName, podCacheInterface)
 
 				podCacheSecondaryInterface := makePodCacheInterface(secondaryInterfaceName, secondaryInterfaceIp, secondaryInterfaceIp, secondaryInterfaceIpv6)
-				controller.networkController.CachePodInterfaceVolatileData(vmi, secondaryInterfaceName, podCacheSecondaryInterface)
+				controller.netStat.CachePodInterfaceVolatileData(vmi, secondaryInterfaceName, podCacheSecondaryInterface)
 
 				vmiFeeder.Add(vmi)
 				domainFeeder.Add(domain)
@@ -2541,8 +2544,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				controller.Execute()
 				testutils.ExpectEvent(recorder, VMIStarted)
-				Expect(controller.networkController.PodInterfaceVolatileDataIsCached(vmi, interfaceName)).To(BeTrue())
-				Expect(controller.networkController.PodInterfaceVolatileDataIsCached(vmi, secondaryInterfaceName)).To(BeTrue())
+				Expect(controller.netStat.PodInterfaceVolatileDataIsCached(vmi, interfaceName)).To(BeTrue())
+				Expect(controller.netStat.PodInterfaceVolatileDataIsCached(vmi, secondaryInterfaceName)).To(BeTrue())
 			},
 				table.Entry("using info from the pod interface", false),
 				table.Entry("guest agent interface info overrides the pod interface cache", true),
@@ -2585,7 +2588,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
-			controller.networkController.CachePodInterfaceVolatileData(vmi, interfaceName, podCacheInterface)
+			controller.netStat.CachePodInterfaceVolatileData(vmi, interfaceName, podCacheInterface)
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -3137,7 +3140,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 func markCompletedNetworkSetup(controller *VirtualMachineController, vmi *v1.VirtualMachineInstance) {
 	doNetNSDummy := func(func() error) error { return nil }
 	netPreSetupDummy := func() error { return nil }
-	controller.networkController.Setup(vmi, 0, doNetNSDummy, netPreSetupDummy)
+	controller.netConf.Setup(vmi, 0, doNetNSDummy, netPreSetupDummy)
 }
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
