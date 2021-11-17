@@ -43,7 +43,9 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	virtv1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -1130,7 +1132,7 @@ func newMigration(name string, vmiName string, phase virtv1.VirtualMachineInstan
 }
 
 func newVirtualMachine(name string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
-	vmi := virtv1.NewMinimalVMI(name)
+	vmi := api.NewMinimalVMI(name)
 	vmi.UID = types.UID(name)
 	vmi.Status.Phase = phase
 	vmi.Status.NodeName = "tefwegwrerg"

@@ -5,9 +5,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/tests"
@@ -37,7 +39,7 @@ var _ = Describe("Pausing", func() {
 	})
 
 	It("should pause VMI", func() {
-		vmi := v1.NewMinimalVMI(vmName)
+		vmi := api.NewMinimalVMI(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Pause(vmi.Name).Return(nil).Times(1)
@@ -47,7 +49,7 @@ var _ = Describe("Pausing", func() {
 	})
 
 	It("should unpause VMI", func() {
-		vmi := v1.NewMinimalVMI(vmName)
+		vmi := api.NewMinimalVMI(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Unpause(vmi.Name).Return(nil).Times(1)
@@ -57,7 +59,7 @@ var _ = Describe("Pausing", func() {
 	})
 
 	It("should pause VM", func() {
-		vmi := v1.NewMinimalVMI(vmName)
+		vmi := api.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
 			Spec: vmi.Spec,
@@ -74,7 +76,7 @@ var _ = Describe("Pausing", func() {
 	})
 
 	It("should unpause VM", func() {
-		vmi := v1.NewMinimalVMI(vmName)
+		vmi := api.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
 			Spec: vmi.Spec,

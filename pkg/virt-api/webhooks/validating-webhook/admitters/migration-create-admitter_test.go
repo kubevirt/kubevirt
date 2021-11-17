@@ -32,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -101,7 +103,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	It("should accept valid Migration spec on create", func() {
-		vmi := v1.NewMinimalVMI("testvmimigrate1")
+		vmi := api.NewMinimalVMI("testvmimigrate1")
 
 		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
@@ -131,7 +133,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	It("should reject valid Migration spec on create when feature gate isn't enabled", func() {
-		vmi := v1.NewMinimalVMI("testvmimigrate1")
+		vmi := api.NewMinimalVMI("testvmimigrate1")
 
 		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
@@ -198,7 +200,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	It("should accept Migration spec on create when previous VMI migration completed", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmi4")
+		vmi := api.NewMinimalVMI("testmigratevmi4")
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 			MigrationUID: "123",
 			Completed:    true,
@@ -233,7 +235,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	It("should reject Migration spec on create when VMI is finalized", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmi3")
+		vmi := api.NewMinimalVMI("testmigratevmi3")
 		vmi.Status.Phase = v1.Succeeded
 
 		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
@@ -264,7 +266,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	It("should reject Migration spec for non-migratable VMIs", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmi3")
+		vmi := api.NewMinimalVMI("testmigratevmi3")
 		vmi.Status.Phase = v1.Running
 		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 			{

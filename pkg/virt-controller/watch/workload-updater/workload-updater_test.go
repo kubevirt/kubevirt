@@ -16,9 +16,11 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/client-go/api"
+
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -457,7 +459,7 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 }
 
 func newVirtualMachine(name string, isMigratable bool, image string, vmiSource *framework.FakeControllerSource, podSource *framework.FakeControllerSource) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMI("testvm")
+	vmi := api.NewMinimalVMI("testvm")
 	vmi.Name = name
 	vmi.Namespace = v12.NamespaceDefault
 	vmi.Status.LauncherContainerImageVersion = image

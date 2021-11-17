@@ -38,6 +38,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
+	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/util/status"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -45,7 +47,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -183,7 +185,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Subresource api", func() {
 		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
@@ -198,7 +200,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}, 5)
 
 		It("should fail if VirtualMachineInstance is not in running state", func(done Done) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Succeeded
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
@@ -209,7 +211,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}, 5)
 
 		It("should fail no matching pod is found", func(done Done) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
@@ -287,7 +289,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["namespace"] = "default"
 
 				flag := false
-				vmi := v1.NewMinimalVMI("testvmi")
+				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.Phase = v1.Running
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &flag
@@ -365,7 +367,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["namespace"] = "default"
 
 				flag := false
-				vmi := v1.NewMinimalVMI("testvmi")
+				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Status.Phase = v1.Running
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &flag
@@ -893,7 +895,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					app.VMRemoveVolumeRequestHandler(request, response)
 				}
 			} else {
-				vmi := v1.NewMinimalVMI(request.PathParameter("name"))
+				vmi := api.NewMinimalVMI(request.PathParameter("name"))
 				vmi.Namespace = "default"
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -968,7 +970,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		table.DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
 
-			vmi := v1.NewMinimalVMI(request.PathParameter("name"))
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
 			vmi.Namespace = "default"
 			vmi.Status.Phase = v1.Running
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

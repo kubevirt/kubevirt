@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/util",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/flags:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

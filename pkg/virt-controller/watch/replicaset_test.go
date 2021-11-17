@@ -13,7 +13,9 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -183,7 +185,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Add 3 VMIs to the cache which are already running
 			for x := 0; x < 3; x++ {
-				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmiFeeder.Add(vmi)
@@ -191,7 +193,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Add 3 VMIs to the cache which are marked for deletion
 			for x := 3; x < 6; x++ {
-				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmi.DeletionTimestamp = now()
@@ -219,7 +221,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Add 15 VMIs to the cache
 			for x := 0; x < 15; x++ {
-				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmiFeeder.Add(vmi)
@@ -247,14 +249,14 @@ var _ = Describe("Replicaset", func() {
 
 			// Add 5 VMIs without deletion timestamp
 			for x := 0; x < 5; x++ {
-				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmiFeeder.Add(vmi)
 			}
 			// Add 5 VMIs with deletion timestamp
 			for x := 5; x < 9; x++ {
-				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmi.DeletionTimestamp = now()
@@ -277,7 +279,7 @@ var _ = Describe("Replicaset", func() {
 		It("should ignore non-matching VMIs", func() {
 			rs, vmi := DefaultReplicaSet(3)
 
-			nonMatchingVMI := v1.NewMinimalVMI("testvmi1")
+			nonMatchingVMI := api.NewMinimalVMI("testvmi1")
 			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
 			addReplicaSet(rs)
@@ -728,7 +730,7 @@ func ReplicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int
 }
 
 func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstance) {
-	vmi := v1.NewMinimalVMI("testvmi")
+	vmi := api.NewMinimalVMI("testvmi")
 	vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 	rs := ReplicaSetFromVMI("rs", vmi, replicas)
 	vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}

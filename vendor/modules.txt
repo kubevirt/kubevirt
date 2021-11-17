@@ -950,14 +950,17 @@ k8s.io/utils/integer
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
+# kubevirt.io/api v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/api
+## explicit
+kubevirt.io/api/core
+kubevirt.io/api/core/v1
+kubevirt.io/api/flavor
+kubevirt.io/api/flavor/v1alpha1
+kubevirt.io/api/snapshot
+kubevirt.io/api/snapshot/v1alpha1
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
 ## explicit
-kubevirt.io/client-go/apis/core
-kubevirt.io/client-go/apis/core/v1
-kubevirt.io/client-go/apis/flavor
-kubevirt.io/client-go/apis/flavor/v1alpha1
-kubevirt.io/client-go/apis/snapshot
-kubevirt.io/client-go/apis/snapshot/v1alpha1
+kubevirt.io/client-go/api
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -1062,6 +1065,7 @@ sigs.k8s.io/yaml
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.20.2
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.20.2
 # k8s.io/sample-controller => k8s.io/sample-controller v0.20.2
+# kubevirt.io/api => ./staging/src/kubevirt.io/api
 # kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 # kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.41.0
 # kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.41.0

@@ -29,7 +29,9 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	api2 "kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -110,7 +112,7 @@ var _ = Describe("ContainerDisk", func() {
 		Context("With single ephemeral volume", func() {
 			It("Should create VirtualMachineInstance's ephemeral image", func() {
 				By("Creating a minimal VirtualMachineInstance object")
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api2.NewMinimalVMI("fake-vmi")
 
 				By("Adding a single ephemeral-backed PVC to the VirtualMachineInstance")
 				AppendEphemeralPVC(vmi, "fake-disk", "fake-pvc", false)
@@ -128,7 +130,7 @@ var _ = Describe("ContainerDisk", func() {
 		Context("With multiple ephemeral volumes", func() {
 			It("Should create VirtualMachineInstance's ephemeral images", func() {
 				By("Creating a minimal VirtualMachineInstance object")
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api2.NewMinimalVMI("fake-vmi")
 
 				By("Adding multiple ephemeral-backed PVCs to the VirtualMachineInstance")
 				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1", false)
@@ -148,7 +150,7 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("Should create ephemeral images in an idempotent way", func() {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api2.NewMinimalVMI("fake-vmi")
 				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1", false)
 				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
 				Expect(err).NotTo(HaveOccurred())
@@ -160,7 +162,7 @@ var _ = Describe("ContainerDisk", func() {
 		Context("With a block pvc backed ephemeral volume", func() {
 			It("Should create VirtualMachineInstance's ephemeral image", func() {
 				By("Creating a minimal VirtualMachineInstance object")
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api2.NewMinimalVMI("fake-vmi")
 
 				By("Adding a single ephemeral-backed PVC to the VirtualMachineInstance")
 				AppendEphemeralPVC(vmi, "fake-disk", "fake-pvc", true)

@@ -34,7 +34,8 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	v12 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
@@ -54,7 +55,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch a VirtualMachineInstance", func() {
-		vmi := v12.NewMinimalVMI("testvm")
+		vmi := api.NewMinimalVMI("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
@@ -79,7 +80,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch a VirtualMachineInstance list", func() {
-		vmi := v12.NewMinimalVMI("testvm")
+		vmi := api.NewMinimalVMI("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMIList(*vmi)),
@@ -93,7 +94,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should create a VirtualMachineInstance", func() {
-		vmi := v12.NewMinimalVMI("testvm")
+		vmi := api.NewMinimalVMI("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, vmi),
@@ -106,7 +107,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should update a VirtualMachineInstance", func() {
-		vmi := v12.NewMinimalVMI("testvm")
+		vmi := api.NewMinimalVMI("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PUT", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
@@ -265,7 +266,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch GuestOSInfo from VirtualMachineInstance via subresource", func() {
-		osInfo := v12.VirtualMachineInstanceGuestAgentInfo{
+		osInfo := v1.VirtualMachineInstanceGuestAgentInfo{
 			GAVersion: "4.1.1",
 		}
 
@@ -280,8 +281,8 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch UserList from VirtualMachineInstance via subresource", func() {
-		userList := v12.VirtualMachineInstanceGuestOSUserList{
-			Items: []v12.VirtualMachineInstanceGuestOSUser{
+		userList := v1.VirtualMachineInstanceGuestOSUserList{
+			Items: []v1.VirtualMachineInstanceGuestOSUser{
 				{UserName: "testUser"},
 			},
 		}
@@ -296,8 +297,8 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch FilesystemList from VirtualMachineInstance via subresource", func() {
-		fileSystemList := v12.VirtualMachineInstanceFileSystemList{
-			Items: []v12.VirtualMachineInstanceFileSystem{
+		fileSystemList := v1.VirtualMachineInstanceFileSystemList{
+			Items: []v1.VirtualMachineInstanceFileSystem{
 				{
 					DiskName:   "main",
 					MountPoint: "/",
@@ -320,6 +321,6 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 })
 
-func NewVMIList(vms ...v12.VirtualMachineInstance) *v12.VirtualMachineInstanceList {
-	return &v12.VirtualMachineInstanceList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstanceList"}, Items: vms}
+func NewVMIList(vms ...v1.VirtualMachineInstance) *v1.VirtualMachineInstanceList {
+	return &v1.VirtualMachineInstanceList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceList"}, Items: vms}
 }

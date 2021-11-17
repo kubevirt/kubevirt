@@ -27,7 +27,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("ServiceAccount", func() {
@@ -51,7 +53,7 @@ var _ = Describe("ServiceAccount", func() {
 	})
 
 	It("Should create a new service account iso disk", func() {
-		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi := api.NewMinimalVMI("fake-vmi")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "serviceaccount-volume",
 			VolumeSource: v1.VolumeSource{

@@ -28,7 +28,9 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 func createFile(fullPath string) {
@@ -57,7 +59,7 @@ var _ = Describe("SysprepConfigMap", func() {
 		os.RemoveAll(SysprepDisksDir)
 	})
 
-	vmiConfigMap := v1.NewMinimalVMI("fake-vmi")
+	vmiConfigMap := api.NewMinimalVMI("fake-vmi")
 	vmiConfigMap.Spec.Volumes = append(vmiConfigMap.Spec.Volumes, v1.Volume{
 		Name: "sysprep-volume",
 		VolumeSource: v1.VolumeSource{
@@ -69,7 +71,7 @@ var _ = Describe("SysprepConfigMap", func() {
 		},
 	})
 
-	vmiSecret := v1.NewMinimalVMI("fake-vmi")
+	vmiSecret := api.NewMinimalVMI("fake-vmi")
 	vmiSecret.Spec.Volumes = append(vmiSecret.Spec.Volumes, v1.Volume{
 		Name: "sysprep-volume",
 		VolumeSource: v1.VolumeSource{

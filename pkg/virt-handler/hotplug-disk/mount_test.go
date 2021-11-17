@@ -32,10 +32,12 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -72,7 +74,7 @@ var _ = Describe("HotplugVolume mount target records", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 
 		m = &volumeMounter{
@@ -177,7 +179,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"
@@ -609,7 +611,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"
@@ -823,7 +825,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"

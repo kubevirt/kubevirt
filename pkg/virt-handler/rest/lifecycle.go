@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	v12 "kubevirt.io/client-go/apis/core/v1"
+	v12 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )

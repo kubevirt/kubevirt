@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 )

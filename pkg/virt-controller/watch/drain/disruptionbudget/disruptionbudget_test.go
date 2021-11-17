@@ -18,7 +18,9 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	ctrl_util "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -419,7 +421,7 @@ func newMigration(name string, vmi *v1.VirtualMachineInstance, phase v1.VirtualM
 }
 
 func newVirtualMachine() *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMI("testvm")
+	vmi := api.NewMinimalVMI("testvm")
 	vmi.Namespace = corev1.NamespaceDefault
 	vmi.UID = "1234"
 	return vmi

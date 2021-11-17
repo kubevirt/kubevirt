@@ -22,9 +22,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	v12 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("VirtualMachineInstance ConditionManager", func() {
@@ -35,7 +37,7 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 	var pc2 *v12.PodCondition
 
 	BeforeEach(func() {
-		vmi = v1.NewMinimalVMI("test")
+		vmi = api.NewMinimalVMI("test")
 
 		pc1 = &v12.PodCondition{
 			Type:   v12.PodScheduled,
