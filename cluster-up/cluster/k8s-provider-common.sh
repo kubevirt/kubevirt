@@ -51,7 +51,7 @@ function wait_for_istio_ready() {
         while [[ $retries -lt $max_retries ]]; do
             echo "waiting for istio-operator to be healthy"
             sleep 5
-            health=$(kubectl -n $istio_operator_ns get istiooperator istio-operator -o jsonpath="{.status.status}")
+            health=$($kubectl -n $istio_operator_ns get istiooperator istio-operator -o jsonpath="{.status.status}")
             if [[ $health == "HEALTHY" ]]; then
                 break
             fi
