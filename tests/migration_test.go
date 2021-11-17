@@ -320,30 +320,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	getLibvirtdPid := func(pod *k8sv1.Pod) string {
 		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
 			[]string{
-				"ps",
-				"-x",
+				"pidof",
+				"libvirtd",
 			})
-		Expect(err).ToNot(HaveOccurred(), `"ps -x" failed with stdout="`+stdout+`" and stderr="`+stderr+`"`)
-
-		pid := ""
-		for _, str := range strings.Split(stdout, "\n") {
-			if !strings.Contains(str, "libvirtd") {
-				continue
-			}
-			words := strings.Fields(str)
-
-			Expect(len(words)).To(Equal(7), fmt.Sprintf("Found %s", words))
-
-			// verify it is numeric
-			_, err = strconv.Atoi(words[0])
-			Expect(err).ToNot(HaveOccurred(), "should have found pid for libvirtd that is numeric")
-
-			pid = words[0]
-			break
-
-		}
-
-		Expect(pid).ToNot(Equal(""), "libvirtd pid not found")
+		errorMassageFormat := "faild after running `pidof libvirtd`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
+		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
 	}
 
@@ -680,13 +662,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// kill libvirtd
 				By(fmt.Sprintf("Killing libvirtd with pid %s", pid))
-				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
 					[]string{
 						"kill",
 						"-9",
 						pid,
 					})
-				Expect(err).ToNot(HaveOccurred())
+				errorMassageFormat := "faild after running `kill -9 %v`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, pid, stdout, stderr, err))
 
 				// wait for both libvirt to respawn and all connections to re-establish
 				time.Sleep(30 * time.Second)
@@ -711,6 +694,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
+
 			It("[test_id:6972]should migrate to a persistent (non-transient) libvirt domain.", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
