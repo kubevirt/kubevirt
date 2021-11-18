@@ -124,6 +124,9 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+
+	// Default network-status downward API file path
+	defaultNetworkStatusFilePath = "/etc/podinfo/network-status"
 )
 
 type virtHandlerApp struct {
@@ -180,10 +183,10 @@ func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 }
 
 // Using the downward API, look for dedicated migration network migration0 and, if found, set migration IP to its IP
-func findMigrationIP(migrationIp string) (string, error) {
+func findMigrationIP(networkStatusPath string, migrationIp string) (string, error) {
 	var networkStatus []virthandler.NetworkStatus
 
-	dat, err := ioutil.ReadFile("/etc/podinfo/network-status")
+	dat, err := ioutil.ReadFile(networkStatusPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read network status from downwards API")
 	}
@@ -348,7 +351,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	migrationIpAddress := app.PodIpAddress
-	migrationIpAddress, err = findMigrationIP(migrationIpAddress)
+	migrationIpAddress, err = findMigrationIP(defaultNetworkStatusFilePath, migrationIpAddress)
 	if err != nil {
 		log.Log.Reason(err)
 		return
