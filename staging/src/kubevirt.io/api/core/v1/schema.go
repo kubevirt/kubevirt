@@ -445,6 +445,9 @@ type Devices struct {
 	// To configure and access client devices such as redirecting USB
 	// +optional
 	ClientPassthrough *ClientPassthroughDevices `json:"clientPassthrough,omitempty"`
+	// Whether to emulate a sound device.
+	// +optional
+	Sound *SoundDevice `json:"sound,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -461,6 +464,15 @@ type ClientPassthroughDevices struct {
 const (
 	UsbClientPassthroughMaxNumberOf = 4
 )
+
+// Represents the user's configuration to emulate sound cards in the VMI.
+type SoundDevice struct {
+	// We only support ich9 or ac97.
+	// If SoundDevice is not set: No sound card is emulated.
+	// If SoundDevice is set but Model is not: ich9
+	// +optional
+	Model string `json:"model,omitempty"`
+}
 
 type Input struct {
 	// Bus indicates the bus of input device to emulate.

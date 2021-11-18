@@ -4252,6 +4252,15 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to have random number generator from
                             host
                           type: object
+                        sound:
+                          description: Whether to emulate a sound device.
+                          properties:
+                            model:
+                              description: 'We only support ich9 or ac97. If SoundDevice
+                                is not set: No sound card is emulated. If SoundDevice
+                                is set but Model is not: ich9'
+                              type: string
+                          type: object
                         useVirtioTransitional:
                           description: Fall back to legacy virtio 0.9 support if virtio
                             bus is selected on devices. This is helpful for old machines
@@ -7227,6 +7236,15 @@ var CRDsValidation map[string]string = map[string]string{
                 rng:
                   description: Whether to have random number generator from host
                   type: object
+                sound:
+                  description: Whether to emulate a sound device.
+                  properties:
+                    model:
+                      description: 'We only support ich9 or ac97. If SoundDevice is
+                        not set: No sound card is emulated. If SoundDevice is set
+                        but Model is not: ich9'
+                      type: string
+                  type: object
                 useVirtioTransitional:
                   description: Fall back to legacy virtio 0.9 support if virtio bus
                     is selected on devices. This is helpful for old machines like
@@ -9249,6 +9267,15 @@ var CRDsValidation map[string]string = map[string]string{
                 rng:
                   description: Whether to have random number generator from host
                   type: object
+                sound:
+                  description: Whether to emulate a sound device.
+                  properties:
+                    model:
+                      description: 'We only support ich9 or ac97. If SoundDevice is
+                        not set: No sound card is emulated. If SoundDevice is set
+                        but Model is not: ich9'
+                      type: string
+                  type: object
                 useVirtioTransitional:
                   description: Fall back to legacy virtio 0.9 support if virtio bus
                     is selected on devices. This is helpful for old machines like
@@ -11057,6 +11084,15 @@ var CRDsValidation map[string]string = map[string]string{
                         rng:
                           description: Whether to have random number generator from
                             host
+                          type: object
+                        sound:
+                          description: Whether to emulate a sound device.
+                          properties:
+                            model:
+                              description: 'We only support ich9 or ac97. If SoundDevice
+                                is not set: No sound card is emulated. If SoundDevice
+                                is set but Model is not: ich9'
+                              type: string
                           type: object
                         useVirtioTransitional:
                           description: Fall back to legacy virtio 0.9 support if virtio
@@ -14601,6 +14637,16 @@ var CRDsValidation map[string]string = map[string]string{
                                     rng:
                                       description: Whether to have random number generator
                                         from host
+                                      type: object
+                                    sound:
+                                      description: Whether to emulate a sound device.
+                                      properties:
+                                        model:
+                                          description: 'We only support ich9 or ac97.
+                                            If SoundDevice is not set: No sound card
+                                            is emulated. If SoundDevice is set but
+                                            Model is not: ich9'
+                                          type: string
                                       type: object
                                     useVirtioTransitional:
                                       description: Fall back to legacy virtio 0.9

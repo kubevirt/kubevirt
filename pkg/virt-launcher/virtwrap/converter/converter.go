@@ -912,6 +912,28 @@ func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainD
 	return true, nil
 }
 
+func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) {
+	sound := vmi.Spec.Domain.Devices.Sound
+
+	// Default is to not have any Sound device
+	if sound == nil {
+		return
+	}
+
+	model := "ich9"
+	if sound.Model == "ac97" {
+		model = "ac97"
+	}
+
+	soundCards := make([]api.SoundCard, 1)
+	soundCards[0] = api.SoundCard{
+		Model: model,
+	}
+
+	domainDevices.SoundCards = soundCards
+	return
+}
+
 func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
 	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
@@ -1491,6 +1513,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 		}
 	}
+
+	Convert_v1_Sound_To_api_Sound(vmi, &domain.Spec.Devices, c)
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &api.Watchdog{}

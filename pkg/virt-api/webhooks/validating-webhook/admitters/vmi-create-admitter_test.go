@@ -575,6 +575,29 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 		})
+		It("should allow supported audio devices", func() {
+			supportedDevices := [...]string{"", "ich9", "ac97"}
+			vmi := api.NewMinimalVMI("testvmi")
+
+			for _, deviceName := range supportedDevices {
+				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+					Model: deviceName,
+				}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+		It("should reject unsupported audio devices", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Model: "aNotSupportedDevice",
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.Sound"))
+		})
 		It("should reject volume with missing disk / file system", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 
