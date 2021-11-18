@@ -1612,80 +1612,12 @@ progressTimeout: 150`,
 								Name: "ovirtproviders.v2v.kubevirt.io",
 							},
 						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirtcommontemplatesbundles.ssp.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirtmetricsaggregations.ssp.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirtnodelabellerbundles.ssp.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirttemplatevalidators.ssp.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirtcommontemplatesbundles.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirtmetricsaggregations.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirtnodelabellerbundles.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "kubevirttemplatevalidators.kubevirt.io",
-							},
-						},
 					}
 					oldCRDRelatedObjects = []corev1.ObjectReference{
 						{
 							APIVersion:      "v2v.kubevirt.io/v1alpha1",
 							Kind:            "VMImportConfig",
 							Name:            "vmimport-kubevirt-hyperconverged",
-							ResourceVersion: "999",
-						},
-						{
-							APIVersion:      "ssp.kubevirt.io/v1",
-							Kind:            "KubevirtCommonTemplatesBundle",
-							Name:            "common-templates-kubevirt-hyperconverged",
-							Namespace:       "openshift",
-							ResourceVersion: "999",
-						},
-						{
-							APIVersion:      "ssp.kubevirt.io/v1",
-							Kind:            "KubevirtNodeLabellerBundle",
-							Name:            "node-labeller-kubevirt-hyperconverged",
-							Namespace:       "kubevirt-hyperconverged",
-							ResourceVersion: "999",
-						},
-						{
-							APIVersion:      "ssp.kubevirt.io/v1",
-							Kind:            "KubevirtTemplateValidator",
-							Name:            "template-validator-kubevirt-hyperconverged",
-							Namespace:       "kubevirt-hyperconverged",
-							ResourceVersion: "999",
-						},
-						{
-							APIVersion:      "ssp.kubevirt.io/v1",
-							Kind:            "KubevirtMetricsAggregation",
-							Name:            "metrics-aggregation-kubevirt-hyperconverged",
-							Namespace:       "kubevirt-hyperconverged",
 							ResourceVersion: "999",
 						},
 					}

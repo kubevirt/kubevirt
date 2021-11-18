@@ -78,9 +78,7 @@ const (
 	secondaryCRPrefix = "hco-controlled-cr-"
 
 	// These group are no longer supported. Use these constants to remove unused resources
-	v2vGroup     = "v2v.kubevirt.io"
-	prevSspGroup = "ssp.kubevirt.io"
-	origSspGroup = "kubevirt.io"
+	v2vGroup = "v2v.kubevirt.io"
 
 	requestedStatusKey = "requested status"
 )
@@ -127,20 +125,6 @@ func newCRDremover(client client.Client) *CRDRemover {
 			{Group: v2vGroup, Kind: "V2VVmware"},
 			{Group: v2vGroup, Kind: "OVirtProvider"},
 			{Group: v2vGroup, Kind: "VMImportConfig"},
-
-			// These are the 2nd generation SSP CRDs,
-			// where the group name has been changed to "ssp.kubevirt.io"
-			{Group: prevSspGroup, Kind: "KubevirtCommonTemplatesBundle"},
-			{Group: prevSspGroup, Kind: "KubevirtNodeLabellerBundle"},
-			{Group: prevSspGroup, Kind: "KubevirtTemplateValidator"},
-			{Group: prevSspGroup, Kind: "KubevirtMetricsAggregation"},
-
-			// These are the original SSP CRDs, with the group name "kubevirt.io".
-			// We attempt to remove these too, for upgrades from even older version.
-			{Group: origSspGroup, Kind: "KubevirtCommonTemplatesBundle"},
-			{Group: origSspGroup, Kind: "KubevirtNodeLabellerBundle"},
-			{Group: origSspGroup, Kind: "KubevirtTemplateValidator"},
-			{Group: origSspGroup, Kind: "KubevirtMetricsAggregation"},
 		},
 	}
 
