@@ -1742,6 +1742,75 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}).Return(vmi, nil)
 			controller.Execute()
 		})
+
+		table.DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			kvcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+				Type:   virtv1.VirtualMachineInstancePaused,
+				Status: k8sv1.ConditionTrue,
+			})
+
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			kvcontroller.NewPodConditionManager().RemoveCondition(pod, virtv1.VirtualMachineUnpaused)
+			if currUnpausedStatus != k8sv1.ConditionUnknown {
+				pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+					Type:   virtv1.VirtualMachineUnpaused,
+					Status: currUnpausedStatus,
+				})
+			}
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				patch, _ := action.(testing.PatchAction)
+				Expect(string(patch.GetPatch())).To(ContainSubstring(fmt.Sprintf(`"type":"%s"`, virtv1.VirtualMachineUnpaused)))
+				Expect(string(patch.GetPatch())).To(ContainSubstring(fmt.Sprintf(`"status":"%s"`, k8sv1.ConditionFalse)))
+
+				return true, nil, nil
+			})
+
+			controller.Execute()
+		},
+			table.Entry("when VirtualMachineUnpaused=True", k8sv1.ConditionTrue),
+			table.Entry("when VirtualMachineUnpaused condition is unset", k8sv1.ConditionUnknown),
+		)
+
+		table.DescribeTable("should set VirtualMachineUnpaused=True pod condition when VMI is not paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstancePaused)
+
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			kvcontroller.NewPodConditionManager().RemoveCondition(pod, virtv1.VirtualMachineUnpaused)
+			if currUnpausedStatus != k8sv1.ConditionUnknown {
+				pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+					Type:   virtv1.VirtualMachineUnpaused,
+					Status: currUnpausedStatus,
+				})
+			}
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				patch, _ := action.(testing.PatchAction)
+				Expect(string(patch.GetPatch())).To(ContainSubstring(fmt.Sprintf(`"type":"%s"`, virtv1.VirtualMachineUnpaused)))
+				Expect(string(patch.GetPatch())).To(ContainSubstring(fmt.Sprintf(`"status":"%s"`, k8sv1.ConditionTrue)))
+
+				return true, nil, nil
+			})
+
+			controller.Execute()
+		},
+			table.Entry("when VirtualMachineUnpaused=True", k8sv1.ConditionTrue),
+			table.Entry("when VirtualMachineUnpaused condition is unset", k8sv1.ConditionUnknown),
+		)
 	})
 
 	Context("hotplug volume", func() {
