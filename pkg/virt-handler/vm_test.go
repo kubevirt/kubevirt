@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
 
@@ -1862,21 +1864,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.updateGuestInfoFromDomain(vmi, domain)
 		})
 
-		It("code path check: updateIsoSizeStatus", func() {
-			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test",
-				VolumeSource: v1.VolumeSource{
-					CloudInitNoCloud: &v1.CloudInitNoCloudSource{},
-				},
+		Context("code path check: updateIsoSizeStatus", func() {
+
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+				vmi.Namespace = "default"
+				volumeName := "test"
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &v1.CloudInitNoCloudSource{},
+					},
+				})
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{Name: volumeName})
+				vmi.Status.Phase = v1.Running
+				vmi.Status.NodeName = host
+				vmi = addActivePods(vmi, podTestUUID, host)
+
+				noCloudISOPath := filepath.Join(mockIsolationResult.MountRoot(), basepath, ephemeralDisksPathSegment, cloudInitPathSegment, vmi.Namespace, vmi.Name)
+				err = os.MkdirAll(noCloudISOPath, 0755)
+				util.PanicOnError(err)
+				err = os.WriteFile(filepath.Join(noCloudISOPath, noCloudIsoFileName), []byte{42}, 0755)
+				util.PanicOnError(err)
 			})
-			vmi.Status.Phase = v1.Running
-			vmi.Status.NodeName = host
-			vmi = addActivePods(vmi, podTestUUID, host)
-			controller.updateIsoSizeStatus(vmi)
-			// TODO: make hard coded base path for volumes configurable
-			// code path towards VolumeStatus is not possible to unit test due to those hard coded base pathes
-			// as it calls isolation.GetFileSize
+
+			It("code path check: updateIsoSizeStatus", func() {
+				controller.updateIsoSizeStatus(vmi)
+				Expect(vmi.Status.VolumeStatus[0].Size).To(BeEquivalentTo(1))
+			})
+
 		})
 
 	})

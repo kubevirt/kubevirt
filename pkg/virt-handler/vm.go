@@ -26,7 +26,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -1144,24 +1143,31 @@ func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineIn
 
 }
 
+const (
+	basepath                  = "/var/run"
+	ephemeralDisksPathSegment = "kubevirt-ephemeral-disks"
+	cloudInitPathSegment      = "cloud-init-data"
+	privatePathSegment        = "kubevirt-private"
+	noCloudIsoFileName        = "noCloud.iso"
+)
+
 func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (string, bool) {
 	var volPath string
 
-	basepath := "/var/run"
 	if volume.CloudInitNoCloud != nil {
-		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+		volPath = filepath.Join(basepath, ephemeralDisksPathSegment, cloudInitPathSegment, vmi.Namespace, vmi.Name, noCloudIsoFileName)
 	} else if volume.CloudInitConfigDrive != nil {
-		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+		volPath = filepath.Join(basepath, ephemeralDisksPathSegment, cloudInitPathSegment, vmi.Namespace, vmi.Name, "configdrive.iso")
 	} else if volume.ConfigMap != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, privatePathSegment, filepath.Base(config.ConfigMapDisksDir), volume.Name+".iso")
 	} else if volume.DownwardAPI != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, privatePathSegment, filepath.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
 	} else if volume.Secret != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, privatePathSegment, filepath.Base(config.SecretDisksDir), volume.Name+".iso")
 	} else if volume.ServiceAccount != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+		volPath = filepath.Join(basepath, privatePathSegment, filepath.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
 	} else if volume.Sysprep != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, privatePathSegment, filepath.Base(config.SysprepDisksDir), volume.Name+".iso")
 	} else {
 		return "", false
 	}
