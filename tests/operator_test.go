@@ -1366,7 +1366,11 @@ spec:
 		// Ensuring VM/VMI is still operational after the update from previous release.
 		table.DescribeTable("[release-blocker][sig-compute][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
 			if !tests.HasCDI() {
-				Skip("Skip Update test when CDI is not present")
+				Skip("Skip update test when CDI is not present")
+			}
+
+			if updateOperator && flags.OperatorManifestPath == "" {
+				Skip("Skip operator update test when operator manifest path isn't configured")
 			}
 
 			migratableVMIs := generateMigratableVMIs(2)
