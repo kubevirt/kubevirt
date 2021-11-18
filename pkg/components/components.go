@@ -788,7 +788,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			Namespace: "placeholder",
 			Annotations: map[string]string{
 				"alm-examples":   string(almExamples),
-				"capabilities":   "Full Lifecycle",
+				"capabilities":   "Deep Insights",
 				"certified":      "false",
 				"categories":     "OpenShift Optional",
 				"containerImage": params.Image,
