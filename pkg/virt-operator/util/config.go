@@ -69,9 +69,10 @@ const (
 	DefaultMonitorAccount = "prometheus-k8s"
 
 	// lookup keys in AdditionalProperties
-	ImagePrefixKey    = "imagePrefix"
-	ProductNameKey    = "productName"
-	ProductVersionKey = "productVersion"
+	ImagePrefixKey      = "imagePrefix"
+	ProductNameKey      = "productName"
+	ProductComponentKey = "productComponent"
+	ProductVersionKey   = "productVersion"
 
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
@@ -433,6 +434,10 @@ func (c *KubeVirtDeploymentConfig) GetNamespace() string {
 func (c *KubeVirtDeploymentConfig) GetVerbosity() string {
 	// not configurable yet
 	return "2"
+}
+
+func (c *KubeVirtDeploymentConfig) GetProductComponent() string {
+	return c.AdditionalProperties[ProductComponentKey]
 }
 
 func (c *KubeVirtDeploymentConfig) GetProductName() string {

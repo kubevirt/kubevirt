@@ -1551,6 +1551,11 @@ type KubeVirtSpec struct {
 	// If ProductName is not specified, the part-of label will be omitted.
 	ProductName string `json:"productName,omitempty"`
 
+	// Designate the apps.kubevirt.io/component label for KubeVirt components.
+	// Useful if KubeVirt is included as part of a product.
+	// If ProductComponent is not specified, the component label default value is kubevirt.
+	ProductComponent string `json:"productComponent,omitempty"`
+
 	// holds kubevirt configurations.
 	// same as the virt-configMap
 	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`
