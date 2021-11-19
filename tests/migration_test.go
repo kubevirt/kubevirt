@@ -769,6 +769,136 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(isPaused).To(BeFalse(), "The VMI should be running, but it is not.")
 			})
 		})
+
+		Context("with an pending target pod", func() {
+			var nodes *k8sv1.NodeList
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				Eventually(func() []k8sv1.Node {
+					nodes = util.GetAllSchedulableNodes(virtClient)
+					return nodes.Items
+				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
+			})
+
+			It("should automatically cancel unschedulable migration after a timeout period", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				// Add node affinity to ensure VMI affinity rules block target pod from being created
+				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// execute a migration that is expected to fail
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "130"}
+
+				By("Starting a Migration")
+				var err error
+				Eventually(func() error {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					return err
+				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+
+				By("Migration should observe a timeout period before canceling unschedulable target pod")
+				Consistently(func() error {
+
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if migration.Status.Phase == v1.MigrationFailed {
+						return fmt.Errorf("Migration should observe timeout period before transitioning to failed state")
+					}
+					return nil
+
+				}, 1*time.Minute, 10*time.Second).Should(Succeed())
+
+				By("Migration should fail eventually due to pending target pod timeout")
+				Eventually(func() error {
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if migration.Status.Phase != v1.MigrationFailed {
+						return fmt.Errorf("Waiting on migration with phase %s to reach phase Failed", migration.Status.Phase)
+					}
+					return nil
+				}, 2*time.Minute, 5*time.Second).Should(Succeed(), "migration creation should fail")
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+
+			It("should automatically cancel pending target pod after a catch all timeout period", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// execute a migration that is expected to fail
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration.Annotations = map[string]string{v1.MigrationPendingPodTimeoutSecondsAnnotation: "130"}
+
+				// Add a fake continer image to the target pod to force a image pull failure which
+				// keeps the target pod in pending state
+				// Make sure to actually use an image repository we own here so no one
+				// can somehow figure out a way to execute custom logic in our func tests.
+				migration.Annotations[v1.FuncTestMigrationTargetImageOverrideAnnotation] = "quay.io/kubevirtci/some-fake-image:" + rand.String(12)
+
+				By("Starting a Migration")
+				var err error
+				Eventually(func() error {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					return err
+				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+
+				By("Migration should observe a timeout period before canceling pending target pod")
+				Consistently(func() error {
+
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if migration.Status.Phase == v1.MigrationFailed {
+						return fmt.Errorf("Migration should observe timeout period before transitioning to failed state")
+					}
+					return nil
+
+				}, 1*time.Minute, 10*time.Second).Should(Succeed())
+
+				By("Migration should fail eventually due to pending target pod timeout")
+				Eventually(func() error {
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if migration.Status.Phase != v1.MigrationFailed {
+						return fmt.Errorf("Waiting on migration with phase %s to reach phase Failed", migration.Status.Phase)
+					}
+					return nil
+				}, 2*time.Minute, 5*time.Second).Should(Succeed(), "migration creation should fail")
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+		})
 		Context("with auto converge enabled", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()

@@ -24,12 +24,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,6 +61,18 @@ const (
 	failedUpdatePodDisruptionBudgetReason     = "FailedUpdate"
 )
 
+// This is the timeout used when a target pod is stuck in
+// a pending unschedulable state.
+const defaultUnschedulablePendingTimeoutSeconds = int64(60 * 5)
+
+// This is catch all timeout used when a target pod is stuck in
+// a in the pending phase for any reason. The theory behind this timeout
+// being longer than the unschedulable timeout is that we don't necessarily
+// know all the reasons a pod will be stuck in pending for an extended
+// period of time, so we want to make this timeout long enough that it doesn't
+// cause the migration to fail when it could have reasonably succeeded.
+const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
+
 type MigrationController struct {
 	templateService    services.TemplateService
 	clientset          kubecli.KubevirtClient
@@ -74,6 +88,9 @@ type MigrationController struct {
 	migrationStartLock *sync.Mutex
 	clusterConfig      *virtconfig.ClusterConfig
 	statusUpdater      *status.MigrationStatusUpdater
+
+	unschedulablePendingTimeoutSeconds int64
+	catchAllPendingTimeoutSeconds      int64
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -103,6 +120,9 @@ func NewMigrationController(templateService services.TemplateService,
 		migrationStartLock: &sync.Mutex{},
 		clusterConfig:      clusterConfig,
 		statusUpdater:      status.NewMigrationStatusUpdater(clientset),
+
+		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
+		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -528,6 +548,18 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		}
 	}
 
+	// This is used by the functional test to simulate failures
+	computeImageOverride, ok := migration.Annotations[virtv1.FuncTestMigrationTargetImageOverrideAnnotation]
+	if ok && computeImageOverride != "" {
+		for i, container := range templatePod.Spec.Containers {
+			if container.Name == "compute" {
+				container.Image = computeImageOverride
+				templatePod.Spec.Containers[i] = container
+				break
+			}
+		}
+	}
+
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
@@ -791,6 +823,121 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	return nil
 }
 
+func isPodPendingUnschedulable(pod *k8sv1.Pod) bool {
+
+	if pod.Status.Phase != k8sv1.PodPending || pod.DeletionTimestamp != nil {
+		return false
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == k8sv1.PodScheduled &&
+			condition.Status == k8sv1.ConditionFalse &&
+			condition.Reason == k8sv1.PodReasonUnschedulable {
+
+			return true
+		}
+	}
+	return false
+}
+
+func timeSinceCreationSeconds(objectMeta *metav1.ObjectMeta) int64 {
+
+	now := time.Now().UTC().Unix()
+	creationTime := objectMeta.CreationTimestamp.Time.UTC().Unix()
+	seconds := now - creationTime
+	if seconds < 0 {
+		seconds = 0
+	}
+
+	return seconds
+}
+
+func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, reason string) error {
+
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return err
+	}
+
+	c.podExpectations.ExpectDeletions(migrationKey, []string{controller.PodKey(pod)})
+	err = c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+	if err != nil {
+		c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleted migration target pod: %v", err)
+		return fmt.Errorf("failed to delete vmi migration target pod that reached pending pod timeout period.: %v", err)
+	}
+	log.Log.Object(vmi).Infof("Deleted pending migration target pod %s/%s with uuid %s for migration %s with uuid %s with reason [%s]", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID), reason)
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason, pod.Name)
+	return nil
+}
+
+func (c *MigrationController) getUnschedulablePendingTimeoutSeconds(migration *virtv1.VirtualMachineInstanceMigration) int64 {
+	timeout := c.unschedulablePendingTimeoutSeconds
+	customTimeoutStr, ok := migration.Annotations[virtv1.MigrationUnschedulablePodTimeoutSecondsAnnotation]
+	if !ok {
+		return timeout
+	}
+
+	newTimeout, err := strconv.Atoi(customTimeoutStr)
+	if err != nil {
+		log.Log.Object(migration).Reason(err).Errorf("Unable to parse unschedulable pending timeout value for migration")
+		return timeout
+	}
+
+	return int64(newTimeout)
+}
+
+func (c *MigrationController) getCatchAllPendingTimeoutSeconds(migration *virtv1.VirtualMachineInstanceMigration) int64 {
+	timeout := c.catchAllPendingTimeoutSeconds
+	customTimeoutStr, ok := migration.Annotations[virtv1.MigrationPendingPodTimeoutSecondsAnnotation]
+	if !ok {
+		return timeout
+	}
+
+	newTimeout, err := strconv.Atoi(customTimeoutStr)
+	if err != nil {
+		log.Log.Object(migration).Reason(err).Errorf("Unable to parse catch all pending timeout value for migration")
+		return timeout
+	}
+
+	return int64(newTimeout)
+}
+
+func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+
+	if pod.Status.Phase != k8sv1.PodPending || pod.DeletionTimestamp != nil || pod.CreationTimestamp.IsZero() {
+		// only check if timeout has occurred if pod is pending and not already marked for deletion
+		return nil
+	}
+
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return err
+	}
+
+	unschedulableTimeout := c.getUnschedulablePendingTimeoutSeconds(migration)
+	catchAllTimeout := c.getCatchAllPendingTimeoutSeconds(migration)
+	secondsSpentPending := timeSinceCreationSeconds(&pod.ObjectMeta)
+
+	if isPodPendingUnschedulable(pod) {
+		if secondsSpentPending >= unschedulableTimeout {
+			return c.deleteTimedOutTargetPod(migration, vmi, pod, "unschedulable pod timeout period exceeded")
+		} else {
+			// Make sure we check this again after some time
+			c.Queue.AddAfter(migrationKey, time.Second*time.Duration(unschedulableTimeout-secondsSpentPending))
+		}
+	}
+
+	if secondsSpentPending >= catchAllTimeout {
+		return c.deleteTimedOutTargetPod(migration, vmi, pod, "pending pod timeout period exceeded")
+	} else {
+		// Make sure we check this again after some time
+		c.Queue.AddAfter(migrationKey, time.Second*time.Duration(catchAllTimeout-secondsSpentPending))
+	}
+
+	return nil
+}
+
 func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
@@ -842,7 +989,14 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 					return c.createAttachmentPod(migration, vmi, pod)
 				}
 			}
+		} else {
+			return c.handlePendingPodTimeout(migration, vmi, pod)
 		}
+	case virtv1.MigrationScheduling:
+		if targetPodExists {
+			return c.handlePendingPodTimeout(migration, vmi, pod)
+		}
+
 	case virtv1.MigrationScheduled:
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
