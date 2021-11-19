@@ -137,6 +137,12 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(res).To(BeTrue())
 	})
 
+	It("should add SEV label", func() {
+		expectNodePatch(kubevirtv1.SEVLabel)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+
 	AfterEach(func() {
 		close(stop)
 	})

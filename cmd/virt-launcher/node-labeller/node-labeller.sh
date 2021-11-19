@@ -14,6 +14,11 @@ if [ -e /dev/kvm ]; then
     VIRTTYPE=kvm
 fi
 
+if [ -e /dev/sev ]; then
+  # QEMU requires RW access to query SEV capabilities
+  chmod o+rw /dev/sev
+fi
+
 libvirtd -d
 
 virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
