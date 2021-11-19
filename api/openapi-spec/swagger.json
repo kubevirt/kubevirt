@@ -12288,7 +12288,7 @@
     ],
     "properties": {
      "image": {
-      "description": "Image that container initrd / kernel files.",
+      "description": "Image that contains initrd / kernel files.",
       "type": "string"
      },
      "imagePullPolicy": {

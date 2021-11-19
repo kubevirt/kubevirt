@@ -128,7 +128,7 @@ func (EFI) SwaggerDoc() map[string]string {
 func (KernelBootContainer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "If set, the VM will be booted from the defined kernel / initrd.",
-		"image":           "Image that container initrd / kernel files.",
+		"image":           "Image that contains initrd / kernel files.",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.\n+optional",
 		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
 		"kernelPath":      "The fully-qualified path to the kernel image in the host OS\n+optional",

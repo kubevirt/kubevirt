@@ -21480,7 +21480,7 @@ func schema_client_go_apis_core_v1_KernelBootContainer(ref common.ReferenceCallb
 				Properties: map[string]spec.Schema{
 					"image": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Image that container initrd / kernel files.",
+							Description: "Image that contains initrd / kernel files.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
