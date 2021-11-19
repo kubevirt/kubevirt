@@ -23,6 +23,8 @@ import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 )
 
+const DefaultInterfaceName = "default"
+
 // WithInterface adds a Domain Device Interface.
 func WithInterface(iface kvirtv1.Interface) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
@@ -50,10 +52,10 @@ func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interfa
 	}
 }
 
-// InterfaceDeviceWithBridgeBinding returns an Interface named "default" with bridge binding.
-func InterfaceDeviceWithBridgeBinding() kvirtv1.Interface {
+// InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
+func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	return kvirtv1.Interface{
-		Name: "default",
+		Name: name,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Bridge: &kvirtv1.InterfaceBridge{},
 		},

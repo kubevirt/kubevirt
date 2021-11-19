@@ -103,6 +103,6 @@ func fedoraMasqueradeVMI() *v1.VirtualMachineInstance {
 
 func fedoraBridgeBindingVMI() *v1.VirtualMachineInstance {
 	return libvmi.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding()),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
