@@ -978,4 +978,25 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
 	})
+
+	It("should add SEV node label selector with SEV workload", func() {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.SEVLabel: ""}))
+	})
+
+	It("should not add SEV node label selector when no SEV workload", func() {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
+	})
+
+	It("should not overwrite existing node label selectors with SEV workload", func() {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
+		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
+	})
 })
