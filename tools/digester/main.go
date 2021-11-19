@@ -30,7 +30,8 @@ import (
 	"sync"
 	"time"
 
-	docker "docker.io/go-docker"
+	docker "github.com/docker/docker/client"
+
 )
 
 const (

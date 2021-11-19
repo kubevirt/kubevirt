@@ -15,7 +15,7 @@ require (
 	github.com/imdario/mergo v0.3.12
 	github.com/kubevirt/cluster-network-addons-operator v0.61.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.16.0
+	github.com/onsi/gomega v1.17.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.0
 	github.com/operator-framework/api v0.10.7
@@ -36,7 +36,7 @@ require (
 	kubevirt.io/containerized-data-importer-api v1.41.1
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
 	kubevirt.io/ssp-operator v0.13.0-rc.1
-	sigs.k8s.io/controller-runtime v0.10.2
+	sigs.k8s.io/controller-runtime v0.10.3
 	sigs.k8s.io/controller-tools v0.7.0
 )
 

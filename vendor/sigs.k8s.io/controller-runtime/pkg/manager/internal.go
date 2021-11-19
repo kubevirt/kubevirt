@@ -380,7 +380,7 @@ func (cm *controllerManager) serveMetrics() {
 	}
 	// Run the server
 	cm.startRunnable(RunnableFunc(func(_ context.Context) error {
-		cm.logger.Info("starting metrics server", "path", defaultMetricsEndpoint)
+		cm.logger.Info("Starting metrics server", "path", defaultMetricsEndpoint)
 		if err := server.Serve(cm.metricsListener); err != nil && err != http.ErrServerClosed {
 			return err
 		}
@@ -425,11 +425,13 @@ func (cm *controllerManager) serveHealthProbes() {
 		cm.healthzStarted = true
 	}()
 
-	// Shutdown the server when stop is closed
-	<-cm.internalProceduresStop
-	if err := server.Shutdown(cm.shutdownCtx); err != nil {
-		cm.errChan <- err
-	}
+	go func() {
+		// Shutdown the server when stop is closed
+		<-cm.internalProceduresStop
+		if err := server.Shutdown(cm.shutdownCtx); err != nil {
+			cm.errChan <- err
+		}
+	}()
 }
 
 func (cm *controllerManager) Start(ctx context.Context) (err error) {
@@ -473,8 +475,13 @@ func (cm *controllerManager) Start(ctx context.Context) (err error) {
 
 	// Serve health probes
 	if cm.healthProbeListener != nil {
-		go cm.serveHealthProbes()
+		cm.serveHealthProbes()
 	}
+
+	// Webhooks MUST start before any cache is populated, otherwise there is a race condition
+	// between conversion webhooks and the cache sync (usually initial list) which causes the webhooks
+	// to never start because no cache can be populated.
+	cm.startWebhookRunnables()
 
 	go cm.startNonLeaderElectionRunnables()
 
@@ -573,13 +580,10 @@ func (cm *controllerManager) waitForRunnableToEnd(shutdownCancel context.CancelF
 	return nil
 }
 
-func (cm *controllerManager) startNonLeaderElectionRunnables() {
+func (cm *controllerManager) startWebhookRunnables() {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	// First start any webhook servers, which includes conversion, validation, and defaulting
-	// webhooks that are registered.
-	//
 	// WARNING: Webhooks MUST start before any cache is populated, otherwise there is a race condition
 	// between conversion webhooks and the cache sync (usually initial list) which causes the webhooks
 	// to never start because no cache can be populated.
@@ -588,6 +592,11 @@ func (cm *controllerManager) startNonLeaderElectionRunnables() {
 			cm.startRunnable(c)
 		}
 	}
+}
+
+func (cm *controllerManager) startNonLeaderElectionRunnables() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
 	// Start and wait for caches.
 	cm.waitForCache(cm.internalCtx)
