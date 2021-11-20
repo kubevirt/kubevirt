@@ -64,55 +64,6 @@ metadata:
   name: multus
   namespace: kube-system
 ---
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: multus-cni-config
-  namespace: kube-system
-  labels:
-    tier: node
-    app: multus
-data:
-  # NOTE: If you'd prefer to manually apply a configuration file, you may create one here.
-  # In the case you'd like to customize the Multus installation, you should change the arguments to the Multus pod
-  # change the "args" line below from
-  # - "--multus-conf-file=auto"
-  # to:
-  # "--multus-conf-file=/tmp/multus-conf/70-multus.conf"
-  # Additionally -- you should ensure that the name "70-multus.conf" is the alphabetically first name in the
-  # /etc/cni/net.d/ directory on each node, otherwise, it will not be used by the Kubelet.
-  cni-conf.json: |
-    {
-      "name": "multus-cni-network",
-      "type": "multus",
-      "capabilities": {
-        "portMappings": true
-      },
-      "delegates": [
-        {
-          "cniVersion": "0.3.1",
-          "name": "default-cni-network",
-          "plugins": [
-            {
-              "type": "flannel",
-              "name": "flannel.1",
-                "delegate": {
-                  "isDefaultGateway": true,
-                  "hairpinMode": true
-                }
-              },
-              {
-                "type": "portmap",
-                "capabilities": {
-                  "portMappings": true
-                }
-              }
-          ]
-        }
-      ],
-      "kubeconfig": "/etc/cni/net.d/multus.d/multus.kubeconfig"
-    }
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -163,8 +114,6 @@ spec:
           mountPath: /host/etc/cni/net.d
         - name: cnibin
           mountPath: /host/opt/cni/bin
-        - name: multus-cfg
-          mountPath: /tmp/multus-conf
       volumes:
         - name: cni
           hostPath:
@@ -172,12 +121,6 @@ spec:
         - name: cnibin
           hostPath:
             path: /opt/cni/bin
-        - name: multus-cfg
-          configMap:
-            name: multus-cni-config
-            items:
-            - key: cni-conf.json
-              path: 70-multus.conf
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -230,8 +173,6 @@ spec:
           mountPath: /host/etc/cni/net.d
         - name: cnibin
           mountPath: /host/opt/cni/bin
-        - name: multus-cfg
-          mountPath: /tmp/multus-conf
       volumes:
         - name: cni
           hostPath:
@@ -239,9 +180,3 @@ spec:
         - name: cnibin
           hostPath:
             path: /opt/cni/bin
-        - name: multus-cfg
-          configMap:
-            name: multus-cni-config
-            items:
-            - key: cni-conf.json
-              path: 70-multus.conf
