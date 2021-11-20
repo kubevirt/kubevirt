@@ -422,6 +422,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.RestartOptions":                                                     schema_kubevirtio_api_core_v1_RestartOptions(ref),
 		"kubevirt.io/api/core/v1.Rng":                                                                schema_kubevirtio_api_core_v1_Rng(ref),
 		"kubevirt.io/api/core/v1.SEV":                                                                schema_kubevirtio_api_core_v1_SEV(ref),
+		"kubevirt.io/api/core/v1.SEVPolicy":                                                          schema_kubevirtio_api_core_v1_SEVPolicy(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredential":                                       schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialPropagationMethod":                      schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
@@ -17512,7 +17513,7 @@ func schema_kubevirtio_api_core_v1_LaunchSecurity(ref common.ReferenceCallback) 
 				Properties: map[string]spec.Schema{
 					"sev": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AMD Secure Encrypted Virtualization (SEV)",
+							Description: "AMD Secure Encrypted Virtualization (SEV).",
 							Ref:         ref("kubevirt.io/api/core/v1.SEV"),
 						},
 					},
@@ -18778,22 +18779,58 @@ func schema_kubevirtio_api_core_v1_SEV(ref common.ReferenceCallback) common.Open
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"policy": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Guest SEV policy",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
+							Description: "Guest policy flags as defined in AMD SEV API specification. Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
+							Ref:         ref("kubevirt.io/api/core/v1.SEVPolicy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.SEVPolicy"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"noKeysSharing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Sharing keys with other guests is disallowed. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"encryptedState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SEV-ES is required. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"noSend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Sending the guest to another platform is disallowed. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"domain": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The guest must not be transmitted to another platform that is not in the domain. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"sev": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The guest must not be transmitted to another platform that is not SEV capable. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

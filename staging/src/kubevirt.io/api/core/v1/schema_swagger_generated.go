@@ -349,15 +349,23 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 
 func (LaunchSecurity) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":    "+k8s:openapi-gen=true",
-		"sev": "AMD Secure Encrypted Virtualization (SEV)",
+		"sev": "AMD Secure Encrypted Virtualization (SEV).",
 	}
 }
 
 func (SEV) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "+k8s:openapi-gen=true",
-		"policy": "Guest SEV policy\n+listType=set",
+		"policy": "Guest policy flags as defined in AMD SEV API specification.\nNote: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
+	}
+}
+
+func (SEVPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"noKeysSharing":  "Sharing keys with other guests is disallowed.\nDefaults to false.\n+optional",
+		"encryptedState": "SEV-ES is required.\nDefaults to false.\n+optional",
+		"noSend":         "Sending the guest to another platform is disallowed.\nDefaults to false.\n+optional",
+		"domain":         "The guest must not be transmitted to another platform that is not in the domain.\nDefaults to false.\n+optional",
+		"sev":            "The guest must not be transmitted to another platform that is not SEV capable.\nDefaults to false.\n+optional",
 	}
 }
 

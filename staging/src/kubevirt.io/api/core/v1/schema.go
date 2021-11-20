@@ -601,39 +601,39 @@ type DiskTarget struct {
 	PciAddress string `json:"pciAddress,omitempty"`
 }
 
-//
-// +k8s:openapi-gen=true
 type LaunchSecurity struct {
-	// AMD Secure Encrypted Virtualization (SEV)
+	// AMD Secure Encrypted Virtualization (SEV).
 	SEV *SEV `json:"sev,omitempty"`
 }
 
-//
-// +k8s:openapi-gen=true
 type SEV struct {
-	// Guest SEV policy
-	// +listType=set
-	Policy []SEVPolicy `json:"policy,omitempty"`
+	// Guest policy flags as defined in AMD SEV API specification.
+	// Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
+	Policy *SEVPolicy `json:"policy,omitempty"`
 }
 
-//
-// +k8s:openapi-gen=true
-type SEVPolicy string
-
-const (
-	// Debugging of the guest is disallowed.
-	SEVPolicyNoDebug SEVPolicy = "NoDebug"
+type SEVPolicy struct {
 	// Sharing keys with other guests is disallowed.
-	SEVPolicyNoKeysSharing SEVPolicy = "NoKeysSharing"
+	// Defaults to false.
+	// +optional
+	NoKeysSharing *bool `json:"noKeysSharing,omitempty"`
 	// SEV-ES is required.
-	SEVPolicyEncryptedState SEVPolicy = "EncryptedState"
+	// Defaults to false.
+	// +optional
+	EncryptedState *bool `json:"encryptedState,omitempty"`
 	// Sending the guest to another platform is disallowed.
-	SEVPolicyNoSend SEVPolicy = "NoSend"
+	// Defaults to false.
+	// +optional
+	NoSend *bool `json:"noSend,omitempty"`
 	// The guest must not be transmitted to another platform that is not in the domain.
-	SEVPolicyDomain SEVPolicy = "Domain"
+	// Defaults to false.
+	// +optional
+	Domain *bool `json:"domain,omitempty"`
 	// The guest must not be transmitted to another platform that is not SEV capable.
-	SEVPolicySEV SEVPolicy = "SEV"
-)
+	// Defaults to false.
+	// +optional
+	SEV *bool `json:"sev,omitempty"`
+}
 
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.

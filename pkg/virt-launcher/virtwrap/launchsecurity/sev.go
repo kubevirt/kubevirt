@@ -20,27 +20,40 @@
 package launchsecurity
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func SEVPolicyToBits(policy []v1.SEVPolicy) (uint, error) {
-	sevPolicyToBitMap := map[v1.SEVPolicy]uint{
-		v1.SEVPolicyNoDebug:        (1 << 0),
-		v1.SEVPolicyNoKeysSharing:  (1 << 1),
-		v1.SEVPolicyEncryptedState: (1 << 2),
-		v1.SEVPolicyNoSend:         (1 << 3),
-		v1.SEVPolicyDomain:         (1 << 4),
-		v1.SEVPolicySEV:            (1 << 5),
-	}
-	bits := uint(0)
-	for _, p := range policy {
-		if bit, ok := sevPolicyToBitMap[p]; ok {
-			bits = bits | bit
-		} else {
-			return 0, fmt.Errorf("Unknown SEV policy item: %s", p)
+const (
+	// Guest policy bits as defined in AMD SEV API specification
+	SEVPolicyNoDebug        uint = (1 << 0)
+	SEVPolicyNoKeysSharing  uint = (1 << 1)
+	SEVPolicyEncryptedState uint = (1 << 2)
+	SEVPolicyNoSend         uint = (1 << 3)
+	SEVPolicyDomain         uint = (1 << 4)
+	SEVPolicySEV            uint = (1 << 5)
+)
+
+func SEVPolicyToBits(policy *v1.SEVPolicy) uint {
+	// NoDebug is always true
+	bits := uint(SEVPolicyNoDebug)
+
+	if policy != nil {
+		if policy.NoKeysSharing != nil && *policy.NoKeysSharing {
+			bits = bits | SEVPolicyNoKeysSharing
+		}
+		if policy.EncryptedState != nil && *policy.EncryptedState {
+			bits = bits | SEVPolicyEncryptedState
+		}
+		if policy.NoSend != nil && *policy.NoSend {
+			bits = bits | SEVPolicyNoSend
+		}
+		if policy.Domain != nil && *policy.Domain {
+			bits = bits | SEVPolicyDomain
+		}
+		if policy.SEV != nil && *policy.SEV {
+			bits = bits | SEVPolicySEV
 		}
 	}
-	return bits, nil
+
+	return bits
 }

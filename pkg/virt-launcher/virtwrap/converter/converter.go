@@ -1260,10 +1260,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
 	if c.UseLaunchSecurity {
-		sevPolicyBits, err := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		if err != nil {
-			return err
-		}
+		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
 		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
 		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
 			Type:   "sev",
