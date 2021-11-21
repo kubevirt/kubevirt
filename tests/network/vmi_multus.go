@@ -91,8 +91,9 @@ const (
 )
 
 const (
-	linuxBridgeVlan100Network         = "linux-bridge-net-vlan100"
-	linuxBridgeVlan100WithIPAMNetwork = "linux-bridge-net-ipam"
+	linuxBridgeVlan100Network           = "linux-bridge-net-vlan100"
+	linuxBridgeVlan100WithIPAMNetwork   = "linux-bridge-net-ipam"
+	linuxBridgeWithMACSpoofCheckNetwork = "linux-br-msc"
 )
 
 const (
@@ -570,6 +571,70 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				Expect(err).To(HaveOccurred())
 				testErr := err.(*errors.StatusError)
 				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
+			})
+		})
+
+		Context("Security", func() {
+			BeforeEach(func() {
+				const (
+					bridge11CNIType       = "cnv-bridge"
+					bridge11Name          = "br11"
+					bridge11MACSpoofCheck = true
+				)
+
+				Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault,
+					linuxBridgeWithMACSpoofCheckNetwork,
+					bridge11CNIType,
+					bridge11Name,
+					0,
+					"",
+					bridge11MACSpoofCheck)).To(Succeed())
+			})
+
+			It("Should allow outbound communication from VM under test - only if original MAC address is unchanged", func() {
+				const (
+					vmUnderTestIPAddress = "10.2.1.1"
+					targetVMIPAddress    = "10.2.1.2"
+					bridgeSubnetMask     = "/24"
+				)
+
+				initialMacAddress, err := tests.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				initialMacAddressStr := initialMacAddress.String()
+
+				spoofedMacAddress, err := tests.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				spoofedMacAddressStr := spoofedMacAddress.String()
+
+				linuxBridgeInterfaceWithMACSpoofCheck := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithMACSpoofCheckNetwork)
+
+				By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
+				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
+				libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
+
+				vmiUnderTest := libvmi.NewTestToolingFedora(
+					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask), false))
+				vmiUnderTest = tests.CreateVmiOnNode(vmiUnderTest, nodes.Items[0].Name)
+
+				By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
+				targetVmi := libvmi.NewTestToolingFedora(
+					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask), false))
+				targetVmi = tests.CreateVmiOnNode(targetVmi, nodes.Items[0].Name)
+
+				vmiUnderTest = tests.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
+				tests.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
+
+				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
+
+				Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, spoofedMacAddressStr)).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).NotTo(Succeed(), "Ping target IP with modified MAC should fail")
+
+				Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, initialMacAddressStr)).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with restored original MAC should succeed")
 			})
 		})
 	})
@@ -1362,6 +1427,25 @@ var _ = SIGDescribe("Macvtap", func() {
 		})
 	})
 })
+
+func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName string, newMACAddress string) error {
+	const maxCommandTimeout = 5 * time.Second
+
+	commands := []string{
+		"ip link set dev " + interfaceName + " down",
+		"ip link set dev " + interfaceName + " address " + newMACAddress,
+		"ip link set dev " + interfaceName + " up",
+	}
+
+	for _, cmd := range commands {
+		err := console.RunCommand(vmi, cmd, maxCommandTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to run command: %q on VMI %s, error: %v", cmd, vmi.Name, err)
+		}
+	}
+
+	return nil
+}
 
 func createNetworkAttachmentDefinition(virtClient kubecli.KubevirtClient, name, namespace, nad string) error {
 	return virtClient.RestClient().
