@@ -530,8 +530,8 @@ type VirtualMachineInstanceGuestOSInfo struct {
 type MigrationConfigSource string
 
 const (
-	ClusterWideConfig MigrationConfigSource = "ClusterWideConfig"
-	NamespacedConfig  MigrationConfigSource = "NamespacedConfig"
+	ClusterWideConfig     MigrationConfigSource = "ClusterWideConfig"
+	MigrationPolicyConfig MigrationConfigSource = "MigrationPolicyConfig"
 )
 
 // +k8s:openapi-gen=true

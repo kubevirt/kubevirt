@@ -20,10 +20,11 @@
 package v1alpha1
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 )
 
 // MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs
@@ -79,7 +80,7 @@ type MigrationPolicyList struct {
 // GetMigrationConfByPolicy returns a new migration configuration. The new configuration attributes will be overridden
 // by the migration policy if the specified attributes were defined for this policy. Otherwise they wouldn't change.
 // The boolean returned value indicates if any changes were made to the configurations.
-func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *v1.MigrationConfiguration) (changed bool, err error) {
+func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *k6tv1.MigrationConfiguration) (changed bool, err error) {
 	policySpec := m.Spec
 	changed = false
 
@@ -105,4 +106,77 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 	}
 
 	return changed, nil
+}
+
+// MatchPolicy returns the policy that is matched to the vmi, or nil of no policy is matched.
+//
+// Since every policy can specify VMI and Namespace labels to match to, matching is done by returning the most
+// detailed policy, meaning the policy that matches the VMI and specifies the most labels that matched either
+// the VMI or its namespace labels.
+//
+// If two policies are matched and have the same level of details (i.e. same number of matching labels) the matched
+// policy is chosen by policies' names ordered by lexicographic order. The reason is to create a rather arbitrary yet
+// deterministic way of matching policies.
+func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, vmiNamespace *k8sv1.Namespace) *MigrationPolicy {
+	var mathingPolicies []*MigrationPolicy
+	mostMatchingLabels := 0
+
+	for _, policy := range list.Items {
+		doesMatch, curMatchingLabels := countMatchingLabels(&policy, vmi.Labels, vmiNamespace.Labels)
+
+		if !doesMatch || curMatchingLabels < mostMatchingLabels {
+			continue
+		} else if curMatchingLabels > mostMatchingLabels {
+			mostMatchingLabels = curMatchingLabels
+			mathingPolicies = []*MigrationPolicy{&policy}
+		} else if curMatchingLabels == mostMatchingLabels {
+			mathingPolicies = append(mathingPolicies, &policy)
+		}
+	}
+
+	if len(mathingPolicies) == 0 {
+		return nil
+	} else if len(mathingPolicies) == 1 {
+		return mathingPolicies[0]
+	}
+
+	// If more than one policy is matched with the same number of matching labels it will be chosen by policies names'
+	// lexicographic order
+	firstPolicyNameLexicographicOrder := mathingPolicies[0].Name
+	var firstPolicyNameLexicographicOrderIdx int
+
+	for idx, matchingPolicy := range mathingPolicies {
+		if matchingPolicy.Name < firstPolicyNameLexicographicOrder {
+			firstPolicyNameLexicographicOrder = matchingPolicy.Name
+			firstPolicyNameLexicographicOrderIdx = idx
+		}
+	}
+
+	return mathingPolicies[firstPolicyNameLexicographicOrderIdx]
+}
+
+// countMatchingLabels checks if a policy matches to a VMI and the number of matching labels.
+// In the case that doesMatch is false, matchingLabels needs to be dismissed and not counted on.
+func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map[string]string) (doesMatch bool, matchingLabels int) {
+	doesMatch = true
+
+	countLabelsHelper := func(policyLabels, labelsToMatch map[string]string) {
+		for policyKey, policyValue := range policyLabels {
+			value, exists := labelsToMatch[policyKey]
+			if exists && value == policyValue {
+				matchingLabels++
+			} else {
+				doesMatch = false
+				return
+			}
+		}
+	}
+
+	countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmiLabels)
+	if !doesMatch {
+		return
+	}
+	countLabelsHelper(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespaceLabels)
+
+	return
 }

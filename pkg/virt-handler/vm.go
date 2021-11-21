@@ -34,8 +34,6 @@ import (
 	"strings"
 	"time"
 
-	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-
 	"kubevirt.io/kubevirt/pkg/config"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -2478,28 +2476,27 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration().DeepCopy()
 		origVMI.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
 
-		// Override cluster-wide migration configuration if migration policy exists
-		migrationList, err := d.clientset.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
-
-		var migrationPolicy *migrationsv1.MigrationPolicy
+		vmiNamespace, err := d.clientset.CoreV1().Namespaces().Get(context.Background(), origVMI.Namespace, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Warningf("could not fetch migration policy")
-		} else if len(migrationList.Items) > 0 {
-			migrationPolicy = &migrationList.Items[0]
-			if len(migrationList.Items) > 1 {
-				log.Log.Object(vmi).Reason(err).Errorf("namespace %s contains more than 1 migration policy - this shouldn't happen", vmi.Namespace)
-			}
+			return err
 		}
 
-		if migrationPolicy == nil && err == nil {
-			log.Log.Object(vmi).Reason(err).Infof("migration policy doesn't exist for namespace %s", vmi.Namespace)
-		} else if err == nil {
-			isUpdated, err := migrationPolicy.GetMigrationConfByPolicy(migrationConfiguration)
+		// Override cluster-wide migration configuration if migration policy exists
+		migrationList, err := d.clientset.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		matchedPolicy := migrationList.MatchPolicy(origVMI, vmiNamespace)
+
+		if matchedPolicy == nil {
+			log.Log.Object(vmi).Reason(err).Infof("no migration policy matched for VMI %s", vmi.Name)
+		} else {
+			isUpdated, err := matchedPolicy.GetMigrationConfByPolicy(migrationConfiguration)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
 			} else if isUpdated {
-				origVMI.Status.MigrationState.MigrationConfigSource = v1.NamespacedConfig
-				log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", migrationPolicy.Name)
+				vmi.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
+				log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", matchedPolicy.Name)
 			}
 		}
 

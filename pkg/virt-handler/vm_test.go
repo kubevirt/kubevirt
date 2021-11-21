@@ -183,6 +183,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtClient.EXPECT().CoreV1().Return(clientTest.CoreV1()).AnyTimes()
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+		clientTest.PrependReactor("get", "namespaces", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			act, ok := action.(testing.GetActionImpl)
+			Expect(ok).To(BeTrue())
+			Expect(act.Name).To(Equal(metav1.NamespaceDefault), "only default namespace is expected to be used")
+			namespace := k8sv1.Namespace{
+				TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
+				ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
+			}
+			return true, &namespace, nil
+		})
 
 		migrationsClient = kubevirtfake.NewSimpleClientset()
 		virtClient.EXPECT().MigrationPolicy().Return(
@@ -300,16 +310,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		dom.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{}
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
-	}
-
-	expectMigrationPolicy := func(policy *migrationsv1.MigrationPolicy) {
-		By("Setting expectation for migration policy")
-		policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
-		migrationsClient.Fake.PrependReactor("list", migrations.ResourceMigrationPolicies, func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			_, ok := action.(testing.ListAction)
-			Expect(ok).To(BeTrue())
-			return true, policyList, nil
-		})
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
@@ -1721,7 +1721,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 			client.EXPECT().MigrateVirtualMachine(vmi, getDefaultMigrationOptions())
-			expectMigrationPolicy(&migrationsv1.MigrationPolicy{})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIMigrating)
 		}, 3)
@@ -3102,18 +3101,32 @@ var _ = Describe("VirtualMachineInstance", func() {
 		var stubNumber int64
 		var stubResourceQuantity resource.Quantity
 
+		setClusterMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
+			By("Setting expectation for migration policy")
+			policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
+			migrationsClient.Fake.PrependReactor("list", migrations.ResourceMigrationPolicies, func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				_, ok := action.(testing.ListAction)
+				Expect(ok).To(BeTrue())
+				return true, policyList, nil
+			})
+		}
+
+		matchPolicyToVmi := func(policy *migrationsv1.MigrationPolicy, vmi *v1.VirtualMachineInstance) {
+			labelKey := "mp-key"
+			labelValue := "mp-value"
+
+			vmi.Labels[labelKey] = labelValue
+			policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels = map[string]string{labelKey: labelValue}
+		}
+
 		BeforeEach(func() {
 			stubNumber = 33425
 			stubResourceQuantity = resource.MustParse("25Mi")
 
 			By("Initialize VMI")
-			vmi = api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi = NewScheduledVMI(vmiTestUUID, podTestUUID, host)
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
-			vmi.Status.NodeName = host
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode:                     "othernode",
@@ -3121,6 +3134,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+				MigrationConfigSource:          v1.ClusterWideConfig,
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -3128,7 +3142,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
-			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -3137,29 +3150,39 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			By("Initialize migration policy")
+			setClusterMigrationPolicies()
 			migrationPolicy = kubecli.NewMinimalMigrationPolicy("testpolicy")
+			migrationPolicy.Spec.Selectors = &migrationsv1.Selectors{
+				NamespaceSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{}},
+				VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+			}
 		})
 
-		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
-			By("Defining migration policy")
-			setMigrationPolicy(&migrationPolicy.Spec)
-
-			expectMigrationPolicy(migrationPolicy)
-			expectedConfigs := getDefaultMigrationConfiguration()
+		table.DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
+			By("Defining migration policy, matching it to vmi to posting it into the cluster")
+			defineMigrationPolicy(&migrationPolicy.Spec)
+			matchPolicyToVmi(migrationPolicy, vmi)
+			setClusterMigrationPolicies(*migrationPolicy)
 
 			By("Calculating new migration config and validating it")
+			expectedConfigs := getDefaultMigrationConfiguration()
 			isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(expectedConfigs)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
 			testMigrationConfigs(expectedConfigs)
 
-			By("Expecting that controller will use expected configurations")
+			var expectedPolicySource v1.MigrationConfigSource
 			if expectConfigUpdate {
-				vmi.Status.MigrationState.MigrationConfigSource = v1.NamespacedConfig
+				expectedPolicySource = v1.MigrationPolicyConfig
 			} else {
-				vmi.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
+				expectedPolicySource = v1.ClusterWideConfig
 			}
-			client.EXPECT().MigrateVirtualMachine(vmi, migrationConfigurationToMigrationOptions(expectedConfigs)).Times(1)
+
+			client.EXPECT().MigrateVirtualMachine(gomock.Any(), migrationConfigurationToMigrationOptions(expectedConfigs)).Do(func(migratingVmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+				By("Expecting that controller will use expected configurations")
+				Expect(migratingVmi.ObjectMeta).To(Equal(vmi.ObjectMeta), "the vmi that's migrating is expected to be the vmi defined in test")
+				Expect(migratingVmi.Status.MigrationState.MigrationConfigSource).To(Equal(expectedPolicySource))
+			}).Times(1)
 
 			By("Running the controller")
 			controller.Execute()
