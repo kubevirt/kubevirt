@@ -1344,6 +1344,30 @@ rules:
 - apiGroups:
   - cdi.kubevirt.io
   resources:
+  - dataimportcrons
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datasources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
   - datavolumes
   verbs:
   - create

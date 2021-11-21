@@ -19,8 +19,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	// TODO: move to kubevirt.io/containerized-data-importer-api when SSP will support it
-	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -350,8 +349,12 @@ var _ = Describe("SSP Operands", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "image1"},
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "1 */12 * * *",
-					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url1},
+					Template: cdiv1beta1.DataVolume{
+						Spec: cdiv1beta1.DataVolumeSpec{
+							Source: &cdiv1beta1.DataVolumeSource{
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url1},
+							},
+						},
 					},
 					ManagedDataSource: "image1",
 				},
@@ -361,8 +364,12 @@ var _ = Describe("SSP Operands", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "image2"},
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "2 */12 * * *",
-					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url2},
+					Template: cdiv1beta1.DataVolume{
+						Spec: cdiv1beta1.DataVolumeSpec{
+							Source: &cdiv1beta1.DataVolumeSource{
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url2},
+							},
+						},
 					},
 					ManagedDataSource: "image2",
 				},
@@ -372,8 +379,12 @@ var _ = Describe("SSP Operands", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "image3"},
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "3 */12 * * *",
-					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url3},
+					Template: cdiv1beta1.DataVolume{
+						Spec: cdiv1beta1.DataVolumeSpec{
+							Source: &cdiv1beta1.DataVolumeSource{
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url3},
+							},
+						},
 					},
 					ManagedDataSource: "image3",
 				},
@@ -383,8 +394,12 @@ var _ = Describe("SSP Operands", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "image4"},
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "4 */12 * * *",
-					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url4},
+					Template: cdiv1beta1.DataVolume{
+						Spec: cdiv1beta1.DataVolumeSpec{
+							Source: &cdiv1beta1.DataVolumeSource{
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url4},
+							},
+						},
 					},
 					ManagedDataSource: "image4",
 				},

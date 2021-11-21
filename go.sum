@@ -1964,8 +1964,8 @@ kubevirt.io/controller-lifecycle-operator-sdk v0.2.1 h1:I1b14fnhwrVvQLmgksMo9vgj
 kubevirt.io/controller-lifecycle-operator-sdk v0.2.1/go.mod h1:ZJhLceiY2Gl5CXFGSp5eMGt/sksOiJP0289nAZFCQf0=
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 kubevirt.io/qe-tools v0.1.7/go.mod h1:O1EynUeGswOi4Embakmv+SsGwr+U3ILHgit9pptK2qk=
-kubevirt.io/ssp-operator v0.13.0-rc.1 h1:GdT09MOaswJG3fcHRxiCTGXXyl5ZP7i6YoHtw3Ps80w=
-kubevirt.io/ssp-operator v0.13.0-rc.1/go.mod h1:S7xDUq6ajpqjNncD7EmkdkFMiIpsxwtTk4UfteZa/gc=
+kubevirt.io/ssp-operator v0.13.0-rc.2 h1:2+HHS8IMpW8bJoS91DM37T67pvQJYLFhoNRMiap9q8s=
+kubevirt.io/ssp-operator v0.13.0-rc.2/go.mod h1:x3FPs8QbF9dgNcZ4qivltAcbLsjTZIEj6iqcf3QtTUU=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/letsencrypt v0.0.3/go.mod h1:buyQKZ6IXrRnB7TdkHP0RyEybLx18HHyOSoTyoOLqNY=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=

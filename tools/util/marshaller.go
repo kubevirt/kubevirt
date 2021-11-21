@@ -82,10 +82,6 @@ func fixQuoteIssues(yamlBytes []byte) []byte {
 	re := regexp.MustCompile(`'({{.*?}})'`)
 	s = re.ReplaceAllString(s, "$1")
 
-	// fix double quoted strings by removing unneeded single quotes...
-	s = strings.Replace(s, " '\"", " \"", -1)
-	s = strings.Replace(s, "\"'\n", "\"\n", -1)
-
 	// fix quoted empty square brackets by removing unneeded single quotes...
 	s = strings.Replace(s, " '[]'", " []", -1)
 
