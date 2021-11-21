@@ -1855,6 +1855,16 @@ spec:
               localStorageClassName:
                 description: LocalStorageClassName the name of the local storage class.
                 type: string
+              mediatedDevicesConfiguration:
+                description: MediatedDevicesConfiguration holds information about
+                  MDEV types to be defined on nodes, if available
+                properties:
+                  mediatedDevicesTypes:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
               obsoleteCPUs:
                 description: ObsoleteCPUs allows avoiding scheduling of VMs for obsolete
                   CPU models

@@ -53,6 +53,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	PermittedHostDevices *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
 
+	// MediatedDevicesConfiguration holds information about MDEV types to be defined on nodes, if available
+	// +optional
+	MediatedDevicesConfiguration *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
+
 	// certConfig holds the rotation policy for internal, self-signed certificates
 	// +kubebuilder:default={"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}
 	// +optional
@@ -253,6 +257,13 @@ type MediatedHostDevice struct {
 	// these objects.
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
+}
+
+// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// +k8s:openapi-gen=true
+type MediatedDevicesConfiguration struct {
+	// +listType=atomic
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
 }
 
 // OperandResourceRequirements is a list of resource requirements for the operand workloads pods

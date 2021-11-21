@@ -298,10 +298,11 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		NetworkConfiguration: &kubevirtcorev1.NetworkConfiguration{
 			NetworkInterface: string(kubevirtcorev1.MasqueradeInterface),
 		},
-		MigrationConfiguration: kvLiveMigration,
-		PermittedHostDevices:   toKvPermittedHostDevices(hc.Spec.PermittedHostDevices),
-		ObsoleteCPUModels:      obsoleteCPUs,
-		MinCPUModel:            minCPUModel,
+		MigrationConfiguration:       kvLiveMigration,
+		PermittedHostDevices:         toKvPermittedHostDevices(hc.Spec.PermittedHostDevices),
+		MediatedDevicesConfiguration: toKvMediatedDevicesConfiguration(hc.Spec.MediatedDevicesConfiguration),
+		ObsoleteCPUModels:            obsoleteCPUs,
+		MinCPUModel:                  minCPUModel,
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
@@ -339,6 +340,16 @@ func getObsoleteCPUConfig(hcObsoleteCPUConf *hcov1beta1.HyperConvergedObsoleteCP
 	}
 
 	return obsoleteCPUModels, minCPUModel
+}
+
+func toKvMediatedDevicesConfiguration(mdevsConfig *hcov1beta1.MediatedDevicesConfiguration) *kubevirtcorev1.MediatedDevicesConfiguration {
+	if mdevsConfig == nil {
+		return nil
+	}
+
+	return &kubevirtcorev1.MediatedDevicesConfiguration{
+		MediatedDevicesTypes: mdevsConfig.MediatedDevicesTypes,
+	}
 }
 
 func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtcorev1.PermittedHostDevices {

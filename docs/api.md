@@ -18,6 +18,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [HyperConvergedStatus](#hyperconvergedstatus)
 * [HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy)
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
+* [MediatedDevicesConfiguration](#mediateddevicesconfiguration)
 * [MediatedHostDevice](#mediatedhostdevice)
 * [OperandResourceRequirements](#operandresourcerequirements)
 * [PciHostDevice](#pcihostdevice)
@@ -126,6 +127,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) | {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": false} | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) | {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150} | false |
 | permittedHostDevices | PermittedHostDevices holds information about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
+| mediatedDevicesConfiguration | MediatedDevicesConfiguration holds information about MDEV types to be defined on nodes, if available | *[MediatedDevicesConfiguration](#mediateddevicesconfiguration) |  | false |
 | certConfig | certConfig holds the rotation policy for internal, self-signed certificates | [HyperConvergedCertConfig](#hyperconvergedcertconfig) | {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}} | false |
 | resourceRequirements | ResourceRequirements describes the resource requirements for the operand workloads. | *[OperandResourceRequirements](#operandresourcerequirements) |  | false |
 | scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
@@ -175,6 +177,16 @@ LiveMigrationConfigurations - Live migration limits and timeouts are applied so 
 | bandwidthPerMigration | Bandwidth limit of each migration, in MiB/s. | *string |  | false |
 | completionTimeoutPerGiB | The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included in the calculation. | *int64 | 800 | false |
 | progressTimeout | The migration will be canceled if memory copy fails to make progress in this time, in seconds. | *int64 | 150 | false |
+
+[Back to TOC](#table-of-contents)
+
+## MediatedDevicesConfiguration
+
+MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| mediatedDevicesTypes |  | []string |  | false |
 
 [Back to TOC](#table-of-contents)
 

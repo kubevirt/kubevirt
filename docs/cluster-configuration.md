@@ -226,6 +226,33 @@ spec:
     progressTimeout: 150
 ```
 
+## Automatic Configuration of Mediated Devices (including vGPUs)
+
+Administrators can provide a list of desired mediated devices (vGPU) types.
+KubeVirt will attempt to automatically create the relevant devices on nodes that can support such configuration.
+Currently, it is possible to configure one type per physical card.
+KubeVirt will configure all `available_instances` for each configurable type.
+
+### Example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  mediatedDevicesConfiguration:
+    mediatedDevicesTypes:
+      - nvidia-222
+      - nvidia-228
+      - i915-GVTg_V5_4
+```
+
+This API will facilitate the creation of mediated devices types on cluster
+nodes. However, administrators are expected to use the PermittedHostDevices API
+to allow these devices in the cluster.
+
+
 ## Listing Permitted Host Devices
 Administrators can control which host devices are exposed and permitted to be used in the cluster. Permitted host
 devices in the cluster will need to be allowlisted in KubeVirt CR by its `vendor:product` selector for PCI devices or

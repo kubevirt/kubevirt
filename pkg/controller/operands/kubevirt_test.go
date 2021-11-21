@@ -481,6 +481,87 @@ Version: 1.2.3`)
 
 		})
 
+		Context("test mediated device configuration", func() {
+			It("should propagate the mediated devices configuration from the HC", func() {
+				existKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.MediatedDevicesConfiguration = &hcov1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				mdevConf := foundResource.Spec.Configuration.MediatedDevicesConfiguration
+				Expect(mdevConf).ToNot(BeNil())
+				Expect(mdevConf.MediatedDevicesTypes).To(HaveLen(2))
+				Expect(mdevConf.MediatedDevicesTypes).To(ContainElements("nvidia-222", "nvidia-230"))
+
+			})
+			It("should update the permitted host devices configuration from the HC", func() {
+				existKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				existKv.Spec.Configuration.MediatedDevicesConfiguration = &kubevirtcorev1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+				}
+
+				hco.Spec.MediatedDevicesConfiguration = &hcov1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-181", "nvidia-191", "nvidia-224"},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+
+				By("Check before reconciling", func() {
+					foundResource := &kubevirtcorev1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					mdc := foundResource.Spec.Configuration.MediatedDevicesConfiguration
+					Expect(mdc).ToNot(BeNil())
+					Expect(mdc.MediatedDevicesTypes).To(HaveLen(2))
+					Expect(mdc.MediatedDevicesTypes).To(ContainElements("nvidia-222", "nvidia-230"))
+
+				})
+
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				By("Check after reconcile")
+				mdc := foundResource.Spec.Configuration.MediatedDevicesConfiguration
+				Expect(mdc).ToNot(BeNil())
+				Expect(mdc.MediatedDevicesTypes).To(HaveLen(3))
+				Expect(mdc.MediatedDevicesTypes).To(ContainElements("nvidia-181", "nvidia-191", "nvidia-224"))
+			})
+		})
+
 		Context("test permitted host devices", func() {
 			It("should propagate the permitted host devices configuration from the HC", func() {
 				existKv, err := NewKubeVirt(hco)
