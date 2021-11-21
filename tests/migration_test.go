@@ -2302,7 +2302,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		FContext("with migration policies", func() {
+		Context("with migration policies", func() {
 
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName string) {
 				By("Retrieving the VMI post migration")
@@ -2328,8 +2328,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
 
 					tests.MatchPolicyToVmi(policy, vmi)
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Update(vmi)
-					Expect(err).ToNot(HaveOccurred())
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -2348,8 +2346,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 				confirmMigrationPolicyName(vmi, expectedPolicyName)
 			},
-				// TODO: ihol3 make it work
-				//table.Entry("should override cluster-wide policy if defined", true),
+				table.Entry("should override cluster-wide policy if defined", true),
 				table.Entry("should not affect cluster-wide policy if not defined", false),
 			)
 

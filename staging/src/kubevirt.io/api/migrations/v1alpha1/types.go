@@ -160,6 +160,10 @@ func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, 
 func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map[string]string) (doesMatch bool, matchingLabels int) {
 	doesMatch = true
 
+	if policy.Spec.Selectors == nil {
+		return false, 0
+	}
+
 	countLabelsHelper := func(policyLabels, labelsToMatch map[string]string) {
 		for policyKey, policyValue := range policyLabels {
 			value, exists := labelsToMatch[policyKey]
@@ -172,11 +176,21 @@ func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map
 		}
 	}
 
-	countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmiLabels)
+	areSelectorsAndLabelsNotNil := func(selector *metav1.LabelSelector, labels map[string]string) bool {
+		return selector != nil && selector.MatchLabels != nil && labels != nil
+	}
+
+	if areSelectorsAndLabelsNotNil(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmiLabels) {
+		countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmiLabels)
+	}
+
 	if !doesMatch {
 		return
 	}
-	countLabelsHelper(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespaceLabels)
+
+	if areSelectorsAndLabelsNotNil(policy.Spec.Selectors.NamespaceSelector, vmiLabels) {
+		countLabelsHelper(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespaceLabels)
+	}
 
 	return
 }

@@ -2495,7 +2495,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
 			} else if isUpdated {
-				vmi.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
+				origVMI.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
 				log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", matchedPolicy.Name)
 			}
 		}
