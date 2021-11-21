@@ -2327,6 +2327,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					policy := kubecli.NewMinimalMigrationPolicy("testpolicy")
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
 
+					tests.MatchPolicyToVmi(policy, vmi)
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Update(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 

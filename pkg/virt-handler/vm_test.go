@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests"
+
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -3111,14 +3113,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		}
 
-		matchPolicyToVmi := func(policy *migrationsv1.MigrationPolicy, vmi *v1.VirtualMachineInstance) {
-			labelKey := "mp-key"
-			labelValue := "mp-value"
-
-			vmi.Labels[labelKey] = labelValue
-			policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels = map[string]string{labelKey: labelValue}
-		}
-
 		BeforeEach(func() {
 			stubNumber = 33425
 			stubResourceQuantity = resource.MustParse("25Mi")
@@ -3161,7 +3155,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		table.DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
 			defineMigrationPolicy(&migrationPolicy.Spec)
-			matchPolicyToVmi(migrationPolicy, vmi)
+			tests.MatchPolicyToVmi(migrationPolicy, vmi)
 			setClusterMigrationPolicies(*migrationPolicy)
 
 			By("Calculating new migration config and validating it")

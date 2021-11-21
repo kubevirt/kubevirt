@@ -47,6 +47,8 @@ import (
 	"sync"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -5307,4 +5309,24 @@ func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource
 
 	return createdPvc
 
+}
+
+func MatchPolicyToVmi(policy *migrationsv1.MigrationPolicy, vmi *v1.VirtualMachineInstance) {
+	Expect(policy).ToNot(BeNil())
+	Expect(vmi).ToNot(BeNil())
+
+	if vmi.Labels == nil {
+		vmi.Labels = make(map[string]string)
+	}
+	if policy.Spec.Selectors == nil {
+		policy.Spec.Selectors = &migrationsv1.Selectors{VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}}}
+	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
+		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	}
+
+	labelKey := "mp-key"
+	labelValue := "mp-value"
+
+	vmi.Labels[labelKey] = labelValue
+	policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels = map[string]string{labelKey: labelValue}
 }
