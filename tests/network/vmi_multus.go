@@ -1291,9 +1291,11 @@ var _ = SIGDescribe("Macvtap", func() {
 			var serverVMIPodName string
 			var serverIP string
 
-			getVMMacvtapIfaceIP := func(vmi *v1.VirtualMachineInstance, macAddress string) (string, error) {
+			macvtapIfaceIPReportTimeout := 4 * time.Minute
+
+			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 				var vmiIP string
-				err := wait.PollImmediate(time.Second, 2*time.Minute, func() (done bool, err error) {
+				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 					if err != nil {
 						return false, err
@@ -1339,7 +1341,7 @@ var _ = SIGDescribe("Macvtap", func() {
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
 				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
 
-				serverIP, err = getVMMacvtapIfaceIP(serverVMI, macAddress)
+				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, macAddress, macvtapIfaceIPReportTimeout)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
 			})
 
