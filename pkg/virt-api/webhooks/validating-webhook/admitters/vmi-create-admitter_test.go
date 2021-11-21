@@ -3529,7 +3529,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			secureBoot := false
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{},
@@ -3537,7 +3536,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: &secureBoot,
+						SecureBoot: pointer.BoolPtr(false),
 					},
 				},
 			}
@@ -3569,6 +3568,22 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("SEV requires OVMF"))
+		})
+
+		It("should reject when SecureBoot is enabled", func() {
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{
+					Enabled: pointer.BoolPtr(true),
+				},
+			}
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.BoolPtr(true)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = nil
+			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
 		})
 	})
 })
