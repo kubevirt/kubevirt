@@ -6699,6 +6699,47 @@ var CRDsValidation map[string]string = map[string]string{
           description: Created indicates if the virtual machine is created in the
             cluster
           type: boolean
+        interfaceRequests:
+          description: InterfaceRequests indicates a list of interfaces added or removed
+            from the VMI template and hotplug on an active running VMI.
+          items:
+            properties:
+              addInterfaceOptions:
+                description: AddInterfaceOptions when set indicates a volume should
+                  be added. The details within this field specify how to add the volume
+                properties:
+                  interfaceName:
+                    description: InterfaceName indicates the name of the interface
+                      being plugged into the guest
+                    type: string
+                  networkName:
+                    description: NetworkName indicates the name of the network to
+                      which the interface will be connected
+                    type: string
+                required:
+                - interfaceName
+                - networkName
+                type: object
+              removeInterfaceOptions:
+                description: RemoveInterfaceOptions when set indicates a volume should
+                  be removed. The details within this field specify how to add the
+                  volume
+                properties:
+                  interfaceName:
+                    description: InterfaceName indicates the name of the interface
+                      being removed from the guest
+                    type: string
+                  networkName:
+                    description: NetworkName indicates the name of the network to
+                      which the interface is connected
+                    type: string
+                required:
+                - interfaceName
+                - networkName
+                type: object
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         memoryDumpRequest:
           description: MemoryDumpRequest tracks memory dump request phase and info
             of getting a memory dump to the given pvc
@@ -10838,6 +10879,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: Interfaces represent the details of available network interfaces.
           items:
             properties:
+              hotplugInterface:
+                description: If the interface is hot plugged, this will contain the
+                  hotplug status.
+                type: object
               infoSource:
                 description: 'Specifies the origin of the interface data collected.
                   values: domain, guest-agent, or both'
@@ -24122,6 +24167,49 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Created indicates if the virtual machine is created
                         in the cluster
                       type: boolean
+                    interfaceRequests:
+                      description: InterfaceRequests indicates a list of interfaces
+                        added or removed from the VMI template and hotplug on an active
+                        running VMI.
+                      items:
+                        properties:
+                          addInterfaceOptions:
+                            description: AddInterfaceOptions when set indicates a
+                              volume should be added. The details within this field
+                              specify how to add the volume
+                            properties:
+                              interfaceName:
+                                description: InterfaceName indicates the name of the
+                                  interface being plugged into the guest
+                                type: string
+                              networkName:
+                                description: NetworkName indicates the name of the
+                                  network to which the interface will be connected
+                                type: string
+                            required:
+                            - interfaceName
+                            - networkName
+                            type: object
+                          removeInterfaceOptions:
+                            description: RemoveInterfaceOptions when set indicates
+                              a volume should be removed. The details within this
+                              field specify how to add the volume
+                            properties:
+                              interfaceName:
+                                description: InterfaceName indicates the name of the
+                                  interface being removed from the guest
+                                type: string
+                              networkName:
+                                description: NetworkName indicates the name of the
+                                  network to which the interface is connected
+                                type: string
+                            required:
+                            - interfaceName
+                            - networkName
+                            type: object
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     memoryDumpRequest:
                       description: MemoryDumpRequest tracks memory dump request phase
                         and info of getting a memory dump to the given pvc

@@ -574,6 +574,12 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
+	// If the interface is hot plugged, this will contain the hotplug status.
+	HotplugInterface *HotplugInterfaceStatus `json:"hotplugInterface,omitempty"`
+}
+
+// HotplugInterfaceStatus represents the hotplug status of the interface
+type HotplugInterfaceStatus struct {
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -1448,6 +1454,11 @@ type VirtualMachineStatus struct {
 	// +nullable
 	// +optional
 	MemoryDumpRequest *VirtualMachineMemoryDumpRequest `json:"memoryDumpRequest,omitempty" optional:"true"`
+
+	// InterfaceRequests indicates a list of interfaces added or removed from the VMI template and
+	// hotplug on an active running VMI.
+	// +listType=atomic
+	InterfaceRequests []VirtualMachineInterfaceRequest `json:"interfaceRequests,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1475,6 +1486,15 @@ type VirtualMachineStateChangeRequest struct {
 	Data map[string]string `json:"data,omitempty" optional:"true"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
+}
+
+type VirtualMachineInterfaceRequest struct {
+	// AddInterfaceOptions when set indicates a volume should be added. The details
+	// within this field specify how to add the volume
+	AddInterfaceOptions *AddInterfaceOptions `json:"addInterfaceOptions,omitempty" optional:"true"`
+	// RemoveInterfaceOptions when set indicates a volume should be removed. The details
+	// within this field specify how to add the volume
+	RemoveInterfaceOptions *RemoveInterfaceOptions `json:"removeInterfaceOptions,omitempty" optional:"true"`
 }
 
 // VirtualMachineCondition represents the state of VirtualMachine
@@ -2160,6 +2180,24 @@ type RemoveVolumeOptions struct {
 	// +optional
 	// +listType=atomic
 	DryRun []string `json:"dryRun,omitempty"`
+}
+
+// AddInterfaceOptions is provided when dynamically hot plugging a network interface
+type AddInterfaceOptions struct {
+	// NetworkName indicates the name of the network to which the interface will be connected
+	NetworkName string `json:"networkName"`
+
+	// InterfaceName indicates the name of the interface being plugged into the guest
+	InterfaceName string `json:"interfaceName"`
+}
+
+// RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface
+type RemoveInterfaceOptions struct {
+	// NetworkName indicates the name of the network to which the interface is connected
+	NetworkName string `json:"networkName"`
+
+	// InterfaceName indicates the name of the interface being removed from the guest
+	InterfaceName string `json:"interfaceName"`
 }
 
 type TokenBucketRateLimiter struct {

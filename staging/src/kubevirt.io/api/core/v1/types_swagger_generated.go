@@ -141,13 +141,20 @@ func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"ipAddress":     "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
-		"mac":           "Hardware address of a Virtual Machine interface",
-		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
-		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
-		"interfaceName": "The interface name inside the Virtual Machine",
-		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
-		"queueCount":    "Specifies how many queues are allocated by MultiQueue",
+		"ipAddress":        "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
+		"mac":              "Hardware address of a Virtual Machine interface",
+		"name":             "Name of the interface, corresponds to name of the network assigned to the interface",
+		"ipAddresses":      "List of all IP addresses of a Virtual Machine interface",
+		"interfaceName":    "The interface name inside the Virtual Machine",
+		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
+		"queueCount":       "Specifies how many queues are allocated by MultiQueue",
+		"hotplugInterface": "If the interface is hot plugged, this will contain the hotplug status.",
+	}
+}
+
+func (HotplugInterfaceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "HotplugInterfaceStatus represents the hotplug status of the interface",
 	}
 }
 
@@ -350,6 +357,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"interfaceRequests":      "InterfaceRequests indicates a list of interfaces added or removed from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 	}
 }
 
@@ -373,6 +381,13 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
 		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
+	}
+}
+
+func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"addInterfaceOptions":    "AddInterfaceOptions when set indicates a volume should be added. The details\nwithin this field specify how to add the volume",
+		"removeInterfaceOptions": "RemoveInterfaceOptions when set indicates a volume should be removed. The details\nwithin this field specify how to add the volume",
 	}
 }
 
@@ -652,6 +667,22 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 		"":       "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
 		"name":   "Name represents the name that maps to both the disk and volume that\nshould be removed",
 		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (AddInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+		"networkName":   "NetworkName indicates the name of the network to which the interface will be connected",
+		"interfaceName": "InterfaceName indicates the name of the interface being plugged into the guest",
+	}
+}
+
+func (RemoveInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
+		"networkName":   "NetworkName indicates the name of the network to which the interface is connected",
+		"interfaceName": "InterfaceName indicates the name of the interface being removed from the guest",
 	}
 }
 
