@@ -4265,6 +4265,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 is not set: No sound card is emulated. If SoundDevice
                                 is set but Model is not: ich9'
                               type: string
+                            name:
+                              description: User's defined name for this sound device
+                              type: string
+                          required:
+                          - name
                           type: object
                         useVirtioTransitional:
                           description: Fall back to legacy virtio 0.9 support if virtio
@@ -7249,6 +7254,11 @@ var CRDsValidation map[string]string = map[string]string{
                         not set: No sound card is emulated. If SoundDevice is set
                         but Model is not: ich9'
                       type: string
+                    name:
+                      description: User's defined name for this sound device
+                      type: string
+                  required:
+                  - name
                   type: object
                 useVirtioTransitional:
                   description: Fall back to legacy virtio 0.9 support if virtio bus
@@ -9280,6 +9290,11 @@ var CRDsValidation map[string]string = map[string]string{
                         not set: No sound card is emulated. If SoundDevice is set
                         but Model is not: ich9'
                       type: string
+                    name:
+                      description: User's defined name for this sound device
+                      type: string
+                  required:
+                  - name
                   type: object
                 useVirtioTransitional:
                   description: Fall back to legacy virtio 0.9 support if virtio bus
@@ -11098,6 +11113,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 is not set: No sound card is emulated. If SoundDevice
                                 is set but Model is not: ich9'
                               type: string
+                            name:
+                              description: User's defined name for this sound device
+                              type: string
+                          required:
+                          - name
                           type: object
                         useVirtioTransitional:
                           description: Fall back to legacy virtio 0.9 support if virtio
@@ -14652,6 +14672,12 @@ var CRDsValidation map[string]string = map[string]string{
                                             is emulated. If SoundDevice is set but
                                             Model is not: ich9'
                                           type: string
+                                        name:
+                                          description: User's defined name for this
+                                            sound device
+                                          type: string
+                                      required:
+                                      - name
                                       type: object
                                     useVirtioTransitional:
                                       description: Fall back to legacy virtio 0.9

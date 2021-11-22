@@ -18820,6 +18820,13 @@ func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) com
 				Description: "Represents the user's configuration to emulate sound cards in the VMI.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "User's defined name for this sound device",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
 							Description: "We only support ich9 or ac97. If SoundDevice is not set: No sound card is emulated. If SoundDevice is set but Model is not: ich9",
@@ -18828,6 +18835,7 @@ func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) com
 						},
 					},
 				},
+				Required: []string{"name"},
 			},
 		},
 	}
