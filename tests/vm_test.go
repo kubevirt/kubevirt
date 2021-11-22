@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1620,9 +1621,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return virtualMachine.Status.Ready
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 				})
-				table.DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string, podPhase k8sv1.PodPhase) {
+				table.DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
 					// The estimated execution time of one test is 400 seconds.
-					By("creating a Kernel Boot VMI with a mismatched disk")
+					By("Creating a Kernel Boot VMI with a mismatched disk")
 					vmi := utils.GetVMIKernelBoot()
 					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
 
@@ -1653,16 +1654,30 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						newVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return newVMI.Status.Phase == v1.Failed
-					}, 400*time.Second, 1*time.Second).Should(BeTrue())
+					}, 480*time.Second, 1*time.Second).Should(BeTrue())
 
-					// Virt launcher should be in the Running phase if the Annotation v1.KeepLauncherAfterFailureAnnotation is set to true
-					By(fmt.Sprintf("Verify that the VMI VirtLauncher Pod is in the expected state as %v", podPhase))
+					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to true, the containerStatus of the
+					//   compute container of the virt-launcher pod is kept in the running state.
+					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to false or not set, the virt-launcher pod will become failed.
+					By("Verify that the virt-launcher pod or its container is in the expected state")
 					newVMI, _ := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 					launcherPod := libvmi.GetPodByVirtualMachineInstance(newVMI, newVM.Namespace)
-					Expect(launcherPod.Status.Phase).To(Equal(podPhase))
+
+					if toKeep, _ := strconv.ParseBool(keepLauncher); toKeep {
+						Consistently(func() bool {
+							for _, status := range launcherPod.Status.ContainerStatuses {
+								if status.Name == "compute" && status.State.Running != nil {
+									return true
+								}
+							}
+							return false
+						}, 10*time.Second, 1*time.Second).Should(BeTrue())
+					} else {
+						Eventually(Expect(launcherPod.Status.Phase).To(Equal(k8sv1.PodFailed)), 160*time.Second, 1*time.Second).Should(BeTrue())
+					}
 				},
-					table.Entry("[test_id:7164]VMI launcher pod should fail", "false", k8sv1.PodFailed),
-					table.Entry("[test_id:6993]VMI launcher pod should keep running", "true", k8sv1.PodRunning),
+					table.Entry("[test_id:7164]VMI launcher pod should fail", "false"),
+					table.Entry("[test_id:6993]VMI launcher pod compute container should keep running", "true"),
 				)
 			})
 		})
