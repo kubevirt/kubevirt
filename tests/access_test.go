@@ -329,6 +329,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "unfreeze",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("view", "default")),
+			table.Entry("on vmi softreboot",
+				"virtualmachineinstances", "softreboot",
+				allowUpdateFor("admin", "edit"),
+				denyAllFor("view", "default")),
 		)
 	})
 
@@ -390,6 +394,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			},
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 			)
@@ -433,6 +438,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			},
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/guestosinfo", "get"),
