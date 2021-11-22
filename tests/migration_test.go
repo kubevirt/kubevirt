@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1416,16 +1417,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		FContext("with dedicated CPUs", func() {
+		Context("with dedicated CPUs", func() {
 			var (
+				nodes         []k8sv1.Node
 				migratableVMI *v1.VirtualMachineInstance
-				staticVMIs    []*v1.VirtualMachineInstance
+				pausePod      *k8sv1.Pod
 				workerLabel   = "node-role.kubernetes.io/worker"
-				hostnameLabel = "kubernetes.io/hostname"
+				testLabel1    = "kubevirt.io/testlabel1"
+				testLabel2    = "kubevirt.io/testlabel2"
 			)
 
 			parseVCPUPinOutput := func(vcpuPinOutput string) []int {
-				cpuSet := []int{}
+				var cpuSet []int
 				vcpuPinOutputLines := strings.Split(vcpuPinOutput, "\n")
 				cpuLines := vcpuPinOutputLines[2 : len(vcpuPinOutputLines)-2]
 
@@ -1447,7 +1450,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				return cpuSet
 			}
 
-			getVMICPUSet := func(vmi *v1.VirtualMachineInstance) []int {
+			getLibvirtDomainCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
 				vmiPod := tests.GetPodByVirtualMachineInstance(vmi)
 
 				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient,
@@ -1460,82 +1463,151 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				return parseVCPUPinOutput(stdout)
 			}
 
+			parseSysCpuSet := func(cpuset string) []int {
+				strs := strings.Split(cpuset, ",")
+				ints := make([]int, len(strs))
+				for i, s := range strs {
+					ints[i], _ = strconv.Atoi(s)
+				}
+				return ints
+			}
+
+			getPodCPUSet := func(pod *k8sv1.Pod) []int {
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient,
+					pod,
+					"compute",
+					[]string{"cat", "/sys/fs/cgroup/cpuset/cpuset.cpus"})
+				Expect(stderr).To(BeEmpty())
+				Expect(err).To(BeNil())
+
+				return parseSysCpuSet(stdout)
+			}
+
+			getVirtLauncherCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
+				vmiPod := tests.GetPodByVirtualMachineInstance(vmi)
+
+				return getPodCPUSet(vmiPod)
+			}
+
+			hasCommonCores := func(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) bool {
+				set1 := getVirtLauncherCPUSet(vmi)
+				set2 := getPodCPUSet(pod)
+				for _, corei := range set1 {
+					for _, corej := range set2 {
+						if corei == corej {
+							return true
+						}
+					}
+				}
+				return false
+			}
+
 			BeforeEach(func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
+				By("getting the list of worker nodes that have cpumanager enabled")
+				nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
 					LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
 				})
 				Expect(err).To(BeNil())
-				Expect(nodes).ToNot(BeNil())
-				Expect(len(nodes.Items)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
+				Expect(nodeList).ToNot(BeNil())
+				nodes = nodeList.Items
+				Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
-				dedicatedCPU := &v1.CPU{
+				By("creating a migratable VMI with 2 dedicated CPU cores")
+				migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				migratableVMI.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 uint32(2),
 					DedicatedCPUPlacement: true,
 				}
+				migratableVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+				// TODO? Other tests use only 128Mi + the following but my test cluster doesn't do hugepages apparently
+				//migratableVMI.Spec.Domain.Memory = &v1.Memory{
+				//	Hugepages: &v1.Hugepages{PageSize: "2Mi"},
+				//}
 
-				vmiStartTimeoutSeconds := 30
-
-				// Schedule VMs on all nods except the last, the last one is reserved for the migrated VM
-				for i := 0; i < len(nodes.Items)-1; i++ {
-					nodeHostname := nodes.Items[i].GetLabels()[hostnameLabel]
-
-					staticVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-					staticVMI.Spec.Domain.CPU = dedicatedCPU
-					staticVMI.Spec.NodeSelector = map[string]string{
-						hostnameLabel: nodes.Items[i].GetLabels()[hostnameLabel],
-					}
-
-					staticVMI = runVMIAndExpectLaunch(staticVMI, vmiStartTimeoutSeconds)
-					staticVMIs = append(staticVMIs, staticVMI)
-					Expect(staticVMI.Status.NodeName).To(Equal(nodeHostname))
+				By("creating a template for a pause pod with 2 dedicated CPU cores")
+				pausePod = tests.RenderPod("pause-", nil, nil)
+				pausePod.Spec.Containers[0].Name = "compute"
+				//pausePod.Spec.Containers[0].Image = "gcr.io/google_containers/pause-amd64:3.0"
+				pausePod.Spec.Containers[0].Image = "gcr.io/google-containers/alpine-with-bash:1.0"
+				pausePod.Spec.Containers[0].Command = []string{"sleep"}
+				pausePod.Spec.Containers[0].Args = []string{"3600"}
+				pausePod.Spec.Containers[0].Resources = k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("2"),
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					},
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("2"),
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					},
 				}
-
-				migratableVMINode := nodes.Items[len(nodes.Items)-1]
-				migratableVMISourceHostname := migratableVMINode.GetLabels()[hostnameLabel]
-
-				migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				migratableVMI.Spec.Domain.CPU = dedicatedCPU
-				migratableVMI.Spec.Affinity = &k8sv1.Affinity{
+				pausePod.Spec.Affinity = &k8sv1.Affinity{
 					NodeAffinity: &k8sv1.NodeAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
-							{
-								Weight: 1,
-								Preference: k8sv1.NodeSelectorTerm{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{
 									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{
-											Key:      hostnameLabel,
-											Operator: k8sv1.NodeSelectorOpIn,
-											Values:   []string{migratableVMISourceHostname},
-										},
+										{Key: testLabel2, Operator: k8sv1.NodeSelectorOpIn, Values: []string{"true"}},
 									},
 								},
 							},
 						},
 					},
 				}
-
-				migratableVMI = runVMIAndExpectLaunch(migratableVMI, vmiStartTimeoutSeconds)
-				Expect(migratableVMI.Status.NodeName).To(Equal(migratableVMISourceHostname))
 			})
 
 			AfterEach(func() {
-				err = virtClient.VirtualMachineInstance(migratableVMI.GetNamespace()).Delete(migratableVMI.GetName(), &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
-
-				for i := range staticVMIs {
-					err = virtClient.VirtualMachineInstance(staticVMIs[i].GetNamespace()).Delete(staticVMIs[i].GetName(), &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
-				}
+				tests.RemoveLabelFromNode(nodes[0].Name, testLabel1)
+				tests.RemoveLabelFromNode(nodes[1].Name, testLabel2)
+				tests.RemoveLabelFromNode(nodes[1].Name, testLabel1)
 			})
 
 			It("should successfully update a VMI's CPU set on migration", func() {
-				fmt.Println("")
+				By("ensuring at least 2 worker nodes have cpumanager")
+				Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
-				fmt.Printf("%s, %v, %s\n", migratableVMI.GetName(), getVMICPUSet(migratableVMI), migratableVMI.Status.NodeName)
+				By("starting a VMI on the first node of the list")
+				tests.AddLabelToNode(nodes[0].Name, testLabel1, "true")
+				vmi := tests.CreateVmiOnNodeLabeled(migratableVMI, testLabel1, "true")
 
-				for i := range staticVMIs {
-					fmt.Printf("%s, %v, %s\n", staticVMIs[i].GetName(), getVMICPUSet(staticVMIs[i]), staticVMIs[i].Status.NodeName)
+				By("waiting until the VirtualMachineInstance starts")
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("ensuring the VMI started on the correct node")
+				Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
+
+				By("reserving the cores used by the VMI on the second node")
+				var pods []*k8sv1.Pod
+				var pausePodCurrent *k8sv1.Pod
+				tests.AddLabelToNode(nodes[1].Name, testLabel2, "true")
+				for pausePodCurrent = tests.RunPod(pausePod); !hasCommonCores(vmi, pausePodCurrent); pods = append(pods, pausePodCurrent) {
+					By("creating another pod since last didn't have common cores with the VMI")
+					pausePodCurrent = tests.RunPod(pausePod)
 				}
+
+				By("deleting the pods that don't have cores in common with the VMI")
+				for _, pod := range pods {
+					virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+				}
+
+				By("migrating the VMI from first node to second node")
+				tests.AddLabelToNode(nodes[1].Name, testLabel1, "true")
+				cpuSetSource := getVirtLauncherCPUSet(vmi)
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("ensuring the target cpuset is different from the source")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+				cpuSetTarget := getVirtLauncherCPUSet(vmi)
+				Expect(reflect.DeepEqual(cpuSetSource, cpuSetTarget)).To(BeFalse())
+
+				By("ensuring the libvirt domain cpuset is equal to the virt-launcher pod cpuset")
+				cpuSetTargetLibvirt := getLibvirtDomainCPUSet(vmi)
+				Expect(reflect.DeepEqual(cpuSetTargetLibvirt, cpuSetTarget)).To(BeTrue())
 			})
 		})
 

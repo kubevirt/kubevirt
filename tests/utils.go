@@ -1674,32 +1674,10 @@ func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 }
 
 func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
-	pods, err := getPodsByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace)
+	pod, err := GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, "")
 	util2.PanicOnError(err)
 
-	if len(pods.Items) != 1 {
-		util2.PanicOnError(fmt.Errorf("found wrong number of pods for VMI '%v', count: %d", vmi, len(pods.Items)))
-	}
-
-	return &pods.Items[0]
-}
-
-func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-
-	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
-
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
-		metav1.ListOptions{LabelSelector: labelSelector},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return pods, nil
+	return pod
 }
 
 func GetRunningPodByLabel(label string, labelType string, namespace string, node string) (*k8sv1.Pod, error) {
@@ -4090,8 +4068,8 @@ func SkipIfMigrationIsNotPossible() {
 	}
 }
 
-// CreateVmiOnNode creates a VMI on the specified node
-func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
+// CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
+func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -4101,7 +4079,7 @@ func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.Virtua
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 					{
 						MatchExpressions: []k8sv1.NodeSelectorRequirement{
-							{Key: KubernetesIoHostName, Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+							{Key: nodeLabel, Operator: k8sv1.NodeSelectorOpIn, Values: []string{labelValue}},
 						},
 					},
 				},
@@ -4112,6 +4090,11 @@ func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.Virtua
 	vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi
+}
+
+// CreateVmiOnNode creates a VMI on the specified node
+func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
+	return CreateVmiOnNodeLabeled(vmi, KubernetesIoHostName, nodeName)
 }
 
 // RunCommandOnVmiPod runs specified command on the virt-launcher pod
