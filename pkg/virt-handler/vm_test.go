@@ -122,6 +122,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var stop chan struct{}
 	var wg *sync.WaitGroup
 	var eventChan chan watch.Event
+	var namespace k8sv1.Namespace
 
 	var _true, _false bool
 
@@ -185,14 +186,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtClient.EXPECT().CoreV1().Return(clientTest.CoreV1()).AnyTimes()
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+		namespace = k8sv1.Namespace{
+			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
+		}
 		clientTest.PrependReactor("get", "namespaces", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			act, ok := action.(testing.GetActionImpl)
 			Expect(ok).To(BeTrue())
 			Expect(act.Name).To(Equal(metav1.NamespaceDefault), "only default namespace is expected to be used")
-			namespace := k8sv1.Namespace{
-				TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
-				ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
-			}
 			return true, &namespace, nil
 		})
 
@@ -3099,7 +3100,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	Context("Migration policy", func() {
 
 		var vmi *v1.VirtualMachineInstance
-		var migrationPolicy *migrationsv1.MigrationPolicy
 		var stubNumber int64
 		var stubResourceQuantity resource.Quantity
 
@@ -3145,17 +3145,43 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			By("Initialize migration policy")
 			setClusterMigrationPolicies()
-			migrationPolicy = kubecli.NewMinimalMigrationPolicy("testpolicy")
-			migrationPolicy.Spec.Selectors = &migrationsv1.Selectors{
-				NamespaceSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{}},
-				VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+		})
+
+		Context("precedence", func() {
+
+			type policyInfo struct {
+				name                    string
+				vmiMatchingLabels       int
+				namespaceMatchingLabels int
 			}
+
+			table.DescribeTable("must be done correctly", func(expectedMatchedPolicyName string, policiesToDefine ...policyInfo) {
+				policies := make([]migrationsv1.MigrationPolicy, 0)
+
+				for _, info := range policiesToDefine {
+					policy := tests.GetPolicyMatchedToVmi(info.name, vmi, &namespace, info.vmiMatchingLabels, info.namespaceMatchingLabels)
+					policies = append(policies, *policy)
+				}
+
+				policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
+				actualMatchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+
+				Expect(actualMatchedPolicy.Name).To(Equal(expectedMatchedPolicyName))
+			},
+				table.Entry("only one policy should be matched", "one", policyInfo{"one", 1, 4}),
+				table.Entry("most detail policy should be matched", "two",
+					policyInfo{"one", 1, 4}, policyInfo{"two", 4, 2}),
+				table.FEntry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order", "one",
+					policyInfo{"one", 1, 2}, policyInfo{"two", 2, 1}),
+				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order", "a_two",
+					policyInfo{"one", 1, 2}, policyInfo{"a_two", 2, 1}),
+			)
 		})
 
 		table.DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
+			migrationPolicy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 1, 0)
 			defineMigrationPolicy(&migrationPolicy.Spec)
-			tests.MatchPolicyToVmi(migrationPolicy, vmi)
 			setClusterMigrationPolicies(*migrationPolicy)
 
 			By("Calculating new migration config and validating it")

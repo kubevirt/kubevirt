@@ -2324,10 +2324,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				var expectedPolicyName string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := kubecli.NewMinimalMigrationPolicy("testpolicy")
+					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, )
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
-
-					tests.MatchPolicyToVmi(policy, vmi)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())

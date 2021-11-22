@@ -5311,22 +5311,46 @@ func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource
 
 }
 
-func MatchPolicyToVmi(policy *migrationsv1.MigrationPolicy, vmi *v1.VirtualMachineInstance) {
-	Expect(policy).ToNot(BeNil())
+func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
 	Expect(vmi).ToNot(BeNil())
+	Expect(namespace).ToNot(BeNil())
+	Expect(name).ToNot(BeEmpty())
+
+	policy := kubecli.NewMinimalMigrationPolicy(name)
 
 	if vmi.Labels == nil {
 		vmi.Labels = make(map[string]string)
 	}
-	if policy.Spec.Selectors == nil {
-		policy.Spec.Selectors = &migrationsv1.Selectors{VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}}}
-	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
-		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	if namespace.Labels == nil {
+		namespace.Labels = make(map[string]string)
 	}
 
-	labelKey := "mp-key"
-	labelValue := "mp-value"
+	if policy.Spec.Selectors == nil {
+		policy.Spec.Selectors = &migrationsv1.Selectors{
+			VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+		}
+	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
+		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	} else if policy.Spec.Selectors.NamespaceSelector == nil {
+		policy.Spec.Selectors.NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	}
 
-	vmi.Labels[labelKey] = labelValue
-	policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels = map[string]string{labelKey: labelValue}
+	labelKeyPattern := "mp-key-%d"
+	labelValuePattern := "mp-value-%d"
+
+	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
+		for i := 0; i < labelCount; i++ {
+			labelKey := fmt.Sprintf(labelKeyPattern, i)
+			labelValue := fmt.Sprintf(labelValuePattern, i)
+
+			vmiOrNSLabels[labelKey] = labelValue
+			policyLabels[labelKey] = labelValue
+		}
+	}
+
+	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmi.Labels, matchingVmiLabels)
+	applyLabels(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespace.Labels, matchingNSLabels)
+
+	return policy
 }
