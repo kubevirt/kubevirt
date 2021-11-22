@@ -3171,9 +3171,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				table.Entry("only one policy should be matched", "one", policyInfo{"one", 1, 4}),
 				table.Entry("most detail policy should be matched", "two",
 					policyInfo{"one", 1, 4}, policyInfo{"two", 4, 2}),
-				table.FEntry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order", "one",
+				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (1)", "one",
 					policyInfo{"one", 1, 2}, policyInfo{"two", 2, 1}),
-				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order", "a_two",
+				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "a_two",
 					policyInfo{"one", 1, 2}, policyInfo{"a_two", 2, 1}),
 			)
 		})

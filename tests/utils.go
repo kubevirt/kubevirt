@@ -5328,7 +5328,7 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 	if policy.Spec.Selectors == nil {
 		policy.Spec.Selectors = &migrationsv1.Selectors{
 			VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+			NamespaceSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{}},
 		}
 	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
 		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}

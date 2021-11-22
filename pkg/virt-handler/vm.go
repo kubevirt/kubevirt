@@ -2474,7 +2474,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		}
 	} else {
 		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration().DeepCopy()
+		// TODO: how to currently perform update here?
 		origVMI.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
+		vmi.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
 
 		vmiNamespace, err := d.clientset.CoreV1().Namespaces().Get(context.Background(), origVMI.Namespace, metav1.GetOptions{})
 		if err != nil {
@@ -2496,6 +2498,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
 			} else if isUpdated {
 				origVMI.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
+				vmi.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
 				log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", matchedPolicy.Name)
 			}
 		}

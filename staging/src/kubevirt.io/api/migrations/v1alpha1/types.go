@@ -118,7 +118,7 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 // policy is chosen by policies' names ordered by lexicographic order. The reason is to create a rather arbitrary yet
 // deterministic way of matching policies.
 func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, vmiNamespace *k8sv1.Namespace) *MigrationPolicy {
-	var mathingPolicies []*MigrationPolicy
+	var mathingPolicies []MigrationPolicy
 	mostMatchingLabels := 0
 
 	for _, policy := range list.Items {
@@ -128,16 +128,16 @@ func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, 
 			continue
 		} else if curMatchingLabels > mostMatchingLabels {
 			mostMatchingLabels = curMatchingLabels
-			mathingPolicies = []*MigrationPolicy{&policy}
+			mathingPolicies = []MigrationPolicy{policy}
 		} else if curMatchingLabels == mostMatchingLabels {
-			mathingPolicies = append(mathingPolicies, &policy)
+			mathingPolicies = append(mathingPolicies, policy)
 		}
 	}
 
 	if len(mathingPolicies) == 0 {
 		return nil
 	} else if len(mathingPolicies) == 1 {
-		return mathingPolicies[0]
+		return &mathingPolicies[0]
 	}
 
 	// If more than one policy is matched with the same number of matching labels it will be chosen by policies names'
@@ -152,7 +152,7 @@ func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, 
 		}
 	}
 
-	return mathingPolicies[firstPolicyNameLexicographicOrderIdx]
+	return &mathingPolicies[firstPolicyNameLexicographicOrderIdx]
 }
 
 // countMatchingLabels checks if a policy matches to a VMI and the number of matching labels.
