@@ -285,3 +285,25 @@ func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptio
 func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }
+
+func (v *vm) AddInterface(name string, addInterfaceOptions *v1.AddInterfaceOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addinterface")
+
+	JSON, err := json.Marshal(addInterfaceOptions)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(context.Background()).Error()
+}
+
+func (v *vm) RemoveInterface(name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removeinterface")
+
+	JSON, err := json.Marshal(removeInterfaceOptions)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(context.Background()).Error()
+}

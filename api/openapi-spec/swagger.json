@@ -15240,6 +15240,24 @@
      }
     }
    },
+   "v1.AddInterfaceOptions": {
+    "description": "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+    "type": "object",
+    "required": [
+     "networkName",
+     "interfaceName"
+    ],
+    "properties": {
+     "interfaceName": {
+      "description": "InterfaceName indicates the name of the interface being plugged into the guest",
+      "type": "string"
+     },
+     "networkName": {
+      "description": "NetworkName indicates the name of the network to which the interface will be connected",
+      "type": "string"
+     }
+    }
+   },
    "v1.AddVolumeOptions": {
     "description": "AddVolumeOptions is provided when dynamically hot plugging a volume and disk",
     "type": "object",
@@ -17750,6 +17768,24 @@
      }
     }
    },
+   "v1.RemoveInterfaceOptions": {
+    "description": "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
+    "type": "object",
+    "required": [
+     "networkName",
+     "interfaceName"
+    ],
+    "properties": {
+     "interfaceName": {
+      "description": "InterfaceName indicates the name of the interface being removed from the guest",
+      "type": "string"
+     },
+     "networkName": {
+      "description": "NetworkName indicates the name of the network to which the interface is connected",
+      "type": "string"
+     }
+    }
+   },
    "v1.RemoveVolumeOptions": {
     "description": "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
     "type": "object",
@@ -18773,6 +18809,10 @@
       "description": "Specifies how many queues are allocated by MultiQueue",
       "type": "integer",
       "format": "int32"
+     },
+     "ready": {
+      "description": "Ready specifies if the corresponding pod interface is properly configured by CNI",
+      "type": "boolean"
      }
     }
    },
@@ -19225,6 +19265,19 @@
      }
     }
    },
+   "v1.VirtualMachineInterfaceRequest": {
+    "type": "object",
+    "properties": {
+     "addInterfaceOptions": {
+      "description": "AddInterfaceOptions when set indicates a volume should be added. The details within this field specify how to add the volume",
+      "$ref": "#/definitions/v1.AddInterfaceOptions"
+     },
+     "removeInterfaceOptions": {
+      "description": "RemoveInterfaceOptions when set indicates a volume should be removed. The details within this field specify how to add the volume",
+      "$ref": "#/definitions/v1.RemoveInterfaceOptions"
+     }
+    }
+   },
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of virtualmachines",
     "type": "object",
@@ -19379,6 +19432,14 @@
      "created": {
       "description": "Created indicates if the virtual machine is created in the cluster",
       "type": "boolean"
+     },
+     "interfaceRequests": {
+      "description": "InterfaceRequests indicates a list of interfaces added or removed from the VMI template and hotplug on an active running VMI.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInterfaceRequest"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
