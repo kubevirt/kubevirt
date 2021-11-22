@@ -14,7 +14,7 @@ import (
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
-	testscore "kubevirt.io/kubevirt/tests"
+	kvtutil "kubevirt.io/kubevirt/tests/util"
 )
 
 func TestTests(t *testing.T) {
@@ -41,13 +41,13 @@ var _ = BeforeSuite(func() {
 
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: testscore.NamespaceTestDefault,
+			Name: kvtutil.NamespaceTestDefault,
 		},
 	}
 	opt := metav1.CreateOptions{}
 	_, err = virtCli.CoreV1().Namespaces().Create(context.TODO(), ns, opt)
 	if !errors.IsAlreadyExists(err) {
-		testscore.PanicOnError(err)
+		kvtutil.PanicOnError(err)
 	}
 
 	tests.BeforeEach()
@@ -57,5 +57,5 @@ var _ = AfterSuite(func() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 	opt := metav1.DeleteOptions{}
-	testscore.PanicOnError(virtCli.CoreV1().Namespaces().Delete(context.TODO(), testscore.NamespaceTestDefault, opt))
+	kvtutil.PanicOnError(virtCli.CoreV1().Namespaces().Delete(context.TODO(), kvtutil.NamespaceTestDefault, opt))
 })

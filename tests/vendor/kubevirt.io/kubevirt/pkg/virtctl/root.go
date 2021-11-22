@@ -10,11 +10,16 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
+	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
+	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
+	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
@@ -66,13 +71,16 @@ func NewVirtctlCommand() *cobra.Command {
 	AddGlogFlags(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.AddCommand(
+		configuration.NewListPermittedDevices(clientConfig),
 		console.NewCommand(clientConfig),
+		usbredir.NewCommand(clientConfig),
 		vnc.NewCommand(clientConfig),
+		ssh.NewCommand(clientConfig),
+		portforward.NewCommand(clientConfig),
 		vm.NewStartCommand(clientConfig),
 		vm.NewStopCommand(clientConfig),
 		vm.NewRestartCommand(clientConfig),
 		vm.NewMigrateCommand(clientConfig),
-		vm.NewRenameCommand(clientConfig),
 		vm.NewGuestOsInfoCommand(clientConfig),
 		vm.NewUserListCommand(clientConfig),
 		vm.NewFSListCommand(clientConfig),
@@ -83,6 +91,7 @@ func NewVirtctlCommand() *cobra.Command {
 		expose.NewExposeCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
+		guestfs.NewGuestfsShellCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd
@@ -103,8 +112,9 @@ func GetProgramName(binary string) string {
 
 func Execute() {
 	log.InitializeLogging(programName)
-	if err := NewVirtctlCommand().Execute(); err != nil {
-		fmt.Println(strings.TrimSpace(err.Error()))
+	cmd := NewVirtctlCommand()
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(cmd.Root().OutOrStdout(), strings.TrimSpace(err.Error()))
 		os.Exit(1)
 	}
 }

@@ -277,6 +277,12 @@ func (p *Parameter) AllowDuplicates() *Parameter {
 	return p
 }
 
+// WithValidations is a fluent method to set parameter validations
+func (p *Parameter) WithValidations(val CommonValidations) *Parameter {
+	p.SetValidations(SchemaValidations{CommonValidations: val})
+	return p
+}
+
 // UnmarshalJSON hydrates this items instance with the data from JSON
 func (p *Parameter) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &p.CommonValidations); err != nil {

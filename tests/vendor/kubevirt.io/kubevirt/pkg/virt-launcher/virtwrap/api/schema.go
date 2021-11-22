@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/precond"
 )
 
@@ -91,6 +91,10 @@ const (
 	ReasonPausedPostcopyFailed StateChangeReason = "PostcopyFailed"
 
 	UserAliasPrefix = "ua-"
+
+	FSThawed      = "thawed"
+	FSFrozen      = "frozen"
+	SchedulerFIFO = "fifo"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -102,10 +106,11 @@ type Domain struct {
 }
 
 type DomainStatus struct {
-	Status     LifeCycle
-	Reason     StateChangeReason
-	Interfaces []InterfaceStatus
-	OSInfo     GuestOSInfo
+	Status         LifeCycle
+	Reason         StateChangeReason
+	Interfaces     []InterfaceStatus
+	OSInfo         GuestOSInfo
+	FSFreezeStatus FSFreeze
 }
 
 type DomainSysInfo struct {
@@ -138,6 +143,10 @@ type Timezone struct {
 	Offset int
 }
 
+type FSFreeze struct {
+	Status string
+}
+
 type Filesystem struct {
 	Name       string
 	Mountpoint string
@@ -154,8 +163,9 @@ type User struct {
 
 // DomainGuestInfo represent guest agent info for specific domain
 type DomainGuestInfo struct {
-	Interfaces []InterfaceStatus
-	OSInfo     *GuestOSInfo
+	Interfaces     []InterfaceStatus
+	OSInfo         *GuestOSInfo
+	FSFreezeStatus *FSFreeze
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -187,27 +197,51 @@ type DomainSpec struct {
 	CPU           CPU            `xml:"cpu"`
 	VCPU          *VCPU          `xml:"vcpu"`
 	CPUTune       *CPUTune       `xml:"cputune"`
+	NUMATune      *NUMATune      `xml:"numatune"`
 	IOThreads     *IOThreads     `xml:"iothreads,omitempty"`
 }
 
 type CPUTune struct {
-	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`
-	IOThreadPin []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
-	EmulatorPin *CPUEmulatorPin      `xml:"emulatorpin"`
+	VCPUPin       []CPUTuneVCPUPin     `xml:"vcpupin"`
+	IOThreadPin   []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
+	EmulatorPin   *CPUEmulatorPin      `xml:"emulatorpin"`
+	VCPUScheduler *VCPUScheduler       `xml:"vcpusched,omitempty"`
+}
+
+type NUMATune struct {
+	Memory   NumaTuneMemory `xml:"memory"`
+	MemNodes []MemNode      `xml:"memnode"`
+}
+
+type MemNode struct {
+	CellID  uint32 `xml:"cellid,attr"`
+	Mode    string `xml:"mode,attr"`
+	NodeSet string `xml:"nodeset,attr"`
+}
+
+type NumaTuneMemory struct {
+	Mode    string `xml:"mode,attr"`
+	NodeSet string `xml:"nodeset,attr"`
 }
 
 type CPUTuneVCPUPin struct {
-	VCPU   uint   `xml:"vcpu,attr"`
+	VCPU   uint32 `xml:"vcpu,attr"`
 	CPUSet string `xml:"cpuset,attr"`
 }
 
 type CPUTuneIOThreadPin struct {
-	IOThread uint   `xml:"iothread,attr"`
+	IOThread uint32 `xml:"iothread,attr"`
 	CPUSet   string `xml:"cpuset,attr"`
 }
 
 type CPUEmulatorPin struct {
 	CPUSet string `xml:"cpuset,attr"`
+}
+
+type VCPUScheduler struct {
+	Scheduler string `xml:"scheduler,attr"`
+	Priority  uint   `xml:"priority,attr"`
+	VCPUs     string `xml:"vcpus,attr"`
 }
 
 type VCPU struct {
@@ -230,7 +264,7 @@ type NUMA struct {
 type NUMACell struct {
 	ID           string `xml:"id,attr"`
 	CPUs         string `xml:"cpus,attr"`
-	Memory       string `xml:"memory,attr,omitempty"`
+	Memory       uint64 `xml:"memory,attr,omitempty"`
 	Unit         string `xml:"unit,attr,omitempty"`
 	MemoryAccess string `xml:"memAccess,attr,omitempty"`
 }
@@ -253,6 +287,7 @@ type Features struct {
 	SMM        *FeatureEnabled    `xml:"smm,omitempty"`
 	KVM        *FeatureKVM        `xml:"kvm,omitempty"`
 	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
+	PMU        *FeatureState      `xml:"pmu,omitempty"`
 }
 
 type FeatureHyperv struct {
@@ -362,9 +397,21 @@ type Memory struct {
 
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
-	HugePages *HugePages           `xml:"hugepages,omitempty"`
-	Source    *MemoryBackingSource `xml:"source,omitempty"`
-	Access    *MemoryBackingAccess `xml:"access,omitempty"`
+	HugePages    *HugePages           `xml:"hugepages,omitempty"`
+	Source       *MemoryBackingSource `xml:"source,omitempty"`
+	Access       *MemoryBackingAccess `xml:"access,omitempty"`
+	Allocation   *MemoryAllocation    `xml:"allocation,omitempty"`
+	NoSharePages *NoSharePages        `xml:"nosharepages,omitempty"`
+}
+
+type MemoryAllocationMode string
+
+const (
+	MemoryAllocationModeImmediate MemoryAllocationMode = "immediate"
+)
+
+type MemoryAllocation struct {
+	Mode MemoryAllocationMode `xml:"mode,attr"`
 }
 
 type MemoryBackingSource struct {
@@ -378,12 +425,16 @@ type HugePages struct {
 
 // HugePage mirroring libvirt XML under hugepages
 type HugePage struct {
-	Size string `xml:"size,attr"`
-	Unit string `xml:"unit,attr"`
+	Size    string `xml:"size,attr"`
+	Unit    string `xml:"unit,attr"`
+	NodeSet string `xml:"nodeset,attr"`
 }
 
 type MemoryBackingAccess struct {
 	Mode string `xml:"mode,attr"`
+}
+
+type NoSharePages struct {
 }
 
 type Devices struct {
@@ -402,6 +453,20 @@ type Devices struct {
 	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
+	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
+}
+
+// RedirectedDevice describes a device to be redirected
+// See: https://libvirt.org/formatdomain.html#redirected-devices
+type RedirectedDevice struct {
+	Type   string                 `xml:"type,attr"`
+	Bus    string                 `xml:"bus,attr"`
+	Source RedirectedDeviceSource `xml:"source"`
+}
+
+type RedirectedDeviceSource struct {
+	Mode string `xml:"mode,attr"`
+	Path string `xml:"path,attr"`
 }
 
 type FilesystemDevice struct {
@@ -487,6 +552,7 @@ type Controller struct {
 // BEGIN ControllerDriver
 type ControllerDriver struct {
 	IOThread *uint `xml:"iothread,attr,omitempty"`
+	Queues   *uint `xml:"queues,attr,omitempty"`
 }
 
 // END ControllerDriver
@@ -540,14 +606,14 @@ type DiskTarget struct {
 }
 
 type DiskDriver struct {
-	Cache       string `xml:"cache,attr,omitempty"`
-	ErrorPolicy string `xml:"error_policy,attr,omitempty"`
-	IO          string `xml:"io,attr,omitempty"`
-	Name        string `xml:"name,attr"`
-	Type        string `xml:"type,attr"`
-	IOThread    *uint  `xml:"iothread,attr,omitempty"`
-	Queues      *uint  `xml:"queues,attr,omitempty"`
-	Discard     string `xml:"discard,attr,omitempty"`
+	Cache       string      `xml:"cache,attr,omitempty"`
+	ErrorPolicy string      `xml:"error_policy,attr,omitempty"`
+	IO          v1.DriverIO `xml:"io,attr,omitempty"`
+	Name        string      `xml:"name,attr"`
+	Type        string      `xml:"type,attr"`
+	IOThread    *uint       `xml:"iothread,attr,omitempty"`
+	Queues      *uint       `xml:"queues,attr,omitempty"`
+	Discard     string      `xml:"discard,attr,omitempty"`
 }
 
 type DiskSourceHost struct {
@@ -822,6 +888,7 @@ type Timer struct {
 	TickPolicy string `xml:"tickpolicy,attr,omitempty"`
 	Present    string `xml:"present,attr,omitempty"`
 	Track      string `xml:"track,attr,omitempty"`
+	Frequency  string `xml:"frequency,attr,omitempty"`
 }
 
 //END Clock --------------------
@@ -850,9 +917,6 @@ type ChannelSource struct {
 //END Channel --------------------
 
 //BEGIN Video -------------------
-/*
-<graphics autoport="yes" defaultMode="secure" listen="0" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice" />
-*/
 
 type Video struct {
 	Model VideoModel `xml:"model"`

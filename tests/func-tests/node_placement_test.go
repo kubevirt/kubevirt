@@ -8,7 +8,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	testscore "kubevirt.io/kubevirt/tests"
+	kvtutil "kubevirt.io/kubevirt/tests/util"
 
 	"github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
@@ -34,12 +34,12 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 
 	tests.FlagParse()
 	client, err := kubecli.GetKubevirtClient()
-	testscore.PanicOnError(err)
+	kvtutil.PanicOnError(err)
 
 	workloadsNodes, err := client.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
 		LabelSelector: "node.kubernetes.io/hco-test-node-type==workloads",
 	})
-	testscore.PanicOnError(err)
+	kvtutil.PanicOnError(err)
 
 	if workloadsNodes != nil && len(workloadsNodes.Items) == 1 {
 		workloadsNode = &workloadsNodes.Items[0]
@@ -177,7 +177,7 @@ func getNetworkAddonsConfigs(client kubecli.KubevirtClient) *networkaddonsv1.Net
 	return &cnaoCR
 }
 
-func verifyVMINodePlacement(vmi *kubevirtv1.VirtualMachineInstance, workloadNodeName string) {
+func verifyVMINodePlacement(vmi *kubevirtcorev1.VirtualMachineInstance, workloadNodeName string) {
 	By("Verifying node placement of VMI")
 	ExpectWithOffset(1, vmi.Labels["kubevirt.io/nodeName"]).Should(Equal(workloadNodeName))
 	fmt.Fprintf(GinkgoWriter, "The VMI is running on the right node: %s\n", workloadNodeName)

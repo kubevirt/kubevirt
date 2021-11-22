@@ -32,10 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 type BaseControllerRefManager struct {
@@ -161,7 +161,7 @@ func NewVirtualMachineControllerRefManager(
 	}
 }
 
-// ClaimVirtualMachines tries to take ownership of a list of VirtualMachines.
+// ClaimVirtualMachineInstances tries to take ownership of a list of VirtualMachineInstances.
 //
 // It will reconcile the following:
 //   * Adopt orphans if the selector matches.
@@ -176,7 +176,7 @@ func NewVirtualMachineControllerRefManager(
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of VirtualMachines that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vmis []*virtv1.VirtualMachineInstance, filters ...func(machine *virtv1.VirtualMachineInstance) bool) ([]*virtv1.VirtualMachineInstance, error) {
+func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineInstances(vmis []*virtv1.VirtualMachineInstance, filters ...func(machine *virtv1.VirtualMachineInstance) bool) ([]*virtv1.VirtualMachineInstance, error) {
 	var claimed []*virtv1.VirtualMachineInstance
 	var errlist []error
 
@@ -194,10 +194,10 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vmis []*virtv1
 		return true
 	}
 	adopt := func(obj metav1.Object) error {
-		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
+		return m.AdoptVirtualMachineInstance(obj.(*virtv1.VirtualMachineInstance))
 	}
 	release := func(obj metav1.Object) error {
-		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
+		return m.ReleaseVirtualMachineInstance(obj.(*virtv1.VirtualMachineInstance))
 	}
 
 	for _, vmi := range vmis {
@@ -256,7 +256,7 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ClaimVirtualMachineByName tries to take ownership of a VirtualMachineInstance.
+// ClaimVirtualMachineInstanceByName tries to take ownership of a VirtualMachineInstance.
 //
 // It will reconcile the following:
 //   * Adopt orphans if the selector matches.
@@ -271,7 +271,7 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of VirtualMachines that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vmi *virtv1.VirtualMachineInstance, filters ...func(machine *virtv1.VirtualMachineInstance) bool) (*virtv1.VirtualMachineInstance, error) {
+func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineInstanceByName(vmi *virtv1.VirtualMachineInstance, filters ...func(machine *virtv1.VirtualMachineInstance) bool) (*virtv1.VirtualMachineInstance, error) {
 	match := func(obj metav1.Object) bool {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
 		// Check selector first so filters only run on potentially matching VirtualMachines.
@@ -286,10 +286,10 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vmi *virt
 		return true
 	}
 	adopt := func(obj metav1.Object) error {
-		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
+		return m.AdoptVirtualMachineInstance(obj.(*virtv1.VirtualMachineInstance))
 	}
 	release := func(obj metav1.Object) error {
-		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
+		return m.ReleaseVirtualMachineInstance(obj.(*virtv1.VirtualMachineInstance))
 	}
 
 	ok, err := m.ClaimObject(vmi, match, adopt, release)
@@ -302,9 +302,9 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vmi *virt
 	return nil, nil
 }
 
-// AdoptVirtualMachine sends a patch to take control of the vmi. It returns the error if
+// AdoptVirtualMachineInstance sends a patch to take control of the vmi. It returns the error if
 // the patching fails.
-func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vmi *virtv1.VirtualMachineInstance) error {
+func (m *VirtualMachineControllerRefManager) AdoptVirtualMachineInstance(vmi *virtv1.VirtualMachineInstance) error {
 	if err := m.CanAdopt(); err != nil {
 		return fmt.Errorf("can't adopt VirtualMachineInstance %v/%v (%v): %v", vmi.Namespace, vmi.Name, vmi.UID, err)
 	}
@@ -317,9 +317,9 @@ func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vmi *virtv1.Vir
 	return m.virtualMachineControl.PatchVirtualMachine(vmi.Namespace, vmi.Name, []byte(addControllerPatch))
 }
 
-// ReleaseVirtualMachine sends a patch to free the virtual machine from the control of the controller.
+// ReleaseVirtualMachineInstance sends a patch to free the virtual machine from the control of the controller.
 // It returns the error if the patching fails. 404 and 422 errors are ignored.
-func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vmi *virtv1.VirtualMachineInstance) error {
+func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachineInstance(vmi *virtv1.VirtualMachineInstance) error {
 	log.Log.V(2).Object(vmi).Infof("patching vmi to remove its controllerRef to %s/%s:%s",
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
@@ -357,7 +357,7 @@ func (m *VirtualMachineControllerRefManager) AdoptDataVolume(dataVolume *cdiv1.D
 		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
 		m.Controller.GetName(), m.Controller.GetUID(), dataVolume.UID)
-	return m.virtualMachineControl.PatchVirtualMachine(dataVolume.Namespace, dataVolume.Name, []byte(addControllerPatch))
+	return m.virtualMachineControl.PatchDataVolume(dataVolume.Namespace, dataVolume.Name, []byte(addControllerPatch))
 }
 
 // ReleaseDataVolume sends a patch to free the dataVolume from the control of the controller.
@@ -405,7 +405,7 @@ func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, d
 
 func (r RealVirtualMachineControl) PatchDataVolume(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
-	_, err := r.Clientset.CdiClient().CdiV1alpha1().DataVolumes(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
+	_, err := r.Clientset.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
 	return err
 }
 

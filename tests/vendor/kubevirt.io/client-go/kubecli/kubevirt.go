@@ -27,21 +27,26 @@ package kubecli
 
 import (
 	"io"
+	"net"
+	"time"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
@@ -57,7 +62,11 @@ type KubevirtClient interface {
 	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
+	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
+	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
 	ServerVersion() *ServerVersion
+	ClusterProfiler() *ClusterProfiler
+	GuestfsVersion() *GuestfsVersion
 	RestClient() *rest.RESTClient
 	GeneratedKubeVirtClient() generatedclient.Interface
 	CdiClient() cdiclient.Interface
@@ -137,6 +146,14 @@ func (k kubevirt) VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.Vir
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineRestores(namespace)
 }
 
+func (k kubevirt) VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface {
+	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineFlavors(namespace)
+}
+
+func (k kubevirt) VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface {
+	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineClusterFlavors()
+}
+
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
 	return k.snapshotClient
 }
@@ -152,6 +169,7 @@ type StreamOptions struct {
 
 type StreamInterface interface {
 	Stream(options StreamOptions) error
+	AsConn() net.Conn
 }
 
 type VirtualMachineInstanceInterface interface {
@@ -161,10 +179,15 @@ type VirtualMachineInstanceInterface interface {
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
+	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
+	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(name string) error
 	Unpause(name string) error
+	Freeze(name string, unfreezeTimeout time.Duration) error
+	Unfreeze(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
@@ -207,12 +230,13 @@ type VirtualMachineInterface interface {
 	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachine, err error)
 	Restart(name string) error
 	ForceRestart(name string, graceperiod int) error
-	Start(name string) error
+	Start(name string, startOptions *v1.StartOptions) error
 	Stop(name string) error
+	ForceStop(name string, graceperiod int) error
 	Migrate(name string) error
-	Rename(name string, options *v1.RenameOptions) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
+	PortForward(name string, port int, protocol string) (StreamInterface, error)
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

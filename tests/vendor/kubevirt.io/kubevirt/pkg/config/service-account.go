@@ -22,7 +22,7 @@ package config
 import (
 	"path/filepath"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -32,7 +32,7 @@ func GetServiceAccountDiskPath() string {
 }
 
 // CreateServiceAccountDisk creates the ServiceAccount iso disk which is attached to vmis
-func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance) error {
+func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ServiceAccount != nil {
 			var filesPath []string
@@ -42,7 +42,11 @@ func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetServiceAccountDiskPath()
-			if err := createIsoConfigImage(disk, "", filesPath); err != nil {
+			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+			if err != nil {
+				return err
+			}
+			if err := createIsoConfigImage(disk, "", filesPath, vmiIsoSize); err != nil {
 				return err
 			}
 

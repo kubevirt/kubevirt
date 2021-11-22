@@ -22,7 +22,7 @@ package config
 import (
 	"path/filepath"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -37,7 +37,7 @@ func GetConfigMapDiskPath(volumeName string) string {
 }
 
 // CreateConfigMapDisks creates ConfigMap iso disks which are attached to vmis
-func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance) error {
+func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ConfigMap != nil {
 			var filesPath []string
@@ -47,7 +47,11 @@ func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetConfigMapDiskPath(volume.Name)
-			if err := createIsoConfigImage(disk, volume.ConfigMap.VolumeLabel, filesPath); err != nil {
+			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+			if err != nil {
+				return err
+			}
+			if err := createIsoConfigImage(disk, volume.ConfigMap.VolumeLabel, filesPath, vmiIsoSize); err != nil {
 				return err
 			}
 

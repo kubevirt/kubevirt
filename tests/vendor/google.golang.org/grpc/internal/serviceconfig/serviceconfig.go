@@ -28,13 +28,8 @@ import (
 	externalserviceconfig "google.golang.org/grpc/serviceconfig"
 )
 
-var logger = grpclog.Component("core")
-
-// BalancerConfig wraps the name and config associated with one load balancing
-// policy. It corresponds to a single entry of the loadBalancingConfig field
-// from ServiceConfig.
-//
-// It implements the json.Unmarshaler interface.
+// BalancerConfig is the balancer config part that service config's
+// loadBalancingConfig fields can be unmarshalled to. It's a json unmarshaller.
 //
 // https://github.com/grpc/grpc-proto/blob/54713b1e8bc6ed2d4f25fb4dff527842150b91b2/grpc/service_config/service_config.proto#L247
 type BalancerConfig struct {
@@ -44,15 +39,7 @@ type BalancerConfig struct {
 
 type intermediateBalancerConfig []map[string]json.RawMessage
 
-// UnmarshalJSON implements the json.Unmarshaler interface.
-//
-// ServiceConfig contains a list of loadBalancingConfigs, each with a name and
-// config. This method iterates through that list in order, and stops at the
-// first policy that is supported.
-// - If the config for the first supported policy is invalid, the whole service
-//   config is invalid.
-// - If the list doesn't contain any supported policy, the whole service config
-//   is invalid.
+// UnmarshalJSON implements json unmarshaller.
 func (bc *BalancerConfig) UnmarshalJSON(b []byte) error {
 	var ir intermediateBalancerConfig
 	err := json.Unmarshal(b, &ir)
@@ -64,16 +51,13 @@ func (bc *BalancerConfig) UnmarshalJSON(b []byte) error {
 		if len(lbcfg) != 1 {
 			return fmt.Errorf("invalid loadBalancingConfig: entry %v does not contain exactly 1 policy/config pair: %q", i, lbcfg)
 		}
-
 		var (
 			name    string
 			jsonCfg json.RawMessage
 		)
-		// Get the key:value pair from the map. We have already made sure that
-		// the map contains a single entry.
+		// Get the key:value pair from the map.
 		for name, jsonCfg = range lbcfg {
 		}
-
 		builder := balancer.Get(name)
 		if builder == nil {
 			// If the balancer is not registered, move on to the next config.
@@ -85,7 +69,7 @@ func (bc *BalancerConfig) UnmarshalJSON(b []byte) error {
 		parser, ok := builder.(balancer.ConfigParser)
 		if !ok {
 			if string(jsonCfg) != "{}" {
-				logger.Warningf("non-empty balancer configuration %q, but balancer does not implement ParseConfig", string(jsonCfg))
+				grpclog.Warningf("non-empty balancer configuration %q, but balancer does not implement ParseConfig", string(jsonCfg))
 			}
 			// Stop at this, though the builder doesn't support parsing config.
 			return nil

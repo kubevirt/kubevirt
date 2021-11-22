@@ -24,18 +24,16 @@ package virtconfig
 */
 
 import (
-	"runtime"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
-	BandwithPerMigrationDefault                     = "64Mi"
+	BandwithPerMigrationDefault                     = "0Mi"
 	MigrationAllowAutoConverge               bool   = false
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
@@ -49,10 +47,11 @@ const (
 	DefaultPPC64LEEmulatedMachines                  = "pseries*"
 	DefaultAARCH64EmulatedMachines                  = "virt*"
 	DefaultLessPVCSpaceToleration                   = 10
+	DefaultMinimumReservePVCBytes                   = 131072
 	DefaultNodeSelectors                            = ""
 	DefaultNetworkInterface                         = "bridge"
 	DefaultImagePullPolicy                          = k8sv1.PullIfNotPresent
-	DefaultUseEmulation                             = false
+	DefaultAllowEmulation                           = false
 	DefaultUnsafeMigrationOverride                  = false
 	DefaultPermitSlirpInterface                     = false
 	SmbiosConfigDefaultFamily                       = "KubeVirt"
@@ -65,63 +64,50 @@ const (
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
+	DefaultDiskVerificationMemoryLimitMBytes        = 1200
 	DefaultVirtAPILogVerbosity                      = 2
 	DefaultVirtControllerLogVerbosity               = 2
 	DefaultVirtHandlerLogVerbosity                  = 2
 	DefaultVirtLauncherLogVerbosity                 = 2
 	DefaultVirtOperatorLogVerbosity                 = 2
+
+	// Default REST configuration settings
+	DefaultVirtHandlerQPS         float32 = 5
+	DefaultVirtHandlerBurst               = 10
+	DefaultVirtControllerQPS      float32 = 20
+	DefaultVirtControllerBurst            = 30
+	DefaultVirtAPIQPS             float32 = 5
+	DefaultVirtAPIBurst                   = 10
+	DefaultVirtWebhookClientQPS           = 200
+	DefaultVirtWebhookClientBurst         = 400
 )
 
-type DefaultArch struct {
-	Architecture string
-}
-
-func NewDefaultArch(arch string) *DefaultArch {
-	return &DefaultArch{Architecture: arch}
-}
-
-func (d *DefaultArch) IsARM64() bool {
-	if d.Architecture == "arm64" {
+func IsAMD64(arch string) bool {
+	if arch == "amd64" {
 		return true
 	}
 	return false
 }
 
-func (d *DefaultArch) IsPPC64() bool {
-	if d.Architecture == "ppc64le" {
+func IsARM64(arch string) bool {
+	if arch == "arm64" {
 		return true
 	}
 	return false
 }
 
-// GetDefaultMachinesForArch set default machine type and supported emulated machines based on architecture
-func (d *DefaultArch) GetDefaultMachinesForArch() (string, string) {
-	if d.IsPPC64() {
-		return DefaultPPC64LEMachineType, DefaultPPC64LEEmulatedMachines
+func IsPPC64(arch string) bool {
+	if arch == "ppc64le" {
+		return true
 	}
-	if d.IsARM64() {
-		return DefaultAARCH64MachineType, DefaultAARCH64EmulatedMachines
-	}
-	return DefaultAMD64MachineType, DefaultAMD64EmulatedMachines
+	return false
 }
-
-var DefaultMachineType, DefaultEmulatedMachines = NewDefaultArch(runtime.GOARCH).GetDefaultMachinesForArch()
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }
 
-//GetDefaultOVMFPathForArch set default EFI bootloader Path based on architecture
-func (d *DefaultArch) GetDefaultOVMFPathForArch() string {
-	if d.IsARM64() {
-		return DefaultAARCH64OVMFPath
-	}
-	return DefaultARCHOVMFPath
-}
-
-var DefaultOVMFPath = NewDefaultArch(runtime.GOARCH).GetDefaultOVMFPathForArch()
-
-func (c *ClusterConfig) IsUseEmulation() bool {
+func (c *ClusterConfig) AllowEmulation() bool {
 	return c.GetConfig().DeveloperConfiguration.UseEmulation
 }
 
@@ -151,6 +137,10 @@ func (c *ClusterConfig) GetCPURequest() *resource.Quantity {
 	return c.GetConfig().CPURequest
 }
 
+func (c *ClusterConfig) GetDiskVerification() *v1.DiskVerification {
+	return c.GetConfig().DeveloperConfiguration.DiskVerification
+}
+
 func (c *ClusterConfig) GetMemoryOvercommit() int {
 	return c.GetConfig().DeveloperConfiguration.MemoryOvercommit
 }
@@ -161,6 +151,10 @@ func (c *ClusterConfig) GetEmulatedMachines() []string {
 
 func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
 	return c.GetConfig().DeveloperConfiguration.LessPVCSpaceToleration
+}
+
+func (c *ClusterConfig) GetMinimumReservePVCBytes() uint64 {
+	return c.GetConfig().DeveloperConfiguration.MinimumReservePVCBytes
 }
 
 func (c *ClusterConfig) GetNodeSelectors() map[string]string {
@@ -191,6 +185,10 @@ func (c *ClusterConfig) GetSELinuxLauncherType() string {
 	return c.GetConfig().SELinuxLauncherType
 }
 
+func (c *ClusterConfig) GetDefaultRuntimeClass() string {
+	return c.GetConfig().DefaultRuntimeClass
+}
+
 func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 	return c.GetConfig().SupportedGuestAgentVersions
 }
@@ -203,8 +201,20 @@ func (c *ClusterConfig) GetCPUAllocationRatio() int {
 	return c.GetConfig().DeveloperConfiguration.CPUAllocationRatio
 }
 
+func (c *ClusterConfig) GetMinimumClusterTSCFrequency() *int64 {
+	return c.GetConfig().DeveloperConfiguration.MinimumClusterTSCFrequency
+}
+
 func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
+}
+
+func (c *ClusterConfig) GetDesiredMDEVTypes(nodeName string) []string {
+	mdevTypesConf := c.GetConfig().MediatedDevicesConfiguration
+	if mdevTypesConf == nil {
+		return []string{}
+	}
+	return mdevTypesConf.MediatedDevicesTypes
 }
 
 func (c *ClusterConfig) GetVirtHandlerVerbosity(nodeName string) uint {
@@ -244,4 +254,9 @@ func (c *ClusterConfig) GetMinCPUModel() string {
 //GetObsoleteCPUModels return slice of obsolete cpus which are used in node-labeller
 func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 	return c.GetConfig().ObsoleteCPUModels
+}
+
+//GetClusterCPUArch return the CPU architecture in ClusterConfig
+func (c *ClusterConfig) GetClusterCPUArch() string {
+	return c.cpuArch
 }

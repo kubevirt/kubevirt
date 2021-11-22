@@ -23,15 +23,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -68,6 +68,7 @@ type CloudInitData struct {
 	UserData            string
 	NetworkData         string
 	DevicesData         *[]DeviceData
+	VolumeName          string
 }
 
 type PublicSSHKey struct {
@@ -118,6 +119,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
 			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
+			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
 		if volume.CloudInitConfigDrive != nil {
@@ -129,6 +131,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
 			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys)
+			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
 	}
@@ -196,7 +199,7 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 		}
 
 		baseDir := filepath.Join(secretSourceDir, secretName+"-access-cred")
-		files, err := ioutil.ReadDir(baseDir)
+		files, err := os.ReadDir(baseDir)
 		if err != nil {
 			return keys, err
 		}
@@ -268,7 +271,7 @@ func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
 func readFileFromDir(basedir, secretFile string) (string, error) {
 	userDataSecretFile := filepath.Join(basedir, secretFile)
 	// #nosec No risk for path injection: basedir & secretFile are static strings
-	userDataSecret, err := ioutil.ReadFile(userDataSecretFile)
+	userDataSecret, err := os.ReadFile(userDataSecretFile)
 	if err != nil {
 		log.Log.V(2).Reason(err).
 			Errorf("could not read secret data from source: %s", userDataSecretFile)
@@ -376,14 +379,18 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 	args = append(args, volumeID)
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
+	args = append(args, "-partition_cyl_align")
+	args = append(args, "on")
 	args = append(args, inDir)
 
+	isoBinary := "xorrisofs"
+
 	// #nosec No risk for attacket injection. Parameters are predefined strings
-	cmd := exec.Command("genisoimage", args...)
+	cmd := exec.Command(isoBinary, args...)
 
 	err := cmd.Start()
 	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("genisoimage cmd failed to start while generating iso file %s", isoOutFile)
+		log.Log.V(2).Reason(err).Errorf("%s cmd failed to start while generating iso file %s", isoBinary, isoOutFile)
 		return err
 	}
 
@@ -399,7 +406,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 			cmd.Process.Kill()
 		case err := <-done:
 			if err != nil {
-				log.Log.V(2).Reason(err).Errorf("genisoimage returned non-zero exit code while generating iso file %s", isoOutFile)
+				log.Log.V(2).Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
 				return err
 			}
 			return nil
@@ -425,8 +432,14 @@ func SetLocalDirectory(dir string) error {
 		return fmt.Errorf("CloudInit local cache directory (%s) does not exist or is inaccessible", dir)
 	}
 
-	cloudInitLocalDir = dir
+	SetLocalDirectoryOnly(dir)
 	return nil
+}
+
+// XXX refactor this whole package
+// This is just a cheap workaround to make e2e tests pass
+func SetLocalDirectoryOnly(dir string) {
+	cloudInitLocalDir = dir
 }
 
 func getDomainBasePath(domain string, namespace string) string {
@@ -443,6 +456,10 @@ func GetIsoFilePath(source DataSourceType, domain, namespace string) string {
 	return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
 }
 
+func PrepareLocalPath(vmiName string, namespace string) error {
+	return util.MkdirAllWithNosec(getDomainBasePath(vmiName, namespace))
+}
+
 func removeLocalData(domain string, namespace string) error {
 	domainBasePath := getDomainBasePath(domain, namespace)
 	err := os.RemoveAll(domainBasePath)
@@ -450,6 +467,59 @@ func removeLocalData(domain string, namespace string) error {
 		return nil
 	}
 	return err
+}
+
+func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
+	precond.MustNotBeEmpty(vmiName)
+	precond.MustNotBeNil(data)
+
+	var err error
+	var isoStaging, iso string
+
+	switch data.DataSource {
+	case DataSourceNoCloud, DataSourceConfigDrive:
+		iso = GetIsoFilePath(data.DataSource, vmiName, namespace)
+	default:
+		return fmt.Errorf("invalid cloud-init data source: '%v'", data.DataSource)
+	}
+	isoStaging = fmt.Sprintf("%s.staging", iso)
+
+	err = diskutils.RemoveFilesIfExist(isoStaging)
+	if err != nil {
+		return err
+	}
+
+	err = util.MkdirAllWithNosec(path.Dir(isoStaging))
+	if err != nil {
+		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
+		return err
+	}
+
+	f, err := os.Create(isoStaging)
+	if err != nil {
+		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
+	}
+
+	err = util.WriteBytes(f, 0, size)
+	if err != nil {
+		return err
+	}
+	util.CloseIOAndCheckErr(f, &err)
+	if err != nil {
+		return err
+	}
+
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
+		return err
+	}
+	err = os.Rename(isoStaging, iso)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
+		return err
+	}
+
+	log.Log.V(2).Infof("generated empty iso file %s", iso)
+	return nil
 }
 
 func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) error {
@@ -526,20 +596,20 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	err = ioutil.WriteFile(userFile, userData, 0600)
+	err = os.WriteFile(userFile, userData, 0600)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(userFile)
 
-	err = ioutil.WriteFile(metaFile, metaData, 0600)
+	err = os.WriteFile(metaFile, metaData, 0600)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(metaFile)
 
 	if len(networkData) > 0 {
-		err = ioutil.WriteFile(networkFile, networkData, 0600)
+		err = os.WriteFile(networkFile, networkData, 0600)
 		if err != nil {
 			return err
 		}

@@ -35,6 +35,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageClassHostPath string `json:"storageClassHostPath"`
 	// StorageClass to use to create block-volume PVCs
 	StorageClassBlockVolume string `json:"storageClassBlockVolume"`
+	// StorageClassHostPathSeparateDevice to use to create host-path PVCs that are on a separate device from the boot device
+	StorageClassHostPathSeparateDevice string `json:"storageClassHostPathSeparateDevice"`
 	// StorageClass to use to create rhel PVCs
 	StorageClassRhel string `json:"storageClassRhel"`
 	// StorageClass to use to create windows PVCs

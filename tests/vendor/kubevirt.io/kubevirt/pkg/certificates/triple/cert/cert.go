@@ -132,11 +132,3 @@ func MakeEllipticPrivateKeyPEM() ([]byte, error) {
 	}
 	return pem.EncodeToMemory(privateKeyPemBlock), nil
 }
-
-func ipsToStrings(ips []net.IP) []string {
-	ss := make([]string, 0, len(ips))
-	for _, ip := range ips {
-		ss = append(ss, ip.String())
-	}
-	return ss
-}

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
+	kvtutil "kubevirt.io/kubevirt/tests/util"
 )
 
 var KubeVirtStorageClassLocal string
@@ -26,9 +26,9 @@ func FlagParse() {
 
 func BeforeEach() {
 	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	kvtutil.PanicOnError(err)
 
-	tests.PanicOnError(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachines").Do(context.TODO()).Error())
-	tests.PanicOnError(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.TODO()).Error())
-	tests.PanicOnError(virtClient.CoreV1().RESTClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("persistentvolumeclaims").Do(context.TODO()).Error())
+	kvtutil.PanicOnError(virtClient.RestClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("virtualmachines").Do(context.TODO()).Error())
+	kvtutil.PanicOnError(virtClient.RestClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.TODO()).Error())
+	kvtutil.PanicOnError(virtClient.CoreV1().RESTClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("persistentvolumeclaims").Do(context.TODO()).Error())
 }

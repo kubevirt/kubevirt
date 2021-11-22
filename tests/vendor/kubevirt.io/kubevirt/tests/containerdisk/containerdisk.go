@@ -31,25 +31,36 @@ const (
 	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
-	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
-	ContainerDiskFedoraSRIOVLane      ContainerDisk = "fedora-sriov-lane"
 	ContainerDiskFedoraTestTooling    ContainerDisk = "fedora-with-test-tooling"
 	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty                ContainerDisk = "empty"
+	ContainerDiskFedoraRealtime       ContainerDisk = "fedora-realtime"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
 // registry diks image path.
 // Use the ContainerDisk* constants as input values.
 func ContainerDiskFor(name ContainerDisk) string {
+	return ContainerDiskFromRegistryFor(flags.KubeVirtUtilityRepoPrefix, name)
+}
+
+func DataVolumeImportUrlForContainerDisk(name ContainerDisk) string {
+	return DataVolumeImportUrlFromRegistryForContainerDisk(flags.KubeVirtUtilityRepoPrefix, name)
+}
+
+func DataVolumeImportUrlFromRegistryForContainerDisk(registry string, name ContainerDisk) string {
+	return fmt.Sprintf("docker://%s", ContainerDiskFromRegistryFor(registry, name))
+}
+
+func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
-		return fmt.Sprintf("%s/%s-container-disk-demo:%s", flags.KubeVirtUtilityRepoPrefix, name, flags.KubeVirtUtilityVersionTag)
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
+		return fmt.Sprintf("%s/%s-container-disk-demo:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
-		return fmt.Sprintf("%s/virtio-container-disk:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
-	case ContainerDiskFedoraSRIOVLane, ContainerDiskFedoraTestTooling:
-		return fmt.Sprintf("%s/%s-container-disk:%s", flags.KubeVirtUtilityRepoPrefix, name, flags.KubeVirtUtilityVersionTag)
+		return fmt.Sprintf("%s/virtio-container-disk:%s", registry, flags.KubeVirtUtilityVersionTag)
+	case ContainerDiskFedoraTestTooling, ContainerDiskFedoraRealtime:
+		return fmt.Sprintf("%s/%s-container-disk:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }

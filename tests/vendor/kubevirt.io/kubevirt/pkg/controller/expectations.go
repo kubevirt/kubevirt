@@ -54,10 +54,6 @@ var UpdateTaintBackoff = wait.Backoff{
 	Jitter:   1.0,
 }
 
-var (
-	KeyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
-)
-
 type ResyncPeriodFunc func() time.Duration
 
 // Returns 0 for resyncPeriod in case resyncing is not needed.

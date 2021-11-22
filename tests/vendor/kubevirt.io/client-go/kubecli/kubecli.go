@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/pflag"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -38,7 +39,9 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/core"
+	v1 "kubevirt.io/client-go/apis/core/v1"
+
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
@@ -51,6 +54,40 @@ var (
 	master     string
 )
 
+var (
+	SchemeBuilder  runtime.SchemeBuilder
+	Scheme         *runtime.Scheme
+	Codecs         serializer.CodecFactory
+	ParameterCodec runtime.ParameterCodec
+)
+
+func init() {
+	// This allows consumers of the KubeVirt client go package to
+	// customize what version the client uses. Without specifying a
+	// version, all versions are registered. While this techincally
+	// file to register all versions, so k8s ecosystem libraries
+	// do not work well with this. By explicitly setting the env var,
+	// consumers of our client go can avoid these scenarios by only
+	// registering a single version
+	registerVersion := os.Getenv(v1.KubeVirtClientGoSchemeRegistrationVersionEnvVar)
+	if registerVersion != "" {
+		SchemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator([]schema.GroupVersion{schema.GroupVersion{Group: core.GroupName, Version: registerVersion}}))
+	} else {
+		SchemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator(v1.GroupVersions))
+	}
+	Scheme = runtime.NewScheme()
+	AddToScheme := SchemeBuilder.AddToScheme
+	Codecs = serializer.NewCodecFactory(Scheme)
+	ParameterCodec = runtime.NewParameterCodec(Scheme)
+	AddToScheme(Scheme)
+	AddToScheme(scheme.Scheme)
+}
+
+type RestConfigHookFunc func(*rest.Config)
+
+var restConfigHooks []RestConfigHookFunc
+var restConfigHooksLock sync.Mutex
+
 var virtclient KubevirtClient
 var once sync.Once
 
@@ -62,6 +99,22 @@ func Init() {
 	}
 	if flag.CommandLine.Lookup("master") == nil {
 		flag.StringVar(&master, "master", "", "master url")
+	}
+}
+
+func RegisterRestConfigHook(fn RestConfigHookFunc) {
+	restConfigHooksLock.Lock()
+	defer restConfigHooksLock.Unlock()
+
+	restConfigHooks = append(restConfigHooks, fn)
+}
+
+func executeRestConfigHooks(config *rest.Config) {
+	restConfigHooksLock.Lock()
+	defer restConfigHooksLock.Unlock()
+
+	for _, hookFn := range restConfigHooks {
+		hookFn(config)
 	}
 }
 
@@ -79,7 +132,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 	}
 
 	config.GroupVersion = &v1.SubresourceStorageGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
@@ -227,65 +280,68 @@ var GetKubevirtClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (
 }
 
 func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error) {
-	config.GroupVersion = &v1.StorageGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: v1.Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
+	shallowCopy := *config
+	shallowCopy.GroupVersion = &v1.StorageGroupVersion
+	shallowCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
+	shallowCopy.APIPath = "/apis"
+	shallowCopy.ContentType = runtime.ContentTypeJSON
 	if config.UserAgent == "" {
 		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
 
-	restClient, err := rest.RESTClientFor(config)
+	executeRestConfigHooks(&shallowCopy)
+
+	restClient, err := rest.RESTClientFor(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	coreClient, err := kubernetes.NewForConfig(config)
+	coreClient, err := kubernetes.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	generatedKubeVirtClient, err := generatedclient.NewForConfig(config)
+	generatedKubeVirtClient, err := generatedclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	cdiClient, err := cdiclient.NewForConfig(config)
+	cdiClient, err := cdiclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	networkClient, err := networkclient.NewForConfig(config)
+	networkClient, err := networkclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	extensionsClient, err := extclient.NewForConfig(config)
+	extensionsClient, err := extclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	secClient, err := secv1.NewForConfig(config)
+	secClient, err := secv1.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	prometheusClient, err := promclient.NewForConfig(config)
+	prometheusClient, err := promclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshotClient, err := k8ssnapshotclient.NewForConfig(config)
+	snapshotClient, err := k8ssnapshotclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	dynamicClient, err := dynamic.NewForConfig(config)
+	dynamicClient, err := dynamic.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +350,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		master,
 		kubeconfig,
 		restClient,
-		config,
+		&shallowCopy,
 		generatedKubeVirtClient,
 		cdiClient,
 		networkClient,
@@ -328,14 +384,11 @@ func GetKubevirtSubresourceClient() (KubevirtClient, error) {
 	return GetKubevirtSubresourceClientFromFlags(master, kubeconfig)
 }
 
+// Deprecated: Use GetKubevirtClientConfig instead
 func GetConfig() (*restclient.Config, error) {
 	return clientcmd.BuildConfigFromFlags(master, kubeconfig)
 }
 
 func GetKubevirtClientConfig() (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
+	return GetConfig()
 }

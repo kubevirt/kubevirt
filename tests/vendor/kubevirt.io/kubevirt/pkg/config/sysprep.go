@@ -21,11 +21,11 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -50,7 +50,7 @@ func sysprepVolumeHasContents(sysprepVolume *v1.SysprepSource) bool {
 const sysprepFileName = "autounattend.xml"
 
 func validateAutounattendPresence(dirPath string) error {
-	files, err := ioutil.ReadDir(dirPath)
+	files, err := os.ReadDir(dirPath)
 	if err != nil {
 		return fmt.Errorf("Error validating %s presence: %w", sysprepFileName, err)
 	}
@@ -64,12 +64,16 @@ func validateAutounattendPresence(dirPath string) error {
 }
 
 // CreateSysprepDisks creates Sysprep iso disks which are attached to vmis from either ConfigMap or Secret as a source
-func CreateSysprepDisks(vmi *v1.VirtualMachineInstance) error {
+func CreateSysprepDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if !shouldCreateSysprepDisk(volume.Sysprep) {
 			continue
 		}
-		if err := createSysprepDisk(volume.Name); err != nil {
+		vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+		if err != nil {
+			return err
+		}
+		if err := createSysprepDisk(volume.Name, vmiIsoSize); err != nil {
 			return err
 		}
 	}
@@ -80,7 +84,7 @@ func shouldCreateSysprepDisk(volumeSysprep *v1.SysprepSource) bool {
 	return volumeSysprep != nil && sysprepVolumeHasContents(volumeSysprep)
 }
 
-func createSysprepDisk(volumeName string) error {
+func createSysprepDisk(volumeName string, size int64) error {
 	sysprepSourcePath := GetSysprepSourcePath(volumeName)
 	if err := validateAutounattendPresence(sysprepSourcePath); err != nil {
 		return err
@@ -90,12 +94,12 @@ func createSysprepDisk(volumeName string) error {
 		return err
 	}
 
-	return createIsoImageAndSetFileOwnership(volumeName, filesPath)
+	return createIsoImageAndSetFileOwnership(volumeName, filesPath, size)
 }
 
-func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string) error {
+func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string, size int64) error {
 	disk := GetSysprepDiskPath(volumeName)
-	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath); err != nil {
+	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath, size); err != nil {
 		return err
 	}
 	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {

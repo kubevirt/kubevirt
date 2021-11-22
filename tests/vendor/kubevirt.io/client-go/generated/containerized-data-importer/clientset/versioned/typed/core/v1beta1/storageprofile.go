@@ -34,7 +34,7 @@ import (
 // StorageProfilesGetter has a method to return a StorageProfileInterface.
 // A group's client should implement this interface.
 type StorageProfilesGetter interface {
-	StorageProfiles(namespace string) StorageProfileInterface
+	StorageProfiles() StorageProfileInterface
 }
 
 // StorageProfileInterface has methods to work with StorageProfile resources.
@@ -54,14 +54,12 @@ type StorageProfileInterface interface {
 // storageProfiles implements StorageProfileInterface
 type storageProfiles struct {
 	client rest.Interface
-	ns     string
 }
 
 // newStorageProfiles returns a StorageProfiles
-func newStorageProfiles(c *CdiV1beta1Client, namespace string) *storageProfiles {
+func newStorageProfiles(c *CdiV1beta1Client) *storageProfiles {
 	return &storageProfiles{
 		client: c.RESTClient(),
-		ns:     namespace,
 	}
 }
 
@@ -69,7 +67,6 @@ func newStorageProfiles(c *CdiV1beta1Client, namespace string) *storageProfiles 
 func (c *storageProfiles) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.StorageProfile, err error) {
 	result = &v1beta1.StorageProfile{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -86,7 +83,6 @@ func (c *storageProfiles) List(ctx context.Context, opts v1.ListOptions) (result
 	}
 	result = &v1beta1.StorageProfileList{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -103,7 +99,6 @@ func (c *storageProfiles) Watch(ctx context.Context, opts v1.ListOptions) (watch
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -114,7 +109,6 @@ func (c *storageProfiles) Watch(ctx context.Context, opts v1.ListOptions) (watch
 func (c *storageProfiles) Create(ctx context.Context, storageProfile *v1beta1.StorageProfile, opts v1.CreateOptions) (result *v1beta1.StorageProfile, err error) {
 	result = &v1beta1.StorageProfile{}
 	err = c.client.Post().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(storageProfile).
@@ -127,7 +121,6 @@ func (c *storageProfiles) Create(ctx context.Context, storageProfile *v1beta1.St
 func (c *storageProfiles) Update(ctx context.Context, storageProfile *v1beta1.StorageProfile, opts v1.UpdateOptions) (result *v1beta1.StorageProfile, err error) {
 	result = &v1beta1.StorageProfile{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		Name(storageProfile.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -142,7 +135,6 @@ func (c *storageProfiles) Update(ctx context.Context, storageProfile *v1beta1.St
 func (c *storageProfiles) UpdateStatus(ctx context.Context, storageProfile *v1beta1.StorageProfile, opts v1.UpdateOptions) (result *v1beta1.StorageProfile, err error) {
 	result = &v1beta1.StorageProfile{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		Name(storageProfile.Name).
 		SubResource("status").
@@ -156,7 +148,6 @@ func (c *storageProfiles) UpdateStatus(ctx context.Context, storageProfile *v1be
 // Delete takes name of the storageProfile and deletes it. Returns an error if one occurs.
 func (c *storageProfiles) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		Name(name).
 		Body(&opts).
@@ -171,7 +162,6 @@ func (c *storageProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -184,7 +174,6 @@ func (c *storageProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 func (c *storageProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.StorageProfile, err error) {
 	result = &v1beta1.StorageProfile{}
 	err = c.client.Patch(pt).
-		Namespace(c.ns).
 		Resource("storageprofiles").
 		Name(name).
 		SubResource(subresources...).

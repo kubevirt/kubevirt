@@ -20,16 +20,22 @@
 package config
 
 import (
-	"io/ioutil"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+
+	"kubevirt.io/kubevirt/pkg/util"
+
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc func(output string, volID string, files []string) error
+	isoCreationFunc      func(output string, volID string, files []string) error
+	emptyIsoCreationFunc func(output string, size int64) error
 )
 
 const (
@@ -69,12 +75,17 @@ var (
 	SysprepDisksDir = mountBaseDir + "/sysprep-disks"
 	// DownwardAPIDisksDir represents a path to DownwardAPI iso images
 	DownwardAPIDisksDir = mountBaseDir + "/downwardapi-disks"
+	// DownwardMetricDisksDir represents a path to DownwardMetric block disk
+	DownwardMetricDisksDir = mountBaseDir + "/downwardmetric-disk"
+	// DownwardMetricDisks represents the disk location for the DownwardMetric disk
+	DownwardMetricDisk = filepath.Join(DownwardAPIDisksDir, "vhostmd0")
 	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
 	ServiceAccountDiskDir = mountBaseDir + "/service-account-disk"
 	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
 	ServiceAccountDiskName = "service-account.iso"
 
-	createISOImage = defaultCreateIsoImage
+	createISOImage      = defaultCreateIsoImage
+	createEmptyISOImage = defaultCreateEmptyIsoImage
 )
 
 // The unit test suite uses this function
@@ -82,9 +93,14 @@ func setIsoCreationFunction(isoFunc isoCreationFunc) {
 	createISOImage = isoFunc
 }
 
+// The unit test suite uses this function
+func setEmptyIsoCreationFunction(emptyIsoFunc emptyIsoCreationFunc) {
+	createEmptyISOImage = emptyIsoFunc
+}
+
 func getFilesLayout(dirPath string) ([]string, error) {
 	var filesPath []string
-	files, err := ioutil.ReadDir(dirPath)
+	files, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}
@@ -95,36 +111,80 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	return filesPath, nil
 }
 
-func defaultCreateIsoImage(output string, volID string, files []string) error {
-
+func defaultCreateIsoImage(iso string, volID string, files []string) error {
 	if volID == "" {
 		volID = "cfgdata"
 	}
 
+	isoStaging := fmt.Sprintf("%s.staging", iso)
+
 	var args []string
 	args = append(args, "-output")
-	args = append(args, output)
+	args = append(args, isoStaging)
 	args = append(args, "-follow-links")
 	args = append(args, "-volid")
 	args = append(args, volID)
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
 	args = append(args, "-graft-points")
+	args = append(args, "-partition_cyl_align")
+	args = append(args, "on")
 	args = append(args, files...)
 
+	isoBinary := "xorrisofs"
+
 	// #nosec No risk for attacket injection. Parameters are predefined strings
-	cmd := exec.Command("genisoimage", args...)
+	cmd := exec.Command(isoBinary, args...)
 	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+	err = os.Rename(isoStaging, iso)
+
+	return err
+}
+
+func defaultCreateEmptyIsoImage(iso string, size int64) error {
+	isoStaging := fmt.Sprintf("%s.staging", iso)
+
+	f, err := os.Create(isoStaging)
+	if err != nil {
+		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
+	}
+	err = util.WriteBytes(f, 0, size)
+	if err != nil {
+		return err
+	}
+	util.CloseIOAndCheckErr(f, &err)
+	if err != nil {
+		return err
+	}
+	err = os.Rename(isoStaging, iso)
+
+	return err
+}
+
+func createIsoConfigImage(output string, volID string, files []string, size int64) error {
+	var err error
+	if size == 0 {
+		err = createISOImage(output, volID, files)
+	} else {
+		err = createEmptyISOImage(output, size)
+	}
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func createIsoConfigImage(output string, volID string, files []string) error {
-	err := createISOImage(output, volID, files)
-	if err != nil {
-		return err
+func findIsoSize(vmi *v1.VirtualMachineInstance, volume *v1.Volume, emptyIso bool) (int64, error) {
+	if emptyIso {
+		for _, vs := range vmi.Status.VolumeStatus {
+			if vs.Name == volume.Name {
+				return vs.Size, nil
+			}
+		}
+		return 0, fmt.Errorf("failed to find the status of volume %s", volume.Name)
 	}
-	return nil
+	return 0, nil
 }

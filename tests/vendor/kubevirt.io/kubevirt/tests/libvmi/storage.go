@@ -20,7 +20,7 @@
 package libvmi
 
 import (
-	kvirtv1 "kubevirt.io/client-go/api/v1"
+	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 // WithContainerImage specifies the name of the container image to be used.
@@ -92,17 +92,6 @@ func newContainerVolume(name, image string) kvirtv1.Volume {
 		VolumeSource: kvirtv1.VolumeSource{
 			ContainerDisk: &kvirtv1.ContainerDiskSource{
 				Image: image,
-			},
-		},
-	}
-}
-
-func newDataVolume(name, diskName string) kvirtv1.Volume {
-	return kvirtv1.Volume{
-		Name: diskName,
-		VolumeSource: kvirtv1.VolumeSource{
-			DataVolume: &kvirtv1.DataVolumeSource{
-				Name: name,
 			},
 		},
 	}

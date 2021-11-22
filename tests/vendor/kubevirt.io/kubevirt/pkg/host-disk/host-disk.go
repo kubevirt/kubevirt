@@ -30,9 +30,9 @@ import (
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/types"
 )
@@ -50,12 +50,24 @@ func setDiskDirectory(dir string) error {
 	return os.MkdirAll(dir, 0750)
 }
 
-func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
+func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
 	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
 	passthoughFSVolumes := make(map[string]struct{})
 	for i := range vmi.Spec.Domain.Devices.Filesystems {
 		passthoughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+	}
+
+	pvcVolume := make(map[string]v1.VolumeStatus)
+	hotplugVolumes := make(map[string]bool)
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			hotplugVolumes[volumeStatus.Name] = true
+		}
+
+		if volumeStatus.PersistentVolumeClaimInfo != nil {
+			pvcVolume[volumeStatus.Name] = volumeStatus
+		}
 	}
 
 	for i := range vmi.Spec.Volumes {
@@ -68,42 +80,42 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 				continue
 			}
 
-			pvc, exists, isBlockVolumePVC, err := types.IsPVCBlockFromClient(clientset, vmi.Namespace, volumeSource.PersistentVolumeClaim.ClaimName)
-			if err != nil {
-				return err
-			} else if !exists {
-				return fmt.Errorf("persistentvolumeclaim %v not found", volumeSource.PersistentVolumeClaim.ClaimName)
-			} else if isBlockVolumePVC {
+			if hotplugVolumes[volume.Name] {
+				log.Log.V(4).Infof("this volume %s is hotplugged, will not be replaced by HostDisk", volume.Name)
 				continue
 			}
-			isSharedPvc := types.IsPVCShared(pvc)
 
+			volumeStatus, ok := pvcVolume[volume.Name]
+			if !ok ||
+				volumeStatus.PersistentVolumeClaimInfo.VolumeMode == nil ||
+				*volumeStatus.PersistentVolumeClaimInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+
+				// This is not a disk on a file system, so skip it.
+				continue
+			}
+
+			isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
 			file := getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img")
 			volumeSource.HostDisk = &v1.HostDisk{
 				Path:     file,
 				Type:     v1.HostDiskExistsOrCreate,
-				Capacity: pvc.Status.Capacity[k8sv1.ResourceStorage],
-				Shared:   &isSharedPvc,
+				Capacity: volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage],
+				Shared:   &isShared,
 			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
-			// Set ownership of the disk.img to qemu
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(file); err != nil && !os.IsNotExist(err) {
-				log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", file, err)
-				return err
-			}
 		}
 	}
 	return nil
 }
 
-func dirBytesAvailable(path string) (uint64, error) {
+func dirBytesAvailable(path string, reserve uint64) (uint64, error) {
 	var stat syscall.Statfs_t
 	err := syscall.Statfs(path, &stat)
 	if err != nil {
 		return 0, err
 	}
-	return stat.Bavail * uint64(stat.Bsize), nil
+	return stat.Bavail*uint64(stat.Bsize) - reserve, nil
 }
 
 func createSparseRaw(fullPath string, size int64) (err error) {
@@ -124,6 +136,14 @@ func getPVCDiskImgPath(volumeName string, diskName string) string {
 	return path.Join(pvcBaseDir, volumeName, diskName)
 }
 
+func GetMountedHostDiskPathFromHandler(mountRoot, volumeName, path string) string {
+	return filepath.Join(mountRoot, getPVCDiskImgPath(volumeName, filepath.Base(path)))
+}
+
+func GetMountedHostDiskDirFromHandler(mountRoot, volumeName string) string {
+	return filepath.Join(mountRoot, getPVCDiskImgPath(volumeName, ""))
+}
+
 func GetMountedHostDiskPath(volumeName string, path string) string {
 	return getPVCDiskImgPath(volumeName, filepath.Base(path))
 }
@@ -133,20 +153,20 @@ func GetMountedHostDiskDir(volumeName string) string {
 }
 
 type DiskImgCreator struct {
-	dirBytesAvailableFunc  func(path string) (uint64, error)
-	notifier               k8sNotifier
+	dirBytesAvailableFunc  func(path string, reserve uint64) (uint64, error)
+	recorder               record.EventRecorder
 	lessPVCSpaceToleration int
+	minimumPVCReserveBytes uint64
+	mountRoot              string
 }
 
-type k8sNotifier interface {
-	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
-}
-
-func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int) DiskImgCreator {
+func NewHostDiskCreator(recorder record.EventRecorder, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, mountRoot string) DiskImgCreator {
 	return DiskImgCreator{
 		dirBytesAvailableFunc:  dirBytesAvailable,
-		notifier:               notifier,
+		recorder:               recorder,
 		lessPVCSpaceToleration: lessPVCSpaceToleration,
+		minimumPVCReserveBytes: minimumPVCReserveBytes,
+		mountRoot:              mountRoot,
 	}
 }
 
@@ -170,8 +190,8 @@ func shouldMountHostDisk(hostDisk *v1.HostDisk) bool {
 }
 
 func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineInstance, volumeName string, hostDisk *v1.HostDisk) error {
-	diskPath := GetMountedHostDiskPath(volumeName, hostDisk.Path)
-	diskDir := GetMountedHostDiskDir(volumeName)
+	diskPath := GetMountedHostDiskPathFromHandler(hdc.mountRoot, volumeName, hostDisk.Path)
+	diskDir := GetMountedHostDiskDirFromHandler(hdc.mountRoot, volumeName)
 	fileExists, err := ephemeraldiskutils.FileExists(diskPath)
 	if err != nil {
 		return err
@@ -190,7 +210,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 }
 
 func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
-	size, err := hdc.dirBytesAvailableFunc(diskDir)
+	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
 	availableSize := int64(size)
 	if err != nil {
 		return err
@@ -223,9 +243,6 @@ func (hdc *DiskImgCreator) shrinkRequestedSize(vmi *v1.VirtualMachineInstance, r
 
 	msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, hdc.lessPVCSpaceToleration)
 	log.Log.Info(msg)
-	err := hdc.notifier.SendK8sEvent(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
-	if err != nil {
-		log.Log.Reason(err).Warningf("Couldn't send k8s event for tolerated PV size: %v", err)
-	}
+	hdc.recorder.Event(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
 	return availableSize, nil
 }

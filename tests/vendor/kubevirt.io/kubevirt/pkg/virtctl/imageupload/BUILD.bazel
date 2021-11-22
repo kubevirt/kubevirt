@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 
 go_library(
     name = "go_default_library",
@@ -19,8 +20,8 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1:go_default_library",
     ],
 )
 
@@ -30,8 +31,9 @@ go_test(
         "imageupload_suite_test.go",
         "imageupload_test.go",
     ],
-    embed = [":go_default_library"],
+    tags = ["cov"],
     deps = [
+        ":go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
@@ -47,6 +49,13 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1:go_default_library",
     ],
+)
+
+ginkgo_test(
+    name = "go_parallel_test",
+    ginkgo_args = ["-p"],
+    go_test = ":go_default_test",
+    tags = ["nocov"],
 )

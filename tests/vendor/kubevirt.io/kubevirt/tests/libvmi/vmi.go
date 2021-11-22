@@ -25,7 +25,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	kvirtv1 "kubevirt.io/client-go/api/v1"
+	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 // Option represents an action that enables an option.
@@ -48,6 +48,26 @@ func RandName(name string) string {
 	return name + "-" + rand.String(5)
 }
 
+// WithLabel sets a label with specified value
+func WithLabel(key, value string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Labels == nil {
+			vmi.Labels = map[string]string{}
+		}
+		vmi.Labels[key] = value
+	}
+}
+
+// WithAnnotation adds an annotation with specified value
+func WithAnnotation(key, value string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Annotations == nil {
+			vmi.Annotations = map[string]string{}
+		}
+		vmi.Annotations[key] = value
+	}
+}
+
 // WithTerminationGracePeriod specifies the termination grace period in seconds.
 func WithTerminationGracePeriod(seconds int64) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
@@ -68,6 +88,16 @@ func WithResourceMemory(value string) Option {
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 			k8sv1.ResourceMemory: resource.MustParse(value),
 		}
+	}
+}
+
+// WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
+func WithNodeSelectorFor(node *k8sv1.Node) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Spec.NodeSelector == nil {
+			vmi.Spec.NodeSelector = map[string]string{}
+		}
+		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = node.Name
 	}
 }
 

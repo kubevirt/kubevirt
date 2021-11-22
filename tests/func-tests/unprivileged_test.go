@@ -10,13 +10,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/client-go/kubecli"
-	testscore "kubevirt.io/kubevirt/tests"
 	flags "kubevirt.io/kubevirt/tests/flags"
+	kvtutil "kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[rfe_id:393][crit:medium][vendor:cnv-qe@redhat.com][level:system]Unprivileged tests", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
-	testscore.PanicOnError(err)
+	kvtutil.PanicOnError(err)
 
 	// don't break other tests
 	cfg := rest.CopyConfig(virtClient.Config())
@@ -26,7 +26,7 @@ var _ = Describe("[rfe_id:393][crit:medium][vendor:cnv-qe@redhat.com][level:syst
 	}
 
 	unprivClient, err := kubecli.GetKubevirtClientFromRESTConfig(cfg)
-	testscore.PanicOnError(err)
+	kvtutil.PanicOnError(err)
 
 	It("[test_id:5676]should be able to read kubevirt-storage-class-defaults ConfigMap", func() {
 

@@ -24,13 +24,14 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
@@ -50,26 +51,23 @@ var manager *Manager
 var once sync.Once
 
 type Manager struct {
-	CallbacksPerHookPoint map[string][]*callBackClient
-	SocketsDir            string
+	CallbacksPerHookPoint     map[string][]*callBackClient
+	hookSocketSharedDirectory string
 }
 
 func GetManager() *Manager {
 	once.Do(func() {
-		manager = NewManager(HookSocketsSharedDirectory)
+		manager = newManager(HookSocketsSharedDirectory)
 	})
 	return manager
 }
 
-func NewManager(socketsDir string) *Manager {
-	return &Manager{
-		CallbacksPerHookPoint: make(map[string][]*callBackClient),
-		SocketsDir:            socketsDir,
-	}
+func newManager(baseDir string) *Manager {
+	return &Manager{CallbacksPerHookPoint: make(map[string][]*callBackClient), hookSocketSharedDirectory: baseDir}
 }
 
 func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Duration) error {
-	callbacksPerHookPoint, err := collectSideCarSockets(m.SocketsDir, numberOfRequestedHookSidecars, timeout)
+	callbacksPerHookPoint, err := m.collectSideCarSockets(numberOfRequestedHookSidecars, timeout)
 	if err != nil {
 		return err
 	}
@@ -84,14 +82,14 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Durat
 }
 
 // TODO: Handle sockets in parallel, when a socket appears, run a goroutine trying to read Info from it
-func collectSideCarSockets(socketsDir string, numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
+func (m *Manager) collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
 	callbacksPerHookPoint := make(map[string][]*callBackClient)
 	processedSockets := make(map[string]bool)
 
 	timeoutCh := time.After(timeout)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
-		sockets, err := ioutil.ReadDir(socketsDir)
+		sockets, err := os.ReadDir(m.hookSocketSharedDirectory)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +103,7 @@ func collectSideCarSockets(socketsDir string, numberOfRequestedHookSidecars uint
 					continue
 				}
 
-				callBackClient, notReady, err := processSideCarSocket(socketsDir + "/" + socket.Name())
+				callBackClient, notReady, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory, socket.Name()))
 				if notReady {
 					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
 					continue

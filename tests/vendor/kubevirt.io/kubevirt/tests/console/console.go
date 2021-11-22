@@ -31,7 +31,7 @@ import (
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )

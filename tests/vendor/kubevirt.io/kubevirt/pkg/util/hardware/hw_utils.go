@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 const (
@@ -34,7 +34,7 @@ const (
 
 // Parse linux cpuset into an array of ints
 // See: http://man7.org/linux/man-pages/man7/cpuset.7.html#FORMATS
-func ParseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
+func ParseCPUSetLine(cpusetLine string, limit int) (cpusList []int, err error) {
 	elements := strings.Split(cpusetLine, ",")
 	for _, item := range elements {
 		cpuRange := strings.Split(item, "-")
@@ -50,17 +50,28 @@ func ParseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
 			}
 			// Add cpus to the list. Assuming it's a valid range.
 			for cpuNum := start; cpuNum <= end; cpuNum++ {
-				cpusList = append(cpusList, cpuNum)
+				if cpusList, err = safeAppend(cpusList, cpuNum, limit); err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			cpuNum, err := strconv.Atoi(cpuRange[0])
 			if err != nil {
 				return nil, err
 			}
-			cpusList = append(cpusList, cpuNum)
+			if cpusList, err = safeAppend(cpusList, cpuNum, limit); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return
+}
+
+func safeAppend(cpusList []int, cpu int, limit int) ([]int, error) {
+	if len(cpusList) > limit {
+		return nil, fmt.Errorf("rejecting expanding CPU array for safety reasons, limit is %v", limit)
+	}
+	return append(cpusList, cpu), nil
 }
 
 //GetNumberOfVCPUs returns number of vCPUs

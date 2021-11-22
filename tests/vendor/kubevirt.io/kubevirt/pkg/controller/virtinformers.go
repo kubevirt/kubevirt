@@ -42,18 +42,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	kubev1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/core"
+
+	kubev1 "kubevirt.io/client-go/apis/core/v1"
+	flavorv1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -69,6 +71,9 @@ type KubeInformerFactory interface {
 	// Starts any informers that have not been started yet
 	// This function is thread safe and idempotent
 	Start(stopCh <-chan struct{})
+
+	// Waits for all informers to sync
+	WaitForCacheSync(stopCh <-chan struct{})
 
 	// Watches for vmi objects
 	VMI() cache.SharedIndexInformer
@@ -107,6 +112,12 @@ type KubeInformerFactory interface {
 	// Watches VirtualMachineRestore objects
 	VirtualMachineRestore() cache.SharedIndexInformer
 
+	// Watches VirtualMachineFlavor objects
+	VirtualMachineFlavor() cache.SharedIndexInformer
+
+	// Watches VirtualMachineClusterFlavor objects
+	VirtualMachineClusterFlavor() cache.SharedIndexInformer
+
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
 
@@ -122,6 +133,9 @@ type KubeInformerFactory interface {
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
 
+	// Watches for ControllerRevision objects
+	ControllerRevision() cache.SharedIndexInformer
+
 	// Watches for LimitRange objects
 	LimitRanges() cache.SharedIndexInformer
 
@@ -131,10 +145,16 @@ type KubeInformerFactory interface {
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
 
+	// Watches for CDI DataSource objects
+	DataSource() cache.SharedIndexInformer
+
+	// Fake CDI DataSource informer used when feature gate is disabled
+	DummyDataSource() cache.SharedIndexInformer
+
 	// CRD
 	CRD() cache.SharedIndexInformer
 
-	// Wachtes for KubeVirt objects
+	// Watches for KubeVirt objects
 	KubeVirt() cache.SharedIndexInformer
 
 	// Service Accounts
@@ -263,6 +283,19 @@ func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 		f.startedInformers[name] = true
 	}
 	f.k8sInformers.Start(stopCh)
+}
+
+func (f *kubeInformerFactory) WaitForCacheSync(stopCh <-chan struct{}) {
+	syncs := []cache.InformerSynced{}
+
+	f.lock.Lock()
+	for name, informer := range f.informers {
+		log.Log.Infof("Waiting for cache sync of informer %s", name)
+		syncs = append(syncs, informer.HasSynced)
+	}
+	f.lock.Unlock()
+
+	cache.WaitForCacheSync(stopCh, syncs...)
 }
 
 // internal function used to retrieve an already created informer
@@ -399,20 +432,13 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 			"vm": func(obj interface{}) ([]string, error) {
 				vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
 				if !ok {
-
 					return nil, unexpectedObjectError
 				}
 
-				if vms.Spec.Source.APIGroup != nil {
-					gv, err := schema.ParseGroupVersion(*vms.Spec.Source.APIGroup)
-					if err != nil {
-						return nil, err
-					}
-
-					if gv.Group == kubev1.GroupName &&
-						vms.Spec.Source.Kind == "VirtualMachine" {
-						return []string{vms.Spec.Source.Name}, nil
-					}
+				if vms.Spec.Source.APIGroup != nil &&
+					*vms.Spec.Source.APIGroup == core.GroupName &&
+					vms.Spec.Source.Kind == "VirtualMachine" {
+					return []string{fmt.Sprintf("%s/%s", vms.Namespace, vms.Spec.Source.Name)}, nil
 				}
 
 				return nil, nil
@@ -433,7 +459,8 @@ func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexI
 				var volumeSnapshots []string
 				for _, v := range vmsc.Spec.VolumeBackups {
 					if v.VolumeSnapshotName != nil {
-						volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
+						k := fmt.Sprintf("%s/%s", vmsc.Namespace, *v.VolumeSnapshotName)
+						volumeSnapshots = append(volumeSnapshots, k)
 					}
 				}
 				return volumeSnapshots, nil
@@ -453,16 +480,10 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 					return nil, unexpectedObjectError
 				}
 
-				if vmr.Spec.Target.APIGroup != nil {
-					gv, err := schema.ParseGroupVersion(*vmr.Spec.Target.APIGroup)
-					if err != nil {
-						return nil, err
-					}
-
-					if gv.Group == kubev1.GroupName &&
-						vmr.Spec.Target.Kind == "VirtualMachine" {
-						return []string{vmr.Spec.Target.Name}, nil
-					}
+				if vmr.Spec.Target.APIGroup != nil &&
+					*vmr.Spec.Target.APIGroup == core.GroupName &&
+					vmr.Spec.Target.Kind == "VirtualMachine" {
+					return []string{fmt.Sprintf("%s/%s", vmr.Namespace, vmr.Spec.Target.Name)}, nil
 				}
 
 				return nil, nil
@@ -471,9 +492,23 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 	})
 }
 
+func (f *kubeInformerFactory) VirtualMachineFlavor() cache.SharedIndexInformer {
+	return f.getInformer("vmFlavorInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), "virtualmachineflavors", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineFlavor{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineClusterFlavor() cache.SharedIndexInformer {
+	return f.getInformer("vmClusterFlavorInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), "virtualmachineclusterflavors", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineClusterFlavor{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
 func (f *kubeInformerFactory) DataVolume() cache.SharedIndexInformer {
 	return f.getInformer("dataVolumeInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.CdiClient().CdiV1alpha1().RESTClient(), "datavolumes", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.CdiClient().CdiV1beta1().RESTClient(), "datavolumes", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &cdiv1.DataVolume{}, f.defaultResync, cache.Indexers{})
 	})
 }
@@ -481,6 +516,20 @@ func (f *kubeInformerFactory) DataVolume() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) DummyDataVolume() cache.SharedIndexInformer {
 	return f.getInformer("fakeDataVolumeInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) DataSource() cache.SharedIndexInformer {
+	return f.getInformer("dataSourceInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CdiClient().CdiV1beta1().RESTClient(), "datasources", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &cdiv1.DataSource{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyDataSource() cache.SharedIndexInformer {
+	return f.getInformer("fakeDataSourceInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		return informer
 	})
 }
@@ -525,6 +574,29 @@ func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ControllerRevision() cache.SharedIndexInformer {
+	return f.getInformer("controllerRevisionInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.AppsV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "controllerrevisions", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &appsv1.ControllerRevision{}, f.defaultResync, cache.Indexers{
+			"vm": func(obj interface{}) ([]string, error) {
+				cr, ok := obj.(*appsv1.ControllerRevision)
+				if !ok {
+					return nil, unexpectedObjectError
+				}
+
+				for _, ref := range cr.OwnerReferences {
+					if ref.Kind == "VirtualMachine" {
+						return []string{string(ref.UID)}, nil
+					}
+				}
+
+				return nil, nil
+			},
+		})
 	})
 }
 

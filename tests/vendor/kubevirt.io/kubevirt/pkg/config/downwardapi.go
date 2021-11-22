@@ -22,7 +22,7 @@ package config
 import (
 	"path/filepath"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -37,7 +37,7 @@ func GetDownwardAPIDiskPath(volumeName string) string {
 }
 
 // CreateDownwardAPIDisks creates DownwardAPI iso disks which are attached to vmis
-func CreateDownwardAPIDisks(vmi *v1.VirtualMachineInstance) error {
+func CreateDownwardAPIDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.DownwardAPI != nil {
 
@@ -48,7 +48,11 @@ func CreateDownwardAPIDisks(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetDownwardAPIDiskPath(volume.Name)
-			if err := createIsoConfigImage(disk, volume.DownwardAPI.VolumeLabel, filesPath); err != nil {
+			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+			if err != nil {
+				return err
+			}
+			if err := createIsoConfigImage(disk, volume.DownwardAPI.VolumeLabel, filesPath, vmiIsoSize); err != nil {
 				return err
 			}
 

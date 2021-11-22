@@ -25,20 +25,24 @@ package virtconfig
 
 const (
 	CPUManager        = "CPUManager"
+	NUMAFeatureGate   = "NUMA"
 	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
 	// SRIOVLiveMigrationGate enable's Live Migration for VM's with SRIOV interfaces.
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration"
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"
-	HypervStrictCheckGate  = "HypervStrictCheck"
-	SidecarGate            = "Sidecar"
-	GPUGate                = "GPU"
-	HostDevicesGate        = "HostDevices"
-	SnapshotGate           = "Snapshot"
-	HotplugVolumesGate     = "HotplugVolumes"
-	HostDiskGate           = "HostDisk"
-	VirtIOFSGate           = "ExperimentalVirtiofsSupport"
-	MacvtapGate            = "Macvtap"
+	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
+	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"
+	HypervStrictCheckGate      = "HypervStrictCheck"
+	SidecarGate                = "Sidecar"
+	GPUGate                    = "GPU"
+	HostDevicesGate            = "HostDevices"
+	SnapshotGate               = "Snapshot"
+	HotplugVolumesGate         = "HotplugVolumes"
+	HostDiskGate               = "HostDisk"
+	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
+	MacvtapGate                = "Macvtap"
+	DownwardMetricsFeatureGate = "DownwardMetrics"
+	NonRoot                    = "NonRootExperimental"
+	ClusterProfiler            = "ClusterProfiler"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -52,6 +56,14 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
 	return config.isFeatureGateEnabled(CPUManager)
+}
+
+func (config *ClusterConfig) NUMAEnabled() bool {
+	return config.isFeatureGateEnabled(NUMAFeatureGate)
+}
+
+func (config *ClusterConfig) DownwardMetricsEnabled() bool {
+	return config.isFeatureGateEnabled(DownwardMetricsFeatureGate)
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {
@@ -105,4 +117,12 @@ func (config *ClusterConfig) MacvtapEnabled() bool {
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(HostDevicesGate)
+}
+
+func (config *ClusterConfig) NonRootEnabled() bool {
+	return config.isFeatureGateEnabled(NonRoot)
+}
+
+func (config *ClusterConfig) ClusterProfilerEnabled() bool {
+	return config.isFeatureGateEnabled(ClusterProfiler)
 }

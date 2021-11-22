@@ -29,6 +29,8 @@ type CdiV1beta1Interface interface {
 	RESTClient() rest.Interface
 	CDIsGetter
 	CDIConfigsGetter
+	DataImportCronsGetter
+	DataSourcesGetter
 	DataVolumesGetter
 	ObjectTransfersGetter
 	StorageProfilesGetter
@@ -47,6 +49,14 @@ func (c *CdiV1beta1Client) CDIConfigs() CDIConfigInterface {
 	return newCDIConfigs(c)
 }
 
+func (c *CdiV1beta1Client) DataImportCrons(namespace string) DataImportCronInterface {
+	return newDataImportCrons(c, namespace)
+}
+
+func (c *CdiV1beta1Client) DataSources(namespace string) DataSourceInterface {
+	return newDataSources(c, namespace)
+}
+
 func (c *CdiV1beta1Client) DataVolumes(namespace string) DataVolumeInterface {
 	return newDataVolumes(c, namespace)
 }
@@ -55,8 +65,8 @@ func (c *CdiV1beta1Client) ObjectTransfers() ObjectTransferInterface {
 	return newObjectTransfers(c)
 }
 
-func (c *CdiV1beta1Client) StorageProfiles(namespace string) StorageProfileInterface {
-	return newStorageProfiles(c, namespace)
+func (c *CdiV1beta1Client) StorageProfiles() StorageProfileInterface {
+	return newStorageProfiles(c)
 }
 
 // NewForConfig creates a new CdiV1beta1Client for the given config.

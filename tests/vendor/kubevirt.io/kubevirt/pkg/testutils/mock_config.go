@@ -1,13 +1,15 @@
 package testutils
 
 import (
+	"runtime"
+
 	v1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
-	KVv1 "kubevirt.io/client-go/api/v1"
+	KVv1 "kubevirt.io/client-go/apis/core/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -17,6 +19,10 @@ const (
 )
 
 func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	return NewFakeClusterConfigWithCPUArch(cfgMap, runtime.GOARCH)
+}
+
+func NewFakeClusterConfigWithCPUArch(cfgMap *v1.ConfigMap, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
@@ -28,10 +34,14 @@ func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cach
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
+	return virtconfig.NewClusterConfigWithCPUArch(configMapInformer, crdInformer, kubeVirtInformer, namespace, CPUArch), configMapInformer, crdInformer, kubeVirtInformer
 }
 
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	return NewFakeClusterConfigUsingKVWithCPUArch(kv, runtime.GOARCH)
+}
+
+func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	kv.ResourceVersion = rand.String(10)
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -41,7 +51,7 @@ func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, 
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
+	return virtconfig.NewClusterConfigWithCPUArch(configMapInformer, crdInformer, kubeVirtInformer, namespace, CPUArch), configMapInformer, crdInformer, kubeVirtInformer
 }
 
 func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
@@ -58,6 +68,14 @@ func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*vir
 		},
 	}
 	return NewFakeClusterConfigUsingKV(kv)
+}
+
+func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
+	return &KVv1.ContainerDiskSource{
+		Image:           "fake-image",
+		ImagePullSecret: "fake-pull-secret",
+		Path:            "fake-path",
+	}
 }
 
 func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {

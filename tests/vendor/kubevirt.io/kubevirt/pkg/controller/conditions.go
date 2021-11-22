@@ -22,7 +22,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 type VirtualMachineConditionManager struct {
@@ -62,8 +64,31 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, 
 type VirtualMachineInstanceConditionManager struct {
 }
 
+// UpdateCondition updates the given VirtualMachineCondition, unless it is already set with the same status and reason.
+func (d *VirtualMachineConditionManager) UpdateCondition(vm *v1.VirtualMachine, cond *v1.VirtualMachineCondition) {
+	for i, c := range vm.Status.Conditions {
+		if c.Type != cond.Type {
+			continue
+		}
+
+		if c.Status != cond.Status || c.Reason != cond.Reason {
+			vm.Status.Conditions[i] = *cond
+		}
+
+		return
+	}
+
+	vm.Status.Conditions = append(vm.Status.Conditions, *cond)
+}
+
 func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
-	if syncErr != nil && !d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
+	if syncErr != nil {
+		if d.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceSynchronized, k8sv1.ConditionFalse, reason) {
+			return false
+		}
+		if d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
+			d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
+		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstanceSynchronized,
 			Reason:             reason,
@@ -72,7 +97,7 @@ func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMac
 			Status:             k8sv1.ConditionFalse,
 		})
 		return true
-	} else if syncErr == nil && d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
+	} else if d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
 		d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
 		return true
 	}
@@ -114,6 +139,23 @@ func (d *VirtualMachineInstanceConditionManager) RemoveCondition(vmi *v1.Virtual
 		conds = append(conds, c)
 	}
 	vmi.Status.Conditions = conds
+}
+
+// UpdateCondition updates the given VirtualMachineInstanceCondition, unless it is already set with the same status and reason.
+func (d *VirtualMachineInstanceConditionManager) UpdateCondition(vmi *v1.VirtualMachineInstance, cond *v1.VirtualMachineInstanceCondition) {
+	for i, c := range vmi.Status.Conditions {
+		if c.Type != cond.Type {
+			continue
+		}
+
+		if c.Status != cond.Status || c.Reason != cond.Reason {
+			vmi.Status.Conditions[i] = *cond
+		}
+
+		return
+	}
+
+	vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
 }
 
 // AddPodCondition add pod condition to the VM.
@@ -205,4 +247,37 @@ func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migrat
 }
 func NewVirtualMachineInstanceMigrationConditionManager() *VirtualMachineInstanceMigrationConditionManager {
 	return &VirtualMachineInstanceMigrationConditionManager{}
+}
+
+type DataVolumeConditionManager struct {
+}
+
+func (d *DataVolumeConditionManager) GetCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType) *cdiv1.DataVolumeCondition {
+	if dv == nil {
+		return nil
+	}
+	for _, c := range dv.Status.Conditions {
+		if c.Type == cond {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (d *DataVolumeConditionManager) HasCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType) bool {
+	return d.GetCondition(dv, cond) != nil
+}
+
+func (d *DataVolumeConditionManager) HasConditionWithStatus(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType, status k8sv1.ConditionStatus) bool {
+	c := d.GetCondition(dv, cond)
+	return c != nil && c.Status == status
+}
+
+func (d *DataVolumeConditionManager) HasConditionWithStatusAndReason(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType, status k8sv1.ConditionStatus, reason string) bool {
+	c := d.GetCondition(dv, cond)
+	return c != nil && c.Status == status && c.Reason == reason
+}
+
+func NewDataVolumeConditionManager() *DataVolumeConditionManager {
+	return &DataVolumeConditionManager{}
 }

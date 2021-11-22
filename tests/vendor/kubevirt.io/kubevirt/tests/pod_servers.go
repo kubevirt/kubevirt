@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -25,13 +27,13 @@ func NewTCPServerPod(port int) *corev1.Pod {
 
 func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	util.PanicOnError(err)
 
-	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "should succeed creating pod")
 
 	getStatus := func() corev1.PodPhase {
-		pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return pod.Status.Phase
 	}

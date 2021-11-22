@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"strings"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,9 +35,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -59,8 +61,8 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.FieldSelector = fieldSelector.String()
 		options.LabelSelector = labelSelector.String()
+		options.Watch = true
 		return c.Get().
-			Prefix("watch").
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
@@ -102,8 +104,12 @@ func MigrationKey(migration *v1.VirtualMachineInstanceMigration) string {
 	return fmt.Sprintf("%v/%v", migration.ObjectMeta.Namespace, migration.ObjectMeta.Name)
 }
 
-func VirtualMachineKey(vmi *v1.VirtualMachineInstance) string {
+func VirtualMachineInstanceKey(vmi *v1.VirtualMachineInstance) string {
 	return fmt.Sprintf("%v/%v", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
+}
+
+func VirtualMachineKey(vm *v1.VirtualMachine) string {
+	return fmt.Sprintf("%v/%v", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
 }
 
 func PodKey(pod *k8sv1.Pod) string {
@@ -114,10 +120,10 @@ func DataVolumeKey(dataVolume *cdiv1.DataVolume) string {
 	return fmt.Sprintf("%v/%v", dataVolume.Namespace, dataVolume.Name)
 }
 
-func VirtualMachineKeys(vmis []*v1.VirtualMachineInstance) []string {
+func VirtualMachineInstanceKeys(vmis []*v1.VirtualMachineInstance) []string {
 	keys := []string{}
 	for _, vmi := range vmis {
-		keys = append(keys, VirtualMachineKey(vmi))
+		keys = append(keys, VirtualMachineInstanceKey(vmi))
 	}
 	return keys
 }
@@ -188,10 +194,13 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 			}
 
 			if request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim != nil {
-				newVolume.VolumeSource.PersistentVolumeClaim = request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
+				pvcSource := request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim.DeepCopy()
+				pvcSource.Hotpluggable = true
+				newVolume.VolumeSource.PersistentVolumeClaim = pvcSource
 			} else if request.AddVolumeOptions.VolumeSource.DataVolume != nil {
-
-				newVolume.VolumeSource.DataVolume = request.AddVolumeOptions.VolumeSource.DataVolume
+				dvSource := request.AddVolumeOptions.VolumeSource.DataVolume.DeepCopy()
+				dvSource.Hotpluggable = true
+				newVolume.VolumeSource.DataVolume = dvSource
 			}
 
 			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
@@ -288,4 +297,64 @@ func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.Sha
 	}
 
 	return running
+}
+
+func GeneratePatchBytes(ops []string) []byte {
+	return []byte(fmt.Sprintf("[%s]", strings.Join(ops, ", ")))
+}
+
+func EscapeJSONPointer(ptr string) string {
+	s := strings.ReplaceAll(ptr, "~", "~0")
+	return strings.ReplaceAll(s, "/", "~1")
+}
+
+func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+	if oldVMI.Status.Phase != newVMI.Status.Phase {
+		for _, transitionTimeStamp := range newVMI.Status.PhaseTransitionTimestamps {
+			if transitionTimeStamp.Phase == newVMI.Status.Phase {
+				// already exists.
+				return
+			}
+		}
+
+		now := metav1.NewTime(time.Now())
+		newVMI.Status.PhaseTransitionTimestamps = append(newVMI.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
+			Phase:                    newVMI.Status.Phase,
+			PhaseTransitionTimestamp: now,
+		})
+	}
+}
+
+func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			return true
+		}
+	}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			return true
+		}
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+			return true
+		}
+	}
+	return false
+}
+
+func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
+	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	attachmentPods := []*k8sv1.Pod{}
+	for _, obj := range objs {
+		pod := obj.(*k8sv1.Pod)
+		ownerRef := GetControllerOf(pod)
+		if ownerRef == nil || ownerRef.UID != ownerPod.UID {
+			continue
+		}
+		attachmentPods = append(attachmentPods, pod)
+	}
+	return attachmentPods, nil
 }

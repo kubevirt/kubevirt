@@ -20,6 +20,7 @@
 package util
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -59,4 +60,33 @@ func OpenFileWithNosec(pathName string, flag int) (*os.File, error) {
 func WriteFileWithNosec(pathName string, data []byte) error {
 	// #nosec G306, Expect WriteFile permissions to be 0600 or less
 	return ioutil.WriteFile(pathName, data, 0644)
+}
+
+func WriteBytes(f *os.File, c byte, n int64) error {
+	var err error
+	var i, total int64
+	buf := make([]byte, 1<<12)
+
+	for i = 0; i < 1<<12; i++ {
+		buf[i] = c
+	}
+
+	for i = 0; i < n>>12; i++ {
+		x, err := f.Write(buf)
+		total += int64(x)
+		if err != nil {
+			return err
+		}
+	}
+
+	x, err := f.Write(buf[:n&(1<<12-1)])
+	total += int64(x)
+	if err != nil {
+		return err
+	}
+	if total != n {
+		return fmt.Errorf("wrote %d bytes instead of %d", total, n)
+	}
+
+	return nil
 }

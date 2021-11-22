@@ -10,15 +10,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	VirtHandlerName = "virt-handler"
+)
+
 func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
-	deploymentName := "virt-handler"
+	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, pullPolicy, nil, env)
@@ -33,9 +37,9 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "virt-handler",
+			Name:      VirtHandlerName,
 			Labels: map[string]string{
-				virtv1.AppLabel: "virt-handler",
+				virtv1.AppLabel: VirtHandlerName,
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
@@ -44,7 +48,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io": "virt-handler",
+					"kubevirt.io": VirtHandlerName,
 				},
 			},
 			Template: *podTemplateSpec,
@@ -64,8 +68,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	pod.HostPID = true
 
 	// nodelabeller currently only support x86
-	arch := virtconfig.NewDefaultArch(runtime.GOARCH)
-	if !arch.IsARM64() && !arch.IsPPC64() {
+	if virtconfig.IsAMD64(runtime.GOARCH) {
 		launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
 		pod.InitContainers = []corev1.Container{
 			{
@@ -76,7 +79,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 				Image: fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 				Name:  "virt-launcher",
 				Args: []string{
-					"/bin/node-labeller.sh",
+					"node-labeller.sh",
 				},
 				SecurityContext: &corev1.SecurityContext{
 					Privileged: boolPtr(true),
@@ -100,7 +103,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	container := &pod.Containers[0]
 	container.Command = []string{
-		"virt-handler",
+		VirtHandlerName,
 		"--port",
 		"8443",
 		"--hostname-override",
@@ -194,6 +197,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	}
 	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
+	attachProfileVolume(pod)
 
 	bidi := corev1.MountPropagationBidirectional
 	// NOTE: the 'kubelet-pods-shortened' volume mounts the same host path as 'kubelet-pods'

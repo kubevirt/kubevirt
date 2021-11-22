@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -42,14 +42,14 @@ const (
 	COMMAND_STOP         = "stop"
 	COMMAND_RESTART      = "restart"
 	COMMAND_MIGRATE      = "migrate"
-	COMMAND_RENAME       = "rename"
 	COMMAND_GUESTOSINFO  = "guestosinfo"
 	COMMAND_USERLIST     = "userlist"
 	COMMAND_FSLIST       = "fslist"
 	COMMAND_ADDVOLUME    = "addvolume"
 	COMMAND_REMOVEVOLUME = "removevolume"
 
-	volumeNameArg = "volume-name"
+	volumeNameArg         = "volume-name"
+	notDefinedGracePeriod = -1
 )
 
 var (
@@ -58,6 +58,7 @@ var (
 	volumeName   string
 	serial       string
 	persist      bool
+	startPaused  bool
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -71,6 +72,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
+	cmd.Flags().BoolVar(&startPaused, "paused", false, "--paused=false: If set to true, start virtual machine in paused state")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -86,6 +88,9 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
+
+	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().IntVar(&gracePeriod, "grace-period", gracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -115,21 +120,6 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("migrate", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-func NewRenameCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "rename [vm_name] [new_vm_name]",
-		Short:   "Rename a stopped virtual machine.",
-		Example: usage(COMMAND_RENAME),
-		Args:    templates.ExactArgs("rename", 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_RENAME, clientConfig: clientConfig}
 			return c.Run(args)
 		},
 	}
@@ -206,7 +196,7 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:     "removevolume VMI",
 		Short:   "remove a volume from a running VM",
-		Example: usage(COMMAND_REMOVEVOLUME),
+		Example: usageRemoveVolume(),
 		Args:    templates.ExactArgs("removevolume", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_REMOVEVOLUME, clientConfig: clientConfig}
@@ -222,11 +212,12 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
 	//Check if data volume exists.
-	_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
 	if err == nil {
 		return &v1.HotplugVolumeSource{
 			DataVolume: &v1.DataVolumeSource{
-				Name: volumeName,
+				Name:         volumeName,
+				Hotpluggable: true,
 			},
 		}, nil
 	}
@@ -234,8 +225,11 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
 	if err == nil {
 		return &v1.HotplugVolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: volumeName,
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: volumeName,
+				},
+				Hotpluggable: true,
 			},
 		}, nil
 	}
@@ -249,12 +243,6 @@ type Command struct {
 }
 
 func usage(cmd string) string {
-	if cmd == COMMAND_RENAME {
-		usage := "	# rename a virtual machine called 'myvm' to 'notmyvm'\n"
-		usage += fmt.Sprintf("	{{ProgramName}} %s myvm notmyvm", cmd)
-		return usage
-	}
-
 	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
 		usage := fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n", strings.Title(cmd))
 		usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
@@ -275,6 +263,16 @@ func usageAddVolume() string {
 
   #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
+  `
+	return usage
+}
+
+func usageRemoveVolume() string {
+	usage := `  #Remove volume that was dynamically attached to a running VM.
+  {{ProgramName}} removevolume fedora-dv --volume-name=example-dv
+
+  #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
+  {{ProgramName}} removevolume fedora-dv --volume-name=example-dv --persist
   `
 	return usage
 }
@@ -308,6 +306,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}
+	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
 }
 
@@ -323,9 +322,14 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 		})
 	}
 	if err != nil {
-		return fmt.Errorf("Error removing volume, %v", err)
+		return fmt.Errorf("error removing volume, %v", err)
 	}
+	fmt.Printf("Successfully submitted remove volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
+}
+
+func gracePeriodIsSet(period int) bool {
+	return period != notDefinedGracePeriod
 }
 
 func (o *Command) Run(args []string) error {
@@ -344,11 +348,25 @@ func (o *Command) Run(args []string) error {
 
 	switch o.command {
 	case COMMAND_START:
-		err = virtClient.VirtualMachine(namespace).Start(vmiName)
+		err = virtClient.VirtualMachine(namespace).Start(vmiName, &v1.StartOptions{Paused: startPaused})
 		if err != nil {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
 	case COMMAND_STOP:
+		if gracePeriodIsSet(gracePeriod) && forceRestart == false {
+			return fmt.Errorf("Can not set gracePeriod without --force=true")
+		}
+		if forceRestart {
+			if gracePeriodIsSet(gracePeriod) {
+				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, gracePeriod)
+				if err != nil {
+					return fmt.Errorf("Error force stoping VirtualMachine, %v", err)
+				}
+			} else if !gracePeriodIsSet(gracePeriod) {
+				return fmt.Errorf("Can not force stop without gracePeriod")
+			}
+			break
+		}
 		err = virtClient.VirtualMachine(namespace).Stop(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)
@@ -376,11 +394,6 @@ func (o *Command) Run(args []string) error {
 		err = virtClient.VirtualMachine(namespace).Migrate(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
-		}
-	case COMMAND_RENAME:
-		err = virtClient.VirtualMachine(namespace).Rename(vmiName, &v1.RenameOptions{NewName: args[1]})
-		if err != nil {
-			return fmt.Errorf("Error renaming VirtualMachine %v", err)
 		}
 	case COMMAND_GUESTOSINFO:
 		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)

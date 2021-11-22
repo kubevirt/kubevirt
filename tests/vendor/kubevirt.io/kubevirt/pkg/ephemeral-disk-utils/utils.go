@@ -24,6 +24,9 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"syscall"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // TODO this should be part of structs, instead of a global
@@ -31,12 +34,14 @@ var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{user: 
 
 // For testing
 func MockDefaultOwnershipManager() {
-	owner, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
+	DefaultOwnershipManager = &nonOpManager{}
+}
 
-	DefaultOwnershipManager = &OwnershipManager{user: owner.Username}
+type nonOpManager struct {
+}
+
+func (no *nonOpManager) SetFileOwnership(file string) error {
+	return nil
 }
 
 type OwnershipManager struct {
@@ -58,6 +63,19 @@ func (om *OwnershipManager) SetFileOwnership(file string) error {
 	if err != nil {
 		return fmt.Errorf("failed to convert GID %s of user %s: %v", owner.Gid, om.user, err)
 	}
+	fileInfo, err := os.Stat(file)
+	if err != nil {
+		return err
+	}
+
+	if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
+		if uid == int(stat.Uid) && gid == int(stat.Gid) {
+			return nil
+		}
+	} else {
+		return fmt.Errorf("failed to convert stat info")
+	}
+
 	return os.Chown(file, uid, gid)
 }
 
@@ -85,4 +103,16 @@ func FileExists(path string) (bool, error) {
 
 type OwnershipManagerInterface interface {
 	SetFileOwnership(file string) error
+}
+
+func GetEphemeralBackingSourceBlockDevices(domain *api.Domain) map[string]bool {
+	isDevEphemeralBackingSource := make(map[string]bool)
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
+			if disk.BackingStore.Type == "block" && disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
+				isDevEphemeralBackingSource[disk.BackingStore.Source.Name] = true
+			}
+		}
+	}
+	return isDevEphemeralBackingSource
 }

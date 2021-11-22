@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
@@ -36,7 +36,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
+	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 5*time.Second)
 	if err == nil {
 		return nil
 	}
@@ -77,7 +77,22 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer expecter.Close()
 
+	err = expecter.Send("\n")
+	if err != nil {
+		return err
+	}
+
+	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "localhost:~\\# "},
+	})
+	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	if err == nil {
+		return nil
+	}
+
+	b = append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
@@ -108,7 +123,22 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer expecter.Close()
 
+	err = expecter.Send("\n")
+	if err != nil {
+		return err
+	}
+
+	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|%s) ~\]\$ |\[root@(localhost|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
+	})
+	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	if err == nil {
+		return nil
+	}
+
+	b = append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BCas{C: []expect.Caser{
@@ -132,7 +162,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@%s ~\]\$ `, vmi.Name)),
+				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@(localhost|%s) ~\]\$ `, vmi.Name)),
 				T: expect.OK(),
 			},
 		}},

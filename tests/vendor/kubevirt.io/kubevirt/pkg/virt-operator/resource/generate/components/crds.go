@@ -22,21 +22,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
 
 const (
-	KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
+	creationTimestampJSONPath = ".metadata.creationTimestamp"
+	errorMessageJSONPath      = ".status.error.message"
 )
 
 var (
@@ -50,15 +49,6 @@ var (
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
 	PreserveUnknownFieldsFalse       = false
 )
-
-func getVersion(crd *extv1.CustomResourceDefinition, version string) (*extv1.CustomResourceDefinitionVersion, error) {
-	for i := range crd.Spec.Versions {
-		if version == crd.Spec.Versions[i].Name {
-			return &crd.Spec.Versions[i], nil
-		}
-	}
-	return nil, fmt.Errorf("version %s not found in CustomResourceDefinition: %v", version, crd.Name)
-}
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
 	for _, field := range fields {
@@ -153,10 +143,11 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 		{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 		{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
+		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
 		{Name: "Live-Migratable", Type: "string", JSONPath: ".status.conditions[?(@.type=='LiveMigratable')].status", Priority: 1},
 		{Name: "Paused", Type: "string", JSONPath: ".status.conditions[?(@.type=='Paused')].status", Priority: 1},
 	})
@@ -190,9 +181,10 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-		{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
-		{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1}}, &extv1.CustomResourceSubresources{
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
+		{Name: "Status", Description: "Human Readable Status", Type: "string", JSONPath: ".status.printableStatus"},
+		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
+	}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{}})
 	if err != nil {
 		return nil, err
@@ -258,7 +250,7 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
 				Description: "Number of managed and not final or deleted VirtualMachineInstances"},
 			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
 				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
-			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		}, &extv1.CustomResourceSubresources{
 			Scale: &extv1.CustomResourceSubresourceScale{
 				SpecReplicasPath:   ".spec.replicas",
@@ -343,7 +335,7 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 	}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{},
@@ -385,9 +377,10 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
+		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
-		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -426,7 +419,7 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
-		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -467,7 +460,7 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
 		{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
 		{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
-		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -479,415 +472,58 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 	return crd, nil
 }
 
-func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *promv1.ServiceMonitor {
-	return &promv1.ServiceMonitor{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: monitoring.GroupName,
-			Kind:       "ServiceMonitor",
+func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.Name = "virtualmachineflavors." + flavorv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: flavorv1alpha1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineflavors",
+			Singular:   "virtualmachineflavor",
+			ShortNames: []string{"vmflavor", "vmflavors"},
+			Kind:       "VirtualMachineFlavor",
+			Categories: []string{"all"},
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: monitorNamespace,
-			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
-			Labels: map[string]string{
-				"openshift.io/cluster-monitoring": "",
-				"prometheus.kubevirt.io":          "",
-				"k8s-app":                         "kubevirt",
-			},
-		},
-		Spec: promv1.ServiceMonitorSpec{
-			Selector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"prometheus.kubevirt.io": "",
-				},
-			},
-			NamespaceSelector: promv1.NamespaceSelector{
-				MatchNames: []string{namespace},
-			},
-			Endpoints: []promv1.Endpoint{
-				{
-					Port:   "metrics",
-					Scheme: "https",
-					TLSConfig: &promv1.TLSConfig{
-						InsecureSkipVerify: insecureSkipVerify,
-					},
-					RelabelConfigs: []*promv1.RelabelConfig{
-						{
-							Regex:  "namespace",
-							Action: "labeldrop",
-						},
-					},
-				},
-			},
-		},
+		Scope: extv1.NamespaceScoped,
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    flavorv1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
 	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-// NewPrometheusRuleCR returns a PrometheusRule with a group of alerts for the KubeVirt deployment.
-func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *promv1.PrometheusRule {
-	return &promv1.PrometheusRule{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: promv1.SchemeGroupVersion.String(),
-			Kind:       "PrometheusRule",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"prometheus.kubevirt.io": "",
-				"k8s-app":                "kubevirt",
-			},
-		},
-		Spec: *NewPrometheusRuleSpec(namespace, workloadUpdatesEnabled),
-	}
-}
+func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
 
-// NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
-func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.PrometheusRuleSpec {
-	ruleSpec := &promv1.PrometheusRuleSpec{
-		Groups: []promv1.RuleGroup{
-			{
-				Name: "kubevirt.rules",
-				Rules: []promv1.Rule{
-					{
-						Record: "kubevirt_virt_api_up_total",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'})", ns),
-						),
-					},
-					{
-						Alert: "VirtAPIDown",
-						Expr:  intstr.FromString("kubevirt_virt_api_up_total == 0"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "All virt-api servers are down.",
-						},
-					},
-					{
-						Record: "num_of_allocatable_nodes",
-						Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
-					},
-					{
-						Alert: "LowVirtAPICount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_api_up_total < 2)"),
-						For:   "60m",
-						Annotations: map[string]string{
-							"summary": "More than one virt-api should be running if more than one worker nodes exist.",
-						},
-					},
-					{
-						Record: "num_of_kvm_available_nodes",
-						Expr:   intstr.FromString("num_of_allocatable_nodes - count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} == 0)"),
-					},
-					{
-						Alert: "LowKVMNodesCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_kvm_available_nodes < 2)"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"description": "Low number of nodes with KVM resource available.",
-							"summary":     "At least two nodes with kvm resource required for VM life migration.",
-						},
-						Labels: map[string]string{
-							"severity": "warning",
-						},
-					},
-					{
-						Record: "kubevirt_virt_controller_up_total",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'})", ns),
-						),
-					},
-					{
-						Record: "kubevirt_virt_controller_ready_total",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum(kubevirt_virt_controller_ready{namespace='%s'})", ns),
-						),
-					},
-					{
-						Alert: "LowReadyVirtControllersCount",
-						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total <  kubevirt_virt_controller_up_total"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "Some virt controllers are running but not ready.",
-						},
-					},
-					{
-						Alert: "NoReadyVirtController",
-						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total == 0"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "No ready virt-controller was detected for the last 5 min.",
-						},
-					},
-					{
-						Alert: "VirtControllerDown",
-						Expr:  intstr.FromString("kubevirt_virt_controller_up_total == 0"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "No running virt-controller was detected for the last 5 min.",
-						},
-					},
-					{
-						Alert: "LowVirtControllersCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_controller_ready_total < 2)"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than one virt-controller should be ready if more than one worker node.",
-						},
-					},
-					{
-						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
-						Alert: "VirtControllerRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-controller for the last hour",
-						},
-					},
-					{
-						Alert: "VirtControllerRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-controller for the last 5 minutes",
-						},
-					},
-					{
-						Record: "kubevirt_virt_operator_up_total",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'})", ns),
-						),
-					},
-					{
-						Alert: "VirtOperatorDown",
-						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "All virt-operator servers are down.",
-						},
-					},
-					{
-						Alert: "LowVirtOperatorCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_operator_up_total < 2)"),
-						For:   "60m",
-						Annotations: map[string]string{
-							"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
-						},
-					},
-					{
-						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
-						Alert: "VirtOperatorRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_hour / vec_by_virt_operators_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-operator for the last hour",
-						},
-					},
-					{
-						Alert: "VirtOperatorRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_5m / vec_by_virt_operators_all_client_rest_requests_in_last_5m) >= 0.8"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-operator for the last 5 minutes",
-						},
-					},
-					{
-						Record: "kubevirt_virt_operator_ready_total",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum(kubevirt_virt_operator_ready{namespace='%s'})", ns),
-						),
-					},
-					{
-						Record: "kubevirt_virt_operator_leading_total",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum(kubevirt_virt_operator_leading{namespace='%s'})", ns),
-						),
-					},
-					{
-						Alert: "LowReadyVirtOperatorsCount",
-						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total <  kubevirt_virt_operator_up_total"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "Some virt-operators are running but not ready.",
-						},
-					},
-					{
-						Alert: "NoReadyVirtOperator",
-						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "No ready virt-operator was detected for the last 5 min.",
-						},
-					},
-					{
-						Alert: "NoLeadingVirtOperator",
-						Expr:  intstr.FromString("kubevirt_virt_operator_leading_total == 0"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "No leading virt-operator was detected for the last 5 min.",
-						},
-					},
-					{
-						Record: "kubevirt_virt_handler_up_total",
-						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'})", ns)),
-					},
-					{
-						Alert: "VirtHandlerDaemonSetRolloutFailing",
-						Expr: intstr.FromString(
-							fmt.Sprintf("(%s - %s) != 0",
-								fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-handler'}", ns),
-								fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", ns))),
-						For: "15m",
-						Annotations: map[string]string{
-							"summary": "Some virt-handlers failed to roll out",
-						},
-					},
-					{
-						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
-						Alert: "VirtHandlerRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-handler for the last hour",
-						},
-					},
-					{
-						Alert: "VirtHandlerRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
-						For:   "5m",
-						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
-						},
-					},
-					{
-						Record: "kubevirt_vm_container_free_memory_bytes",
-						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits_memory_bytes{pod=~'virt-launcher-.*', container='compute'} - on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
-					},
-					{
-						Alert: "KubevirtVmHighMemoryUsage",
-						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes < 20971520"),
-						For:   "1m",
-						Annotations: map[string]string{
-							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to memory limit",
-							"summary":     "VM is at risk of being terminated by the runtime.",
-						},
-						Labels: map[string]string{
-							"severity": "warning",
-						},
-					},
-					{
-						Record: "kubevirt_num_virt_handlers_by_node_running_virt_launcher",
-						Expr:   intstr.FromString("count by(node)(node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} ) * on (node) group_left(pod) (1*(kube_pod_container_status_ready{pod=~'virt-handler-.*'} + on (pod) group_left(node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-handler-.*'} ))) or on (node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} )"),
-					},
-					{
-						Alert: "OrphanedVirtualMachineImages",
-						Expr:  intstr.FromString("(kubevirt_num_virt_handlers_by_node_running_virt_launcher) == 0"),
-						For:   "60m",
-						Annotations: map[string]string{
-							"summary": "No virt-handler pod detected on node {{ $labels.node }} with running vmis for more than an hour",
-						},
-						Labels: map[string]string{
-							"severity": "warning",
-						},
-					},
-					{
-						Alert: "VMCannotBeEvicted",
-						Expr:  intstr.FromString("kubevirt_vmi_non_evictable > 0"),
-						For:   "1m",
-						Annotations: map[string]string{
-							"description": "Eviction policy for {{ $labels.name }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
-							"summary":     "The VM's eviction strategy is set to Live Migration but the VM is not migratable",
-						},
-						Labels: map[string]string{
-							"severity": "warning",
-						},
-					},
-				},
-			},
+	crd.Name = "virtualmachineclusterflavors." + flavorv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: flavorv1alpha1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineclusterflavors",
+			Singular:   "virtualmachineclusterflavor",
+			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
+			Kind:       "VirtualMachineClusterFlavor",
+			Categories: []string{"all"},
 		},
+		Scope: extv1.ClusterScoped,
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    flavorv1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
 	}
 
-	if workloadUpdatesEnabled {
-		ruleSpec.Groups[0].Rules = append(ruleSpec.Groups[0].Rules, promv1.Rule{
-
-			Alert: "OutdatedVirtualMachineInstanceWorkloads",
-			Expr:  intstr.FromString("kubevirt_vmi_outdated_count != 0"),
-			For:   "1440m",
-			Annotations: map[string]string{
-				"summary": "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
-			},
-		})
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
 	}
-
-	return ruleSpec
+	return crd, nil
 }
 
 // Used by manifest generation

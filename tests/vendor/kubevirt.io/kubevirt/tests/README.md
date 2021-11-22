@@ -5,7 +5,7 @@
 We aim to run e2e tests in parallel by default. As such the following rules should be followed:
  * Use cirros and alpine VMs for testing wherever possible. If you have to use
    use another OS, discuss on the PR why it is needed.
- * Stay within the boundary of the testnamespaces which we prove. If you have
+ * Stay within the boundary of the Testnamespaces which we prove. If you have
    to create resources outside of the test namespaces, discuss potential
    solutions on such a PR.
  * If you really have to run tests serial (destructive tests, infra-tests,
@@ -41,12 +41,41 @@ Integration tests require a running Kubevirt cluster.  Once you have a running
 Kubevirt cluster, you can use the `-master` and the `-kubeconfig` flags to
 point the tests to the cluster.
 
+## Running networking tests for outside connectivity
+
+When running the tests with no internet connection,
+some networking tests ,that test outside connectivity, might fail,
+and you might want to skip them.
+For that some additional flags are needed to be passed.
+In addition, if you'd like to test outside connectivity
+using different addresses than the default
+(`8.8.8.8`, `2001:db8:1::1` and `google.com`), you can achive that with the 
+designated flags as well.
+
+For each method detailed below, there is note about the needed flags
+to the outside connectivity tests and how to pass them.
+
 ## Run them on an arbitrary KubeVirt installation
 
 ```
 cd tests # from the git repo root folder
 go test -kubeconfig=path/to/my/config -config=default-config.json
 ```
+
+>**outside connectivity tests:** The tests will run by default.
+>To skip the outside connectivity tests add
+>`-ginkgo.skip='\[outside_connectivity\]'` To your go command.
+>To change the IPV4, IPV6 or DNS used for outside connectivity tests,
+>add `conn-check-ipv4-address`,
+>`conn-check-ipv6-address` or `conn-check-dns` to your go command,
+>with the desired value.
+>For example:
+>```
+>go test -kubeconfig=$KUBECONFIG -config=default-config.json \
+>-conn-check-ipv4-address=8.8.4.4 -conn-check-ipv6-address=2620:119:35::35 \
+>-conn-check-dns=amazon.com \
+>```
+
 
 ## Run them on one of the core KubeVirt providers
 
@@ -57,6 +86,18 @@ taken from hack/config.sh:
 # from the git repo root folder
 make functest
 ```
+
+>**outside connectivity tests:** The tests will run by default. To skip
+>the tests export `KUBEVIRT_E2E_SKIP='\[outside_connectivity\]'` 
+>environment variable before running the tests.
+>To change the IPV4, IPV6 or DNS used for outside connectivity tests,
+>you can export `CONN_CHECK_IPV4_ADDRESS`, `CONN_CHECK_IPV6_ADDRESS` and  
+> `CONN_CHECK_DNS` with the desired values. For example:
+>```
+>export CONN_CHECK_IPV4_ADDRESS=8.8.4.4
+>export CONN_CHECK_IPV6_ADDRESS=2620:119:35::35
+>export CONN_CHECK_DNS=amazon.com
+>```
 
 ## Run them anywhere inside of container
 

@@ -11,8 +11,9 @@ func (VirtualMachineSnapshot) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
-		"deletionPolicy": "+optional",
+		"":                "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
+		"deletionPolicy":  "+optional",
+		"failureDeadline": "This time represents the number of seconds we permit the vm snapshot\nto take. In case we pass this deadline we mark this snapshot\nas failed.\nDefaults to DefaultFailureDeadline - 5min\n+optional",
 	}
 }
 
@@ -22,6 +23,7 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"sourceUID":                         "+optional",
 		"virtualMachineSnapshotContentName": "+optional",
 		"creationTime":                      "+optional\n+nullable",
+		"phase":                             "+optional",
 		"readyToUse":                        "+optional",
 		"error":                             "+optional",
 		"conditions":                        "+optional",

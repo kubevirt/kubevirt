@@ -22,6 +22,7 @@ package virtconfig
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,7 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -42,7 +43,7 @@ const (
 	FeatureGatesKey                   = "feature-gates"
 	EmulatedMachinesKey               = "emulated-machines"
 	MachineTypeKey                    = "machine-type"
-	UseEmulationKey                   = "debug.useEmulation"
+	AllowEmulationKey                 = "debug.useEmulation"
 	ImagePullPolicyKey                = "dev.imagePullPolicy"
 	MigrationsConfigKey               = "migrations"
 	CPUModelKey                       = "default-cpu-model"
@@ -65,22 +66,37 @@ const (
 
 type ConfigModifiedFn func()
 
-// NewClusterConfig represents the `kubevirt-config` config map. It can be used to live-update
-// values if the config changes. The config update works like this:
-// 1. Check if the config exists. If it does not exist, return the default config
-// 2. Check if the config got updated. If so, try to parse and return it
-// 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
+// NewClusterConfig is a wrapper of NewClusterConfigWithCPUArch with default cpuArch.
 func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 	crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
 	namespace string) *ClusterConfig {
+	return NewClusterConfigWithCPUArch(
+		configMapInformer,
+		crdInformer,
+		kubeVirtInformer,
+		namespace,
+		runtime.GOARCH,
+	)
+}
 
-	defaultConfig := defaultClusterConfig()
+// NewClusterConfigWithCPUArch represents the `kubevirt-config` config map. It can be used to live-update
+// values if the config changes. The config update works like this:
+// 1. Check if the config exists. If it does not exist, return the default config
+// 2. Check if the config got updated. If so, try to parse and return it
+// 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
+func NewClusterConfigWithCPUArch(configMapInformer cache.SharedIndexInformer,
+	crdInformer cache.SharedIndexInformer,
+	kubeVirtInformer cache.SharedIndexInformer,
+	namespace, cpuArch string) *ClusterConfig {
+
+	defaultConfig := defaultClusterConfig(cpuArch)
 
 	c := &ClusterConfig{
 		configMapInformer: configMapInformer,
 		crdInformer:       crdInformer,
 		kubeVirtInformer:  kubeVirtInformer,
+		cpuArch:           cpuArch,
 		lock:              &sync.Mutex{},
 		namespace:         namespace,
 		lastValidConfig:   defaultConfig,
@@ -137,10 +153,18 @@ func isDataVolumeCrd(crd *extv1.CustomResourceDefinition) bool {
 	return false
 }
 
+func isDataSourceCrd(crd *extv1.CustomResourceDefinition) bool {
+	if crd.Spec.Names.Kind == "DataSource" {
+		return true
+	}
+
+	return false
+}
+
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
 	crd := obj.(*extv1.CustomResourceDefinition)
-	if !isDataVolumeCrd(crd) {
+	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) {
 		return
 	}
 
@@ -158,7 +182,7 @@ func (c *ClusterConfig) crdUpdated(_, cur interface{}) {
 	c.crdAddedDeleted(cur)
 }
 
-func defaultClusterConfig() *v1.KubeVirtConfiguration {
+func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	parallelOutboundMigrationsPerNodeDefault := ParallelOutboundMigrationsPerNodeDefault
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
@@ -169,7 +193,6 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
-	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
 	defaultMemBalloonStatsPeriod := DefaultMemBalloonStatsPeriod
@@ -179,15 +202,21 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 		Product:      SmbiosConfigDefaultProduct,
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
+	DefaultOVMFPath, DefaultMachineType, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
+	defaultDiskVerification := &v1.DiskVerification{
+		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
+	}
 
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			UseEmulation:           DefaultUseEmulation,
+			UseEmulation:           DefaultAllowEmulation,
 			MemoryOvercommit:       DefaultMemoryOvercommit,
 			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
+			MinimumReservePVCBytes: DefaultMinimumReservePVCBytes,
 			NodeSelectors:          nodeSelectorsDefault,
 			CPUAllocationRatio:     DefaultCPUAllocationRatio,
+			DiskVerification:       defaultDiskVerification,
 			LogVerbosity: &v1.LogVerbosity{
 				VirtAPI:        DefaultVirtAPILogVerbosity,
 				VirtOperator:   DefaultVirtOperatorLogVerbosity,
@@ -220,6 +249,30 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
 		OVMFPath:                    DefaultOVMFPath,
 		MemBalloonStatsPeriod:       &defaultMemBalloonStatsPeriod,
+		APIConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtAPIQPS,
+				Burst: DefaultVirtAPIBurst,
+			}}},
+		},
+		ControllerConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtControllerQPS,
+				Burst: DefaultVirtControllerBurst,
+			}}},
+		},
+		HandlerConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtHandlerQPS,
+				Burst: DefaultVirtHandlerBurst,
+			}}},
+		},
+		WebhookConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtWebhookClientQPS,
+				Burst: DefaultVirtWebhookClientBurst,
+			}}},
+		},
 	}
 }
 
@@ -228,6 +281,7 @@ type ClusterConfig struct {
 	crdInformer                      cache.SharedIndexInformer
 	kubeVirtInformer                 cache.SharedIndexInformer
 	namespace                        string
+	cpuArch                          string
 	lock                             *sync.Mutex
 	lastValidConfig                  *v1.KubeVirtConfiguration
 	defaultConfig                    *v1.KubeVirtConfiguration
@@ -256,6 +310,7 @@ type migrationConfiguration struct {
 	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
 	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
 	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
+	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
 }
 
 // setConfigFromConfigMap parses the provided config map and updates the provided config.
@@ -312,8 +367,8 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	}
 
 	// set if emulation is used
-	useEmulation := strings.TrimSpace(configMap.Data[UseEmulationKey])
-	switch useEmulation {
+	allowEmulation := strings.TrimSpace(configMap.Data[AllowEmulationKey])
+	switch allowEmulation {
 	case "":
 		// keep the default
 	case "true":
@@ -321,7 +376,7 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	case "false":
 		config.DeveloperConfiguration.UseEmulation = false
 	default:
-		return fmt.Errorf("invalid debug.useEmulation in config: %v", useEmulation)
+		return fmt.Errorf("invalid %s in config: %v", AllowEmulationKey, allowEmulation)
 	}
 
 	// set machine type
@@ -461,6 +516,22 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 	return nil
 }
 
+// getCPUArchSpecificDefault get arch specific default config
+func getCPUArchSpecificDefault(cpuArch string) (string, string, []string) {
+	// get arch specific default config
+	switch cpuArch {
+	case "arm64":
+		emulatedMachinesDefault := strings.Split(DefaultAARCH64EmulatedMachines, ",")
+		return DefaultAARCH64OVMFPath, DefaultAARCH64MachineType, emulatedMachinesDefault
+	case "ppc64le":
+		emulatedMachinesDefault := strings.Split(DefaultPPC64LEEmulatedMachines, ",")
+		return DefaultARCHOVMFPath, DefaultPPC64LEMachineType, emulatedMachinesDefault
+	default:
+		emulatedMachinesDefault := strings.Split(DefaultAMD64EmulatedMachines, ",")
+		return DefaultARCHOVMFPath, DefaultAMD64MachineType, emulatedMachinesDefault
+	}
+}
+
 // getConfig returns the latest valid parsed config map result, or updates it
 // if a newer version is available.
 // XXX Rework this, to happen mostly in informer callbacks.
@@ -479,7 +550,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from ConfigMap cache, falling back to last good resource version '%s'", c.lastValidConfigResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {
-		kv = c.getConfigFromKubeVirtCR()
+		kv = c.GetConfigFromKubeVirtCR()
 		if kv == nil {
 			return c.lastValidConfig
 		}
@@ -500,13 +571,14 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		return c.lastValidConfig
 	}
 
-	config = defaultClusterConfig()
+	config = defaultClusterConfig(c.cpuArch)
 	var err error
 	if useConfigMap {
 		err = setConfigFromConfigMap(config, configMap)
 	} else {
 		err = setConfigFromKubeVirt(config, kv)
 	}
+
 	if err != nil {
 		c.lastInvalidConfigResourceVersion = resourceVersion
 		log.DefaultLogger().Reason(err).Errorf("Invalid cluster config using '%s' resource version '%s', falling back to last good resource version '%s'", resourceType, resourceVersion, c.lastValidConfigResourceVersion)
@@ -519,7 +591,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 	return c.lastValidConfig
 }
 
-func (c *ClusterConfig) getConfigFromKubeVirtCR() *v1.KubeVirt {
+func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	objects := c.kubeVirtInformer.GetStore().List()
 	var kubeVirtName string
 	for _, obj := range objects {
@@ -543,6 +615,21 @@ func (c *ClusterConfig) getConfigFromKubeVirtCR() *v1.KubeVirt {
 	} else {
 		return obj.(*v1.KubeVirt)
 	}
+}
+
+func (c *ClusterConfig) HasDataSourceAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isDataSourceCrd(crd) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *ClusterConfig) HasDataVolumeAPI() bool {

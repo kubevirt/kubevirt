@@ -33,7 +33,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	clientutil "kubevirt.io/client-go/util"
 )
 
@@ -44,6 +44,7 @@ const (
 	VirtControllerShasumEnvName = "VIRT_CONTROLLER_SHASUM"
 	VirtHandlerShasumEnvName    = "VIRT_HANDLER_SHASUM"
 	VirtLauncherShasumEnvName   = "VIRT_LAUNCHER_SHASUM"
+	GsEnvShasumName             = "GS_SHASUM"
 	KubeVirtVersionEnvName      = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
@@ -65,9 +66,6 @@ const (
 	AdditionalPropertiesWorkloadUpdatesEnabled = "WorkloadUpdatesEnabled"
 
 	// account to use if one is not explicitly named
-	DefaultMonitorNamespace = "openshift-monitoring"
-
-	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
 	// lookup keys in AdditionalProperties
@@ -78,9 +76,17 @@ const (
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
 
+	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
 )
+
+// DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
+// Ordering in the list matters. First entries have precedence.
+var DefaultMonitorNamespaces = []string{
+	"openshift-monitoring", // default namespace in openshift
+	"monitoring",           // default namespace of https://github.com/prometheus-operator/kube-prometheus
+}
 
 type KubeVirtDeploymentConfig struct {
 	ID          string `json:"id,omitempty" optional:"true"`
@@ -99,6 +105,7 @@ type KubeVirtDeploymentConfig struct {
 	VirtControllerSha string `json:"virtControllerSha,omitempty" optional:"true"`
 	VirtHandlerSha    string `json:"virtHandlerSha,omitempty" optional:"true"`
 	VirtLauncherSha   string `json:"virtLauncherSha,omitempty" optional:"true"`
+	GsSha             string `json:"gsSha,omitempty" optional:"true"`
 
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
@@ -234,9 +241,10 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	controllerSha := os.Getenv(VirtControllerShasumEnvName)
 	handlerSha := os.Getenv(VirtHandlerShasumEnvName)
 	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
+	gsSha := os.Getenv(GsEnvShasumName)
 	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties, passthroughEnv)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, gsSha, namespace, additionalProperties, passthroughEnv)
 	}
 
 	return config
@@ -297,7 +305,7 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kv
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, gsSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -307,6 +315,7 @@ func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, oper
 		VirtControllerSha:    controllerSha,
 		VirtHandlerSha:       handlerSha,
 		VirtLauncherSha:      launcherSha,
+		GsSha:                gsSha,
 		Namespace:            namespace,
 		AdditionalProperties: additionalProperties,
 		PassthroughEnvVars:   passthroughEnv,
@@ -401,12 +410,12 @@ func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
 	return enabled
 }
 
-func (c *KubeVirtDeploymentConfig) GetMonitorNamespace() string {
+func (c *KubeVirtDeploymentConfig) GetMonitorNamespaces() []string {
 	p := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
 	if p == "" {
-		return DefaultMonitorNamespace
+		return DefaultMonitorNamespaces
 	}
-	return p
+	return []string{p}
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {

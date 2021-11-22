@@ -14,12 +14,13 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
+// #nosec 101, false positives were caused by variables not holding any secret value.
 const (
 	KubeVirtCASecretName            = "kubevirt-ca"
 	VirtHandlerCertSecretName       = "kubevirt-virt-handler-certs"
@@ -28,6 +29,8 @@ const (
 	VirtApiCertSecretName           = "kubevirt-virt-api-certs"
 	VirtControllerCertSecretName    = "kubevirt-controller-certs"
 	CABundleKey                     = "ca-bundle"
+	localPodDNStemplateString       = "%s.%s.pod.cluster.local"
+	caClusterLocal                  = "cluster.local"
 )
 
 type CertificateCreationCallback func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey)
@@ -44,10 +47,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			VirtOperatorServiceName+"."+secret.Namespace+".pod.cluster.local",
+			fmt.Sprintf(localPodDNStemplateString, VirtOperatorServiceName, secret.Namespace),
 			VirtOperatorServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -61,10 +64,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			VirtApiServiceName+"."+secret.Namespace+".pod.cluster.local",
+			fmt.Sprintf(localPodDNStemplateString, VirtApiServiceName, secret.Namespace),
 			VirtApiServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -78,10 +81,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			VirtControllerServiceName+"."+secret.Namespace+".pod.cluster.local",
+			fmt.Sprintf(localPodDNStemplateString, VirtControllerServiceName, secret.Namespace),
 			VirtControllerServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -98,7 +101,7 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			"kubevirt.io:system:node:virt-handler",
 			VirtHandlerServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,

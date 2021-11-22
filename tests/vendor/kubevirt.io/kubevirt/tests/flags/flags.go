@@ -30,7 +30,7 @@ var KubeVirtUtilityVersionTag = ""
 var KubeVirtVersionTag = "latest"
 var KubeVirtVersionTagAlt = ""
 var KubeVirtUtilityRepoPrefix = ""
-var KubeVirtRepoPrefix = "kubevirt"
+var KubeVirtRepoPrefix = "quay.io/kubevirt"
 var ImagePrefixAlt = ""
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
@@ -43,11 +43,16 @@ var PreviousReleaseRegistry = ""
 var ConfigFile = ""
 var SkipShasumCheck bool
 var SkipDualStackTests bool
+var IPV4ConnectivityCheckAddress = ""
+var IPV6ConnectivityCheckAddress = ""
+var ConnectivityCheckDNS = ""
 var ArtifactsDir string
 var ApplyDefaulte2eConfiguration bool
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
+var DNSServiceName = ""
+var DNSServiceNamespace = ""
 
 func init() {
 	kubecli.Init()
@@ -55,7 +60,7 @@ func init() {
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
 	flag.StringVar(&KubeVirtUtilityRepoPrefix, "utility-container-prefix", "", "Set the repository prefix for all images")
-	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", KubeVirtRepoPrefix, "Set the repository prefix for all images")
 	flag.StringVar(&ImagePrefixAlt, "image-prefix-alt", "", "Optional prefix for virt-* image names for additional imagePrefix operator test")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
@@ -71,7 +76,12 @@ func init() {
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
+	flag.StringVar(&IPV4ConnectivityCheckAddress, "conn-check-ipv4-address", "", "Address that is used for testing IPV4 connectivity to the outside world")
+	flag.StringVar(&IPV6ConnectivityCheckAddress, "conn-check-ipv6-address", "", "Address that is used for testing IPV6 connectivity to the outside world")
+	flag.StringVar(&ConnectivityCheckDNS, "conn-check-dns", "", "dns that is used for testing connectivity to the outside world")
 	flag.BoolVar(&ApplyDefaulte2eConfiguration, "apply-default-e2e-configuration", false, "Apply the default e2e test configuration (feature gates, selinux contexts, ...)")
+	flag.StringVar(&DNSServiceName, "dns-service-name", "kube-dns", "cluster DNS service name")
+	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
 }
 
 func NormalizeFlags() {

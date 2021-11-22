@@ -4,7 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func NewVirtAPIAPIServices(installNamespace string) []*apiregv1.APIService {
@@ -25,7 +25,7 @@ func NewVirtAPIAPIServices(installNamespace string) []*apiregv1.APIService {
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 				Annotations: map[string]string{
-					"certificates.kubevirt.io/secret": VirtApiCertSecretName,
+					certificatesSecretAnnotationKey: VirtApiCertSecretName,
 				},
 			},
 			Spec: apiregv1.APIServiceSpec{

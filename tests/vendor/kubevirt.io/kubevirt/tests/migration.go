@@ -1,7 +1,10 @@
 package tests
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -9,20 +12,24 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
 func ExpectMigrationSuccess(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	return expectMigrationSuccessWithOffset(2, virtClient, migration, timeout)
+}
+
+func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 	By("Waiting until the Migration Completes")
 	uid := ""
-	Eventually(func() error {
+	EventuallyWithOffset(offset, func() error {
 		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 
-		Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
+		ExpectWithOffset(offset+1, migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
 
 		uid = string(migration.UID)
 		if migration.Status.Phase == v1.MigrationSucceeded {
@@ -65,4 +72,36 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 
 	By("Verifying the VMI's is in the running state")
 	Expect(vmi.Status.Phase).To(Equal(v1.Running), "the VMI must be in `Running` state after the migration")
+}
+
+func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
+	domXML := RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
+	decoder := xml.NewDecoder(bytes.NewReader([]byte(domXML)))
+
+	var location = make([]string, 0)
+	var found = false
+	for {
+		token, err := decoder.RawToken()
+		if err == io.EOF {
+			break
+		}
+		Expect(err).To(BeNil(), "error getting token: %v\n", err)
+
+		switch v := token.(type) {
+		case xml.StartElement:
+			location = append(location, v.Name.Local)
+
+			if len(location) >= 4 &&
+				location[0] == "domain" &&
+				location[1] == "metadata" &&
+				location[2] == "kubevirt" &&
+				location[3] == "migration" {
+				found = true
+			}
+			Expect(found).To(BeFalse(), "Unexpected KubeVirt migration metadata found in domain XML")
+		case xml.EndElement:
+			location = location[:len(location)-1]
+		}
+
+	}
 }
