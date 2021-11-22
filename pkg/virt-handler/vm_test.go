@@ -3147,7 +3147,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			setClusterMigrationPolicies()
 		})
 
-		Context("precedence", func() {
+		Context("matching and precedence", func() {
 
 			type policyInfo struct {
 				name                    string
@@ -3176,6 +3176,28 @@ var _ = Describe("VirtualMachineInstance", func() {
 				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "a_two",
 					policyInfo{"one", 1, 2}, policyInfo{"a_two", 2, 1}),
 			)
+
+			It("policy with one non-fitting label should not match", func() {
+				const labelKey = "mp-key-0"
+				const labelValue = "mp-value-0"
+
+				policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 4, 3)
+				_, exists := policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey]
+				Expect(exists).To(BeTrue())
+
+				By("Changing one of the policy's labels to it won't match to VMI")
+				policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey] = labelValue + "XYZ"
+				policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
+
+				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				Expect(matchedPolicy).To(BeNil())
+			})
+
+			It("when no policies exist, MatchPolicy() should return nil", func() {
+				policyList := kubecli.NewMinimalMigrationPolicyList()
+				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				Expect(matchedPolicy).To(BeNil())
+			})
 		})
 
 		table.DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
