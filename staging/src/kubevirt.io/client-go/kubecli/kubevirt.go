@@ -251,6 +251,8 @@ type VirtualMachineInstanceInterface interface {
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
+	AddInterface(name string, addInterfaceOptions *v1.AddInterfaceOptions) error
+	RemoveInterface(name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error
 }
 
 type ReplicaSetInterface interface {
@@ -298,6 +300,8 @@ type VirtualMachineInterface interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(name string) error
+	AddInterface(name string, addInterfaceOptions *v1.AddInterfaceOptions) error
+	RemoveInterface(name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

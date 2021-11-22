@@ -1211,6 +1211,26 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VSOCK(arg0, arg1 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VSOCK", arg0, arg1)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) AddInterface(name string, addInterfaceOptions *v120.AddInterfaceOptions) error {
+	ret := _m.ctrl.Call(_m, "AddInterface", name, addInterfaceOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddInterface(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddInterface", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) RemoveInterface(name string, removeInterfaceOptions *v120.RemoveInterfaceOptions) error {
+	ret := _m.ctrl.Call(_m, "RemoveInterface", name, removeInterfaceOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveInterface(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveInterface", arg0, arg1)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller
@@ -1670,6 +1690,26 @@ func (_m *MockVirtualMachineInterface) RemoveMemoryDump(name string) error {
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveMemoryDump(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveMemoryDump", arg0)
+}
+
+func (_m *MockVirtualMachineInterface) AddInterface(name string, addInterfaceOptions *v120.AddInterfaceOptions) error {
+	ret := _m.ctrl.Call(_m, "AddInterface", name, addInterfaceOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) AddInterface(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddInterface", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) RemoveInterface(name string, removeInterfaceOptions *v120.RemoveInterfaceOptions) error {
+	ret := _m.ctrl.Call(_m, "RemoveInterface", name, removeInterfaceOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveInterface(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveInterface", arg0, arg1)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface

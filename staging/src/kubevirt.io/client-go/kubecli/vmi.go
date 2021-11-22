@@ -501,3 +501,25 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, er
 	queryParams.Add("port", strconv.FormatUint(uint64(options.TargetPort), 10))
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }
+
+func (v *vmis) AddInterface(name string, addInterfaceOptions *v1.AddInterfaceOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addinterface")
+
+	JSON, err := json.Marshal(addInterfaceOptions)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(context.Background()).Error()
+}
+
+func (v *vmis) RemoveInterface(name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removeinterface")
+
+	JSON, err := json.Marshal(removeInterfaceOptions)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(context.Background()).Error()
+}
