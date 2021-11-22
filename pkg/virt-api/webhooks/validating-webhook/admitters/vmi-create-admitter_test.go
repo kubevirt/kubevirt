@@ -581,6 +581,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			for _, deviceName := range supportedDevices {
 				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+					Name:  "audio-device",
 					Model: deviceName,
 				}
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -591,9 +592,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Name:  "audio-device",
 				Model: "aNotSupportedDevice",
 			}
 
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.Sound"))
+		})
+		It("should reject audio devices without name fields", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			supportedAudioDevice := "ac97"
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Model: supportedAudioDevice,
+			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.Sound"))
