@@ -343,6 +343,80 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
+
+		var pvName string
+		BeforeEach(func() {
+			pvName = "test-nfs" + rand.String(48)
+		})
+
+		const guestAgentMigrationTestName = " should be migrated successfully, using guest agent on VM "
+		guestAgentMigrationTestFunc := func(mode v1.MigrationMode) {
+			memoryRequestSize := resource.MustParse(fedoraVMSize)
+			if mode == v1.MigrationPostCopy {
+				config := getCurrentKv()
+				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+				tests.UpdateKubeVirtConfigValueAndWait(config)
+				memoryRequestSize = resource.MustParse("1Gi")
+			}
+
+			By("Creating the  VMI")
+			vmi := tests.NewRandomVMIWithPVC(pvName)
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			// add userdata for guest agent and service account mount
+			mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
+					mkdir /mnt/servacc
+					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
+				`, secretDiskSerial)
+			tests.AddUserData(vmi, "cloud-init", mountSvcAccCommands)
+
+			tests.AddServiceAccountDisk(vmi, "default")
+			disks := vmi.Spec.Domain.Devices.Disks
+			disks[len(disks)-1].Serial = secretDiskSerial
+
+			vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+			// Wait for cloud init to finish and start the agent inside the vmi.
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			By("Checking that the VirtualMachineInstance console has expected output")
+			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+
+			if mode == v1.MigrationPostCopy {
+				By("Running stress test to allow transition to post-copy")
+				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+			}
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration for iteration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			By("Checking VMI, confirm migration state")
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			confirmMigrationMode(vmi, mode)
+
+			By("Is agent connected after migration")
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			By("Checking that the migrated VirtualMachineInstance console has expected output")
+			Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
+
+			By("Checking that the service account is mounted")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
+				&expect.BExp{R: util.NamespaceTestDefault},
+			}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		}
+
 		Context("with a bridge network interface", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -1204,7 +1278,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
-			var pvName string
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume
 			var wffcPod *k8sv1.Pod
@@ -1245,7 +1318,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("waiting for the dv import to pvc to finish")
 				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
 
-				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD to serve the PVC contents")
 				nfsPod := storageframework.RenderNFSServerWithPVC("nfsserver", dv.Name)
@@ -1278,6 +1350,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					Expect(err).ToNot(HaveOccurred())
 					wffcPod = nil
 				}
+			})
+
+			It("[test_id:2653]"+guestAgentMigrationTestName+"with default migration configuration", func() {
+				guestAgentMigrationTestFunc(v1.MigrationPreCopy)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
@@ -1505,84 +1581,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("migration postcopy", func() {
 
-			var (
-				pvName string
-			)
-
 			BeforeEach(func() {
-				pvName = "test-nfs" + rand.String(48)
 				setMigrationBandwidthLimitation(resource.MustParse("40Mi"))
 			})
 
-			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(mode v1.MigrationMode) {
-				memoryRequestSize := resource.MustParse(fedoraVMSize)
-				if mode == v1.MigrationPostCopy {
-					config := getCurrentKv()
-					config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-					config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-					tests.UpdateKubeVirtConfigValueAndWait(config)
-					memoryRequestSize = resource.MustParse("1Gi")
-				}
-
-				By("Creating the  VMI")
-				vmi := tests.NewRandomVMIWithPVC(pvName)
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-
-				// add userdata for guest agent and service account mount
-				mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
-					mkdir /mnt/servacc
-					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
-				`, secretDiskSerial)
-				tests.AddUserData(vmi, "cloud-init", mountSvcAccCommands)
-
-				tests.AddServiceAccountDisk(vmi, "default")
-				disks := vmi.Spec.Domain.Devices.Disks
-				disks[len(disks)-1].Serial = secretDiskSerial
-
-				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-				// Wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
-
-				if mode == v1.MigrationPostCopy {
-					By("Running stress test to allow transition to post-copy")
-					runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
-				}
-
-				// execute a migration, wait for finalized state
-				By("Starting the Migration for iteration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-				By("Checking VMI, confirm migration state")
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-				confirmMigrationMode(vmi, mode)
-
-				By("Is agent connected after migration")
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
-
-				By("Checking that the service account is mounted")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
-					&expect.BExp{R: util.NamespaceTestDefault},
-				}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
-
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-			},
-				table.Entry("[test_id:2653] with default migration configuration", v1.MigrationPreCopy),
-				table.Entry("[QUARANTINE][test_id:5004] with postcopy", v1.MigrationPostCopy),
-			)
+			It("[QUARANTINE][test_id:5004]"+guestAgentMigrationTestName+"with postcopy", func() {
+				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
+			})
 
 			It("[QUARANTINE][test_id:4747] should migrate using cluster level config for postcopy", func() {
 				config := getCurrentKv()
