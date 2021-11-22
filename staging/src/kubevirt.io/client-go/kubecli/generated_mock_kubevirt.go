@@ -969,24 +969,24 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) PortForward(arg0, arg1,
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PortForward", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Pause(name string) error {
-	ret := _m.ctrl.Call(_m, "Pause", name)
+func (_m *MockVirtualMachineInstanceInterface) Pause(name string, pauseOptions *v117.PauseOptions) error {
+	ret := _m.ctrl.Call(_m, "Pause", name, pauseOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Pause(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Pause", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Pause(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Pause", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Unpause(name string) error {
-	ret := _m.ctrl.Call(_m, "Unpause", name)
+func (_m *MockVirtualMachineInstanceInterface) Unpause(name string, unpauseOptions *v117.UnpauseOptions) error {
+	ret := _m.ctrl.Call(_m, "Unpause", name, unpauseOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) Freeze(name string, unfreezeTimeout time.Duration) error {

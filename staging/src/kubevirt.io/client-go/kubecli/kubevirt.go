@@ -184,8 +184,8 @@ type VirtualMachineInstanceInterface interface {
 	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
-	Pause(name string) error
-	Unpause(name string) error
+	Pause(name string, pauseOptions *v1.PauseOptions) error
+	Unpause(name string, unpauseOptions *v1.UnpauseOptions) error
 	Freeze(name string, unfreezeTimeout time.Duration) error
 	Unfreeze(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)

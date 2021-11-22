@@ -7747,6 +7747,16 @@
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
      "operationId": "v1Pause",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.PauseOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7997,6 +8007,16 @@
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
      "operationId": "v1Unpause",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.UnpauseOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -8852,6 +8872,16 @@
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
      "operationId": "v1alpha3Pause",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.PauseOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -9102,6 +9132,16 @@
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
      "operationId": "v1alpha3Unpause",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.UnpauseOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -12898,6 +12938,28 @@
      }
     }
    },
+   "v1.PauseOptions": {
+    "description": "PauseOptions may be provided on pause request.",
+    "type": "object",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     }
+    }
+   },
    "v1.PciHostDevice": {
     "description": "PciHostDevice represents a host PCI device allowed for passthrough",
     "type": "object",
@@ -13441,6 +13503,28 @@
      "tscFrequency": {
       "type": "integer",
       "format": "int64"
+     }
+    }
+   },
+   "v1.UnpauseOptions": {
+    "description": "UnpauseOptions may be provided on unpause request.",
+    "type": "object",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
      }
     }
    },

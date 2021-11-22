@@ -107,13 +107,16 @@ func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(namespace, 
 	return
 }
 
-func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) {
+func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver, dryRun bool) {
 	_, url, conn, statusErr := app.prepareConnection(request, validate, getVirtHandlerURL)
 	if statusErr != nil {
 		writeError(statusErr, response)
 		return
 	}
 
+	if dryRun {
+		return
+	}
 	err := conn.Put(url, app.handlerTLSConfiguration, request.Request.Body)
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
@@ -624,7 +627,23 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		return conn.PauseURI(vmi)
 	}
 
-	app.putRequestHandler(request, response, validate, getURL)
+	bodyStruct := &v1.PauseOptions{}
+	if request.Request.Body != nil {
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
+		}
+	}
+	var dryRun bool
+	if len(bodyStruct.DryRun) > 0 && bodyStruct.DryRun[0] == k8smetav1.DryRunAll {
+		dryRun = true
+	}
+	app.putRequestHandler(request, response, validate, getURL, dryRun)
+
 }
 
 func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
@@ -642,7 +661,23 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.UnpauseURI(vmi)
 	}
-	app.putRequestHandler(request, response, validate, getURL)
+
+	bodyStruct := &v1.UnpauseOptions{}
+	if request.Request.Body != nil {
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
+		}
+	}
+	var dryRun bool
+	if len(bodyStruct.DryRun) > 0 && bodyStruct.DryRun[0] == k8smetav1.DryRunAll {
+		dryRun = true
+	}
+	app.putRequestHandler(request, response, validate, getURL, dryRun)
 
 }
 
@@ -659,7 +694,7 @@ func (app *SubresourceAPIApp) FreezeVMIRequestHandler(request *restful.Request, 
 		return conn.FreezeURI(vmi)
 	}
 
-	app.putRequestHandler(request, response, validate, getURL)
+	app.putRequestHandler(request, response, validate, getURL, false)
 }
 
 func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request, response *restful.Response) {
@@ -673,7 +708,7 @@ func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.UnfreezeURI(vmi)
 	}
-	app.putRequestHandler(request, response, validate, getURL)
+	app.putRequestHandler(request, response, validate, getURL, false)
 
 }
 

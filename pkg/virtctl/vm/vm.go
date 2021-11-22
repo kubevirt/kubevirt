@@ -54,7 +54,7 @@ const (
 
 var (
 	forceRestart bool
-	gracePeriod  int64 = -1
+	gracePeriod  int64
 	volumeName   string
 	serial       string
 	persist      bool
@@ -92,7 +92,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().Int64Var(&gracePeriod, "grace-period", -1, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().Int64Var(&gracePeriod, "grace-period", notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -110,7 +110,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().Int64Var(&gracePeriod, "grace-period", -1, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().Int64Var(&gracePeriod, "grace-period", notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -387,16 +387,16 @@ func (o *Command) Run(args []string) error {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)
 		}
 	case COMMAND_RESTART:
-		if gracePeriod != -1 && forceRestart == false {
+		if gracePeriod != notDefinedGracePeriod && forceRestart == false {
 			return fmt.Errorf("Can not set gracePeriod without --force=true")
 		}
 		if forceRestart {
-			if gracePeriod != -1 {
+			if gracePeriod != notDefinedGracePeriod {
 				err = virtClient.VirtualMachine(namespace).ForceRestart(vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
 				}
-			} else if gracePeriod == -1 {
+			} else if gracePeriod == notDefinedGracePeriod {
 				return fmt.Errorf("Can not force restart without gracePeriod")
 			}
 			break
