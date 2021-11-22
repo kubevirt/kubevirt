@@ -51,6 +51,19 @@ func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 
+// NewSEVFedora instantiates a new Fedora based VMI configuration,
+// building its extra properties based on the specified With* options, the
+// image used is configured for UEFI boot and it supports AMD SEV.
+func NewSEVFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	const secureBoot = false
+	sevOptions := []Option{
+		WithUefi(secureBoot),
+		WithSEV(),
+	}
+	opts = append(sevOptions, opts...)
+	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
+}
+
 // NewFedora instantiates a new Fedora based VMI configuration with specified
 // containerDisk, building its extra properties based on the specified With*
 // options.

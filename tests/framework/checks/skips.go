@@ -73,3 +73,16 @@ func SkipTestIfNotRealtimeCapable() {
 	ginkgo.Skip("no node capable of running realtime workloads detected", 1)
 
 }
+
+func SkipTestIfNotSEVCapable() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := util.GetAllSchedulableNodes(virtClient)
+
+	for _, node := range nodes.Items {
+		if IsSEVCapable(&node) {
+			return
+		}
+	}
+	ginkgo.Skip("no node capable of running SEV workloads detected", 1)
+}
