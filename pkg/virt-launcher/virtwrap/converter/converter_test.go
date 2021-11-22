@@ -1780,22 +1780,29 @@ var _ = Describe("Converter", func() {
 
 		It("should enable default sound card with existing but empty sound devices", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{}
+			name := "audio-default-ich9"
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Name: name,
+			}
 			domain := vmiToDomain(vmi, c)
 			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
 			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
+				Alias: api.NewUserDefinedAlias(name),
 				Model: "ich9",
 			}))
 		})
 
 		It("should enable ac97 sound card ", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name := "audio-ac97"
 			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Name:  name,
 				Model: "ac97",
 			}
 			domain := vmiToDomain(vmi, c)
 			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
 			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
+				Alias: api.NewUserDefinedAlias(name),
 				Model: "ac97",
 			}))
 		})

@@ -928,6 +928,7 @@ type ChannelSource struct {
 //BEGIN Sound -------------------
 
 type SoundCard struct {
+	Alias *Alias `xml:"alias,omitempty"`
 	Model string `xml:"model,attr"`
 }
 
