@@ -658,6 +658,14 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (AddInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+		"networkName":   "NetworkName references a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
+		"interfaceName": "InterfaceName indicates the logical name of the interface.",
+	}
+}
+
 func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",

@@ -2181,6 +2181,17 @@ type RemoveVolumeOptions struct {
 	DryRun []string `json:"dryRun,omitempty"`
 }
 
+// AddInterfaceOptions is provided when dynamically hot plugging a network interface
+type AddInterfaceOptions struct {
+	// NetworkName references a NetworkAttachmentDefinition CRD object. Format:
+	// <networkName>, <namespace>/<networkName>. If namespace is not
+	// specified, VMI namespace is assumed.
+	NetworkName string `json:"networkName"`
+
+	// InterfaceName indicates the logical name of the interface.
+	InterfaceName string `json:"interfaceName"`
+}
+
 type TokenBucketRateLimiter struct {
 	// QPS indicates the maximum QPS to the apiserver from this client.
 	// If it's zero, the component default will be used
