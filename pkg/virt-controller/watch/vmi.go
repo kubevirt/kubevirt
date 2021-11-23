@@ -121,6 +121,9 @@ const (
 	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
+	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
+	// is suitable for migration (since CPU model / required features are not supported)
+	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
@@ -830,6 +833,10 @@ func isPodReady(pod *k8sv1.Pod) bool {
 	}
 
 	return pod.Status.Phase == k8sv1.PodRunning
+}
+
+func isPodPending(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodPending
 }
 
 func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
