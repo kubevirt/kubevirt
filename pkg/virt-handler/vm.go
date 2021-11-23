@@ -36,6 +36,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	"kubevirt.io/kubevirt/pkg/config"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -2794,13 +2796,14 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 }
 
 func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	baseCPUSetPath := "/proc/1/root/sys/fs/cgroup/cpuset"
 	isoRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
 	}
 
-	cpusetFilePath := filepath.Join(baseCPUSetPath, isoRes.Slice(), "cpuset.cpus")
+	rootPath := "/proc/1/root"
+	cpuSetPath := cgroup.CPUSetPath(isoRes.Slice())
+	cpusetFilePath := filepath.Join(rootPath, cpuSetPath)
 	cpuSetStr, err := ioutil.ReadFile(cpusetFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read target VMI cpuset: %v", err)
