@@ -210,6 +210,43 @@ var _ = Describe("netstat", func() {
 		}), "the pod IP/s should be reported in the status")
 	})
 
+	It("should update existing interface status with IP from the guest-agent", func() {
+		const (
+			primaryNetworkName = "primary"
+
+			origIPv4 = "1.1.1.1"
+			origIPv6 = "fd10:1111::1111"
+			origMAC  = "C0:01:BE:E7:15:G0:0D"
+
+			newGaIPv4 = "2.2.2.2"
+			newGaIPv6 = "fd20:2222::2222"
+		)
+
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				IP:   origIPv4,
+				IPs:  []string{origIPv4, origIPv6},
+				MAC:  origMAC,
+				Name: primaryNetworkName,
+			},
+		}
+
+		domain := &api.Domain{
+			Spec: api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{
+				newDomainSpecIface(primaryNetworkName, origMAC),
+			}}},
+			Status: api.DomainStatus{Interfaces: []api.InterfaceStatus{
+				newDomainStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC),
+			}},
+		}
+
+		netStat.UpdateStatus(vmi, domain)
+
+		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, ""),
+		}), "the pod IP/s should be reported in the status")
+	})
+
 	It("should report SR-IOV interface with MAC and network name, based on VMI spec and guest-agent data", func() {
 		const (
 			networkName    = "sriov-network"

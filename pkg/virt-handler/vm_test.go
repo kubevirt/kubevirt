@@ -2415,60 +2415,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
-
-		It("should update existing interface with IPs", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Scheduled
-
-			interfaceName := "interface_name"
-			mac := "C0:01:BE:E7:15:G0:0D"
-			ip := "2.2.2.2"
-			ips := []string{"2.2.2.2", "3.3.3.3"}
-
-			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-				{
-					IP:   "1.1.1.1",
-					MAC:  mac,
-					Name: interfaceName,
-				},
-			}
-
-			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-
-			domain.Spec.Devices.Interfaces = []api.Interface{
-				{
-					MAC:   &api.MAC{MAC: mac},
-					Alias: api.NewUserDefinedAlias(interfaceName),
-				},
-			}
-			domain.Status.Interfaces = []api.InterfaceStatus{
-				{
-					Name: interfaceName,
-					Mac:  mac,
-					Ip:   ip,
-					IPs:  ips,
-				},
-			}
-
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interfaceName))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(mac))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(ip))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs).To(Equal(ips))
-			}).Return(vmi, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIStarted)
-		})
-
 		It("should update Guest OS Information in VMI status", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
