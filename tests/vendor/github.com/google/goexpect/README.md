@@ -1,13 +1,13 @@
 [![CircleCI](https://circleci.com/gh/google/goexpect.svg?style=svg)](https://circleci.com/gh/google/goexpect)
 
-This package is an implementation of [Expect](https://en.wikipedia.org/wiki/Expect) in [Go](golang.org).
+This package is an implementation of [Expect](https://en.wikipedia.org/wiki/Expect) in [Go](https://golang.org).
 
 
 ## Features:
  - Spawning and controlling local processes with real PTYs.
  - Native SSH spawner.
  - Expect backed spawner for testing.
- - Generic spawner to make implementing additonal Spawners simple.
+ - Generic spawner to make implementing additional Spawners simple.
  - Has a batcher for implementing workflows without having to write extra logic
    and code.
 
@@ -42,7 +42,7 @@ This option turns that check off.
 ### DebugCheck
 
 The DebugCheck option adds debugging to the alive Check done by the Expecter, this will start logging information
-everytime the check is run. Can be used for troubleshooting and debugging of Spawners.
+every time the check is run. Can be used for troubleshooting and debugging of Spawners.
 
 ### ChangeCheck
 

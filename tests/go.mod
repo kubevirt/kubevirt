@@ -40,9 +40,9 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/go-github/v32 v32.1.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
-	github.com/google/goexpect v0.0.0-20190425035906-112704a48083 // indirect
+	github.com/google/goexpect v0.0.0-20191001010744-5b6988669ffa // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect
+	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f // indirect
 	github.com/google/uuid v1.1.4 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
@@ -67,7 +67,7 @@ require (
 	golang.org/x/net v0.0.0-20210903162142-ad29c8ab022f // indirect
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect
 	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
+	golang.org/x/term v0.0.0-20210317153231-de623e64d2a6 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -197,3 +197,5 @@ replace (
 )
 
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.2
+
+replace github.com/u-root/u-root => github.com/u-root/u-root v0.1.0

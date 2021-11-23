@@ -880,6 +880,8 @@ func SpawnFake(b []Batcher, timeout time.Duration, opt ...Option) (*GExpect, <-c
 	if err != nil {
 		return nil, nil, err
 	}
+	// The Tee option should only affect the output not the batcher
+	srv.teeWriter = nil
 
 	go func() {
 		res, err := srv.ExpectBatch(b, timeout)
@@ -893,6 +895,7 @@ func SpawnFake(b []Batcher, timeout time.Duration, opt ...Option) (*GExpect, <-c
 		In:  rw,
 		Out: wr,
 		Close: func() error {
+			srv.Close()
 			return rw.Close()
 		},
 		Check: func() bool { return true },
