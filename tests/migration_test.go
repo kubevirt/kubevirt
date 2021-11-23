@@ -1656,7 +1656,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[test_id:5004]"+guestAgentMigrationTestName+"with postcopy", func() {
+			It("[QUARANTINE][test_id:5004]"+guestAgentMigrationTestName+"with postcopy", func() {
 				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
 			})
 
