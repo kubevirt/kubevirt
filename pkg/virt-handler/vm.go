@@ -2811,7 +2811,7 @@ func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
 	}
 
-	vmi.Status.MigrationState.TargetNodeCPUSet = cpuSet
+	vmi.Status.MigrationState.TargetCPUSet = cpuSet
 
 	return nil
 }
@@ -2822,7 +2822,7 @@ func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 	if err != nil {
 		return err
 	}
-	vmi.Status.MigrationState.TargetTopology = string(topology)
+	vmi.Status.MigrationState.TargetNodeTopology = string(topology)
 
 	return nil
 }

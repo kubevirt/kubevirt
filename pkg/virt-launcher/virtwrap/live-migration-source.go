@@ -124,8 +124,8 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 
 func adjustDomainForTargetCPUSetAndTopology(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
 	var targetTopology cmdv1.Topology
-	targetNodeCPUSet := vmi.Status.MigrationState.TargetNodeCPUSet
-	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetTopology), &targetTopology)
+	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
+	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,10 @@ func adjustDomainForTargetCPUSetAndTopology(domain *api.Domain, vmi *v1.VirtualM
 		Placement: "static",
 		CPUs:      cpuCount,
 	}
-	vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -284,7 +287,10 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 			// If the VMI requires dedicated CPUs, we need to patch the domain with
 			// the new CPU/NUMA info calculated for the target node prior to migration
 			if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location) {
-				injectNewSection(encoder, &domain, location, log.Log.Object(vmi))
+				err = injectNewSection(encoder, &domain, location, log.Log.Object(vmi))
+				if err != nil {
+					return "", err
+				}
 			}
 		case xml.EndElement:
 			newLocation = location[:len(location)-1]

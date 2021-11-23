@@ -20374,7 +20374,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Ref:         ref("kubevirt.io/api/core/v1.MigrationConfiguration"),
 						},
 					},
-					"targetNodeCPUSet": {
+					"targetCPUSet": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "atomic",
@@ -20393,7 +20393,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							},
 						},
 					},
-					"targetTopology": {
+					"targetNodeTopology": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
 							Type:        []string{"string"},
