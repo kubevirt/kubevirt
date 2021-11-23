@@ -1674,10 +1674,32 @@ func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 }
 
 func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
-	pod, err := GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, "")
+	pods, err := getPodsByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace)
 	util2.PanicOnError(err)
 
-	return pod
+	if len(pods.Items) != 1 {
+		util2.PanicOnError(fmt.Errorf("found wrong number of pods for VMI '%v', count: %d", vmi, len(pods.Items)))
+	}
+
+	return &pods.Items[0]
+}
+
+func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
+	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
+
+	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
+		metav1.ListOptions{LabelSelector: labelSelector},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return pods, nil
 }
 
 func GetRunningPodByLabel(label string, labelType string, namespace string, node string) (*k8sv1.Pod, error) {

@@ -122,12 +122,12 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	return nil
 }
 
-func adjustDomainForTargetCPUSetAndTopology(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
+func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
 	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	useIOThreads := false
@@ -137,7 +137,7 @@ func adjustDomainForTargetCPUSetAndTopology(domain *api.Domain, vmi *v1.VirtualM
 			break
 		}
 	}
-	domain = api.NewMinimalDomain(vmi.Name)
+	domain := api.NewMinimalDomain(vmi.Name)
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 	domain.Spec.CPU.Topology = cpuTopology
@@ -147,15 +147,15 @@ func adjustDomainForTargetCPUSetAndTopology(domain *api.Domain, vmi *v1.VirtualM
 	}
 	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return domain, nil
 }
 
 func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string, logger *log.FilteredLogger) error {
 	// Marshalling the whole domain, even if we just need the cputune section, for indentation purposes
-	xmlstr, err := xml.MarshalIndent(domain.Spec, "", "\t")
+	xmlstr, err := xml.MarshalIndent(domain.Spec, "", "  ")
 	if err != nil {
 		logger.Reason(err).Error("Live migration failed. Failed to get XML.")
 		return err
@@ -192,10 +192,10 @@ func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string
 			injecting = true
 		} else {
 			if injecting == true {
-				// We just left the cputune block, we're done
+				// We just left the section block, we're done
 				break
 			} else {
-				// We're not in the cputune block yet, skipping elements
+				// We're not in the section block yet, skipping elements
 				continue
 			}
 		}
@@ -213,30 +213,39 @@ func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string
 
 // This function returns true for every section that should be adjusted with target data when migrating a VMI
 //   that includes dedicated CPUs
-func shouldOverrideForDedicatedCPUTarget(section []string) bool {
-	if len(section) == 2 &&
+// Strict mode only returns true if we just entered the block
+func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
+	if (!strict || len(section) == 2) &&
+		len(section) >= 2 &&
 		section[0] == "domain" &&
 		section[1] == "cputune" {
 		return true
 	}
-	if len(section) == 2 &&
+	if (!strict || len(section) == 2) &&
+		len(section) >= 2 &&
 		section[0] == "domain" &&
 		section[1] == "numatune" {
 		return true
 	}
-	if len(section) == 3 &&
+	if (!strict || len(section) == 3) &&
+		len(section) >= 3 &&
 		section[0] == "domain" &&
 		section[1] == "cpu" &&
 		section[2] == "numa" {
 		return true
 	}
+
 	return false
 }
 
 // This returns domain xml without the migration metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
-	var domain api.Domain
+	const (
+		exactLocation = true
+		insideBlock   = false
+	)
+	var domain *api.Domain
 	var err error
 
 	xmlstr, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
@@ -252,7 +261,7 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 		if err != nil {
 			return "", err
 		}
-		err = adjustDomainForTargetCPUSetAndTopology(&domain, vmi)
+		domain, err = generateDomainForTargetCPUSetAndTopology(vmi)
 		if err != nil {
 			return "", err
 		}
@@ -286,8 +295,8 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 
 			// If the VMI requires dedicated CPUs, we need to patch the domain with
 			// the new CPU/NUMA info calculated for the target node prior to migration
-			if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location) {
-				err = injectNewSection(encoder, &domain, location, log.Log.Object(vmi))
+			if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, exactLocation) {
+				err = injectNewSection(encoder, domain, location, log.Log.Object(vmi))
 				if err != nil {
 					return "", err
 				}
@@ -302,7 +311,7 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 			location[3] == "migration" {
 			continue // We're inside domain/metadata/kubevirt/migration, continue will skip elements
 		}
-		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location) {
+		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, insideBlock) {
 			continue
 		}
 
