@@ -55,6 +55,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 	t := true
 	f := false
+	runStrategyManual := v1.RunStrategyManual
 
 	snapshot := &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
@@ -159,7 +160,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			resp := createTestVMRestoreAdmitter(config, nil, snapshot).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.name"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 		})
 
 		It("should reject when VM and snapshot do not exist", func() {
@@ -182,7 +183,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(2))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.name"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.virtualMachineSnapshotName"))
 		})
 
@@ -293,7 +294,33 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.name"))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
+			})
+
+			It("should reject when VM run strategy is not halted", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				vm.Spec.RunStrategy = &runStrategyManual
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
+				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted)))
 			})
 
 			It("should reject when snapshot does not exist", func() {
@@ -489,7 +516,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot, restoreInProcess).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.name"))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 			})
 
 			It("should accept when VM is not running", func() {

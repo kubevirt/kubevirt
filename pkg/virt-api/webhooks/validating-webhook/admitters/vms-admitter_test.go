@@ -64,6 +64,8 @@ var _ = Describe("Validating VM Admitter", func() {
 	}
 
 	notRunning := false
+	runStrategyManual := v1.RunStrategyManual
+	runStrategyHalted := v1.RunStrategyHalted
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -1371,11 +1373,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		}),
 	)
 
-	table.DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
+	table.DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool, updateRunStrategy bool) {
 		vmi := v1.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &[]bool{false}[0],
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -1383,6 +1384,11 @@ var _ = Describe("Validating VM Admitter", func() {
 			Status: v1.VirtualMachineStatus{
 				RestoreInProgress: &[]string{"testrestore"}[0],
 			},
+		}
+		if updateRunStrategy {
+			vm.Spec.RunStrategy = &runStrategyHalted
+		} else {
+			vm.Spec.Running = &[]bool{false}[0]
 		}
 		oldObjectBytes, _ := json.Marshal(vm)
 
@@ -1413,19 +1419,23 @@ var _ = Describe("Validating VM Admitter", func() {
 		table.Entry("reject update to running true", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Running = &[]bool{true}[0]
 			return false
-		}),
+		}, false),
+		table.Entry("reject update of runStrategy", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.RunStrategy = &runStrategyManual
+			return false
+		}, true),
 		table.Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 			return true
-		}),
+		}, false),
 		table.Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
 			vm.Annotations = map[string]string{"foo": "bar"}
 			return true
-		}),
+		}, false),
 		table.Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
 			vm.Status.Ready = true
 			return true
-		}),
+		}, false),
 	)
 })
 
