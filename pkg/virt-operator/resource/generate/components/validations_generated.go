@@ -8727,6 +8727,13 @@ var CRDsValidation map[string]string = map[string]string{
             targetAttachmentPodUID:
               description: The UID of the target attachment pod for hotplug volumes
               type: string
+            targetCPUSet:
+              description: If the VMI requires dedicated CPUs, this field will hold
+                the dedicated CPU set on the target node
+              items:
+                type: integer
+              type: array
+              x-kubernetes-list-type: atomic
             targetDirectMigrationNodePorts:
               additionalProperties:
                 type: integer
@@ -8739,22 +8746,15 @@ var CRDsValidation map[string]string = map[string]string{
             targetNodeAddress:
               description: The address of the target node to use for the migration
               type: string
-            targetNodeCPUSet:
-              description: If the VMI requires dedicated CPUs, this field will hold
-                the dedicated CPU set on the target node
-              items:
-                type: integer
-              type: array
-              x-kubernetes-list-type: atomic
             targetNodeDomainDetected:
               description: The Target Node has seen the Domain Start Event
               type: boolean
-            targetPod:
-              description: The target pod that the VMI is moving to
-              type: string
-            targetTopology:
+            targetNodeTopology:
               description: If the VMI requires dedicated CPUs, this field will hold
                 the numa topology on the target node
+              type: string
+            targetPod:
+              description: The target pod that the VMI is moving to
               type: string
           type: object
         migrationTransport:

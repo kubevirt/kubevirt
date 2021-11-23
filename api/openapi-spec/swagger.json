@@ -15538,6 +15538,15 @@
       "description": "The UID of the target attachment pod for hotplug volumes",
       "type": "string"
      },
+     "targetCPUSet": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "format": "int32"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "targetDirectMigrationNodePorts": {
       "description": "The list of ports opened for live migration on the destination node",
       "type": "object",
@@ -15554,25 +15563,16 @@
       "description": "The address of the target node to use for the migration",
       "type": "string"
      },
-     "targetNodeCPUSet": {
-      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
-      "type": "array",
-      "items": {
-       "type": "integer",
-       "format": "int32"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
      "targetNodeDomainDetected": {
       "description": "The Target Node has seen the Domain Start Event",
       "type": "boolean"
      },
-     "targetPod": {
-      "description": "The target pod that the VMI is moving to",
+     "targetNodeTopology": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
       "type": "string"
      },
-     "targetTopology": {
-      "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
+     "targetPod": {
+      "description": "The target pod that the VMI is moving to",
       "type": "string"
      }
     }
