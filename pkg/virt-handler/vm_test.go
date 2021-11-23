@@ -2689,58 +2689,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
-	Context("with SRIOV configuration", func() {
-		It("should report interface with MAC and network name", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Scheduled
-			const sriovInterfaceName = "sriov_network"
-			const MAC = "1C:CE:C0:01:BE:E7"
-
-			vmi.Spec.Networks = []v1.Network{
-				{
-					Name: sriovInterfaceName,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: sriovInterfaceName,
-						},
-					},
-				},
-			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{
-					Name: sriovInterfaceName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						SRIOV: &v1.InterfaceSRIOV{},
-					},
-					MacAddress: MAC,
-				},
-			}
-
-			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-			domain.Status.Interfaces = []api.InterfaceStatus{
-				{
-					Mac:           MAC,
-					InterfaceName: "eth1",
-				},
-			}
-
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(MAC))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(sriovInterfaceName))
-			}).Return(vmi, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIStarted)
-		})
-	})
-
 	Context("VirtualMachineInstance controller gets informed about disk information", func() {
 		It("should update existing volume status with target", func() {
 			vmi := api2.NewMinimalVMI("testvmi")

@@ -177,6 +177,39 @@ var _ = Describe("netstat", func() {
 		Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, iface0)).To(BeFalse())
 		Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, iface1)).To(BeFalse())
 	})
+
+	It("should report SR-IOV interface with MAC and network name, based on VMI spec and guest-agent data", func() {
+		const (
+			networkName    = "sriov-network"
+			NADName        = "sriov-nad"
+			ifaceMAC       = "C0:01:BE:E7:15:G0:0D"
+			guestIfaceName = "eth1"
+		)
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+			{
+				Name:                   networkName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+				MacAddress:             ifaceMAC,
+			},
+		}
+
+		vmi.Spec.Networks = []v1.Network{
+			{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: NADName}}},
+		}
+
+		domain := &api.Domain{
+			Status: api.DomainStatus{Interfaces: []api.InterfaceStatus{
+				{Mac: ifaceMAC, InterfaceName: guestIfaceName},
+			}},
+		}
+
+		netStat.UpdateStatus(vmi, domain)
+
+		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName),
+		}), "the SR-IOV interface should be reported in the status, associated to the network")
+	})
 })
 
 type interfaceCacheFactoryStatusStub struct {
