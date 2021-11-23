@@ -162,6 +162,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/portforward",
+					"virtualmachineinstances/addinterface",
+					"virtualmachineinstances/removeinterface",
 				},
 				Verbs: []string{
 					"update",
@@ -317,6 +319,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/portforward",
+					"virtualmachineinstances/addinterface",
+					"virtualmachineinstances/removeinterface",
 				},
 				Verbs: []string{
 					"update",
