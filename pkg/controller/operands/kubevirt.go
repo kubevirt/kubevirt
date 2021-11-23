@@ -90,6 +90,9 @@ const (
 
 	// Expand disks to the largest size
 	kvExpandDisksGate = "ExpandDisks"
+
+	// Allow automatic numa mapping on VMs with dedicated CPUs, if requested
+	kvNUMA = "NUMA"
 )
 
 var (
@@ -105,6 +108,7 @@ var (
 		kvGPUGate,
 		kvHostDevicesGate,
 		kvDownwardMetricsGate,
+		kvNUMA,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
