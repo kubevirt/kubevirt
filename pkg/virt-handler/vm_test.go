@@ -35,9 +35,7 @@ import (
 
 	api2 "kubevirt.io/client-go/api"
 
-	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -212,9 +210,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
-		ifaceCacheFactory := netcache.NewInterfaceCacheFactoryWithBasePath(shareDir)
-		controller.netConf = netsetup.NewNetConf(ifaceCacheFactory)
-		controller.netStat = netsetup.NewNetStat(ifaceCacheFactory)
+		controller.netConf = &netConfStub{}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -536,8 +532,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// the domain is dead because the watchdog is expired
 			mockWatchdog.Expire(oldVMI)
 
-			markCompletedNetworkSetup(controller, oldVMI)
-
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
@@ -557,8 +551,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Succeeded
 
 			mockWatchdog.CreateFile(vmi)
-
-			markCompletedNetworkSetup(controller, vmi)
 
 			vmiFeeder.Add(vmi)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
@@ -586,9 +578,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-
-			// Simulate a previous network setup call, so the following execution will skip it (due to the cache).
-			markCompletedNetworkSetup(controller, vmi)
 
 			vmiFeeder.Add(vmi)
 
@@ -664,7 +653,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -672,6 +660,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
+			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
@@ -1136,13 +1125,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(&neterrors.CriticalNetworkError{Msg: "Critical SetupPodNetworkPhase1 error"}).Times(1)
+			controller.netConf = &netConfStub{SetupError: &neterrors.CriticalNetworkError{}}
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
+			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 			testutils.ExpectEvent(recorder, "failed to configure vmi network:")
 			testutils.ExpectEvent(recorder, VMICrashed)
 		})
@@ -1171,7 +1161,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -1182,6 +1171,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(updatedVMI)
 
 			controller.Execute()
+			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
@@ -1252,11 +1242,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Status.Phase = v1.Scheduled
 				vmiFeeder.Add(vmi)
 				vmiInterface.EXPECT().Update(gomock.Any())
-				mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 
 				controller.Execute()
+				Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 				testutils.ExpectEvent(recorder, VMIDefined)
 			})
 
@@ -1526,7 +1516,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
@@ -1553,6 +1542,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
 			vmiInterface.EXPECT().Update(updatedVmi)
 			controller.Execute()
+			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
 			testutils.ExpectEvent(recorder, "Migration Target is listening")
 		}, 3)
@@ -2935,12 +2925,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 })
 
-func markCompletedNetworkSetup(controller *VirtualMachineController, vmi *v1.VirtualMachineInstance) {
-	doNetNSDummy := func(func() error) error { return nil }
-	netPreSetupDummy := func() error { return nil }
-	controller.netConf.Setup(vmi, 0, doNetNSDummy, netPreSetupDummy)
-}
-
 var _ = Describe("DomainNotifyServerRestarts", func() {
 	Context("should establish a notify server pipe", func() {
 		var shareDir string
@@ -3225,4 +3209,26 @@ func addNode(client *fake.Clientset, node *k8sv1.Node) {
 	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 		return true, node, nil
 	})
+}
+
+type netConfStub struct {
+	vmi        *v1.VirtualMachineInstance
+	SetupError error
+}
+
+func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, doNetNS func(func() error) error, preSetup func() error) error {
+	if nc.SetupError != nil {
+		return nc.SetupError
+	}
+	nc.vmi = vmi
+	return nil
+}
+
+func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
+	nc.vmi = nil
+	return nil
+}
+
+func (nc *netConfStub) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
+	return nc.vmi != nil && nc.vmi.UID == vmi.UID
 }
