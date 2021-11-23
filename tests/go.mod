@@ -195,3 +195,5 @@ replace (
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20201221181555-eec23a3978ad
 )
+
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.2

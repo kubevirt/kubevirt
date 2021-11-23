@@ -847,3 +847,4 @@ sigs.k8s.io/yaml
 # github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
 # golang.org/x/crypto => golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 # golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20201221181555-eec23a3978ad
+# github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.2
