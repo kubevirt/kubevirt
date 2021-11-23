@@ -178,6 +178,38 @@ var _ = Describe("netstat", func() {
 		Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, iface1)).To(BeFalse())
 	})
 
+	It("should update existing interface status with MAC from the domain", func() {
+		const (
+			primaryNetworkName = "primary"
+
+			origIPv4 = "1.1.1.1"
+			origMAC  = "C0:01:BE:E7:15:G0:0D"
+
+			newDomainMAC = "1C:CE:C0:01:BE:E7"
+		)
+
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				IP:   origIPv4,
+				IPs:  []string{origIPv4},
+				MAC:  origMAC,
+				Name: primaryNetworkName,
+			},
+		}
+
+		domain := &api.Domain{
+			Spec: api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{
+				newDomainSpecIface(primaryNetworkName, newDomainMAC),
+			}}},
+		}
+
+		netStat.UpdateStatus(vmi, domain)
+
+		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(primaryNetworkName, []string{origIPv4}, newDomainMAC, ""),
+		}), "the pod IP/s should be reported in the status")
+	})
+
 	It("should report SR-IOV interface with MAC and network name, based on VMI spec and guest-agent data", func() {
 		const (
 			networkName    = "sriov-network"
