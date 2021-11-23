@@ -1207,7 +1207,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				quantity, err := resource.ParseQuantity("5Gi")
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dv = tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				dv.Spec.PVC.Resources.Requests["storage"] = quantity
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
