@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
-set -ex
+set -exo pipefail
 
 GITHUB_FQDN=github.com
-API_REF_REPO=kubevirt/client-go
+GO_API_REF_REPO=${GO_API_REF_REPO:-kubevirt/client-go}
 API_REF_DIR=/tmp/client-go
 GITHUB_IO_FQDN="https://kubevirt.github.io/client-go"
 
-TARGET_BRANCH="$TRAVIS_BRANCH"
-if [ -n "${TRAVIS_TAG}" ]; then
-    TARGET_TAG="$TRAVIS_TAG"
+TARGET_BRANCH="$PULL_BASE_REF"
+if [ -n "${DOCKER_TAG}" ]; then
+    TARGET_TAG="$DOCKER_TAG"
 fi
 
 # if we are not on master and there is no tag, do nothing
@@ -20,7 +20,7 @@ fi
 
 rm -rf ${API_REF_DIR}
 git clone \
-    "https://${API_REFERENCE_PUSH_TOKEN}@${GITHUB_FQDN}/${API_REF_REPO}.git" \
+    "https://${GIT_USER_NAME}@${GITHUB_FQDN}/${GO_API_REF_REPO}.git" \
     "${API_REF_DIR}" >/dev/null 2>&1
 pushd ${API_REF_DIR}
 git checkout -B ${TARGET_BRANCH}-local
@@ -41,13 +41,13 @@ BUILD
 BUILD.bazel
 __EOF__
 
-git config --global user.email "travis@travis-ci.org"
-git config --global user.name "Travis CI"
+git config user.email "${GIT_AUTHOR_NAME:-kubevirt-bot}"
+git config user.name "${GIT_AUTHOR_EMAIL:-rmohr+kubebot@redhat.com}"
 
 git add -A
 
 if [ -n "$(git status --porcelain)" ]; then
-    git commit --message "client-go update by Travis Build ${TRAVIS_BUILD_NUMBER}"
+    git commit --message "client-go update by KubeVirt Prow build ${BUILD_ID}"
 
     # we only push branch changes on master
     if [ "${TARGET_BRANCH}" == "master" ]; then
