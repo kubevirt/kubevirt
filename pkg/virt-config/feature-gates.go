@@ -53,6 +53,7 @@ const (
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	PSA                        = "PSA"
 	VSOCKGate                  = "VSOCK"
+	HotplugNetworkIfacesGate   = "HotplugNICs"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -185,4 +186,7 @@ func (config *ClusterConfig) PSAEnabled() bool {
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(VSOCKGate)
+}
+func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
+	return config.isFeatureGateEnabled(HotplugNetworkIfacesGate)
 }
