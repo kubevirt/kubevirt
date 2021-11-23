@@ -95,7 +95,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes, targetUID, err = admitter.validateCreateVM(targetField.Child("name"), ar.Request.Namespace, vmRestore.Spec.Target.Name)
+					causes, targetUID, err = admitter.validateCreateVM(targetField, ar.Request.Namespace, vmRestore.Spec.Target.Name)
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
@@ -141,7 +141,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 				cause := metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("VirtualMachineRestore %q in progress", r.Name),
-					Field:   targetField.Child("name").String(),
+					Field:   targetField.String(),
 				}
 				causes = append(causes, cause)
 			}
@@ -203,10 +203,19 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 	}
 
 	if rs != v1.RunStrategyHalted {
-		cause := metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("VirtualMachine %q is running", name),
-			Field:   field.String(),
+		var cause metav1.StatusCause
+		if vm.Spec.Running != nil && *vm.Spec.Running {
+			cause = metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("VirtualMachine %q is running", name),
+				Field:   field.String(),
+			}
+		} else {
+			cause = metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", name, v1.RunStrategyHalted),
+				Field:   field.String(),
+			}
 		}
 		causes = append(causes, cause)
 	}
