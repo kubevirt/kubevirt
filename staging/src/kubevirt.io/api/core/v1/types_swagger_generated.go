@@ -353,6 +353,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"interfaceRequests":      "InterfaceRequests indicates a list of interfaces added to the VMI template and\nhot-plugged on an active running VMI.\n+listType=atomic",
 	}
 }
 
@@ -376,6 +377,12 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
 		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
+	}
+}
+
+func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"addInterfaceOptions": "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
 	}
 }
 

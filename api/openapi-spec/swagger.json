@@ -11241,6 +11241,57 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addinterface": {
+    "put": {
+     "description": "Add a network interface to a running Virtual Machine Instance",
+     "operationId": "v1vmi-addinterface",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddInterfaceOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
@@ -11952,6 +12003,57 @@
       "description": "Weather to request a TLS encrypted session from the VSOCK application.",
       "name": "tls",
       "in": "query"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addinterface": {
+    "put": {
+     "description": "Add a network interface to a running Virtual Machine.",
+     "operationId": "v1vm-addinterface",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddInterfaceOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
      }
     ]
    },
@@ -12674,6 +12776,57 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addinterface": {
+    "put": {
+     "description": "Add a network interface to a running Virtual Machine Instance",
+     "operationId": "v1alpha3vmi-addinterface",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddInterfaceOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
@@ -13385,6 +13538,57 @@
       "description": "Weather to request a TLS encrypted session from the VSOCK application.",
       "name": "tls",
       "in": "query"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addinterface": {
+    "put": {
+     "description": "Add a network interface to a running Virtual Machine.",
+     "operationId": "v1alpha3vm-addinterface",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddInterfaceOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
      }
     ]
    },
@@ -15250,6 +15454,24 @@
     "properties": {
      "secretName": {
       "description": "SecretName represents the name of the secret in the VMI's namespace",
+      "type": "string"
+     }
+    }
+   },
+   "v1.AddInterfaceOptions": {
+    "description": "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+    "type": "object",
+    "required": [
+     "networkName",
+     "interfaceName"
+    ],
+    "properties": {
+     "interfaceName": {
+      "description": "InterfaceName indicates the logical name of the interface.",
+      "type": "string"
+     },
+     "networkName": {
+      "description": "NetworkName references a NetworkAttachmentDefinition CRD object. Format: \u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not specified, VMI namespace is assumed.",
       "type": "string"
      }
     }
@@ -19285,6 +19507,15 @@
      }
     }
    },
+   "v1.VirtualMachineInterfaceRequest": {
+    "type": "object",
+    "properties": {
+     "addInterfaceOptions": {
+      "description": "AddInterfaceOptions when set indicates a network interface should be added. The details within this field specify how to add the interface",
+      "$ref": "#/definitions/v1.AddInterfaceOptions"
+     }
+    }
+   },
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of virtualmachines",
     "type": "object",
@@ -19444,6 +19675,14 @@
       "description": "DesiredGeneration is the generation which is desired for the VMI. This will be used in comparisons with ObservedGeneration to understand when the VMI is out of sync. This will be changed at the same time as ObservedGeneration to remove errors which could occur if Generation is updated through an Update() before ObservedGeneration in Status.",
       "type": "integer",
       "format": "int64"
+     },
+     "interfaceRequests": {
+      "description": "InterfaceRequests indicates a list of interfaces added to the VMI template and hot-plugged on an active running VMI.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInterfaceRequest"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
