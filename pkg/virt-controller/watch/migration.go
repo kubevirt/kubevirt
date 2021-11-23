@@ -1398,16 +1398,28 @@ func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) 
 }
 
 func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod) error {
-	hostCpuModelKey, hostModelLabelValue, requiredFeatureLabels, err := findNodeHostModelAndRequiredCpuFeatures(node)
-	if err != nil {
-		return err
+	var hostCpuModel, hostCpuModelLabelKey, hostModelLabelValue string
+
+	for key, value := range node.Labels {
+		if strings.HasPrefix(key, virtv1.HostModelCPULabel) {
+			hostCpuModel = strings.TrimPrefix(key, virtv1.HostModelCPULabel)
+			hostModelLabelValue = value
+		}
+
+		if strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) {
+			requiredFeature := strings.TrimPrefix(key, virtv1.HostModelRequiredFeaturesLabel)
+			pod.Spec.NodeSelector[virtv1.CPUFeatureLabel+requiredFeature] = value
+		}
 	}
 
-	for key, value := range requiredFeatureLabels {
-		pod.Spec.NodeSelector[key] = value
+	if hostCpuModel == "" {
+		return fmt.Errorf("node does not contain labal \"%s\" with information about host cpu model", virtv1.HostModelCPULabel)
 	}
-	pod.Spec.NodeSelector[hostCpuModelKey] = hostModelLabelValue
-	log.Log.Object(pod).Infof("host model label selector (\"%s\") defined for migration target pod", hostCpuModelKey)
+
+	hostCpuModelLabelKey = virtv1.HostModelCPULabel + hostCpuModel
+	pod.Spec.NodeSelector[hostCpuModelLabelKey] = hostModelLabelValue
+
+	log.Log.Object(pod).Infof("host model label selector (\"%s\") defined for migration target pod", hostCpuModelLabelKey)
 
 	return nil
 }
@@ -1431,28 +1443,4 @@ func isNodeSuitableForHostModelMigration(node *k8sv1.Node, pod *k8sv1.Pod) bool 
 	}
 
 	return true
-}
-
-func findNodeHostModelAndRequiredCpuFeatures(node *k8sv1.Node) (hostCpuModelKey, hostModelLabelValue string, requiredFeatureLabels map[string]string, err error) {
-	var hostCpuModel string
-	requiredFeatureLabels = make(map[string]string)
-
-	for key, value := range node.Labels {
-		if strings.HasPrefix(key, virtv1.HostModelCPULabel) {
-			hostCpuModel = strings.TrimPrefix(key, virtv1.HostModelCPULabel)
-			hostModelLabelValue = value
-		}
-
-		if strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) {
-			requiredFeature := strings.TrimPrefix(key, virtv1.HostModelRequiredFeaturesLabel)
-			requiredFeatureLabels[virtv1.CPUFeatureLabel+requiredFeature] = value
-		}
-	}
-
-	if hostCpuModel == "" {
-		return "", "", nil, fmt.Errorf("node does not contain labal \"%s\" with information about host cpu model", virtv1.HostModelCPULabel)
-	}
-
-	hostCpuModelKey = virtv1.HostModelCPULabel + hostCpuModel
-	return
 }
