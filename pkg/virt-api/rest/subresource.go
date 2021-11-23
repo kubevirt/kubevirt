@@ -1289,6 +1289,16 @@ func (app *SubresourceAPIApp) VMRemoveVolumeRequestHandler(request *restful.Requ
 	app.removeVolumeRequestHandler(request, response, false)
 }
 
+// VMAddInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	app.addInterfaceRequestHandler(request, response, false)
+}
+
+// VMRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	app.removeInterfaceRequestHandler(request, response, false)
+}
+
 // VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.addVolumeRequestHandler(request, response, true)
@@ -1534,4 +1544,367 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func generateVMIInterfaceRequestPatch(vmi *v1.VirtualMachineInstance, interfaceRequest *v1.VirtualMachineInterfaceRequest) (string, error) {
+	foundRemoveIface := false
+	canonicalIfaceName := dynamicIfaceName(interfaceRequest)
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if alreadyExists(interfaceRequest, iface) {
+			return "", fmt.Errorf("unable to add interface [%s] because it already exists", iface.Name)
+		} else if interfaceRequest.RemoveInterfaceOptions != nil && iface.Name == canonicalIfaceName {
+			foundRemoveIface = true
+		}
+	}
+
+	if interfaceRequest.RemoveInterfaceOptions != nil && !foundRemoveIface {
+		return "", fmt.Errorf("unable to remove interface [%s] because it does not exist", canonicalIfaceName)
+	}
+
+	vmiCopy := vmi.DeepCopy()
+	vmiCopy.Spec = *ApplyInterfaceRequestOnVMISpec(&vmiCopy.Spec, interfaceRequest)
+
+	oldIfacesJSON, err := json.Marshal(vmi.Spec.Domain.Devices.Interfaces)
+	if err != nil {
+		return "", err
+	}
+
+	newIfacesJSON, err := json.Marshal(vmiCopy.Spec.Domain.Devices.Interfaces)
+	if err != nil {
+		return "", err
+	}
+
+	oldNetworksJSON, err := json.Marshal(vmi.Spec.Networks)
+	if err != nil {
+		return "", err
+	}
+
+	newNetworksJSON, err := json.Marshal(vmiCopy.Spec.Networks)
+	if err != nil {
+		return "", err
+	}
+
+	testNetworks := fmt.Sprintf(`{ "op": "test", "path": "/spec/networks", "value": %s}`, string(oldNetworksJSON))
+	updateNetworks := fmt.Sprintf(`{ "op": "%s", "path": "/spec/networks", "value": %s}`, "replace", string(newNetworksJSON))
+
+	testInterfaces := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": %s}`, string(oldIfacesJSON))
+	updateInterfaces := fmt.Sprintf(`{ "op": "%s", "path": "/spec/domain/devices/interfaces", "value": %s}`, "replace", string(newIfacesJSON))
+
+	patch := fmt.Sprintf("[%s, %s, %s, %s]", testNetworks, testInterfaces, updateNetworks, updateInterfaces)
+	return patch, nil
+}
+
+func alreadyExists(interfaceRequest *v1.VirtualMachineInterfaceRequest, iface v1.Interface) bool {
+	return interfaceRequest.AddInterfaceOptions != nil && iface.Name == dynamicIfaceName(interfaceRequest)
+}
+
+func generateVMInterfaceRequestPatch(vm *v1.VirtualMachine, interfaceRequest *v1.VirtualMachineInterfaceRequest) (string, error) {
+	verb := "add"
+	if len(vm.Status.InterfaceRequests) > 0 {
+		verb = "replace"
+	}
+
+	vmCopy := vm.DeepCopy()
+	// We only validate the list against other items in the list at this point.
+	// The VM validation webhook will validate the list against the VMI spec
+	// during the Patch command
+	if interfaceRequest.AddInterfaceOptions != nil {
+		if err := addAddInterfaceRequests(vm, interfaceRequest, vmCopy); err != nil {
+			return "", err
+		}
+	} else if interfaceRequest.RemoveInterfaceOptions != nil {
+		if err := addRemoveInterfaceRequests(vm, interfaceRequest, vmCopy); err != nil {
+			return "", err
+		}
+	}
+
+	oldJson, err := json.Marshal(vm.Status.InterfaceRequests)
+	if err != nil {
+		return "", err
+	}
+	newJson, err := json.Marshal(vmCopy.Status.InterfaceRequests)
+	if err != nil {
+		return "", err
+	}
+
+	test := fmt.Sprintf(`{ "op": "test", "path": "/status/interfaceRequests", "value": %s}`, string(oldJson))
+	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/interfaceRequests", "value": %s}`, verb, string(newJson))
+	patch := fmt.Sprintf("[%s, %s]", test, update)
+
+	return patch, nil
+}
+
+func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMachineInterfaceRequest, vmCopy *v1.VirtualMachine) error {
+	canonicalIfaceName := dynamicIfaceName(ifaceRequest)
+	for _, request := range vm.Status.InterfaceRequests {
+		if err := validateAddInterfaceRequest(request, canonicalIfaceName); err != nil {
+			return err
+		}
+	}
+	vmCopy.Status.InterfaceRequests = append(vm.Status.InterfaceRequests, *ifaceRequest)
+	return nil
+}
+
+func validateAddInterfaceRequest(request v1.VirtualMachineInterfaceRequest, name string) error {
+	if addInterfaceRequestExists(request, name) {
+		return fmt.Errorf("add interface request for interface [%s] already exists", name)
+	}
+	if removeInterfaceRequestExists(request, name) {
+		return fmt.Errorf("unable to add interface since a remove interface request for interface [%s] already exists and is still being processed", name)
+	}
+	return nil
+}
+
+func addRemoveInterfaceRequests(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineInterfaceRequest, vmCopy *v1.VirtualMachine) error {
+	canonicalName := dynamicIfaceName(volumeRequest)
+	var volumeRequestsList []v1.VirtualMachineInterfaceRequest
+	for _, request := range vm.Status.InterfaceRequests {
+		if addInterfaceRequestExists(request, canonicalName) {
+			// Filter matching AddInterface requests from the new list.
+			continue
+		}
+		if removeInterfaceRequestExists(request, canonicalName) {
+			return fmt.Errorf("a remove interface request for interface [%s] already exists and is still being processed", canonicalName)
+		}
+		volumeRequestsList = append(volumeRequestsList, request)
+	}
+	volumeRequestsList = append(volumeRequestsList, *volumeRequest)
+	vmCopy.Status.InterfaceRequests = volumeRequestsList
+	return nil
+}
+
+func removeInterfaceRequestExists(request v1.VirtualMachineInterfaceRequest, name string) bool {
+	return request.RemoveInterfaceOptions != nil && dynamicIfaceName(&request) == name
+}
+
+func addInterfaceRequestExists(request v1.VirtualMachineInterfaceRequest, name string) bool {
+	return request.AddInterfaceOptions != nil && dynamicIfaceName(&request) == name
+}
+
+func dynamicIfaceName(plugRequest *v1.VirtualMachineInterfaceRequest) string {
+	if plugRequest.AddInterfaceOptions != nil {
+		return plugRequest.AddInterfaceOptions.InterfaceName
+	} else {
+		return plugRequest.RemoveInterfaceOptions.InterfaceName
+	}
+}
+
+func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
+	canonicalIfaceName := dynamicIfaceName(request)
+	if request.AddInterfaceOptions != nil {
+		alreadyAdded := false
+		for _, iface := range vmiSpec.Networks {
+			if iface.Name == canonicalIfaceName {
+				alreadyAdded = true
+				break
+			}
+		}
+
+		if !alreadyAdded {
+			newInterface := v1.Interface{
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+				Name:                   canonicalIfaceName,
+			}
+			newNetwork := v1.Network{
+				Name: canonicalIfaceName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: request.AddInterfaceOptions.NetworkName,
+					},
+				},
+			}
+
+			vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newInterface)
+			vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
+		}
+
+	} else if request.RemoveInterfaceOptions != nil {
+		var newInterfacesList []v1.Interface
+		var newNetworksList []v1.Network
+
+		for _, volume := range vmiSpec.Domain.Devices.Interfaces {
+			if volume.Name != canonicalIfaceName {
+				newInterfacesList = append(newInterfacesList, volume)
+			}
+		}
+
+		for _, net := range vmiSpec.Networks {
+			if net.Name != canonicalIfaceName {
+				newNetworksList = append(newNetworksList, net)
+			}
+		}
+
+		vmiSpec.Domain.Devices.Interfaces = newInterfacesList
+		vmiSpec.Networks = newNetworksList
+	}
+
+	return vmiSpec
+}
+
+// VMIAddInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMIAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	app.addInterfaceRequestHandler(request, response, true)
+}
+
+// VMIRemoveInterfaceRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMIRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	app.removeInterfaceRequestHandler(request, response, true)
+}
+
+func (app *SubresourceAPIApp) addInterfaceRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
+		writeError(errors.NewBadRequest("Unable to Add Interface because HotplugNICs feature gate is not enabled."), response)
+		return
+	}
+
+	opts := &v1.AddInterfaceOptions{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
+		}
+	} else {
+		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
+		return
+	}
+
+	if opts.NetworkName == "" {
+		writeError(errors.NewBadRequest("AddInterfaceOptions requires name to be set"), response)
+		return
+	} else if opts.InterfaceName == "" {
+		writeError(errors.NewBadRequest("AddInterfaceOptions requires disk to not be nil"), response)
+		return
+	}
+
+	interfaceRequest := v1.VirtualMachineInterfaceRequest{
+		AddInterfaceOptions: opts,
+	}
+
+	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
+	if ephemeral {
+		if err := app.vmiInterfacePatch(name, namespace, &interfaceRequest); err != nil {
+			writeError(err, response)
+			return
+		}
+	} else {
+		if err := app.vmInterfacePatchStatus(name, namespace, &interfaceRequest); err != nil {
+			writeError(err, response)
+			return
+		}
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) removeInterfaceRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
+		writeError(errors.NewBadRequest("Unable to Remove Interface because HotplugNICs feature gate is not enabled."), response)
+		return
+	}
+
+	opts := &v1.RemoveInterfaceOptions{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
+		}
+	} else {
+		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
+		return
+	}
+
+	if opts.NetworkName == "" {
+		writeError(errors.NewBadRequest("RemoveInterfaceOptions requires name to be set"), response)
+		return
+	} else if opts.InterfaceName == "" {
+		writeError(errors.NewBadRequest("RemoveInterfaceOptions requires disk to not be nil"), response)
+		return
+	}
+
+	interfaceRequest := v1.VirtualMachineInterfaceRequest{
+		RemoveInterfaceOptions: opts,
+	}
+
+	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
+	if ephemeral {
+		if err := app.vmiInterfacePatch(name, namespace, &interfaceRequest); err != nil {
+			writeError(err, response)
+			return
+		}
+	} else {
+		if err := app.vmInterfacePatchStatus(name, namespace, &interfaceRequest); err != nil {
+			writeError(err, response)
+			return
+		}
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) vmiInterfacePatch(vmName string, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError {
+	vmi, statErr := app.FetchVirtualMachineInstance(namespace, vmName)
+	if statErr != nil {
+		return statErr
+	}
+
+	if !vmi.IsRunning() {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmName, fmt.Errorf("VMI is not running"))
+	}
+
+	patch, err := generateVMIInterfaceRequestPatch(vmi, interfaceRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmName, err)
+	}
+
+	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
+		log.Log.Object(vmi).V(1).Errorf("unable to patch vmi: %v", err)
+		if errors.IsInvalid(err) {
+			if statErr, ok := err.(*errors.StatusError); ok {
+				return statErr
+			}
+		}
+		return errors.NewInternalError(fmt.Errorf("unable to patch vmi: %v", err))
+	}
+	return nil
+}
+
+func (app *SubresourceAPIApp) vmInterfacePatchStatus(vmName string, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError {
+	vm, statErr := app.fetchVirtualMachine(vmName, namespace)
+	if statErr != nil {
+		return statErr
+	}
+
+	patch, err := generateVMInterfaceRequestPatch(vm, interfaceRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachine"), vmName, err)
+	}
+
+	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patch)
+	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
+		log.Log.Object(vm).V(1).Errorf("unable to patch vm status: %v", err)
+		if errors.IsInvalid(err) {
+			if statErr, ok := err.(*errors.StatusError); ok {
+				return statErr
+			}
+		}
+		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
+	}
+	return nil
 }

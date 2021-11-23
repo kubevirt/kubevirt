@@ -625,6 +625,8 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/addinterface
+          - virtualmachineinstances/removeinterface
           verbs:
           - update
         - apiGroups:
@@ -863,6 +865,8 @@ spec:
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
           - virtualmachineinstances/portforward
+          - virtualmachineinstances/addinterface
+          - virtualmachineinstances/removeinterface
           verbs:
           - update
         - apiGroups:
@@ -980,6 +984,8 @@ spec:
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
           - virtualmachineinstances/portforward
+          - virtualmachineinstances/addinterface
+          - virtualmachineinstances/removeinterface
           verbs:
           - update
         - apiGroups:

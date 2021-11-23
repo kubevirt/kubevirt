@@ -2102,6 +2102,341 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	})
 
+	Context("Add/Remove Interface Subresource api", func() {
+		const (
+			ifaceToHotplug   = "pluggediface1"
+			networkToHotplug = "meganet2000"
+			ifaceToRemove    = "iface1"
+			networkToRemove  = "existing-net"
+		)
+		newAddInterfaceBody := func(opts *v1.AddInterfaceOptions) io.ReadCloser {
+			optsJson, _ := json.Marshal(opts)
+			return &readCloserWrapper{bytes.NewReader(optsJson)}
+		}
+		newRemoveInterfaceBody := func(opts *v1.RemoveInterfaceOptions) io.ReadCloser {
+			optsJson, _ := json.Marshal(opts)
+			return &readCloserWrapper{bytes.NewReader(optsJson)}
+		}
+
+		BeforeEach(func() {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+		})
+
+		mutateIfaceRequest := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) {
+			if addOpts != nil {
+				request.Request.Body = newAddInterfaceBody(addOpts)
+			} else {
+				request.Request.Body = newRemoveInterfaceBody(removeOpts)
+			}
+		}
+
+		createVM := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) *v1.VirtualMachine {
+			mutateIfaceRequest(addOpts, removeOpts)
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = "default"
+
+			patchedVM := vm.DeepCopy()
+			patchedVM.Status.InterfaceRequests = append(patchedVM.Status.InterfaceRequests, v1.VirtualMachineInterfaceRequest{AddInterfaceOptions: addOpts, RemoveInterfaceOptions: removeOpts})
+
+			return vm
+		}
+
+		successfulMockScenarioForVM := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) {
+			vm := createVM(addOpts, removeOpts)
+
+			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
+			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
+
+			if addOpts != nil {
+				app.VMAddInterfaceRequestHandler(request, response)
+			} else {
+				app.VMRemoveInterfaceRequestHandler(request, response)
+			}
+		}
+
+		failedMockScenarioForVM := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) {
+			_ = createVM(addOpts, removeOpts)
+
+			if addOpts != nil {
+				app.VMAddInterfaceRequestHandler(request, response)
+			} else {
+				app.VMRemoveInterfaceRequestHandler(request, response)
+			}
+		}
+
+		createVMI := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) *v1.VirtualMachineInstance {
+			mutateIfaceRequest(addOpts, removeOpts)
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = "default"
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name: ifaceToRemove,
+			})
+			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+				Name: ifaceToRemove,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: networkToRemove,
+					},
+				},
+			})
+			return vmi
+		}
+
+		successfulMockScenarioForVMI := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) {
+			vmi := createVMI(addOpts, removeOpts)
+
+			vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vmi, nil)
+
+			if addOpts != nil {
+				app.VMIAddInterfaceRequestHandler(request, response)
+			} else {
+				app.VMIRemoveInterfaceRequestHandler(request, response)
+			}
+		}
+
+		failedMockScenarioForVMI := func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions) {
+			_ = createVMI(addOpts, removeOpts)
+
+			if addOpts != nil {
+				app.VMIAddInterfaceRequestHandler(request, response)
+			} else {
+				app.VMIRemoveInterfaceRequestHandler(request, response)
+			}
+		}
+
+		DescribeTable("Should succeed a dynamic interface request", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions)) {
+			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
+
+			mockScenario(addOpts, removeOpts)
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+		},
+			Entry("VM with a valid add interface request", &v1.AddInterfaceOptions{
+				NetworkName:   networkToHotplug,
+				InterfaceName: ifaceToHotplug,
+			}, nil, successfulMockScenarioForVM),
+			Entry("VMI with a valid add interface request", &v1.AddInterfaceOptions{
+				NetworkName:   networkToHotplug,
+				InterfaceName: ifaceToHotplug,
+			}, nil, successfulMockScenarioForVMI),
+			Entry("VM with a valid remove interface request", nil, &v1.RemoveInterfaceOptions{
+				NetworkName:   networkToRemove,
+				InterfaceName: ifaceToRemove,
+			}, successfulMockScenarioForVM),
+			Entry("VMI with a valid remove interface request", nil, &v1.RemoveInterfaceOptions{
+				NetworkName:   networkToRemove,
+				InterfaceName: ifaceToRemove,
+			}, successfulMockScenarioForVMI),
+		)
+
+		DescribeTable("Should fail on invalid requests for a dynamic interfaces", func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions, removeOpts *v1.RemoveInterfaceOptions), featuresToEnable ...string) {
+			for _, featureToEnable := range featuresToEnable {
+				enableFeatureGate(featureToEnable)
+			}
+
+			mockScenario(addOpts, removeOpts)
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+		},
+			Entry("VM with an invalid add interface request that's missing a network name", &v1.AddInterfaceOptions{
+				InterfaceName: ifaceToHotplug,
+			}, nil, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
+			Entry("VM with an invalid add interface request that's missing the interface name", &v1.AddInterfaceOptions{
+				NetworkName: networkToHotplug,
+			}, nil, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
+			Entry(
+				"VMI with a invalid remove interface request missing the network name",
+				nil,
+				&v1.RemoveInterfaceOptions{},
+				failedMockScenarioForVMI,
+				virtconfig.HotplugNetworkIfacesGate,
+			),
+			Entry(
+				"VMI with a invalid remove interface request missing the interface name",
+				nil,
+				&v1.RemoveInterfaceOptions{},
+				failedMockScenarioForVMI,
+				virtconfig.HotplugNetworkIfacesGate,
+			),
+			Entry("VMI with a valid remove interface request but no feature gate", nil, &v1.RemoveInterfaceOptions{
+				NetworkName:   networkToRemove,
+				InterfaceName: ifaceToRemove,
+			}, failedMockScenarioForVMI),
+			Entry("VM with a valid add interface request but no feature gate", &v1.AddInterfaceOptions{
+				NetworkName:   networkToHotplug,
+				InterfaceName: ifaceToHotplug,
+			}, nil, failedMockScenarioForVM),
+		)
+
+		DescribeTable("Should generate expected vmi patch", func(interfaceRequest *v1.VirtualMachineInterfaceRequest, expectedPatch string) {
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = "default"
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name: ifaceToRemove,
+			})
+			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+				Name: ifaceToRemove,
+			})
+
+			patch, err := generateVMIInterfaceRequestPatch(vmi, interfaceRequest)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(patch).To(Equal(expectedPatch))
+		},
+			Entry("when the add interface request features all required data",
+				&v1.VirtualMachineInterfaceRequest{
+					AddInterfaceOptions: &v1.AddInterfaceOptions{
+						NetworkName:   networkToHotplug,
+						InterfaceName: ifaceToHotplug,
+					},
+				},
+				fmt.Sprintf("[{ \"op\": \"test\", \"path\": \"/spec/networks\", \"value\": [{\"name\":\"%[1]s\"}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/interfaces\", \"value\": [{\"name\":\"%[1]s\"}]}, { \"op\": \"replace\", \"path\": \"/spec/networks\", \"value\": [{\"name\":\"%[1]s\"},{\"name\":\"%[2]s\",\"multus\":{\"networkName\":\"%[3]s\"}}]}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/interfaces\", \"value\": [{\"name\":\"%[1]s\"},{\"name\":\"%[2]s\",\"bridge\":{}}]}]", ifaceToRemove, ifaceToHotplug, networkToHotplug)),
+			Entry("when the remove interface request features all required data",
+				&v1.VirtualMachineInterfaceRequest{
+					RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{
+						NetworkName:   networkToRemove,
+						InterfaceName: ifaceToRemove,
+					},
+				},
+				fmt.Sprintf("[{ \"op\": \"test\", \"path\": \"/spec/networks\", \"value\": [{\"name\":\"%[1]s\"}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/interfaces\", \"value\": [{\"name\":\"%[1]s\"}]}, { \"op\": \"replace\", \"path\": \"/spec/networks\", \"value\": null}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/interfaces\", \"value\": null}]", ifaceToRemove)),
+		)
+
+		DescribeTable("Should fail to generate the vmi patch", func(interfaceRequest *v1.VirtualMachineInterfaceRequest, expectedError string) {
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = "default"
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name: ifaceToRemove,
+			})
+			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+				Name: ifaceToRemove,
+			})
+
+			patch, err := generateVMIInterfaceRequestPatch(vmi, interfaceRequest)
+			Expect(err).To(MatchError(expectedError))
+			Expect(patch).To(BeEmpty())
+		},
+			Entry("when the user tries to remove a network interface that doesn't exist",
+				&v1.VirtualMachineInterfaceRequest{
+					RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{NetworkName: networkToHotplug, InterfaceName: ifaceToHotplug},
+				},
+				fmt.Sprintf("unable to remove interface [%s] because it does not exist", ifaceToHotplug)),
+			Entry("when the user tries to add a network interface that already exists",
+				&v1.VirtualMachineInterfaceRequest{
+					AddInterfaceOptions: &v1.AddInterfaceOptions{NetworkName: networkToRemove, InterfaceName: ifaceToRemove},
+				},
+				fmt.Sprintf("unable to add interface [%s] because it already exists", ifaceToRemove)),
+		)
+
+		DescribeTable("Should generate expected vm patch", func(interfaceRequest *v1.VirtualMachineInterfaceRequest, existingInterfaceRequests []v1.VirtualMachineInterfaceRequest, expectedPatch string) {
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = "default"
+
+			if len(existingInterfaceRequests) > 0 {
+				vm.Status.InterfaceRequests = existingInterfaceRequests
+			}
+
+			Expect(generateVMInterfaceRequestPatch(vm, interfaceRequest)).To(Equal(expectedPatch))
+		},
+			Entry(
+				"add interface request with no existing interfaces",
+				&v1.VirtualMachineInterfaceRequest{
+					AddInterfaceOptions: &v1.AddInterfaceOptions{
+						NetworkName:   networkToHotplug,
+						InterfaceName: ifaceToHotplug,
+					},
+				},
+				nil,
+				fmt.Sprintf("[{ \"op\": \"test\", \"path\": \"/status/interfaceRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/interfaceRequests\", \"value\": [{\"addInterfaceOptions\":{\"networkName\":\"%s\",\"interfaceName\":\"%s\"}}]}]", networkToHotplug, ifaceToHotplug)),
+			Entry(
+				"remove interface request with no existing interfaces",
+				&v1.VirtualMachineInterfaceRequest{
+					RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{
+						NetworkName:   networkToRemove,
+						InterfaceName: ifaceToRemove,
+					},
+				},
+				nil,
+				fmt.Sprintf("[{ \"op\": \"test\", \"path\": \"/status/interfaceRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/interfaceRequests\", \"value\": [{\"removeInterfaceOptions\":{\"networkName\":\"%s\",\"interfaceName\":\"%s\"}}]}]", networkToRemove, ifaceToRemove)),
+			Entry("add volume request when volume requests already exist",
+				&v1.VirtualMachineInterfaceRequest{
+					AddInterfaceOptions: &v1.AddInterfaceOptions{
+						NetworkName:   networkToHotplug,
+						InterfaceName: ifaceToHotplug,
+					},
+				},
+				[]v1.VirtualMachineInterfaceRequest{
+					{
+						AddInterfaceOptions: &v1.AddInterfaceOptions{
+							NetworkName:   networkToRemove,
+							InterfaceName: ifaceToRemove,
+						},
+					},
+				},
+				fmt.Sprintf("[{ \"op\": \"test\", \"path\": \"/status/interfaceRequests\", \"value\": [{\"addInterfaceOptions\":{\"networkName\":\"%[1]s\",\"interfaceName\":\"%[2]s\"}}]}, { \"op\": \"replace\", \"path\": \"/status/interfaceRequests\", \"value\": [{\"addInterfaceOptions\":{\"networkName\":\"%[1]s\",\"interfaceName\":\"%[2]s\"}},{\"addInterfaceOptions\":{\"networkName\":\"%[3]s\",\"interfaceName\":\"%[4]s\"}}]}]", networkToRemove, ifaceToRemove, networkToHotplug, ifaceToHotplug)),
+			Entry("remove interface request should replace add interface request",
+				&v1.VirtualMachineInterfaceRequest{
+					RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{
+						NetworkName:   networkToRemove,
+						InterfaceName: ifaceToRemove,
+					},
+				},
+				[]v1.VirtualMachineInterfaceRequest{
+					{
+						AddInterfaceOptions: &v1.AddInterfaceOptions{
+							NetworkName:   networkToRemove,
+							InterfaceName: ifaceToRemove,
+						},
+					},
+				},
+				fmt.Sprintf("[{ \"op\": \"test\", \"path\": \"/status/interfaceRequests\", \"value\": [{\"addInterfaceOptions\":{\"networkName\":\"%[1]s\",\"interfaceName\":\"%[2]s\"}}]}, { \"op\": \"replace\", \"path\": \"/status/interfaceRequests\", \"value\": [{\"removeInterfaceOptions\":{\"networkName\":\"%[1]s\",\"interfaceName\":\"%[2]s\"}}]}]", networkToRemove, ifaceToRemove)))
+
+		DescribeTable("Should fail to generate expected vm patch", func(interfaceRequest *v1.VirtualMachineInterfaceRequest, existingInterfaceRequests []v1.VirtualMachineInterfaceRequest, expectedError string) {
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = "default"
+
+			if len(existingInterfaceRequests) > 0 {
+				vm.Status.InterfaceRequests = existingInterfaceRequests
+			}
+
+			patch, err := generateVMInterfaceRequestPatch(vm, interfaceRequest)
+			Expect(err).To(MatchError(expectedError))
+			Expect(patch).To(BeEmpty())
+		},
+			Entry("add interface request that already exists should fail",
+				&v1.VirtualMachineInterfaceRequest{
+					AddInterfaceOptions: &v1.AddInterfaceOptions{
+						NetworkName:   networkToHotplug,
+						InterfaceName: ifaceToHotplug,
+					},
+				},
+				[]v1.VirtualMachineInterfaceRequest{
+					{
+						AddInterfaceOptions: &v1.AddInterfaceOptions{
+							NetworkName:   networkToHotplug,
+							InterfaceName: ifaceToHotplug,
+						},
+					},
+				},
+				fmt.Sprintf("add interface request for interface [%s] already exists", ifaceToHotplug)),
+			Entry("remove interface request that already exists should fail",
+				&v1.VirtualMachineInterfaceRequest{
+					RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{
+						NetworkName:   networkToRemove,
+						InterfaceName: ifaceToRemove,
+					},
+				},
+				[]v1.VirtualMachineInterfaceRequest{
+					{
+						RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{
+							NetworkName:   networkToRemove,
+							InterfaceName: ifaceToRemove,
+						},
+					}},
+				fmt.Sprintf("a remove interface request for interface [%s] already exists and is still being processed", ifaceToRemove)))
+	})
+
 	AfterEach(func() {
 		backend.Close()
 		disableFeatureGates()
