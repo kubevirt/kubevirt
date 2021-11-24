@@ -456,6 +456,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods/status
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
   - pods/eviction
   verbs:
   - create

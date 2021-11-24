@@ -29,6 +29,7 @@ go_library(
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/monitoring/vmistats:go_default_library",
         "//pkg/monitoring/vmstats:go_default_library",
+        "//pkg/network/namescheme:go_default_library",
         "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/service:go_default_library",
@@ -120,6 +121,7 @@ go_test(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/network/namescheme:go_default_library",
         "//pkg/network/sriov:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/storage/export/export:go_default_library",
