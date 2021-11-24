@@ -8288,6 +8288,9 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        targetNode:
+          description: The target node that the VMI is moving to
+          type: string
         vmiName:
           description: The name of the VMI to perform the migration on. VMI must exist
             in the migration objects namespace
