@@ -20,14 +20,19 @@
 package namescheme
 
 import (
+	"crypto/md5"
 	"fmt"
+	"io"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-const PrimaryPodInterfaceName = "eth0"
+const (
+	maxIfaceNameLen         = 15
+	PrimaryPodInterfaceName = "eth0"
+)
 
 // CreateNetworkNameScheme iterates over the VMI's Networks, and creates for each a pod interface name.
 // The returned map associates between the network name and the generated pod interface name.
@@ -43,14 +48,35 @@ func CreateNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 	return networkNameSchemeMap
 }
 
+// CreateHashedNetworkNamingScheme iterates over the VMI's Networks, and creates for each a pod interface name.
+// The returned map associates between the network name and the generated pod interface name.
+// The generated interface names will be named "net<id>" where id is the network name md5.
+func CreateHashedNetworkNamingScheme(vmiNetworks []v1.Network) map[string]string {
+	return mapMultusNonDefaultNetworksToHashPodInterfaceName(vmiNetworks)
+}
+
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
 	for i, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
-		networkNameSchemeMap[network.Name] = secondaryInterfaceName(i + 1)
+		networkNameSchemeMap[network.Name] = SecondaryInterfaceName(i + 1)
 	}
 	return networkNameSchemeMap
 }
 
-func secondaryInterfaceName(idx int) string {
+func mapMultusNonDefaultNetworksToHashPodInterfaceName(networks []v1.Network) map[string]string {
+	networkNameSchemeMap := map[string]string{}
+	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
+		networkNameSchemeMap[network.Name] = HashNetworkName(network.Name)
+	}
+	return networkNameSchemeMap
+}
+
+func SecondaryInterfaceName(idx int) string {
 	return fmt.Sprintf("net%d", idx)
+}
+
+func HashNetworkName(networkName string) string {
+	hash := md5.New()
+	_, _ = io.WriteString(hash, networkName)
+	return fmt.Sprintf("net%x", hash.Sum(nil))[:maxIfaceNameLen]
 }
