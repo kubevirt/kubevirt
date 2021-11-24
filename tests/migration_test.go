@@ -345,21 +345,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	Describe("Starting a VirtualMachineInstance ", func() {
 
 		var pvName string
+		var memoryRequestSize resource.Quantity
+
 		BeforeEach(func() {
+			memoryRequestSize = resource.MustParse(fedoraVMSize)
 			pvName = "test-nfs" + rand.String(48)
 		})
 
-		const guestAgentMigrationTestName = " should be migrated successfully, using guest agent on VM "
 		guestAgentMigrationTestFunc := func(mode v1.MigrationMode) {
-			memoryRequestSize := resource.MustParse(fedoraVMSize)
-			if mode == v1.MigrationPostCopy {
-				config := getCurrentKv()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-				tests.UpdateKubeVirtConfigValueAndWait(config)
-				memoryRequestSize = resource.MustParse("1Gi")
-			}
-
 			By("Creating the  VMI")
 			vmi := tests.NewRandomVMIWithPVC(pvName)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
@@ -1352,7 +1345,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[test_id:2653]"+guestAgentMigrationTestName+"with default migration configuration", func() {
+			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				guestAgentMigrationTestFunc(v1.MigrationPreCopy)
 			})
 
@@ -1585,7 +1578,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			var wffcPod *k8sv1.Pod
 
 			BeforeEach(func() {
+				By("Limit migration bandwidth")
 				setMigrationBandwidthLimitation(resource.MustParse("40Mi"))
+
+				By("Allowing post-copy")
+				config := getCurrentKv()
+				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+				tests.UpdateKubeVirtConfigValueAndWait(config)
+				memoryRequestSize = resource.MustParse("1Gi")
 
 				quantity, err := resource.ParseQuantity("5Gi")
 				Expect(err).ToNot(HaveOccurred())
@@ -1656,7 +1657,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[QUARANTINE][test_id:5004]"+guestAgentMigrationTestName+"with postcopy", func() {
+			It("[QUARANTINE][test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
 				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
 			})
 
