@@ -802,6 +802,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
 				// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
