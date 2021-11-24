@@ -27,7 +27,10 @@ import (
 	"strings"
 	"time"
 
+	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,6 +48,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -1124,6 +1128,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				}
 			}
 		}
+		if c.doesPodRequireInterfaceChangeRequests(vmi) {
+			if err := c.handleDynamicInterfaceRequests(vmi, pod); err != nil {
+				return &syncErrorImpl{
+					err:    fmt.Errorf("failed to hotplug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
+					reason: FailedHotplugSyncReason,
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -2112,4 +2124,42 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 		return virtv1.VolumeBound, PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
+}
+
+func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	log.Log.Object(pod).V(4).Info("network iface hotplug for pod")
+	multusAnnotation, err := services.GenerateMultusCNIAnnotationWithInterfaceNamingScheme(
+		vmi,
+		namescheme.CreateHashedNetworkNamingScheme,
+	)
+	if err != nil {
+		return err
+	}
+
+	currentMultusAnnotation, found := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+	if found {
+		log.Log.Object(pod).V(4).Infof("current multus annotation for pod: %s", currentMultusAnnotation)
+	}
+	if multusAnnotation != "" {
+		pod.Annotations[networkv1.NetworkAttachmentAnnot] = multusAnnotation
+		log.Log.Object(pod).V(4).Infof("updated multus annotation for pod: %s", multusAnnotation)
+	} else {
+		delete(pod.Annotations, networkv1.NetworkAttachmentAnnot)
+		log.Log.Object(pod).V(4).Info("cleared pod cncf.io/networks annotation")
+	}
+
+	if currentMultusAnnotation != multusAnnotation {
+		pod, err = c.clientset.CoreV1().Pods(pod.GetNamespace()).UpdateStatus(context.Background(), pod, v1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *VMIController) doesPodRequireInterfaceChangeRequests(vmi *virtv1.VirtualMachineInstance) bool {
+	ifacestoHotplug := netsetup.InterfacesToHotplug(vmi)
+	ifacesToUnplug := netsetup.InterfacesToHotUnplug(vmi)
+	return len(ifacestoHotplug) > 0 || len(ifacesToUnplug) > 0
 }

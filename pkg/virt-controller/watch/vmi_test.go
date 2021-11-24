@@ -27,9 +27,10 @@ import (
 
 	"k8s.io/utils/pointer"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -55,6 +56,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -764,7 +766,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
 			vmi = addDefaultNetwork(vmi, defaultNetworkName)
+			vmi = addDefaultNetworkStatus(vmi, defaultNetworkName)
 			vmi = addSRIOVNetwork(vmi, sriovNetworkName, netAttachDefName)
+			vmi = addSRIOVNetworkStatus(vmi, sriovNetworkName)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -3020,6 +3024,166 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.cidsMap.reverse).To(BeEmpty())
 		})
 	})
+
+	Context("dynamic interface attachment", func() {
+		const vmName = "vm1"
+
+		var (
+			pod *k8sv1.Pod
+			vmi *virtv1.VirtualMachineInstance
+		)
+
+		expectPodStatusUpdateFailed := func(uid types.UID) {
+			kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				update, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+				Expect(update.GetSubresource()).To(Equal("status"))
+				return true, update.GetObject(), fmt.Errorf("your cluster is doomed")
+			})
+		}
+
+		expectPodStatusUpdate := func(uid types.UID) {
+			kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				update, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+				Expect(update.GetSubresource()).To(Equal("status"))
+				return true, update.GetObject(), nil
+			})
+		}
+
+		fakeHotPlugRequest := func(vmi *virtv1.VirtualMachineInstance, addOpts []virtv1.AddInterfaceOptions, removeOpts []virtv1.RemoveInterfaceOptions) {
+			for _, req := range removeOpts {
+				key := hotpluggedNetworkName(req.NetworkName, req.InterfaceName)
+				for i, network := range vmi.Spec.Networks {
+					if network.Multus != nil && key == network.Name && network.Multus.NetworkName == req.NetworkName {
+						vmi.Spec.Networks = append(vmi.Spec.Networks[:i], vmi.Spec.Networks[i+1:]...)
+					}
+				}
+			}
+
+			for _, req := range addOpts {
+				key := hotpluggedNetworkName(req.NetworkName, req.InterfaceName)
+				vmi.Spec.Networks = append(
+					vmi.Spec.Networks,
+					virtv1.Network{
+						Name: key,
+						NetworkSource: virtv1.NetworkSource{
+							Multus: &virtv1.MultusNetwork{NetworkName: req.NetworkName},
+						},
+					})
+			}
+		}
+
+		const (
+			ifaceToRemove       = "oldIface1"
+			netToRemove         = "oldnet1"
+			secondIfaceToRemove = "oldiface2"
+			secondNetToRemove   = "oldnet2"
+		)
+
+		Context("k8s API is down - i.e. you cannot update the pod status", func() {
+			BeforeEach(func() {
+				vmi = newVMIWithOneNetwork(
+					newVMIWithOneNetwork(
+						api.NewMinimalVMI(vmName), netToRemove, ifaceToRemove),
+					secondNetToRemove, secondIfaceToRemove)
+				pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
+				expectPodStatusUpdateFailed(pod.UID)
+			})
+
+			DescribeTable("cannot handle dynamic network attachment", func(addOpts []virtv1.AddInterfaceOptions, removeOpts []virtv1.RemoveInterfaceOptions) {
+				fakeHotPlugRequest(vmi, addOpts, removeOpts)
+				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(HaveOccurred())
+			}, Entry("when adding an interface", []virtv1.AddInterfaceOptions{{
+				NetworkName:   "net1",
+				InterfaceName: "iface1",
+			}}, nil),
+				Entry("when removing an interface", nil,
+					[]virtv1.RemoveInterfaceOptions{{
+						NetworkName:   netToRemove,
+						InterfaceName: ifaceToRemove,
+					}}),
+			)
+		})
+
+		Context("hotplug operation", func() {
+			BeforeEach(func() {
+				vmi = api.NewMinimalVMI(vmName)
+				pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				Expect(pod.Annotations).NotTo(HaveKey(networkv1.NetworkAttachmentAnnot))
+				expectPodStatusUpdate(pod.UID)
+			})
+
+			DescribeTable("the pods network annotation must be updated", func(addOpts []virtv1.AddInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
+				fakeHotPlugRequest(vmi, addOpts, nil)
+				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
+				for _, matcher := range matchers {
+					Expect(pod.Annotations).To(matcher)
+				}
+			},
+				Entry("hotplug a single interface",
+					[]virtv1.AddInterfaceOptions{{
+						NetworkName:   "net1",
+						InterfaceName: "iface1",
+					}},
+					HaveKeyWithValue(
+						networkv1.NetworkAttachmentAnnot,
+						"[{\"interface\":\"net2f67b01cb62b\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
+				Entry("hotplug multiple interfaces",
+					[]virtv1.AddInterfaceOptions{{
+						NetworkName:   "net1",
+						InterfaceName: "iface1",
+					}, {
+						NetworkName:   "net1",
+						InterfaceName: "iface2",
+					}},
+					HaveKeyWithValue(
+						networkv1.NetworkAttachmentAnnot,
+						"[{\"interface\":\"net2f67b01cb62b\",\"name\":\"net1\",\"namespace\":\"default\"},{\"interface\":\"net614b50ab719d\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
+			)
+		})
+
+		Context("hot-unplug operation", func() {
+			BeforeEach(func() {
+				vmi = newVMIWithOneNetwork(
+					newVMIWithOneNetwork(
+						api.NewMinimalVMI(vmName), netToRemove, ifaceToRemove),
+					secondNetToRemove, secondIfaceToRemove)
+				pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
+				expectPodStatusUpdate(pod.UID)
+			})
+
+			DescribeTable("the pods network annotation must be updated", func(removeOpts []virtv1.RemoveInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
+				fakeHotPlugRequest(vmi, nil, removeOpts)
+				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
+				for _, matcher := range matchers {
+					if len(vmi.Spec.Networks) == 0 {
+						Expect(pod.Annotations).NotTo(HaveKey(networkv1.NetworkAttachmentAnnot))
+					} else {
+						Expect(pod.Annotations).To(matcher)
+					}
+				}
+			},
+				Entry("remove a single interface",
+					[]virtv1.RemoveInterfaceOptions{{
+						NetworkName:   netToRemove,
+						InterfaceName: ifaceToRemove,
+					}},
+					HaveKeyWithValue(
+						networkv1.NetworkAttachmentAnnot,
+						"[{\"interface\":\"netc5139f2cc051\",\"name\":\"oldnet2\",\"namespace\":\"default\"}]")),
+				Entry("remove all the multus interfaces from the VMI",
+					[]virtv1.RemoveInterfaceOptions{{
+						NetworkName:   netToRemove,
+						InterfaceName: ifaceToRemove,
+					}, {
+						NetworkName:   secondNetToRemove,
+						InterfaceName: secondIfaceToRemove,
+					}}))
+		})
+	})
 })
 
 func NewDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
@@ -3085,6 +3249,16 @@ func setReadyCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.Conditio
 	})
 }
 func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
+	multusAnnotations, _ := services.GenerateMultusCNIAnnotationWithInterfaceNamingScheme(
+		vmi,
+		namescheme.CreateNetworkNameScheme,
+	)
+	podAnnotations := map[string]string{
+		virtv1.DomainAnnotation: vmi.Name,
+	}
+	if multusAnnotations != "" {
+		podAnnotations[networkv1.NetworkAttachmentAnnot] = multusAnnotations
+	}
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -3094,9 +3268,7 @@ func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 				virtv1.AppLabel:       "virt-launcher",
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
-			Annotations: map[string]string{
-				virtv1.DomainAnnotation: vmi.Name,
-			},
+			Annotations: podAnnotations,
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,
@@ -3220,9 +3392,19 @@ func addDefaultNetwork(vmi *virtv1.VirtualMachineInstance, networkName string) *
 	return vmi
 }
 
+func addDefaultNetworkStatus(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: networkName})
+	return vmi
+}
+
 func addSRIOVNetwork(vmi *virtv1.VirtualMachineInstance, networkName, nadName string) *virtv1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, newSRIOVInterface(networkName))
 	vmi.Spec.Networks = append(vmi.Spec.Networks, newMultusNetwork(networkName, nadName))
+	return vmi
+}
+
+func addSRIOVNetworkStatus(vmi *virtv1.VirtualMachineInstance, networkName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: networkName})
 	return vmi
 }
 
@@ -3258,4 +3440,22 @@ func newMultusNetwork(name, networkName string) virtv1.Network {
 			},
 		},
 	}
+}
+
+func hotpluggedNetworkName(networkName string, ifaceName string) string {
+	return fmt.Sprintf("%s/%s", networkName, ifaceName)
+}
+
+func newVMIWithOneNetwork(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
+	vmi.Spec.Networks = append(
+		vmi.Spec.Networks,
+		virtv1.Network{
+			Name: hotpluggedNetworkName(networkName, ifaceName),
+			NetworkSource: virtv1.NetworkSource{
+				Multus: &virtv1.MultusNetwork{
+					NetworkName: networkName,
+				},
+			},
+		})
+	return vmi
 }
