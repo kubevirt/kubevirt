@@ -268,7 +268,7 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 	result, err := r.doReconcile(hcoRequest)
 	if err != nil {
 		r.eventEmitter.EmitEvent(hcoRequest.Instance, corev1.EventTypeWarning, "ReconcileError", err.Error())
-		return reconcile.Result{}, err
+		return result, err
 	}
 
 	if err = r.setOperatorUpgradeableStatus(hcoRequest); err != nil {
@@ -403,7 +403,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 
 		modified, err := r.migrateBeforeUpgrade(req)
 		if err != nil {
-			return reconcile.Result{Requeue: init}, err
+			return reconcile.Result{Requeue: true}, err
 		}
 
 		if modified {
@@ -1047,7 +1047,7 @@ func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bo
 	if knownHcoVersion == "" {
 		knownHcoVersion = "0.0.0"
 	}
-	knownHcoSV, err := semver.Parse(knownHcoVersion)
+	knownHcoSV, err := semver.ParseTolerant(knownHcoVersion)
 	if err != nil {
 		req.Logger.Error(err, "Error!")
 		return false, err

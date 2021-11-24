@@ -1008,6 +1008,163 @@ var _ = Describe("HyperconvergedController", func() {
 				validateOperatorCondition(reconciler, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
+			DescribeTable(
+				"be tolerant parsing parse version",
+				func(testHcoVersion string, acceptableVersion bool, errorMessage string) {
+					foundResource := &hcov1beta1.HyperConverged{}
+					expected.hco.Status.UpdateVersion(hcoVersionName, testHcoVersion)
+
+					cl := expected.initClient()
+
+					r := initReconciler(cl, nil)
+					r.firstLoop = false
+					r.ownVersion = newVersion
+
+					res, err := r.Reconcile(context.TODO(), request)
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
+							foundResource),
+					).To(BeNil())
+					ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+
+					if acceptableVersion {
+						Expect(err).To(BeNil())
+						Expect(res.Requeue).To(BeTrue())
+						Expect(ok).To(BeTrue())
+						Expect(ver).Should(Equal(testHcoVersion))
+						// reconcile again to complete the upgrade
+						res, err = r.Reconcile(context.TODO(), request)
+						Expect(err).To(BeNil())
+						Expect(res.Requeue).To(BeFalse())
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
+								foundResource),
+						).To(BeNil())
+						ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+						Expect(ok).To(BeTrue())
+						Expect(ver).Should(Equal(newVersion))
+					} else {
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).Should(ContainSubstring(errorMessage))
+						Expect(res.Requeue).To(BeTrue())
+						Expect(ok).To(BeTrue())
+						Expect(ver).Should(Equal(testHcoVersion))
+						// try a second time
+						res, err = r.Reconcile(context.TODO(), request)
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).Should(ContainSubstring(errorMessage))
+						Expect(res.Requeue).To(BeTrue())
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
+								foundResource),
+						).To(BeNil())
+						ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+						Expect(ok).To(BeTrue())
+						Expect(ver).Should(Equal(testHcoVersion))
+						// and a third
+						res, err = r.Reconcile(context.TODO(), request)
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).Should(ContainSubstring(errorMessage))
+						Expect(res.Requeue).To(BeTrue())
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
+								foundResource),
+						).To(BeNil())
+						ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+						Expect(ok).To(BeTrue())
+						Expect(ver).Should(Equal(testHcoVersion))
+					}
+				},
+				Entry(
+					"semver",
+					oldVersion,
+					true,
+					"",
+				),
+				Entry(
+					"semver with leading spaces",
+					"  "+oldVersion,
+					true,
+					"",
+				),
+				Entry(
+					"semver with trailing spaces",
+					oldVersion+"  ",
+					true,
+					"",
+				),
+				Entry(
+					"semver with leading and trailing spaces",
+					"  "+oldVersion+"  ",
+					true,
+					"",
+				),
+				Entry(
+					"quasi semver with leading v",
+					"  "+"v"+oldVersion+"  ",
+					true,
+					"",
+				),
+				Entry(
+					"quasi semver with leading v",
+					"v"+oldVersion,
+					true,
+					"",
+				),
+				Entry(
+					"only major and minor",
+					"1.6",
+					true,
+					"",
+				),
+				Entry(
+					"only major",
+					"1",
+					true,
+					"",
+				),
+				Entry(
+					"only major with leading v",
+					"1",
+					true,
+					"",
+				),
+				Entry(
+					"additional zeros",
+					"0000001.0000006.000000",
+					true,
+					"",
+				),
+				Entry(
+					"negative numbers",
+					"-1.6.0",
+					false,
+					"Invalid character(s) found in major number",
+				),
+				Entry(
+					"additional dots",
+					"1...6..0",
+					false,
+					"invalid syntax",
+				),
+				Entry(
+					"x.y.z",
+					"x.y.z",
+					false,
+					"Invalid character(s) found in",
+				),
+				Entry(
+					"completely broken version",
+					"completelyBrokenVersion",
+					false,
+					"Invalid character(s) found in major number",
+				),
+			)
+
 			It("detect upgrade w/o HCO Version", func() {
 				// CDI is not ready
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
