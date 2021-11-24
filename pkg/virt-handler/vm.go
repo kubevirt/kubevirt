@@ -476,7 +476,8 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 	return false, timeLeft
 }
 
-func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineInstance) {
+// teardownNetwork performs network cache cleanup for a specific VMI.
+func (d *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstance) {
 	if string(vmi.UID) == "" {
 		return
 	}
@@ -1783,7 +1784,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	d.clearPodNetworkPhase1(vmi)
+	d.teardownNetwork(vmi)
 
 	// Watch dog file and command client must be the last things removed here
 	err = d.closeLauncherClient(vmi)
