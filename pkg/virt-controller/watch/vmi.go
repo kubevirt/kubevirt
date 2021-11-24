@@ -28,6 +28,7 @@ import (
 	"time"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1187,6 +1188,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				}
 			}
 		}
+		if len(vmispec.NetworksToHotplug(vmi.Spec.Networks, vmi.Status.Interfaces)) > 0 {
+			if err := c.handleDynamicInterfaceRequests(vmi, pod); err != nil {
+				return &syncErrorImpl{
+					err:    fmt.Errorf("failed to hotplug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
+					reason: FailedHotplugSyncReason,
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -2161,4 +2170,29 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 		return virtv1.VolumeBound, PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
+}
+
+func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	podAnnotations := pod.GetAnnotations()
+
+	multusAnnotations, err := services.GenerateMultusCNIAnnotation(vmi)
+	if err != nil {
+		return err
+	}
+	log.Log.Object(pod).V(4).Infof(
+		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+		podAnnotations[networkv1.NetworkAttachmentAnnot],
+		multusAnnotations,
+	)
+
+	if multusAnnotations != "" {
+		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
+		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+		if err != nil {
+			return err
+		}
+		*pod = *patchedPod
+	}
+
+	return nil
 }
