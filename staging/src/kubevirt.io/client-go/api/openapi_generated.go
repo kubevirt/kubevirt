@@ -16197,6 +16197,13 @@ func schema_kubevirtio_api_core_v1_GPU(ref common.ReferenceCallback) common.Open
 							Ref: ref("kubevirt.io/api/core/v1.VGPUOptions"),
 						},
 					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name", "deviceName"},
 			},
@@ -16379,6 +16386,13 @@ func schema_kubevirtio_api_core_v1_HostDevice(ref common.ReferenceCallback) comm
 					"deviceName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "DeviceName is the resource name of the host device exposed by a device plugin",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
 							Type:        []string{"string"},
 							Format:      "",
 						},
