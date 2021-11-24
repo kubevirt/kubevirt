@@ -198,7 +198,7 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectVirtualMachineInstancePatch := func(vmi *virtv1.VirtualMachineInstance, patch string) {
-		vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+		vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 	}
 
 	syncCaches := func(stop chan struct{}) {
@@ -1016,7 +1016,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})
@@ -1050,7 +1050,7 @@ var _ = Describe("Migration watcher", func() {
 			if initializeMigrationState {
 				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
 
-				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte) (*virtv1.VirtualMachineInstance, error) {
+				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}) (*virtv1.VirtualMachineInstance, error) {
 
 					vmiSP := []utiltype.PatchOperation{}
 					err := json.Unmarshal(vmiStatusPatch, &vmiSP)

@@ -178,7 +178,7 @@ type VirtualMachineInstanceInterface interface {
 	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
+	Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)

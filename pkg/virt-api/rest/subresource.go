@@ -558,7 +558,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
 		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(bodyString))
+		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -1175,7 +1175,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 	}
 
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch)); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).V(1).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {

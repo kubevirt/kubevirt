@@ -325,7 +325,7 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Add(vmi)
 
 			rsInterface.EXPECT().Get(rs.ObjectMeta.Name, gomock.Any()).Return(rs, nil)
-			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any())
+			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
 
 			controller.Execute()
 		})

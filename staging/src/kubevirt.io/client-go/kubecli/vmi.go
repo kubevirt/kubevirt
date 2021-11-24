@@ -338,13 +338,14 @@ func (v *vmis) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Error()
 }
 
-func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource(subresources...).
 		Name(name).
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Body(data).
 		Do(context.Background()).
 		Into(result)

@@ -1554,7 +1554,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 	}
 	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
 	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops))
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 	return err
 }
 
