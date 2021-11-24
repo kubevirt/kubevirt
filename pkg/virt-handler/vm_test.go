@@ -35,6 +35,7 @@ import (
 
 	api2 "kubevirt.io/client-go/api"
 
+	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -211,6 +212,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
 		controller.netConf = &netConfStub{}
+		controller.netStat = &netStatStub{}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -2414,6 +2416,55 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	})
 
+	Context("VirtualMachineInstance network status", func() {
+		var (
+			vmi    *v1.VirtualMachineInstance
+			domain *api.Domain
+		)
+
+		BeforeEach(func() {
+			const vmiName = "testvmi"
+			vmi = api2.NewMinimalVMI(vmiName)
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+
+			mockWatchdog.CreateFile(vmi)
+			domain = api.NewMinimalDomainWithUUID(vmiName, vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			domain.Status.Interfaces = append(domain.Status.Interfaces, api.InterfaceStatus{
+				Name:          "myname",
+				Mac:           "01:00:00:00:00:10",
+				Ip:            "10.10.10.10",
+				IPs:           []string{"10.10.10.10", "1::1/128"},
+				InterfaceName: "nic0",
+			})
+		})
+
+		It("should report interfaces status", func() {
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmiObj *v1.VirtualMachineInstance) {
+				Expect(vmiObj.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+					{
+						IP:            domain.Status.Interfaces[0].Ip,
+						MAC:           domain.Status.Interfaces[0].Mac,
+						Name:          domain.Status.Interfaces[0].Name,
+						IPs:           domain.Status.Interfaces[0].IPs,
+						InterfaceName: domain.Status.Interfaces[0].InterfaceName,
+					},
+				}))
+			})
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, VMIStarted)
+		})
+	})
+
 	Context("VirtualMachineInstance controller gets informed about changes in a Domain", func() {
 		It("should update Guest OS Information in VMI status", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -2982,4 +3033,34 @@ func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
 
 func (nc *netConfStub) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
 	return nc.vmi != nil && nc.vmi.UID == vmi.UID
+}
+
+type netStatStub struct{}
+
+func (ns *netStatStub) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if domain == nil || vmi == nil {
+		return nil
+	}
+	if vmi.Status.Interfaces == nil {
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{}
+	}
+	if len(domain.Status.Interfaces) == 0 {
+		return nil
+	}
+	ifaceStatus := v1.VirtualMachineInstanceNetworkInterface{
+		IP:            domain.Status.Interfaces[0].Ip,
+		MAC:           domain.Status.Interfaces[0].Mac,
+		Name:          domain.Status.Interfaces[0].Name,
+		IPs:           domain.Status.Interfaces[0].IPs,
+		InterfaceName: domain.Status.Interfaces[0].InterfaceName,
+	}
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, ifaceStatus)
+	return nil
+}
+
+func (ns *netStatStub) Teardown(vmi *v1.VirtualMachineInstance) {}
+func (ns *netStatStub) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool {
+	return false
+}
+func (ns *netStatStub) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodCacheInterface) {
 }
