@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,20 +76,21 @@ const defaultUnschedulablePendingTimeoutSeconds = int64(60 * 5)
 const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 
 type MigrationController struct {
-	templateService    services.TemplateService
-	clientset          kubecli.KubevirtClient
-	Queue              workqueue.RateLimitingInterface
-	vmiInformer        cache.SharedIndexInformer
-	podInformer        cache.SharedIndexInformer
-	migrationInformer  cache.SharedIndexInformer
-	nodeInformer       cache.SharedIndexInformer
-	pvcInformer        cache.SharedIndexInformer
-	pdbInformer        cache.SharedIndexInformer
-	recorder           record.EventRecorder
-	podExpectations    *controller.UIDTrackingControllerExpectations
-	migrationStartLock *sync.Mutex
-	clusterConfig      *virtconfig.ClusterConfig
-	statusUpdater      *status.MigrationStatusUpdater
+	templateService         services.TemplateService
+	clientset               kubecli.KubevirtClient
+	Queue                   workqueue.RateLimitingInterface
+	vmiInformer             cache.SharedIndexInformer
+	podInformer             cache.SharedIndexInformer
+	migrationInformer       cache.SharedIndexInformer
+	nodeInformer            cache.SharedIndexInformer
+	pvcInformer             cache.SharedIndexInformer
+	pdbInformer             cache.SharedIndexInformer
+	migrationPolicyInformer cache.SharedIndexInformer
+	recorder                record.EventRecorder
+	podExpectations         *controller.UIDTrackingControllerExpectations
+	migrationStartLock      *sync.Mutex
+	clusterConfig           *virtconfig.ClusterConfig
+	statusUpdater           *status.MigrationStatusUpdater
 
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
@@ -100,26 +103,28 @@ func NewMigrationController(templateService services.TemplateService,
 	nodeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	pdbInformer cache.SharedIndexInformer,
+	migrationPolicyInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 ) *MigrationController {
 
 	c := &MigrationController{
-		templateService:    templateService,
-		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
-		vmiInformer:        vmiInformer,
-		podInformer:        podInformer,
-		migrationInformer:  migrationInformer,
-		nodeInformer:       nodeInformer,
-		pvcInformer:        pvcInformer,
-		pdbInformer:        pdbInformer,
-		recorder:           recorder,
-		clientset:          clientset,
-		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationStartLock: &sync.Mutex{},
-		clusterConfig:      clusterConfig,
-		statusUpdater:      status.NewMigrationStatusUpdater(clientset),
+		templateService:         templateService,
+		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		vmiInformer:             vmiInformer,
+		podInformer:             podInformer,
+		migrationInformer:       migrationInformer,
+		nodeInformer:            nodeInformer,
+		pvcInformer:             pvcInformer,
+		pdbInformer:             pdbInformer,
+		migrationPolicyInformer: migrationPolicyInformer,
+		recorder:                recorder,
+		clientset:               clientset,
+		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock:      &sync.Mutex{},
+		clusterConfig:           clusterConfig,
+		statusUpdater:           status.NewMigrationStatusUpdater(clientset),
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
@@ -658,7 +663,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		}
 	}
 
-	err := matchMigrationPolicy(vmiCopy, c.clusterConfig.GetMigrationConfiguration(), c.clientset)
+	err := c.matchMigrationPolicy(vmiCopy, c.clusterConfig.GetMigrationConfiguration())
 	if err != nil {
 		return fmt.Errorf("failed to match migration policy: %v", err)
 	}
@@ -1450,19 +1455,23 @@ func isNodeSuitableForHostModelMigration(node *k8sv1.Node, pod *k8sv1.Pod) bool 
 	return true
 }
 
-func matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, clusterMigrationConfiguration *virtv1.MigrationConfiguration, clientset kubecli.KubevirtClient) error {
-	vmiNamespace, err := clientset.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
+func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, clusterMigrationConfiguration *virtv1.MigrationConfiguration) error {
+	vmiNamespace, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
+
+	// Fetch cluster policies
+	var policies []v1alpha1.MigrationPolicy
+	migrationInterfaceList := c.migrationPolicyInformer.GetStore().List()
+	for _, obj := range migrationInterfaceList {
+		policy := obj.(*v1alpha1.MigrationPolicy)
+		policies = append(policies, *policy)
+	}
+	policiesListObj := v1alpha1.MigrationPolicyList{Items: policies}
 
 	// Override cluster-wide migration configuration if migration policy is matched
-	migrationList, err := clientset.MigrationPolicy().List(context.Background(), v1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	matchedPolicy := migrationList.MatchPolicy(vmi, vmiNamespace)
+	matchedPolicy := policiesListObj.MatchPolicy(vmi, vmiNamespace)
 
 	if matchedPolicy == nil {
 		log.Log.Object(vmi).Reason(err).Infof("no migration policy matched for VMI %s", vmi.Name)

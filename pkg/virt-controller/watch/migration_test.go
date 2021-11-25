@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
-	"kubevirt.io/api/migrations"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
@@ -76,6 +75,7 @@ var _ = Describe("Migration watcher", func() {
 	var migrationInformer cache.SharedIndexInformer
 	var nodeInformer cache.SharedIndexInformer
 	var pdbInformer cache.SharedIndexInformer
+	var migrationPolicyInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -219,13 +219,15 @@ var _ = Describe("Migration watcher", func() {
 		go migrationInformer.Run(stop)
 		go nodeInformer.Run(stop)
 		go pdbInformer.Run(stop)
+		go migrationPolicyInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
 			migrationInformer.HasSynced,
 			nodeInformer.HasSynced,
-			pdbInformer.HasSynced)).To(BeTrue())
+			pdbInformer.HasSynced,
+			migrationPolicyInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -239,6 +241,7 @@ var _ = Describe("Migration watcher", func() {
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
@@ -254,6 +257,7 @@ var _ = Describe("Migration watcher", func() {
 			nodeInformer,
 			pvcInformer,
 			pdbInformer,
+			migrationPolicyInformer,
 			recorder,
 			virtClient,
 			config,
@@ -321,6 +325,17 @@ var _ = Describe("Migration watcher", func() {
 	addPDB := func(pdb *v1beta1.PodDisruptionBudget) {
 		err := pdbInformer.GetIndexer().Add(pdb)
 		Expect(err).ShouldNot(HaveOccurred())
+	}
+
+	addMigrationPolicy := func(policy *migrationsv1.MigrationPolicy) {
+		err := migrationPolicyInformer.GetIndexer().Add(policy)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+
+	addMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
+		for _, policy := range policies {
+			addMigrationPolicy(&policy)
+		}
 	}
 
 	Context("Migration with hotplug volumes", func() {
@@ -1211,16 +1226,6 @@ var _ = Describe("Migration watcher", func() {
 		var stubResourceQuantity resource.Quantity
 		var pod *k8sv1.Pod
 
-		setClusterMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
-			By("Setting expectation for migration policy")
-			policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
-			migrationsClient.Fake.PrependReactor("list", migrations.ResourceMigrationPolicies, func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				_, ok := action.(testing.ListAction)
-				Expect(ok).To(BeTrue())
-				return true, policyList, nil
-			})
-		}
-
 		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
 			var migrationPolicyPatch string
 			if expectConfigUpdate {
@@ -1255,9 +1260,6 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
-
-			By("Initialize migration policy")
-			setClusterMigrationPolicies()
 		})
 
 		Context("matching and precedence", func() {
@@ -1317,7 +1319,7 @@ var _ = Describe("Migration watcher", func() {
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
 			migrationPolicy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 1, 0)
 			defineMigrationPolicy(&migrationPolicy.Spec)
-			setClusterMigrationPolicies(*migrationPolicy)
+			addMigrationPolicies(*migrationPolicy)
 
 			By("Calculating new migration config and validating it")
 			expectedConfigs := getDefaultMigrationConfiguration()
