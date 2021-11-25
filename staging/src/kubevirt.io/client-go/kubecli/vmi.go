@@ -151,6 +151,7 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
+		Header: map[string][]string{},
 	}
 
 	return req, nil
