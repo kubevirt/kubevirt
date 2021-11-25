@@ -1364,7 +1364,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		table.DescribeTable("[release-blocker][sig-compute][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
+		table.DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
 			if !tests.HasCDI() {
 				Skip("Skip update test when CDI is not present")
 			}
