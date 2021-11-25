@@ -2672,20 +2672,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			),
 		)
 
-		It("should reject floppy disks", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "floppydisk",
-				DiskDevice: v1.DiskDevice{
-					Floppy: &v1.FloppyTarget{},
-				},
-			})
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake[0].name"))
-		})
-
 		It("should allow disk without a target", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 

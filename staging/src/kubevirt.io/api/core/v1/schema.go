@@ -404,7 +404,7 @@ type Devices struct {
 	UseVirtioTransitional *bool `json:"useVirtioTransitional,omitempty"`
 	// DisableHotplug disabled the ability to hotplug disks.
 	DisableHotplug bool `json:"disableHotplug,omitempty"`
-	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
+	// Disks describes disks, cdroms and luns which are connected to the vmi.
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
@@ -594,8 +594,6 @@ type DiskDevice struct {
 	Disk *DiskTarget `json:"disk,omitempty"`
 	// Attach a volume as a LUN to the vmi.
 	LUN *LunTarget `json:"lun,omitempty"`
-	// Attach a volume as a floppy to the vmi.
-	Floppy *FloppyTarget `json:"floppy,omitempty"`
 	// Attach a volume as a cdrom to the vmi.
 	CDRom *CDRomTarget `json:"cdrom,omitempty"`
 }
@@ -629,24 +627,13 @@ type LunTarget struct {
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
-type FloppyTarget struct {
-	// ReadOnly.
-	// Defaults to false.
-	ReadOnly bool `json:"readonly,omitempty"`
-	// Tray indicates if the tray of the device is open or closed.
-	// Allowed values are "open" and "closed".
-	// Defaults to closed.
-	// +optional
-	Tray TrayState `json:"tray,omitempty"`
-}
-
-// TrayState indicates if a tray of a cdrom or floppy is open or closed.
+// TrayState indicates if a tray of a cdrom is open or closed.
 type TrayState string
 
 const (
-	// TrayStateOpen indicates that the tray of a cdrom or floppy is open.
+	// TrayStateOpen indicates that the tray of a cdrom is open.
 	TrayStateOpen TrayState = "open"
-	// TrayStateClosed indicates that the tray of a cdrom or floppy is closed.
+	// TrayStateClosed indicates that the tray of a cdrom is closed.
 	TrayStateClosed TrayState = "closed"
 )
 
