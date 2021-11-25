@@ -352,7 +352,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Firmware":                                                           schema_kubevirtio_api_core_v1_Firmware(ref),
 		"kubevirt.io/api/core/v1.Flags":                                                              schema_kubevirtio_api_core_v1_Flags(ref),
 		"kubevirt.io/api/core/v1.FlavorMatcher":                                                      schema_kubevirtio_api_core_v1_FlavorMatcher(ref),
-		"kubevirt.io/api/core/v1.FloppyTarget":                                                       schema_kubevirtio_api_core_v1_FloppyTarget(ref),
 		"kubevirt.io/api/core/v1.FreezeUnfreezeTimeout":                                              schema_kubevirtio_api_core_v1_FreezeUnfreezeTimeout(ref),
 		"kubevirt.io/api/core/v1.GPU":                                                                schema_kubevirtio_api_core_v1_GPU(ref),
 		"kubevirt.io/api/core/v1.GenerationStatus":                                                   schema_kubevirtio_api_core_v1_GenerationStatus(ref),
@@ -15302,7 +15301,7 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 					},
 					"disks": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+							Description: "Disks describes disks, cdroms and luns which are connected to the vmi.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -15492,12 +15491,6 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Ref:         ref("kubevirt.io/api/core/v1.LunTarget"),
 						},
 					},
-					"floppy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Attach a volume as a floppy to the vmi.",
-							Ref:         ref("kubevirt.io/api/core/v1.FloppyTarget"),
-						},
-					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Attach a volume as a cdrom to the vmi.",
@@ -15564,7 +15557,7 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.FloppyTarget", "kubevirt.io/api/core/v1.LunTarget"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.LunTarget"},
 	}
 }
 
@@ -15587,12 +15580,6 @@ func schema_kubevirtio_api_core_v1_DiskDevice(ref common.ReferenceCallback) comm
 							Ref:         ref("kubevirt.io/api/core/v1.LunTarget"),
 						},
 					},
-					"floppy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Attach a volume as a floppy to the vmi.",
-							Ref:         ref("kubevirt.io/api/core/v1.FloppyTarget"),
-						},
-					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Attach a volume as a cdrom to the vmi.",
@@ -15603,7 +15590,7 @@ func schema_kubevirtio_api_core_v1_DiskDevice(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.FloppyTarget", "kubevirt.io/api/core/v1.LunTarget"},
+			"kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.LunTarget"},
 	}
 }
 
@@ -16280,32 +16267,6 @@ func schema_kubevirtio_api_core_v1_FlavorMatcher(ref common.ReferenceCallback) c
 					},
 				},
 				Required: []string{"name"},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_FloppyTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"readonly": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ReadOnly. Defaults to false.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"tray": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
 			},
 		},
 	}
