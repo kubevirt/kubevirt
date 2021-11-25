@@ -164,7 +164,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
-		"migrationConfigSource":          "Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy",
+		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
+		"migrationConfiguration":         "Migration configurations to apply",
 	}
 }
 

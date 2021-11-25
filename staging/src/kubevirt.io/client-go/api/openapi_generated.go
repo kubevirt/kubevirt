@@ -20212,18 +20212,24 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
-					"migrationConfigSource": {
+					"migrationPolicyName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy",
+							Description: "Name of the migration policy. If string is empty, no policy is matched",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"migrationConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migration configurations to apply",
+							Ref:         ref("kubevirt.io/api/core/v1.MigrationConfiguration"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration"},
 	}
 }
 

@@ -658,7 +658,12 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		}
 	}
 
-	err := c.patchVMI(vmi, vmiCopy)
+	err := matchMigrationPolicy(vmiCopy, c.clusterConfig.GetMigrationConfiguration(), c.clientset)
+	if err != nil {
+		return fmt.Errorf("failed to match migration policy: %v", err)
+	}
+
+	err = c.patchVMI(vmi, vmiCopy)
 	if err != nil {
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err
@@ -1443,4 +1448,38 @@ func isNodeSuitableForHostModelMigration(node *k8sv1.Node, pod *k8sv1.Pod) bool 
 	}
 
 	return true
+}
+
+func matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, clusterMigrationConfiguration *virtv1.MigrationConfiguration, clientset kubecli.KubevirtClient) error {
+	vmiNamespace, err := clientset.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Override cluster-wide migration configuration if migration policy is matched
+	migrationList, err := clientset.MigrationPolicy().List(context.Background(), v1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	matchedPolicy := migrationList.MatchPolicy(vmi, vmiNamespace)
+
+	if matchedPolicy == nil {
+		log.Log.Object(vmi).Reason(err).Infof("no migration policy matched for VMI %s", vmi.Name)
+		return nil
+	}
+
+	migrationConfigCopy := *clusterMigrationConfiguration
+	isUpdated, err := matchedPolicy.GetMigrationConfByPolicy(&migrationConfigCopy)
+	if err != nil {
+		return err
+	}
+
+	if isUpdated {
+		vmi.Status.MigrationState.MigrationPolicyName = matchedPolicy.Name
+		vmi.Status.MigrationState.MigrationConfiguration = &migrationConfigCopy
+		log.Log.Object(vmi).Infof("migration is updated by migration policy named %s.", matchedPolicy.Name)
+	}
+
+	return nil
 }

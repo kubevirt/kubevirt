@@ -568,8 +568,10 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
-	// Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy
-	MigrationConfigSource MigrationConfigSource `json:"migrationConfigSource,omitempty"`
+	// Name of the migration policy. If string is empty, no policy is matched
+	MigrationPolicyName string `json:"migrationPolicyName,omitempty"`
+	// Migration configurations to apply
+	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
 }
 
 type MigrationAbortStatus string

@@ -8612,9 +8612,41 @@ var CRDsValidation map[string]string = map[string]string{
             failed:
               description: Indicates that the migration failed
               type: boolean
-            migrationConfigSource:
-              description: Lets us know if the vmi migration configuration is affected
-                by KubevirtCR or a migration policy
+            migrationConfiguration:
+              description: Migration configurations to apply
+              properties:
+                allowAutoConverge:
+                  type: boolean
+                allowPostCopy:
+                  type: boolean
+                bandwidthPerMigration:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                completionTimeoutPerGiB:
+                  format: int64
+                  type: integer
+                disableTLS:
+                  type: boolean
+                nodeDrainTaintKey:
+                  type: string
+                parallelMigrationsPerCluster:
+                  format: int32
+                  type: integer
+                parallelOutboundMigrationsPerNode:
+                  format: int32
+                  type: integer
+                progressTimeout:
+                  format: int64
+                  type: integer
+                unsafeMigrationOverride:
+                  type: boolean
+              type: object
+            migrationPolicyName:
+              description: Name of the migration policy. If string is empty, no policy
+                is matched
               type: string
             migrationUid:
               description: The VirtualMachineInstanceMigration object associated with

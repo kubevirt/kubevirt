@@ -2473,34 +2473,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 		}
 	} else {
-		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration().DeepCopy()
-		// TODO: how to currently perform update here?
-		origVMI.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
-		vmi.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
-
-		vmiNamespace, err := d.clientset.CoreV1().Namespaces().Get(context.Background(), origVMI.Namespace, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		// Override cluster-wide migration configuration if migration policy exists
-		migrationList, err := d.clientset.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		matchedPolicy := migrationList.MatchPolicy(origVMI, vmiNamespace)
-
-		if matchedPolicy == nil {
-			log.Log.Object(vmi).Reason(err).Infof("no migration policy matched for VMI %s", vmi.Name)
-		} else {
-			isUpdated, err := matchedPolicy.GetMigrationConfByPolicy(migrationConfiguration)
-			if err != nil {
-				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
-			} else if isUpdated {
-				origVMI.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
-				vmi.Status.MigrationState.MigrationConfigSource = v1.MigrationPolicyConfig
-				log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", matchedPolicy.Name)
-			}
+		migrationConfiguration := vmi.Status.MigrationState.MigrationConfiguration
+		if migrationConfiguration == nil {
+			migrationConfiguration = d.clusterConfig.GetMigrationConfiguration()
 		}
 
 		options := &cmdclient.MigrationOptions{

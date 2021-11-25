@@ -25,6 +25,16 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/api/migrations"
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests"
+
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -76,6 +86,8 @@ var _ = Describe("Migration watcher", func() {
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
 	var qemuGid int64 = 107
+	var migrationsClient *kubevirtfake.Clientset
+	var namespace k8sv1.Namespace
 
 	shouldExpectMigrationFinalizerRemoval := func(migration *virtv1.VirtualMachineInstanceMigration) {
 		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
@@ -259,9 +271,20 @@ var _ = Describe("Migration watcher", func() {
 		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
 		networkClient = fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+		migrationsClient = kubevirtfake.NewSimpleClientset()
+		virtClient.EXPECT().MigrationPolicy().Return(migrationsClient.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()
+
+		namespace = k8sv1.Namespace{
+			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
+		}
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			if action.GetVerb() == "get" && action.GetResource().Resource == "namespaces" {
+				return true, &namespace, nil
+			}
+
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
@@ -1180,6 +1203,194 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
 		})
 	})
+
+	Context("Migration policy", func() {
+
+		var vmi *virtv1.VirtualMachineInstance
+		var stubNumber int64
+		var stubResourceQuantity resource.Quantity
+		var pod *k8sv1.Pod
+
+		setClusterMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
+			By("Setting expectation for migration policy")
+			policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
+			migrationsClient.Fake.PrependReactor("list", migrations.ResourceMigrationPolicies, func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				_, ok := action.(testing.ListAction)
+				Expect(ok).To(BeTrue())
+				return true, policyList, nil
+			})
+		}
+
+		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
+			var migrationPolicyPatch string
+			if expectConfigUpdate {
+				marshalledConfigs, err := json.Marshal(*expectedConfigs)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				migrationPolicyPatch = fmt.Sprintf(`,"migrationPolicyName":"%s","migrationConfiguration":%s`, migrationPolicy.Name, string(marshalledConfigs))
+			}
+
+			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
+				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s} }, `+
+				`{ "op": "test", "path": "/metadata/labels", "value": {"mp-key-0":"mp-value-0"} }, `+
+				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01","mp-key-0":"mp-value-0"} }]`, pod.Name, migrationPolicyPatch)
+
+			return patch
+		}
+
+		BeforeEach(func() {
+			stubNumber = 33425
+			stubResourceQuantity = resource.MustParse("25Mi")
+
+			By("Initialize VMI and migration")
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+
+			pod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod.Spec.NodeName = "node01"
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			By("Initialize migration policy")
+			setClusterMigrationPolicies()
+		})
+
+		Context("matching and precedence", func() {
+
+			type policyInfo struct {
+				name                    string
+				vmiMatchingLabels       int
+				namespaceMatchingLabels int
+			}
+
+			table.DescribeTable("must be done correctly", func(expectedMatchedPolicyName string, policiesToDefine ...policyInfo) {
+				policies := make([]migrationsv1.MigrationPolicy, 0)
+
+				for _, info := range policiesToDefine {
+					policy := tests.GetPolicyMatchedToVmi(info.name, vmi, &namespace, info.vmiMatchingLabels, info.namespaceMatchingLabels)
+					policies = append(policies, *policy)
+				}
+
+				policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
+				actualMatchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+
+				Expect(actualMatchedPolicy.Name).To(Equal(expectedMatchedPolicyName))
+			},
+				table.Entry("only one policy should be matched", "one", policyInfo{"one", 1, 4}),
+				table.Entry("most detail policy should be matched", "two",
+					policyInfo{"one", 1, 4}, policyInfo{"two", 4, 2}),
+				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (1)", "one",
+					policyInfo{"one", 1, 2}, policyInfo{"two", 2, 1}),
+				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "a_two",
+					policyInfo{"one", 1, 2}, policyInfo{"a_two", 2, 1}),
+			)
+
+			It("policy with one non-fitting label should not match", func() {
+				const labelKey = "mp-key-0"
+				const labelValue = "mp-value-0"
+
+				policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 4, 3)
+				_, exists := policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey]
+				Expect(exists).To(BeTrue())
+
+				By("Changing one of the policy's labels to it won't match to VMI")
+				policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey] = labelValue + "XYZ"
+				policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
+
+				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				Expect(matchedPolicy).To(BeNil())
+			})
+
+			It("when no policies exist, MatchPolicy() should return nil", func() {
+				policyList := kubecli.NewMinimalMigrationPolicyList()
+				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				Expect(matchedPolicy).To(BeNil())
+			})
+		})
+
+		table.DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
+			By("Defining migration policy, matching it to vmi to posting it into the cluster")
+			migrationPolicy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 1, 0)
+			defineMigrationPolicy(&migrationPolicy.Spec)
+			setClusterMigrationPolicies(*migrationPolicy)
+
+			By("Calculating new migration config and validating it")
+			expectedConfigs := getDefaultMigrationConfiguration()
+			isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(expectedConfigs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
+			testMigrationConfigs(expectedConfigs)
+
+			By("Expecting right patch to occur")
+			patch := getExpectedVmiPatch(expectConfigUpdate, expectedConfigs, migrationPolicy)
+			shouldExpectVirtualMachineInstancePatch(vmi, patch)
+
+			By("Running the controller")
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		},
+			table.Entry("allow auto coverage",
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(true) },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.AllowAutoConverge).ToNot(BeNil())
+					Expect(*c.AllowAutoConverge).To(BeTrue())
+				},
+				true,
+			),
+			table.Entry("deny auto coverage",
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(false) },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.AllowAutoConverge).ToNot(BeNil())
+					Expect(*c.AllowAutoConverge).To(BeFalse())
+				},
+				true,
+			),
+			table.Entry("set bandwidth per migration",
+				func(p *migrationsv1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.BandwidthPerMigration).ToNot(BeNil())
+					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
+				},
+				true,
+			),
+			table.Entry("set completion time per GiB",
+				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
+					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
+				},
+				true,
+			),
+			table.Entry("allow post copy",
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(true) },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.AllowPostCopy).ToNot(BeNil())
+					Expect(*c.AllowPostCopy).To(BeTrue())
+				},
+				true,
+			),
+			table.Entry("deny post copy",
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(false) },
+				func(c *virtv1.MigrationConfiguration) {
+					Expect(c.AllowPostCopy).ToNot(BeNil())
+					Expect(*c.AllowPostCopy).To(BeFalse())
+				},
+				true,
+			),
+			table.Entry("nothing is changed",
+				func(p *migrationsv1.MigrationPolicySpec) {},
+				func(c *virtv1.MigrationConfiguration) {},
+				false,
+			),
+		)
+
+	})
+
 })
 
 func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *v1beta1.PodDisruptionBudget {
@@ -1341,4 +1552,28 @@ func newNode(name string) *k8sv1.Node {
 	node.Status.Phase = k8sv1.NodeRunning
 
 	return node
+}
+
+func getDefaultMigrationConfiguration() *virtv1.MigrationConfiguration {
+	nodeTaintKey := "kubevirt.io/drain"
+	parallelOutboundMigrationsPerNode := virtconfig.ParallelOutboundMigrationsPerNodeDefault
+	parallelMigrationsPerCluster := virtconfig.ParallelMigrationsPerClusterDefault
+	allowAutoConverge := virtconfig.MigrationAllowAutoConverge
+	bandwidthPerMigration := resource.MustParse(virtconfig.BandwithPerMigrationDefault)
+	completionTimeoutPerGiB := virtconfig.MigrationCompletionTimeoutPerGiB
+	progressTimeout := virtconfig.MigrationProgressTimeout
+	unsafeMigrationOverride := virtconfig.DefaultUnsafeMigrationOverride
+	allowPostCopy := virtconfig.MigrationAllowPostCopy
+
+	return &virtv1.MigrationConfiguration{
+		NodeDrainTaintKey:                 &nodeTaintKey,
+		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+		AllowAutoConverge:                 &allowAutoConverge,
+		BandwidthPerMigration:             &bandwidthPerMigration,
+		CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+		ProgressTimeout:                   &progressTimeout,
+		UnsafeMigrationOverride:           &unsafeMigrationOverride,
+		AllowPostCopy:                     &allowPostCopy,
+	}
 }
