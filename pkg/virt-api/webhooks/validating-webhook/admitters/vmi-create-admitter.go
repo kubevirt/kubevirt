@@ -599,8 +599,13 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
-func validateInputDevices(field *k8sfield.Path, inputs []v1.Input) (causes []metav1.StatusCause) {
+func validateInputDevices(field *k8sfield.Path, inputs []v1.Input, deviceNames map[string]string) (causes []metav1.StatusCause) {
 	for idx, input := range inputs {
+		nameField := field.Index(idx).Child("name").String()
+		if newCause, ok := checkDuplicatedDeviceName(deviceNames, input.Name, nameField); !ok {
+			causes = append(causes, newCause)
+		}
+
 		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -734,7 +739,7 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	return causes
 }
 
-func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, gpus []v1.GPU, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, gpus []v1.GPU, deviceNames map[string]string, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if gpus != nil && config != nil && !config.GPUPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -742,10 +747,17 @@ func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, gpus []v1.GPU, con
 			Field:   field.String(),
 		})
 	}
+
+	for index, dev := range gpus {
+		thisField := field.Index(index).Child("name").String()
+		if newCause, ok := checkDuplicatedDeviceName(deviceNames, dev.Name, thisField); !ok {
+			causes = append(causes, newCause)
+		}
+	}
 	return causes
 }
 
-func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, filesystems []v1.Filesystem, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, filesystems []v1.Filesystem, deviceNames map[string]string, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if filesystems != nil && config != nil && !config.VirtiofsEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -753,10 +765,17 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, filesystems []
 			Field:   field.String(),
 		})
 	}
+
+	for index, dev := range filesystems {
+		thisField := field.Index(index).Child("name").String()
+		if newCause, ok := checkDuplicatedDeviceName(deviceNames, dev.Name, thisField); !ok {
+			causes = append(causes, newCause)
+		}
+	}
 	return causes
 }
 
-func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, hostDevices []v1.HostDevice, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, hostDevices []v1.HostDevice, deviceNames map[string]string, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if hostDevices != nil && config != nil && !config.HostDevicesPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -764,6 +783,14 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, hostDevices
 			Field:   field.String(),
 		})
 	}
+
+	for index, dev := range hostDevices {
+		thisField := field.Index(index).Child("name").String()
+		if newCause, ok := checkDuplicatedDeviceName(deviceNames, dev.Name, thisField); !ok {
+			causes = append(causes, newCause)
+		}
+	}
+
 	return causes
 }
 
@@ -2129,13 +2156,27 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	return causes
 }
 
+func checkDuplicatedDeviceName(deviceNames map[string]string, name, field string) (metav1.StatusCause, bool) {
+	if otherField, exists := deviceNames[name]; !exists {
+		deviceNames[name] = field
+		return metav1.StatusCause{}, true
+	} else {
+		return metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("Devices '%s' and '%s' should have an unique name.", field, otherField),
+			Field:   field,
+		}, false
+	}
+}
+
 func validateDevices(field *k8sfield.Path, devices *v1.Devices, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+	deviceNames := make(map[string]string)
 	causes = append(causes, validateDisks(field.Child("disks"), devices.Disks)...)
-	causes = append(causes, validateInputDevices(field.Child("inputs"), devices.Inputs)...)
-	causes = append(causes, validateGPUsWithPassthroughEnabled(field.Child("gpus"), devices.GPUs, config)...)
-	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field.Child("filesystems"), devices.Filesystems, config)...)
-	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field.Child("hostDevices"), devices.HostDevices, config)...)
+	causes = append(causes, validateInputDevices(field.Child("inputs"), devices.Inputs, deviceNames)...)
+	causes = append(causes, validateGPUsWithPassthroughEnabled(field.Child("gpus"), devices.GPUs, deviceNames, config)...)
+	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field.Child("filesystems"), devices.Filesystems, deviceNames, config)...)
+	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field.Child("hostDevices"), devices.HostDevices, deviceNames, config)...)
 	causes = append(causes, validateSoundDevices(field.Child("sound"), devices.Sound)...)
 	return causes
 }

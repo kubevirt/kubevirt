@@ -1961,6 +1961,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.gpus"))
 		})
+		It("should reject GPU devices with duplicated name", func() {
+			enableFeatureGate(virtconfig.GPUGate)
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "gpu1",
+					DeviceName: "vendor.com/gpu_name",
+				},
+				{
+					Name:       "gpu1",
+					DeviceName: "vendor.com/gpu_other_name",
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.gpus[1].name"))
+			Expect(causes[0].Message).To(ContainSubstring("should have an unique name"))
+		})
 		It("should reject virtiofs filesystems when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			guestMemory := resource.MustParse("64Mi")
@@ -2007,6 +2026,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject virtiofs filesystems with duplicated name", func() {
+			enableFeatureGate(virtconfig.VirtIOFSGate)
+			vmi := api.NewMinimalVMI("testvm")
+			guestMemory := resource.MustParse("64Mi")
+
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{},
+				Guest:     &guestMemory,
+			}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+				{
+					Name:     "sharednfstest",
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				},
+				{
+					Name:     "sharednfstest",
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems[1].name"))
+			Expect(causes[0].Message).To(ContainSubstring("should have an unique name"))
 		})
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
 			kvConfig := kv.DeepCopy()
@@ -2102,6 +2151,38 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject host devices with duplicated name", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
+					},
+					{
+						PCIVendorSelector: "BEEF:DEAD",
+						ResourceName:      "example.org/beefdead",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					Name:       "hostdev1",
+					DeviceName: "example.org/deadbeef",
+				},
+				{
+					Name:       "hostdev1",
+					DeviceName: "example.org/beefdead",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.hostDevices[1].name"))
+			Expect(causes[0].Message).To(ContainSubstring("should have an unique name"))
 		})
 		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
