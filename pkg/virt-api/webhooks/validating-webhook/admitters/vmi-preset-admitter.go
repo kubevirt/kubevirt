@@ -80,7 +80,7 @@ func ValidateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 
 func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices, nil)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 	return causes
 }

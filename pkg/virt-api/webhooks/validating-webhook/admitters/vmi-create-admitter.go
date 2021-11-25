@@ -180,7 +180,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateNetworkInterfaceMultiqueue(field, vifMQ, isVirtioNicRequested)...)
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
 
-	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
@@ -190,7 +189,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
+	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
@@ -200,10 +199,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
-	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
-	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
-	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
-	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 
 	return causes
@@ -604,13 +599,13 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
-func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	for idx, input := range spec.Domain.Devices.Inputs {
+func validateInputDevices(field *k8sfield.Path, inputs []v1.Input) (causes []metav1.StatusCause) {
+	for idx, input := range inputs {
 		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Input device can have only virtio or usb bus.",
-				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
+				Field:   field.Index(idx).Child("bus").String(),
 			})
 		}
 
@@ -618,7 +613,7 @@ func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Input device can have only tablet type.",
-				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
+				Field:   field.Index(idx).Child("type").String(),
 			})
 		}
 	}
@@ -739,55 +734,55 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	return causes
 }
 
-func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
+func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, gpus []v1.GPU, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if gpus != nil && config != nil && !config.GPUPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("GPU feature gate is not enabled in kubevirt-config"),
-			Field:   field.Child("GPUs").String(),
+			Field:   field.String(),
 		})
 	}
 	return causes
 }
 
-func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.Filesystems != nil && !config.VirtiofsEnabled() {
+func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, filesystems []v1.Filesystem, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if filesystems != nil && config != nil && !config.VirtiofsEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("virtiofs feature gate is not enabled in kubevirt-config"),
-			Field:   field.Child("Filesystems").String(),
+			Field:   field.String(),
 		})
 	}
 	return causes
 }
 
-func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.HostDevices != nil && !config.HostDevicesPassthroughEnabled() {
+func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, hostDevices []v1.HostDevice, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if hostDevices != nil && config != nil && !config.HostDevicesPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Host Devices feature gate is not enabled in kubevirt-config"),
-			Field:   field.Child("HostDevices").String(),
+			Field:   field.String(),
 		})
 	}
 	return causes
 }
 
-func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.Sound != nil {
-		model := spec.Domain.Devices.Sound.Model
+func validateSoundDevices(field *k8sfield.Path, sound *v1.SoundDevice) (causes []metav1.StatusCause) {
+	if sound != nil {
+		model := sound.Model
 		if model != "" && model != "ich9" && model != "ac97" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Sound device type is not supported. Options: 'ich9' or 'ac97'"),
-				Field:   field.Child("Sound").String(),
+				Field:   field.String(),
 			})
 		}
-		name := spec.Domain.Devices.Sound.Name
+		name := sound.Name
 		if name == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Sound device requires a name field."),
-				Field:   field.Child("Sound").String(),
+				Field:   field.Child("name").String(),
 			})
 		}
 	}
@@ -1697,10 +1692,10 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 	return causes
 }
 
-func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
+func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices, config)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
 	if spec.Firmware != nil && spec.Firmware.Bootloader != nil && spec.Firmware.Bootloader.EFI != nil &&
@@ -2134,9 +2129,14 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	return causes
 }
 
-func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusCause {
+func validateDevices(field *k8sfield.Path, devices *v1.Devices, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDisks(field.Child("disks"), devices.Disks)...)
+	causes = append(causes, validateInputDevices(field.Child("inputs"), devices.Inputs)...)
+	causes = append(causes, validateGPUsWithPassthroughEnabled(field.Child("gpus"), devices.GPUs, config)...)
+	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field.Child("filesystems"), devices.Filesystems, config)...)
+	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field.Child("hostDevices"), devices.HostDevices, config)...)
+	causes = append(causes, validateSoundDevices(field.Child("sound"), devices.Sound)...)
 	return causes
 }
 

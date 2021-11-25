@@ -599,7 +599,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.Sound"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.sound"))
 		})
 		It("should reject audio devices without name fields", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -610,7 +610,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.Sound"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.sound.name"))
+			Expect(causes[0].Message).To(ContainSubstring("requires a name"))
 		})
 		It("should reject volume with missing disk / file system", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -1958,7 +1959,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.GPUs"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.gpus"))
 		})
 		It("should reject virtiofs filesystems when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvm")
@@ -1981,7 +1982,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.Filesystems"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems"))
 		})
 		It("should allow virtiofs filesystems when feature gate is enabled", func() {
 			enableFeatureGate(virtconfig.VirtIOFSGate)
@@ -2056,7 +2057,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.hostDevices"))
 		})
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
