@@ -235,7 +235,7 @@ type EFI struct {
 
 // If set, the VM will be booted from the defined kernel / initrd.
 type KernelBootContainer struct {
-	// Image that container initrd / kernel files.
+	// Image that contains initrd / kernel files.
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
 	//+optional
