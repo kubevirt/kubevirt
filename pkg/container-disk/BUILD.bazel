@@ -24,6 +24,7 @@ go_test(
     srcs = [
         "container-disk_suite_test.go",
         "container-disk_test.go",
+        "validation_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
