@@ -1857,7 +1857,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			nameMap[volume.Name] = idx
 		} else {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
+				Type:    metav1.CauseTypeFieldValueDuplicate,
 				Message: fmt.Sprintf("%s and %s must not have the same Name.", field.Index(idx).String(), field.Index(otherIdx).String()),
 				Field:   field.Index(idx).Child("name").String(),
 			})
