@@ -4548,7 +4548,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 kernel artifacts
                               properties:
                                 image:
-                                  description: Image that container initrd / kernel
+                                  description: Image that contains initrd / kernel
                                     files.
                                   type: string
                                 imagePullPolicy:
@@ -7507,7 +7507,7 @@ var CRDsValidation map[string]string = map[string]string{
                         kernel artifacts
                       properties:
                         image:
-                          description: Image that container initrd / kernel files.
+                          description: Image that contains initrd / kernel files.
                           type: string
                         imagePullPolicy:
                           description: 'Image pull policy. One of Always, Never, IfNotPresent.
@@ -9538,7 +9538,7 @@ var CRDsValidation map[string]string = map[string]string{
                         kernel artifacts
                       properties:
                         image:
-                          description: Image that container initrd / kernel files.
+                          description: Image that contains initrd / kernel files.
                           type: string
                         imagePullPolicy:
                           description: 'Image pull policy. One of Always, Never, IfNotPresent.
@@ -11381,7 +11381,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 kernel artifacts
                               properties:
                                 image:
-                                  description: Image that container initrd / kernel
+                                  description: Image that contains initrd / kernel
                                     files.
                                   type: string
                                 imagePullPolicy:
@@ -14958,7 +14958,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             that containes kernel artifacts
                                           properties:
                                             image:
-                                              description: Image that container initrd
+                                              description: Image that contains initrd
                                                 / kernel files.
                                               type: string
                                             imagePullPolicy:
