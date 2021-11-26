@@ -57,6 +57,33 @@ var _ = Describe("Network Name Scheme", func() {
 				}),
 		)
 	})
+
+	Context("CreateHashedNetworkNamingScheme", func() {
+		DescribeTable(
+			"should return the expected NetworkNameSchemeMap",
+			func(networkList []virtv1.Network, expectedNetworkNameSchemeMap map[string]string) {
+				Expect(namescheme.CreateHashedNetworkNamingScheme(networkList)).To(Equal(expectedNetworkNameSchemeMap))
+			},
+			Entry("when network list is nil", nil, map[string]string{}),
+			Entry(
+				"when no multus network exists",
+				[]virtv1.Network{
+					newPodNetwork("default"),
+				},
+				map[string]string{},
+			),
+			Entry(
+				"when the multus default network is present",
+				[]virtv1.Network{createMultusDefaultNetwork("woopwoop", "pow-wow")},
+				map[string]string{},
+			),
+			Entry(
+				"when a secondary multus network exists",
+				[]virtv1.Network{createMultusSecondaryNetwork("network1", "default/nad1")},
+				map[string]string{"network1": "netd844211b"},
+			),
+		)
+	})
 })
 
 func createMultusSecondaryNetwork(name, networkName string) virtv1.Network {

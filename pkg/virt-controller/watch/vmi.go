@@ -2140,11 +2140,12 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 	if found {
 		log.Log.Object(pod).V(4).Infof("current multus annotation for pod: %s", currentMultusAnnotation)
 	}
+
 	if multusAnnotation != "" {
 		pod.Annotations[networkv1.NetworkAttachmentAnnot] = multusAnnotation
 		log.Log.Object(pod).V(4).Infof("updated multus annotation for pod: %s", multusAnnotation)
 	} else {
-		delete(pod.Annotations, networkv1.NetworkAttachmentAnnot)
+		pod.Annotations[networkv1.NetworkAttachmentAnnot] = "[]"
 		log.Log.Object(pod).V(4).Info("cleared pod cncf.io/networks annotation")
 	}
 

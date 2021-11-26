@@ -55,7 +55,47 @@ type podNIC struct {
 	domainGenerator   domainspec.LibvirtSpecGenerator
 }
 
-func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+type podNicGenerator interface {
+	generate(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error)
+	relevantNetworks(vmi *v1.VirtualMachineInstance) []v1.Network
+}
+
+type hotplugPodNicGenerator struct {
+	ifacesToHotplug []string
+}
+
+func newHotplugPodNicGenerator(ifaceToHotplug string) hotplugPodNicGenerator {
+	return hotplugPodNicGenerator{ifacesToHotplug: []string{ifaceToHotplug}}
+}
+
+func (_ hotplugPodNicGenerator) generate(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+	podnic, err := newPodNICWithHashedNamingScheme(vmi, network, handler, cacheCreator, launcherPID)
+	if err != nil {
+		return nil, err
+	}
+
+	if launcherPID == nil {
+		return nil, fmt.Errorf("missing launcher PID to build infra configurators")
+	}
+
+	return setupPodNicInfraConfigurator(podnic)
+}
+
+func (hpng hotplugPodNicGenerator) relevantNetworks(vmi *v1.VirtualMachineInstance) []v1.Network {
+	var networksToHotplug []v1.Network
+	for i := range vmi.Spec.Networks {
+		network := vmi.Spec.Networks[i]
+		if isIfaceAlreadyAvailableInVM(indexedInterfacesToHotplug(hpng.ifacesToHotplug), network.Name) {
+			continue
+		}
+		networksToHotplug = append(networksToHotplug, network)
+	}
+	return networksToHotplug
+}
+
+type standardPodNicGenerator struct{}
+
+func (_ standardPodNicGenerator) generate(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
 	podnic, err := newPodNIC(vmi, network, handler, cacheCreator, launcherPID)
 	if err != nil {
 		return nil, err
@@ -65,6 +105,14 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 		return nil, fmt.Errorf("missing launcher PID to construct infra configurators")
 	}
 
+	return setupPodNicInfraConfigurator(podnic)
+}
+
+func (hpng standardPodNicGenerator) relevantNetworks(vmi *v1.VirtualMachineInstance) []v1.Network {
+	return vmi.Spec.Networks
+}
+
+func setupPodNicInfraConfigurator(podnic *podNIC) (*podNIC, error) {
 	if podnic.vmiSpecIface.Bridge != nil {
 		podnic.infraConfigurator = infraconfigurators.NewBridgePodNetworkConfigurator(
 			podnic.vmi,
@@ -100,6 +148,21 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 }
 
 func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+	return newPodNICWithNamingScheme(vmi, network, handler, cacheCreator, launcherPID, namescheme.CreateNetworkNameScheme)
+}
+
+func newPodNICWithHashedNamingScheme(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+	return newPodNICWithNamingScheme(vmi, network, handler, cacheCreator, launcherPID, namescheme.CreateHashedNetworkNamingScheme)
+}
+
+func newPodNICWithNamingScheme(
+	vmi *v1.VirtualMachineInstance,
+	network *v1.Network,
+	handler netdriver.NetworkHandler,
+	cacheCreator cacheCreator,
+	launcherPID *int,
+	networkToIfaceNameNamingFunc func(vmiNetworks []v1.Network) map[string]string,
+) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -109,7 +172,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
-	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
+	networkNameScheme := networkToIfaceNameNamingFunc(vmi.Spec.Networks)
 	podInterfaceName, exists := networkNameScheme[network.Name]
 	if !exists {
 		return nil, fmt.Errorf("pod interface name not found for network %s", network.Name)
@@ -172,7 +235,6 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNIC) PlugPhase1() error {
-
 	// There is nothing to plug for SR-IOV devices
 	if l.vmiSpecIface.SRIOV != nil {
 		return nil
@@ -201,7 +263,6 @@ func (l *podNIC) PlugPhase1() error {
 	if err := l.infraConfigurator.DiscoverPodNetworkInterface(l.podInterfaceName); err != nil {
 		return err
 	}
-
 	dhcpConfig := l.infraConfigurator.GenerateNonRecoverableDHCPConfig()
 	if dhcpConfig != nil {
 		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
@@ -230,7 +291,6 @@ func (l *podNIC) PlugPhase1() error {
 		log.Log.Reason(err).Error("failed to prepare pod networking")
 		return errors.CreateCriticalNetworkError(err)
 	}
-
 	if err := l.setState(cache.PodIfaceNetworkPreparationFinished); err != nil {
 		log.Log.Reason(err).Error("failed setting state to PodIfaceNetworkPreparationFinished")
 		return errors.CreateCriticalNetworkError(err)
@@ -368,7 +428,11 @@ func (l *podNIC) state() (cache.PodIfaceState, error) {
 }
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {
-	return fmt.Sprintf("k6t-%s", podInterfaceName)
+	bridgeName := fmt.Sprintf("k6t-%s", podInterfaceName)
+	if len(bridgeName) > namescheme.MaxIfaceNameLen {
+		return bridgeName[:namescheme.MaxIfaceNameLen]
+	}
+	return bridgeName
 }
 
 func getPIDString(pid *int) string {

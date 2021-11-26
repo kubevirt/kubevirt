@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	maxIfaceNameLen         = 15
+	MaxIfaceNameLen         = 11
 	PrimaryPodInterfaceName = "eth0"
 )
 
@@ -78,5 +78,5 @@ func SecondaryInterfaceName(idx int) string {
 func HashNetworkName(networkName string) string {
 	hash := md5.New()
 	_, _ = io.WriteString(hash, networkName)
-	return fmt.Sprintf("net%x", hash.Sum(nil))[:maxIfaceNameLen]
+	return fmt.Sprintf("net%x", hash.Sum(nil))[:MaxIfaceNameLen]
 }

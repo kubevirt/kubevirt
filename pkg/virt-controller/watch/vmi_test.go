@@ -3129,7 +3129,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						"[{\"interface\":\"net2f67b01cb62b\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
+						"[{\"interface\":\"net2f67b01c\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
 				Entry("hotplug multiple interfaces",
 					[]virtv1.AddInterfaceOptions{{
 						NetworkName:   "net1",
@@ -3140,11 +3140,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						"[{\"interface\":\"net2f67b01cb62b\",\"name\":\"net1\",\"namespace\":\"default\"},{\"interface\":\"net614b50ab719d\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
+						"[{\"interface\":\"net2f67b01c\",\"name\":\"net1\",\"namespace\":\"default\"},{\"interface\":\"net614b50ab\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
 			)
 		})
 
 		Context("hot-unplug operation", func() {
+			const noAttachments = "[]"
+
 			BeforeEach(func() {
 				vmi = newVMIWithOneNetwork(
 					newVMIWithOneNetwork(
@@ -3159,11 +3161,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				fakeHotPlugRequest(vmi, nil, removeOpts)
 				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
 				for _, matcher := range matchers {
-					if len(vmi.Spec.Networks) == 0 {
-						Expect(pod.Annotations).NotTo(HaveKey(networkv1.NetworkAttachmentAnnot))
-					} else {
-						Expect(pod.Annotations).To(matcher)
-					}
+					Expect(pod.Annotations).To(matcher)
 				}
 			},
 				Entry("remove a single interface",
@@ -3173,7 +3171,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						"[{\"interface\":\"netc5139f2cc051\",\"name\":\"oldnet2\",\"namespace\":\"default\"}]")),
+						"[{\"interface\":\"netc5139f2c\",\"name\":\"oldnet2\",\"namespace\":\"default\"}]")),
 				Entry("remove all the multus interfaces from the VMI",
 					[]virtv1.RemoveInterfaceOptions{{
 						NetworkName:   netToRemove,
@@ -3181,7 +3179,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}, {
 						NetworkName:   secondNetToRemove,
 						InterfaceName: secondIfaceToRemove,
-					}}))
+					}},
+					HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, noAttachments)))
 		})
 	})
 })
@@ -3248,7 +3247,7 @@ func setReadyCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.Conditio
 		Reason: reason,
 	})
 }
-func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
+func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase, podNetworkStatus ...networkv1.NetworkStatus) *k8sv1.Pod {
 	multusAnnotations, _ := services.GenerateMultusCNIAnnotationWithInterfaceNamingScheme(
 		vmi,
 		namescheme.CreateNetworkNameScheme,
@@ -3258,6 +3257,12 @@ func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 	}
 	if multusAnnotations != "" {
 		podAnnotations[networkv1.NetworkAttachmentAnnot] = multusAnnotations
+	}
+	if len(podNetworkStatus) > 0 {
+		podCurrentNetworks, err := json.Marshal(podNetworkStatus)
+		if err == nil {
+			podAnnotations[networkv1.NetworkStatusAnnot] = string(podCurrentNetworks)
+		}
 	}
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
