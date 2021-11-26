@@ -3127,7 +3127,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						"[{\"interface\":\"net2f67b01cb62b\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
+						"[{\"interface\":\"nete588edba965d\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
 				Entry("hotplug multiple interfaces",
 					[]virtv1.AddInterfaceOptions{{
 						NetworkName:   "net1",
@@ -3138,7 +3138,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						"[{\"interface\":\"net2f67b01cb62b\",\"name\":\"net1\",\"namespace\":\"default\"},{\"interface\":\"net614b50ab719d\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
+						"[{\"interface\":\"nete588edba965d\",\"name\":\"net1\",\"namespace\":\"default\"},{\"interface\":\"netcd0eff41491e\",\"name\":\"net1\",\"namespace\":\"default\"}]")),
 			)
 		})
 
@@ -3171,7 +3171,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						"[{\"interface\":\"netc5139f2cc051\",\"name\":\"oldnet2\",\"namespace\":\"default\"}]")),
+						"[{\"interface\":\"net262e06cd123d\",\"name\":\"oldnet2\",\"namespace\":\"default\"}]")),
 				Entry("remove all the multus interfaces from the VMI",
 					[]virtv1.RemoveInterfaceOptions{{
 						NetworkName:   netToRemove,
@@ -3179,7 +3179,43 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}, {
 						NetworkName:   secondNetToRemove,
 						InterfaceName: secondIfaceToRemove,
-					}}))
+					}}, BeEmpty()))
+		})
+
+		Context("interface status", func() {
+			const (
+				ifaceName   = "iface1"
+				networkName = "meganet"
+			)
+
+			DescribeTable("hotplugged interface", func(vmi *virtv1.VirtualMachineInstance, expectedIfaces ...virtv1.Interface) {
+				Expect(hotpluggedInterfaces(vmi)).To(ConsistOf(expectedIfaces))
+			},
+				Entry("VMI without interfaces on vmi.Spec has no interfaces to hot-plug", api.NewMinimalVMI(vmName)),
+				Entry("VMI with interface on vmi.Spec, also reflected on vmi.Status.Interfaces does not have ifaces to hot-plug",
+					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), networkName, ifaceName)),
+				Entry("VMI with interface on vmi.Spec not found on vmi.Status.Interfaces does not have ifaces to hot-plug",
+					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
+					virtv1.Interface{
+						Name: hotpluggedNetworkName(networkName, ifaceName),
+					}),
+			)
+
+			DescribeTable("updateInterfaceStatus", func(vmi *virtv1.VirtualMachineInstance, ifaceStatus ...virtv1.VirtualMachineInstanceNetworkInterface) {
+				Expect(controller.updateInterfaceStatus(vmi)).To(Succeed())
+				Expect(vmi.Status.Interfaces).To(ConsistOf(ifaceStatus))
+			},
+				Entry("VMI without interfaces on spec does not generate new interface status", api.NewMinimalVMI(vmName)),
+				Entry("VMI with an interface on spec (not matched on status) generates new interface status",
+					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
+					hotpluggedIfaceStatus(networkName, ifaceName)),
+				Entry("VMI with an interface on spec (matched on status) does not generate new interface status",
+					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), networkName, ifaceName),
+					simpleIfaceStatus(networkName, ifaceName)),
+				Entry("VMI with a request on status but missing on spec is a hot-unplug request",
+					newVMIWithOneIfaceStatus(api.NewMinimalVMI(vmName), networkName, ifaceName),
+					hotpluggedIfaceStatus(networkName, ifaceName)),
+			)
 		})
 	})
 })
@@ -3431,7 +3467,7 @@ func newMultusNetwork(name, networkName string) virtv1.Network {
 }
 
 func hotpluggedNetworkName(networkName string, ifaceName string) string {
-	return fmt.Sprintf("%s/%s", networkName, ifaceName)
+	return fmt.Sprintf("%s_%s", networkName, ifaceName)
 }
 
 func newVMIWithOneNetwork(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
@@ -3446,4 +3482,48 @@ func newVMIWithOneNetwork(vmi *virtv1.VirtualMachineInstance, networkName string
 			},
 		})
 	return vmi
+}
+
+func newVMIWithOneIface(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
+	vmi.Spec.Networks = append(
+		vmi.Spec.Networks,
+		virtv1.Network{
+			Name: hotpluggedNetworkName(networkName, ifaceName),
+			NetworkSource: virtv1.NetworkSource{
+				Multus: &virtv1.MultusNetwork{
+					NetworkName: networkName,
+				},
+			},
+		})
+	vmi.Spec.Domain.Devices.Interfaces = append(
+		vmi.Spec.Domain.Devices.Interfaces,
+		virtv1.Interface{
+			Name: hotpluggedNetworkName(networkName, ifaceName),
+		})
+	return vmi
+}
+
+func newVMIWithOneHotpluggedIfaceStatus(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, hotpluggedIfaceStatus(networkName, ifaceName))
+	return vmi
+}
+
+func newVMIWithOneIfaceStatus(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, simpleIfaceStatus(networkName, ifaceName))
+	return vmi
+}
+
+func simpleIfaceStatus(networkName string, ifaceName string) virtv1.VirtualMachineInstanceNetworkInterface {
+	return virtv1.VirtualMachineInstanceNetworkInterface{
+		Name:          hotpluggedNetworkName(networkName, ifaceName),
+		InterfaceName: ifaceName,
+	}
+}
+
+func hotpluggedIfaceStatus(networkName string, ifaceName string) virtv1.VirtualMachineInstanceNetworkInterface {
+	return virtv1.VirtualMachineInstanceNetworkInterface{
+		Name:             hotpluggedNetworkName(networkName, ifaceName),
+		InterfaceName:    ifaceName,
+		HotplugInterface: &virtv1.HotplugInterfaceStatus{},
+	}
 }

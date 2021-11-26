@@ -608,6 +608,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
 
+		if err := c.updateInterfaceStatus(vmiCopy); err != nil {
+			log.Log.Errorf("failed to update the interface status: %v", err)
+		}
+
 	case vmi.IsScheduled():
 		// Nothing here
 		break
@@ -776,6 +780,25 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
 
 		}
+	}
+
+	if !equality.Semantic.DeepEqual(newVMI.Status.Interfaces, oldVMI.Status.Interfaces) {
+		// VolumeStatus changed which means either removed or added volumes.
+		newInterfaceStatus, err := json.Marshal(newVMI.Status.Interfaces)
+		if err != nil {
+			return nil, err
+		}
+		oldInterfaceStatus, err := json.Marshal(oldVMI.Status.Interfaces)
+		if err != nil {
+			return nil, err
+		}
+		if string(oldInterfaceStatus) == "null" {
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/status/interfaces", "value": %s }`, string(newInterfaceStatus)))
+		} else {
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/interfaces", "value": %s }`, string(oldInterfaceStatus)))
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/interfaces", "value": %s }`, string(newInterfaceStatus)))
+		}
+		log.Log.V(3).Object(oldVMI).Infof("Patching Interface Status")
 	}
 
 	if len(patchOps) == 0 {
@@ -2188,4 +2211,78 @@ func nonDefaultPodMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]ne
 		indexedNetworkStatus[ns.Interface] = ns
 	}
 	return indexedNetworkStatus
+}
+
+func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance) error {
+	originalVMIStatus := vmi.Status.DeepCopy().Interfaces
+	indexedVMIStatus := indexIfaceStatus(originalVMIStatus)
+
+	vmiSpecNetworks := vmi.Spec.Networks
+	indexedVMINetworks := map[string]virtv1.Network{}
+	for _, network := range vmiSpecNetworks {
+		indexedVMINetworks[network.Name] = network
+	}
+
+	indexedHotpluggedIfaces := map[string]virtv1.Interface{}
+	for _, iface := range hotpluggedInterfaces(vmi) {
+		indexedHotpluggedIfaces[iface.Name] = iface
+	}
+
+	var newStatus []virtv1.VirtualMachineInstanceNetworkInterface
+	for _, network := range vmi.Spec.Networks {
+		status := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name}
+		if _, ok := indexedVMIStatus[network.Name]; ok {
+			// Already have the status, modify if needed
+			status = indexedVMIStatus[network.Name]
+		}
+		// Remove from map so I can detect existing interfaces that have been removed from spec.
+		delete(indexedVMIStatus, network.Name)
+		if _, ok := indexedHotpluggedIfaces[network.Name]; ok {
+			if status.HotplugInterface == nil {
+				status.HotplugInterface = &virtv1.HotplugInterfaceStatus{}
+			}
+
+			status.InterfaceName = extractIfaceNameFromNetworkName(network)
+		}
+		newStatus = append(newStatus, status)
+	}
+
+	for _, ifaceStatus := range indexedVMIStatus {
+		ifaceStatus.HotplugInterface = &virtv1.HotplugInterfaceStatus{}
+		newStatus = append(newStatus, ifaceStatus)
+	}
+	vmi.Status.Interfaces = newStatus
+
+	return nil
+}
+
+func indexIfaceStatus(oldIfaceStatus []virtv1.VirtualMachineInstanceNetworkInterface) map[string]virtv1.VirtualMachineInstanceNetworkInterface {
+	indexedIfaceStatus := make(map[string]virtv1.VirtualMachineInstanceNetworkInterface)
+	for _, ifaceStatus := range oldIfaceStatus {
+		if ifaceStatus.Name != "" {
+			indexedIfaceStatus[ifaceStatus.Name] = ifaceStatus
+		}
+	}
+	return indexedIfaceStatus
+}
+
+func hotpluggedInterfaces(vmi *virtv1.VirtualMachineInstance) []virtv1.Interface {
+	hotpluggedIfaces := make([]virtv1.Interface, 0)
+	vmiSpecIfaces := vmi.Spec.Domain.Devices.Interfaces
+	indexedVmiIfaceStatus := indexIfaceStatus(vmi.Status.Interfaces)
+
+	for _, iface := range vmiSpecIfaces {
+		if _, found := indexedVmiIfaceStatus[iface.Name]; !found {
+			hotpluggedIfaces = append(hotpluggedIfaces, iface)
+		}
+	}
+	return hotpluggedIfaces
+}
+
+func extractIfaceNameFromNetworkName(network virtv1.Network) string {
+	if network.NetworkSource.Multus != nil {
+		multusNetworkName := network.NetworkSource.Multus.NetworkName
+		return strings.Replace(network.Name, fmt.Sprintf("%s_", multusNetworkName), "", 1)
+	}
+	return ""
 }
