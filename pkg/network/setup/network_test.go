@@ -102,12 +102,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				const multusInterfaceName = "net37a8eec1"
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 				iface := v1.DefaultBridgeNetworkInterface()
-				cniNet := &v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "default"},
-					},
-				}
+				cniNet := vmiPrimaryNetwork()
 				vmi.Spec.Networks = []v1.Network{*cniNet}
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
@@ -228,6 +223,65 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					},
 				}))
 			})
+
+			It("should configure networking for an hotplugged interface", func() {
+				const ifaceToHotplug = "newnet1"
+
+				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+				cniNet := vmiPrimaryNetwork()
+				vmi.Spec.Networks = []v1.Network{*cniNet}
+				vmi = mutateVMIWithExtraNetworkAndIFace(
+					newVMIBridgeInterface("testnamespace", "testVmName"),
+					ifaceToHotplug,
+				)
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
+				launcherPID := 0
+
+				expectedPodIfaceName := "net45b3499a"
+				expectedNetwork := &vmi.Spec.Networks[len(vmi.Spec.Networks)-1]
+				expectedInterface := &vmi.Spec.Domain.Devices.Interfaces[len(vmi.Spec.Domain.Devices.Interfaces)-1]
+				Expect(
+					vmNetworkConfigurator.getPhase1NicsWithGenerator(
+						&launcherPID,
+						newHotplugPodNicGenerator(ifaceToHotplug),
+					),
+				).To(
+					WithTransform(
+						simplifyPodNicsForMatchers,
+						ConsistOf(
+							podNIC{
+								podInterfaceName: expectedPodIfaceName,
+								launcherPID:      &launcherPID,
+								vmiSpecIface:     expectedInterface,
+								vmiSpecNetwork:   expectedNetwork,
+								handler:          vmNetworkConfigurator.handler,
+								cacheCreator:     vmNetworkConfigurator.cacheCreator,
+								infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+									vmi,
+									expectedInterface,
+									generateInPodBridgeInterfaceName(expectedPodIfaceName),
+									launcherPID,
+									vmNetworkConfigurator.handler,
+								),
+							},
+						)))
+			})
 		})
 	})
 })
+
+func vmiPrimaryNetwork() *v1.Network {
+	return &v1.Network{
+		Name: "default",
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{NetworkName: "default"},
+		},
+	}
+}
+
+func simplifyPodNicsForMatchers(nics []podNIC) []podNIC {
+	for i := range nics {
+		nics[i].vmi = nil
+	}
+	return nics
+}

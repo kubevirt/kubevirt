@@ -319,6 +319,57 @@ var _ = Describe("podNIC", func() {
 			})
 		})
 	})
+
+	Context("Interface hotplug", func() {
+		const ifaceToHotplug = "newiface1"
+
+		var (
+			podnic *podNIC
+			vmi    *v1.VirtualMachineInstance
+		)
+
+		newPhase1PodNicForHotplug := func(vmi *v1.VirtualMachineInstance, infraConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator) (*podNIC, error) {
+			launcherPID := 1
+			podNicGenerator := newHotplugPodNicGenerator(ifaceToHotplug)
+			hotpluggedNetwork := &vmi.Spec.Networks[len(vmi.Spec.Networks)-1]
+			podnic, err := podNicGenerator.generate(vmi, hotpluggedNetwork, mockNetwork, &baseCacheCreator, &launcherPID)
+			if err != nil {
+				return nil, err
+			}
+			podnic.infraConfigurator = infraConfigurator
+			return podnic, nil
+		}
+
+		setupMocksForHotplug := func(podIfaceName string) {
+			mockNetwork.EXPECT().ReadIPAddressesFromLink(podIfaceName).Return("1.2.3.4", "169.254.0.0", nil)
+			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil)
+
+			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(podIfaceName)
+			mockPodNetworkConfigurator.EXPECT().GenerateNonRecoverableDHCPConfig().Return(&cache.DHCPConfig{})
+			mockPodNetworkConfigurator.EXPECT().GenerateNonRecoverableDomainIfaceSpec()
+
+			mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface()
+		}
+
+		BeforeEach(func() {
+			vmi = mutateVMIWithExtraNetworkAndIFace(newVMIBridgeInterface("testnamespace", "testVmName"), ifaceToHotplug)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(NewDomainWithBridgeInterface())
+
+			var err error
+			podnic, err = newPhase1PodNicForHotplug(vmi, mockPodNetworkConfigurator)
+			Expect(err).ToNot(HaveOccurred())
+			setupMocksForHotplug(podnic.podInterfaceName)
+		})
+
+		It("pod nic plug phase#1 works", func() {
+			Expect(podnic.PlugPhase1()).To(Succeed())
+			var podData *cache.PodIfaceCacheData
+			podData, err := cache.ReadPodInterfaceCache(podnic.cacheCreator, string(vmi.UID), ifaceToHotplug)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(podData.PodIP).To(Equal("1.2.3.4"))
+			Expect(podData.PodIPs).To(ConsistOf("1.2.3.4", "169.254.0.0"))
+		})
+	})
 })
 
 type fakeLibvirtSpecGenerator struct {
@@ -331,4 +382,20 @@ func (b *fakeLibvirtSpecGenerator) Generate() error {
 	}
 	return nil
 
+}
+
+func mutateVMIWithExtraNetworkAndIFace(vmi *v1.VirtualMachineInstance, networkName string) *v1.VirtualMachineInstance {
+	const nadName = "mynad"
+	vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+		Name: networkName,
+		NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+			NetworkName: nadName,
+			Default:     false,
+		}},
+	})
+	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+		Name:                   networkName,
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+	})
+	return vmi
 }

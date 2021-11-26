@@ -51,13 +51,17 @@ func CreateNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
-		networkNameSchemeMap[network.Name] = hashNetworkName(network.Name)
+		networkNameSchemeMap[network.Name] = GeneratePodIfaceName(network.Name)
 	}
 	return networkNameSchemeMap
 }
 
-func hashNetworkName(networkName string) string {
+func GeneratePodIfaceName(networkName string) string {
+	return hashNetworkName(networkName, "net")
+}
+
+func hashNetworkName(networkName string, prefix string) string {
 	hash := sha256.New()
 	_, _ = io.WriteString(hash, networkName)
-	return fmt.Sprintf("net%x", hash.Sum(nil))[:MaxIfaceNameLen]
+	return fmt.Sprintf("%s%x", prefix, hash.Sum(nil))[:MaxIfaceNameLen]
 }

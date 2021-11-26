@@ -37,12 +37,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
-	"kubevirt.io/kubevirt/pkg/config"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -58,6 +57,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/netns"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -105,6 +105,10 @@ type netstat interface {
 	Teardown(vmi *v1.VirtualMachineInstance)
 	PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool
 	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData)
+}
+
+type InterfaceController interface {
+	HotplugIfaces(vmi *v1.VirtualMachineInstance, launcherPid int) error
 }
 
 const (
@@ -217,6 +221,12 @@ func NewController(
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+		hotplugInterfaceController: netsetup.NewInterfaceController(
+			netcache.CacheCreator{},
+			func(pid int) netsetup.NSExecutor {
+				return netns.New(pid)
+			},
+		),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -307,6 +317,7 @@ type VirtualMachineController struct {
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	ioErrorRetryManager         *FailRetryManager
+	hotplugInterfaceController  InterfaceController
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -547,6 +558,11 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 		}
 		return nil
 	})
+}
+
+func (d *VirtualMachineController) setPodNetworkPhaseWithNICFilter(vmi *v1.VirtualMachineInstance) error {
+
+	return nil
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -2806,6 +2822,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err := d.getMemoryDump(vmi); err != nil {
 			return err
 		}
+
+		if err := d.hotplugVirtioInterfaces(vmi); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
 	}
 
 	smbios := d.clusterConfig.GetSMBIOS()
@@ -3177,4 +3197,13 @@ func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 
 func isIOError(shouldUpdate, domainExists bool, domain *api.Domain) bool {
 	return shouldUpdate && domainExists && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedIOError
+}
+
+func (d *VirtualMachineController) hotplugVirtioInterfaces(vmi *v1.VirtualMachineInstance) error {
+	isolationRes, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return fmt.Errorf(failedDetectIsolationFmt, err)
+	}
+
+	return d.hotplugInterfaceController.HotplugIfaces(vmi, isolationRes.Pid())
 }
