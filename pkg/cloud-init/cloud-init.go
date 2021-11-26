@@ -93,12 +93,14 @@ type ConfigDriveMetadata struct {
 }
 
 type DeviceData struct {
-	Type    DeviceMetadataType `json:"type"`
-	Bus     string             `json:"bus"`
-	Address string             `json:"address"`
-	MAC     string             `json:"mac,omitempty"`
-	Serial  string             `json:"serial,omitempty"`
-	Tags    []string           `json:"tags"`
+	Type     	DeviceMetadataType `json:"type"`
+	Bus      	string             `json:"bus"`
+	Address 	string             `json:"address"`
+	MAC      	string             `json:"mac,omitempty"`
+	Serial   	string             `json:"serial,omitempty"`
+	NumaNode 	uint32             `json:"numaNode,omitempty"`
+	AlignedCPUs     []uint32           `json:"alignedCPUs,omitempty"`
+	Tags     	[]string           `json:"tags"`
 }
 
 // IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
