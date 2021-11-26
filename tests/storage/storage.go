@@ -104,7 +104,7 @@ var _ = SIGDescribe("Storage", func() {
 			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
 			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
 			os := string(cd.ContainerDiskAlpine)
-			tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
+			tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "1Gi", nfsIP, os)
 			return pvName
 		}
 
