@@ -73,6 +73,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -1496,12 +1498,28 @@ func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api
 
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
 	taggedInterfaces := make(map[string]v1.Interface)
+	taggedHostDevices := make(map[string]v1.HostDevices)
+	taggedGPUs := make(map[string]v1.GPUs)
 	var devicesMetadata []cloudinit.DeviceData
 
 	// Get all tagged interfaces for lookup
 	for _, vif := range vmi.Spec.Domain.Devices.Interfaces {
 		if vif.Tag != "" {
 			taggedInterfaces[vif.Name] = vif
+		}
+	}
+
+	// Get all tagged host devices for lookup
+	for _, dev := range vmi.Spec.Domain.Devices.HostDevices {
+		if dev.Tag != "" {
+			taggedHostDevices[dev.Name] = dev
+		}
+	}
+
+	// Get all tagged gpus for lookup
+	for _, dev := range vmi.Spec.Domain.Devices.GPUs {
+		if dev.Tag != "" {
+			taggedGPUs[dev.Name] = dev
 		}
 	}
 
@@ -1528,7 +1546,27 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	hostDevices := devices.HostDevices
 	for _, dev := range hostDevices {
 		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), sriov.AliasPrefix, "", -1)
+		hostDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), generic.AliasPrefix, "", -1)
 		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
+			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+				dev.Address,
+				"",
+				data.Tag,
+				devicesMetadata)
+		}
+		if data, exist := taggedHostDevices[hostDevAliasNoPrefix]; exist {
+			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
+				dev.Address,
+				"",
+				data.Tag,
+				devicesMetadata)
+		}
+	}
+
+	GPUs := devices.GPUs
+	for _, dev := range GPUs {
+		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", -1)
+		if data, exist := taggedGPUs[devAliasNoPrefix]; exist {
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
 				dev.Address,
 				"",
@@ -1537,7 +1575,6 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		}
 	}
 	return devicesMetadata, nil
-
 }
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent
