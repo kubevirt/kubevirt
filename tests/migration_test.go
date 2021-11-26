@@ -2265,12 +2265,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
 				if !isHeterogeneousCluster() {
 					log.Log.Warning("all nodes have the same CPU model. Therefore the test is a happy-path since " +
-						"VMIs with host-model CPU can be migrated to every other node")
+						"VMIs with default CPU can be migrated to every other node")
 				}
 
-				By("Creating a VMI with host-model CPU mode")
+				By("Creating a VMI with default CPU mode")
 				vmi := cirrosVMIWithEvictionStrategy()
-				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+				if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model != v1.CPUModeHostModel {
+					log.Log.Warning("test is not expected to pass with CPU model other than host-model")
+				}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
