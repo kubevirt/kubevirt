@@ -193,7 +193,7 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	}
 	err := b.handler.LinkAdd(bridge)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create a bridge")
+		log.Log.Reason(err).Errorf("failed to create a bridge named: %s", b.bridgeInterfaceName)
 		return err
 	}
 

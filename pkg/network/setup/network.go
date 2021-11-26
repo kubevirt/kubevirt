@@ -47,10 +47,19 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
+	return v.getPhase1NicsWithGenerator(launcherPID, standardPodNicGenerator{})
+}
+
+func (v VMNetworkConfigurator) getPhase1NicsWithGenerator(launcherPID *int, podNicGenerator podNicGenerator) ([]podNIC, error) {
 	var nics []podNIC
 
-	for i := range v.vmi.Spec.Networks {
-		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, launcherPID)
+	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
+		return nics, nil
+	}
+
+	relevantNetworks := podNicGenerator.relevantNetworks(v.vmi)
+	for i := range relevantNetworks {
+		nic, err := podNicGenerator.generate(v.vmi, &relevantNetworks[i], v.handler, v.cacheCreator, launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -85,6 +94,20 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int) error {
 	return nil
 }
 
+func (n *VMNetworkConfigurator) CreatePodAuxiliaryInfra(pid int, ifaceName string) error {
+	launcherPID := &pid
+	nics, err := n.getPhase1NicsWithGenerator(launcherPID, newHotplugPodNicGenerator(ifaceName))
+	if err != nil {
+		return err
+	}
+	for _, nic := range nics {
+		if err := nic.PlugPhase1(); err != nil {
+			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
+		}
+	}
+	return nil
+}
+
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {
 	nics, err := n.getPhase2NICs(domain)
 	if err != nil {
@@ -96,4 +119,17 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error 
 		}
 	}
 	return nil
+}
+
+func isIfaceAlreadyAvailableInVM(ifacesToHotplug map[string]struct{}, networkName string) bool {
+	_, found := ifacesToHotplug[networkName]
+	return len(ifacesToHotplug) > 0 && !found
+}
+
+func indexedInterfacesToHotplug(ifaceNames []string) map[string]struct{} {
+	indexedIfacesToHotplug := map[string]struct{}{}
+	for _, ifaceName := range ifaceNames {
+		indexedIfacesToHotplug[ifaceName] = struct{}{}
+	}
+	return indexedIfacesToHotplug
 }

@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "hotplugcontroller.go",
         "netconf.go",
         "netstat.go",
         "network.go",
@@ -32,6 +33,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "hotplugcontroller_test.go",
         "netconf_test.go",
         "netstat_test.go",
         "network_suite_test.go",
