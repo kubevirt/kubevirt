@@ -3241,7 +3241,7 @@ type netConfStub struct {
 	SetupError error
 }
 
-func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error) error {
+func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error, networksToHotplug ...v1.Network) error {
 	if nc.SetupError != nil {
 		return nc.SetupError
 	}

@@ -46,11 +46,14 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator)
 }
 
-func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
+func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networksToPlug ...v1.Network) ([]podNIC, error) {
 	var nics []podNIC
 
-	for i := range v.vmi.Spec.Networks {
-		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, launcherPID)
+	if len(networksToPlug) == 0 {
+		networksToPlug = v.vmi.Spec.Networks
+	}
+	for i := range networksToPlug {
+		nic, err := newPhase1PodNIC(v.vmi, &networksToPlug[i], v.handler, v.cacheCreator, launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -72,8 +75,8 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, erro
 	return nics, nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int) error {
-	nics, err := n.getPhase1NICs(&launcherPID)
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networksToPlug ...v1.Network) error {
+	nics, err := n.getPhase1NICs(&launcherPID, networksToPlug...)
 	if err != nil {
 		return err
 	}

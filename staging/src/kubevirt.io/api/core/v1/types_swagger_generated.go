@@ -148,6 +148,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"interfaceName": "The interface name inside the Virtual Machine",
 		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
 		"queueCount":    "Specifies how many queues are allocated by MultiQueue",
+		"podConfigDone": "PodConfigDone specifies if the corresponding pod interface is properly configured by CNI",
 	}
 }
 

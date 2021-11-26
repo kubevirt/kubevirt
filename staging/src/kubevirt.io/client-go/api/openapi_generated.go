@@ -21510,6 +21510,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							Format:      "int32",
 						},
 					},
+					"podConfigDone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodConfigDone specifies if the corresponding pod interface is properly configured by CNI",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

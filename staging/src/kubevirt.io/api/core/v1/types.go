@@ -574,6 +574,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
+	// PodConfigDone specifies if the corresponding pod interface is properly configured by CNI
+	PodConfigDone bool `json:"podConfigDone,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {

@@ -102,12 +102,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				const multusInterfaceName = "net1"
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 				iface := v1.DefaultBridgeNetworkInterface()
-				cniNet := &v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "default"},
-					},
-				}
+				cniNet := vmiPrimaryNetwork()
 				vmi.Spec.Networks = []v1.Network{*cniNet}
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
@@ -228,6 +223,66 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					},
 				}))
 			})
+
+			It("should configure networking for an hotplugged interface", func() {
+				const ifaceToHotplug = "newnet1"
+
+				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+
+				hotplugNetwork := networkToHotplug(ifaceToHotplug)
+				vmi.Spec.Networks = append(vmi.Spec.Networks, hotplugNetwork)
+
+				hotplugInterface := v1.Interface{
+					Name:                   ifaceToHotplug,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, hotplugInterface)
+
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
+				launcherPID := 0
+
+				const expectedPodIfaceName = "net1"
+				Expect(vmNetworkConfigurator.getPhase1NICs(
+					&launcherPID,
+					networkToHotplug(ifaceToHotplug),
+				)).To(ConsistOf(podNIC{
+					vmi:              vmi,
+					podInterfaceName: expectedPodIfaceName,
+					launcherPID:      &launcherPID,
+					vmiSpecIface:     &hotplugInterface,
+					vmiSpecNetwork:   &hotplugNetwork,
+					handler:          vmNetworkConfigurator.handler,
+					cacheCreator:     vmNetworkConfigurator.cacheCreator,
+					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+						vmi,
+						&hotplugInterface,
+						generateInPodBridgeInterfaceName(expectedPodIfaceName),
+						launcherPID,
+						vmNetworkConfigurator.handler,
+					),
+				}))
+			})
 		})
 	})
 })
+
+func vmiPrimaryNetwork() *v1.Network {
+	return &v1.Network{
+		Name: "default",
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{NetworkName: "default"},
+		},
+	}
+}
+
+func networkToHotplug(name string) v1.Network {
+	const nadName = "mynad"
+	return v1.Network{
+		Name: name,
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{
+				NetworkName: nadName,
+			},
+		},
+	}
+}

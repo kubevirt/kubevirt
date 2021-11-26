@@ -19,11 +19,20 @@
 
 package vmispec
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"strings"
+
+	v1 "kubevirt.io/api/core/v1"
+)
 
 func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachineInstanceNetworkInterface) []v1.Network {
 	var networksToHotplug []v1.Network
-	indexedIfacesFromStatus := indexedInterfacesFromStatus(interfaceStatus)
+	indexedIfacesFromStatus := indexedInterfacesFromStatus(
+		interfaceStatus,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			return true
+		},
+	)
 	for _, iface := range networks {
 		if _, wasFound := indexedIfacesFromStatus[iface.Name]; !wasFound {
 			networksToHotplug = append(networksToHotplug, iface)
@@ -32,10 +41,32 @@ func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachin
 	return networksToHotplug
 }
 
-func indexedInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface) map[string]v1.VirtualMachineInstanceNetworkInterface {
+func indexedInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
 	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
 	for _, iface := range interfaces {
-		indexedInterfaceStatus[iface.Name] = iface
+		if p(iface) {
+			indexedInterfaceStatus[iface.Name] = iface
+		}
 	}
 	return indexedInterfaceStatus
+}
+
+func NetworksToHotplugWhosePodIfacesAreReady(vmi *v1.VirtualMachineInstance) []v1.Network {
+	var networksToHotplug []v1.Network
+	interfacesToHoplug := indexedInterfacesFromStatus(
+		vmi.Status.Interfaces,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			return ifaceStatus.PodConfigDone && !strings.Contains(
+				ifaceStatus.InfoSource, InfoSourceDomain,
+			)
+		},
+	)
+
+	for _, network := range vmi.Spec.Networks {
+		if _, isIfacePluggedIntoPod := interfacesToHoplug[network.Name]; isIfacePluggedIntoPod {
+			networksToHotplug = append(networksToHotplug, network)
+		}
+	}
+
+	return networksToHotplug
 }

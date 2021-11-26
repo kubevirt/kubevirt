@@ -47,6 +47,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -672,6 +673,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			return err
 		}
 
+		if err := c.updateInterfaceStatus(vmiCopy, pod); err != nil {
+			log.Log.Errorf("failed to update the interface status: %v", err)
+		}
+
 	case vmi.IsScheduled():
 		// Nothing here
 		break
@@ -840,6 +845,19 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
 
 		}
+	}
+
+	if !equality.Semantic.DeepEqual(newVMI.Status.Interfaces, oldVMI.Status.Interfaces) {
+		newInterfaceStatus, err := json.Marshal(newVMI.Status.Interfaces)
+		if err != nil {
+			return nil, err
+		}
+		oldInterfaceStatus, err := json.Marshal(oldVMI.Status.Interfaces)
+		if err != nil {
+			return nil, err
+		}
+		patchOps = append(patchOps, generateInterfaceStatusPatchRequest(oldInterfaceStatus, newInterfaceStatus)...)
+		log.Log.V(3).Object(oldVMI).Infof("Patching Interface Status")
 	}
 
 	if len(patchOps) == 0 {
@@ -2195,4 +2213,73 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 	}
 
 	return nil
+}
+
+func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	originalVMIStatus := vmi.Status.DeepCopy().Interfaces
+	indexedVMIStatus := indexIfaceStatus(originalVMIStatus)
+
+	var newStatus []virtv1.VirtualMachineInstanceNetworkInterface
+	ifaceNamingScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
+	indexedPodIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
+	for _, network := range vmi.Spec.Networks {
+		status := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name}
+		if existingIfaceStatus, ok := indexedVMIStatus[network.Name]; ok {
+			status = existingIfaceStatus
+		}
+
+		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
+		if !wasFound {
+			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
+		}
+
+		if _, found := indexedPodIfaces[podIfaceName]; found {
+			status.PodConfigDone = true
+		}
+		newStatus = append(newStatus, status)
+	}
+
+	vmi.Status.Interfaces = newStatus
+	return nil
+}
+
+func indexIfaceStatus(oldIfaceStatus []virtv1.VirtualMachineInstanceNetworkInterface) map[string]virtv1.VirtualMachineInstanceNetworkInterface {
+	indexedIfaceStatus := make(map[string]virtv1.VirtualMachineInstanceNetworkInterface)
+	for _, ifaceStatus := range oldIfaceStatus {
+		if ifaceStatus.Name != "" {
+			indexedIfaceStatus[ifaceStatus.Name] = ifaceStatus
+		}
+	}
+	return indexedIfaceStatus
+}
+
+func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterfaceStatus []byte) []string {
+	return []string{
+		fmt.Sprintf(`{ "op": "test", "path": "/status/interfaces", "value": %s }`, string(oldInterfaceStatus)),
+		fmt.Sprintf(`{ "op": "add", "path": "/status/interfaces", "value": %s }`, string(newInterfaceStatus)),
+	}
+}
+
+func nonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
+	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
+	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
+
+	if !found {
+		return indexedNetworkStatus
+	}
+
+	var networkStatus []networkv1.NetworkStatus
+	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
+		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
+		return indexedNetworkStatus
+	}
+
+	for _, ns := range networkStatus {
+		if ns.Default {
+			continue
+		}
+		indexedNetworkStatus[ns.Interface] = ns
+	}
+
+	return indexedNetworkStatus
 }
