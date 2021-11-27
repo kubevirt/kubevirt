@@ -191,6 +191,13 @@ func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentI
 	return i, nil
 }
 
+func PciAddressToDevID(prefix string, pciAddr string) string {
+	varName := strings.ToLower(pciAddr)
+	varName = strings.Replace(varName, ":", "-", -1)
+	varName = strings.Replace(varName, ".", "-", -1)
+	return fmt.Sprintf("%s-%s", prefix, varName)
+}
+
 func initHandler() {
 	if Handler == nil {
 		Handler = &DeviceUtilsHandler{}
