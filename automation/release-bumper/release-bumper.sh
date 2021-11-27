@@ -73,8 +73,8 @@ function get_updated_versions {
   )
 
   IMPORT_REPOS=(
-    ["KUBEVIRT"]="kubevirt/kubevirt"
-    ["CDI"]="kubevirt/containerized-data-importer-cdi"
+    ["KUBEVIRT"]="kubevirt.io/api"
+    ["CDI"]="kubevirt.io/containerized-data-importer-api"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
     ["SSP"]="kubevirt/ssp-operator"
     ["NMO"]="kubevirt/node-maintenance-operator"

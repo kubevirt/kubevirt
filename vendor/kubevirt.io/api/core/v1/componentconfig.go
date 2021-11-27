@@ -9,8 +9,6 @@ import (
 )
 
 // NodePlacement describes node scheduling configuration.
-//
-// +k8s:openapi-gen=true
 type NodePlacement struct {
 	// nodeSelector is the node selector applied to the relevant kind of pods
 	// It specifies a map of key-value pairs: for the pod to be eligible to run on a node,
@@ -37,11 +35,13 @@ type NodePlacement struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-//
-// +k8s:openapi-gen=true
 type ComponentConfig struct {
-	// nodePlacement decsribes scheduling confiuguration for specific
+	// nodePlacement describes scheduling configuration for specific
 	// KubeVirt components
 	//+optional
 	NodePlacement *NodePlacement `json:"nodePlacement,omitempty"`
+	// replicas indicates how many replicas should be created for each KubeVirt infrastructure
+	// component (like virt-api or virt-controller). Defaults to 2.
+	//+optional
+	Replicas *uint8 `json:"replicas,omitempty"`
 }

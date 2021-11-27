@@ -86,17 +86,20 @@ spec:
   restartPolicy: Never
 EOF
 
-exitCode=""
 for i in $(seq 1 120); do
   exitCode=$($KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" get pod/functest -o jsonpath='{.status .containerStatuses[?(@.name=="functest")] .state .terminated .exitCode}')
 
-  if [[ "${exitCode}" != "" ]]; then
+  if [[ -n ${exitCode} ]]; then
     break
   fi
 
   echo "Waiting for completion... Iteration:$i"
   sleep 10
 done
+
+if [[ -z ${exitCode} ]]; then
+  $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" get pod functest -o yaml || true
+fi
 
 $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" cp -c=copy functest:/test/output "$OUTPUT_DIR"
 $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" logs functest -c functest

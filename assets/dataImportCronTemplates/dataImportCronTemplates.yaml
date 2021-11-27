@@ -7,6 +7,11 @@
         source:
           registry:
             url: docker://quay.io/kubevirt/centos8-container-disk-images
+        storage:
+          resources:
+            requests:
+              storage: 5Gi
+    garbageCollect: Outdated
     managedDataSource: centos8
 - metadata:
     name: fedora-image-cron
@@ -17,4 +22,9 @@
         source:
           registry:
             url: docker://quay.io/kubevirt/fedora-container-disk-images
+        storage:
+          resources:
+            requests:
+              storage: 5Gi
+    garbageCollect: Outdated
     managedDataSource: fedora

@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"kubevirt.io/client-go/apis/core"
+	"kubevirt.io/api/core"
 )
 
 const SubresourceGroupName = "subresources.kubevirt.io"

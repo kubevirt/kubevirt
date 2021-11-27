@@ -28,7 +28,7 @@ import (
 	"regexp"
 	"strings"
 
-	corev1 "kubevirt.io/client-go/apis/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
