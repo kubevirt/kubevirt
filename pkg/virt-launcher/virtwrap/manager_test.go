@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -2163,6 +2164,84 @@ var _ = Describe("migratableDomXML", func() {
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
+})
+
+var _ = Describe("Manager helper functions", func() {
+
+	Context("getVMIEphemeralDisksTotalSize", func() {
+
+		var tmpDir string
+		var zeroQuantity resource.Quantity
+
+		BeforeEach(func() {
+			var err error
+			tmpDir, err = ioutil.TempDir("", "tempdir")
+			Expect(err).ToNot(HaveOccurred())
+			err = os.MkdirAll(tmpDir, 0666)
+			Expect(err).ToNot(HaveOccurred())
+
+			getEphemeralDiskBaseDir = func() string {
+				return tmpDir
+			}
+
+			zeroQuantity = *resource.NewScaledQuantity(0, 0) //resource.Quantity{Format: resource.BinarySI}
+		})
+
+		AfterEach(func() {
+			_ = os.RemoveAll(tmpDir)
+		})
+
+		expectNonZeroQuantity := func() {
+			By("Expecting quantity larger than zero")
+			quantity := getVMIEphemeralDisksTotalSize()
+
+			Expect(quantity).ToNot(BeNil())
+			Expect(quantity).ToNot(Equal(zeroQuantity))
+			quantityValue := quantity.Value()
+			Expect(quantityValue).To(BeNumerically(">", 0))
+		}
+
+		expectZeroQuantity := func() {
+			By("Expecting zero quantity")
+			quantity := getVMIEphemeralDisksTotalSize()
+
+			Expect(quantity).ToNot(BeNil())
+			Expect(*quantity).To(Equal(zeroQuantity))
+			quantityValue := quantity.Value()
+			Expect(quantityValue).To(BeNumerically("==", 0))
+		}
+
+		It("successful run with non-zero size", func() {
+			By("Creating a file with non-zero size")
+			err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expectNonZeroQuantity()
+		})
+
+		It("successful run with zero size", func() {
+			By("Creating a file with non-zero size")
+			err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expectNonZeroQuantity()
+		})
+
+		It("expect zero quantity when path does not exist", func() {
+			By("Mocking base directory that doesn't exist")
+			getEphemeralDiskBaseDir = func() string {
+				return "path_that_doesnt_exist"
+			}
+
+			expectZeroQuantity()
+		})
+
+		It("expect zero quantity in an empty directory", func() {
+			expectZeroQuantity()
+		})
+
+	})
+
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
