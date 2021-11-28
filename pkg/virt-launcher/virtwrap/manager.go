@@ -355,14 +355,17 @@ func getVMIEphemeralDisksTotalSize() *resource.Quantity {
 	baseDir := getEphemeralDiskBaseDir()
 	totalSize := int64(0)
 	err := filepath.Walk(baseDir, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if !f.IsDir() {
 			totalSize += f.Size()
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		log.Log.Reason(err).Warning("failed to get VMI ephemeral disks size")
-		return &resource.Quantity{Format: resource.BinarySI}
+		return resource.NewScaledQuantity(totalSize, 0)
 	}
 
 	return resource.NewScaledQuantity(totalSize, 0)
