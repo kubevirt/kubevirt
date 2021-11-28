@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -2239,6 +2241,62 @@ var _ = Describe("Manager helper functions", func() {
 		It("expect zero quantity in an empty directory", func() {
 			expectZeroQuantity()
 		})
+
+	})
+
+	Context("possibleGuestSize", func() {
+
+		var properDisk api.Disk
+		var fakePercentFloat float64
+
+		BeforeEach(func() {
+			fakePercentFloat = 0.7648
+			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
+
+			properDisk = api.Disk{
+				FilesystemOverhead: &fakePercent,
+				Capacity:           resource.NewScaledQuantity(123, 4),
+			}
+		})
+
+		It("should return correct value", func() {
+			size, ok := possibleGuestSize(properDisk)
+			Expect(ok).To(BeTrue())
+			capacity, ok := properDisk.Capacity.AsInt64()
+			Expect(ok).To(BeTrue())
+
+			expectedSize := int64((1 - fakePercentFloat) * float64(capacity))
+
+			Expect(size).To(Equal(expectedSize))
+		})
+
+		table.DescribeTable("should return error when", func(createDisk func() api.Disk) {
+
+		},
+			table.Entry("disk capacity is nil", func() api.Disk {
+				disk := properDisk
+				disk.Capacity = nil
+				return disk
+			}),
+			table.Entry("disk capacity non-int", func() api.Disk {
+				disk := properDisk
+				nonIntQuantity, ok := resource.ParseQuantity("0.456546456")
+				Expect(ok).To(BeTrue())
+				disk.Capacity = &nonIntQuantity
+				return disk
+			}),
+			table.Entry("filesystem overhead is nil", func() api.Disk {
+				disk := properDisk
+				disk.FilesystemOverhead = nil
+				return disk
+			}),
+			table.Entry("filesystem is non-float", func() api.Disk {
+				disk := properDisk
+				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
+				disk.FilesystemOverhead = &fakePercent
+				return disk
+			}),
+		)
 
 	})
 
