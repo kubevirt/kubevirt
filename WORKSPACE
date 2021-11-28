@@ -1028,49 +1028,73 @@ rpm(
 rpm(
     name = "device-mapper-8__1.02.181-1.el8.aarch64",
     sha256 = "75017861aeef44550dad70302fa9bca2814515d10283bda29501698fd6c93490",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-1.02.181-1.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-1.02.181-1.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/75017861aeef44550dad70302fa9bca2814515d10283bda29501698fd6c93490",
+    ],
 )
 
 rpm(
     name = "device-mapper-8__1.02.181-1.el8.x86_64",
     sha256 = "f07a8c527c540ab3984a2b8c537188b11b11ee19f5362b48dcdc2d976cc14ffd",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-1.02.181-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-1.02.181-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f07a8c527c540ab3984a2b8c537188b11b11ee19f5362b48dcdc2d976cc14ffd",
+    ],
 )
 
 rpm(
     name = "device-mapper-event-8__1.02.181-1.el8.x86_64",
     sha256 = "08345e8633a8cc8d653ae5bf9de4dad3fcc2126e7b0337714f4f7b2cb7ff9d24",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-event-1.02.181-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-event-1.02.181-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/08345e8633a8cc8d653ae5bf9de4dad3fcc2126e7b0337714f4f7b2cb7ff9d24",
+    ],
 )
 
 rpm(
     name = "device-mapper-event-libs-8__1.02.181-1.el8.x86_64",
     sha256 = "4daaeff710f6e3a8379d24fbe70e816bf3925a7f797491e59926cafa7eae3ca0",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-event-libs-1.02.181-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-event-libs-1.02.181-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4daaeff710f6e3a8379d24fbe70e816bf3925a7f797491e59926cafa7eae3ca0",
+    ],
 )
 
 rpm(
     name = "device-mapper-libs-8__1.02.181-1.el8.aarch64",
     sha256 = "9c07c99ed19ea5864d11d7e656f60b7a16bce9894e283f048011cfbfc955a15e",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-libs-1.02.181-1.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-libs-1.02.181-1.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/9c07c99ed19ea5864d11d7e656f60b7a16bce9894e283f048011cfbfc955a15e",
+    ],
 )
 
 rpm(
     name = "device-mapper-libs-8__1.02.181-1.el8.x86_64",
     sha256 = "d5a65da7489ef48ee365a81a197b99b7a46c242fdbc4cc42b12976bf73aca564",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-libs-1.02.181-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-libs-1.02.181-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d5a65da7489ef48ee365a81a197b99b7a46c242fdbc4cc42b12976bf73aca564",
+    ],
 )
 
 rpm(
     name = "device-mapper-multipath-libs-0__0.8.4-19.el8.aarch64",
     sha256 = "3fdab7e2480a8bef23801206e5da46e3d09a670f903f2dde5a34780873a90869",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-multipath-libs-0.8.4-19.el8.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/device-mapper-multipath-libs-0.8.4-19.el8.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3fdab7e2480a8bef23801206e5da46e3d09a670f903f2dde5a34780873a90869",
+    ],
 )
 
 rpm(
     name = "device-mapper-multipath-libs-0__0.8.4-19.el8.x86_64",
     sha256 = "70604e18521fadae6334374851e1ed35952b754ff4f14f7f15916f7ee0ddbfcd",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-multipath-libs-0.8.4-19.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/device-mapper-multipath-libs-0.8.4-19.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/70604e18521fadae6334374851e1ed35952b754ff4f14f7f15916f7ee0ddbfcd",
+    ],
 )
 
 rpm(
@@ -2003,13 +2027,19 @@ rpm(
 rpm(
     name = "kernel-headers-0__4.18.0-348.2.1.el8_5.aarch64",
     sha256 = "d9143f73a6aba8d86ea92886530161db15dfb42547eb10be6e8abae66c7e80d7",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/kernel-headers-4.18.0-348.2.1.el8_5.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/kernel-headers-4.18.0-348.2.1.el8_5.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/d9143f73a6aba8d86ea92886530161db15dfb42547eb10be6e8abae66c7e80d7",
+    ],
 )
 
 rpm(
     name = "kernel-headers-0__4.18.0-348.2.1.el8_5.x86_64",
     sha256 = "929a567ed8f80e2fa701425338013c4453be02d3c7d3b9b6c6733b38c559711d",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-348.2.1.el8_5.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-348.2.1.el8_5.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/929a567ed8f80e2fa701425338013c4453be02d3c7d3b9b6c6733b38c559711d",
+    ],
 )
 
 rpm(
@@ -3518,13 +3548,19 @@ rpm(
 rpm(
     name = "lvm2-8__2.03.14-1.el8.x86_64",
     sha256 = "020d59d3269a73d6a5cb91bfe3910b8dbbd3fc99c378fb1bc72a37fc17528c82",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/lvm2-2.03.14-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/lvm2-2.03.14-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/020d59d3269a73d6a5cb91bfe3910b8dbbd3fc99c378fb1bc72a37fc17528c82",
+    ],
 )
 
 rpm(
     name = "lvm2-libs-8__2.03.14-1.el8.x86_64",
     sha256 = "b7873f99a7e76627e0443b4ba342d79f72d35661246a934577b99fe5f3cff188",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/lvm2-libs-2.03.14-1.el8.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/lvm2-libs-2.03.14-1.el8.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b7873f99a7e76627e0443b4ba342d79f72d35661246a934577b99fe5f3cff188",
+    ],
 )
 
 rpm(
