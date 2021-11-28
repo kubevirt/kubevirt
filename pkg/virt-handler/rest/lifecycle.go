@@ -57,17 +57,20 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	err = client.PauseVirtualMachine(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to pause VMI")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -85,17 +88,20 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	err = client.UnpauseVirtualMachine(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to unpause VMI")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -137,11 +143,13 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	unfreezeTimeoutSeconds := int32(unfreezeTimeout.UnfreezeTimeout.Seconds())
@@ -149,6 +157,7 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to freeze VMI")
 		response.WriteError(http.StatusBadRequest, err)
+		return
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -166,17 +175,20 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	err = client.UnfreezeVirtualMachine(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to unfreeze VMI")
 		response.WriteError(http.StatusBadRequest, err)
+		return
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -197,17 +209,20 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	guestInfo, err := client.GetGuestInfo()
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to get guest info")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	log.Log.Object(vmi).Infof("returning guestinfo :%v", guestInfo)
@@ -228,17 +243,20 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	userList, err := client.GetUsers()
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to get user list")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	response.WriteEntity(userList)
@@ -258,17 +276,20 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	fsList, err := client.GetFilesystems()
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to get guest info")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
 	}
 
 	response.WriteEntity(fsList)
