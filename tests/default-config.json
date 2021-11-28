@@ -1,6 +1,5 @@
 {
     "storageClassLocal":       "local",
-    "storageClassHostPath":    "host-path",
     "storageClassHostPathSeparateDevice":    "host-path-sd",
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",

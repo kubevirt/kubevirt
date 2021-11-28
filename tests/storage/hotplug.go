@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -1015,10 +1016,14 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm *v1.VirtualMachine
 		)
 
+		storageClassHostPath := "host-path"
+		immediateBinding := storagev1.VolumeBindingImmediate
+
 		BeforeEach(func() {
+			tests.CreateStorageClass(storageClassHostPath, &immediateBinding)
 			// Setup second PVC to use in this context
-			pvNode := tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
-			tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
+			pvNode := tests.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, tests.HostPathCustom, "1Gi", storageClassHostPath)
+			tests.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
 			template := libvmi.NewCirros()
 			if pvNode != "" {
 				template.Spec.NodeSelector = make(map[string]string)
@@ -1034,6 +1039,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		AfterEach(func() {
 			tests.DeletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
+			tests.DeleteStorageClass(storageClassHostPath)
 		})
 
 		It("should attach a hostpath based volume to running VM", func() {
