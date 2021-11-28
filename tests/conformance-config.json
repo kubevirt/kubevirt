@@ -1,6 +1,5 @@
 {
     "storageClassLocal":       "local",
-    "storageClassHostPath":    "host-path",
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
     "manageStorageClasses":    false,

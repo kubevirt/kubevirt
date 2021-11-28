@@ -486,8 +486,7 @@ func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
 	if Config.ManageStorageClasses {
-		deleteStorageClass(Config.StorageClassHostPath)
-		deleteStorageClass(Config.StorageClassHostPathSeparateDevice)
+		DeleteStorageClass(Config.StorageClassHostPathSeparateDevice)
 	}
 	CleanNodes()
 }
@@ -671,10 +670,8 @@ func SynchronizedBeforeTestSetup() []byte {
 	}
 
 	if Config.ManageStorageClasses {
-		immediateBinding := storagev1.VolumeBindingImmediate
 		wffc := storagev1.VolumeBindingWaitForFirstConsumer
-		createStorageClass(Config.StorageClassHostPath, &immediateBinding)
-		createStorageClass(Config.StorageClassHostPathSeparateDevice, &wffc)
+		CreateStorageClass(Config.StorageClassHostPathSeparateDevice, &wffc)
 	}
 
 	EnsureKVMPresent()
@@ -815,7 +812,7 @@ func RestoreKubeVirtResource() {
 	}
 }
 
-func createStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
+func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -835,7 +832,7 @@ func createStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 	}
 }
 
-func deleteStorageClass(name string) {
+func DeleteStorageClass(name string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -984,7 +981,8 @@ func CreateSecret(name string, data map[string]string) {
 }
 
 func CreateHostPathPVC(os, size string) {
-	CreatePVC(os, size, Config.StorageClassHostPath, false)
+	sc := "manual"
+	CreatePVC(os, size, sc, false)
 }
 
 func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
@@ -1131,11 +1129,16 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 	}
 }
 
-func CreateHostPathPv(osName string, hostPath string) string {
-	return CreateHostPathPvWithSize(osName, hostPath, "1Gi")
+func CreateHostPathPv(osName, hostPath string) string {
+	return createHostPathPvWithSize(osName, hostPath, "1Gi")
 }
 
-func CreateHostPathPvWithSize(osName string, hostPath string, size string) string {
+func createHostPathPvWithSize(osName, hostPath, size string) string {
+	sc := "manual"
+	return CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc)
+}
+
+func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) string {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -1165,7 +1168,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) strin
 					Type: &hostPathType,
 				},
 			},
-			StorageClassName: Config.StorageClassHostPath,
+			StorageClassName: sc,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
