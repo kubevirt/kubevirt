@@ -29,7 +29,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["wrapped_test.go"],
+    srcs = [
+        "ssh_suite_test.go",
+        "wrapped_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//vendor/github.com/onsi/ginkgo:go_default_library",
