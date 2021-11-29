@@ -16,7 +16,7 @@
 # Copyright 2020 Red Hat, Inc.
 #
 
-source ../common.sh
+source $(dirname "$0")/../common.sh
 
 readonly PROM_IMAGE="docker.io/prom/prometheus:v2.15.2"
 

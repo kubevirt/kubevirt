@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ex
 
-source ../common.sh
+source $(dirname "$0")/../common.sh
 
 SCRIPT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")"
