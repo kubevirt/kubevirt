@@ -13,10 +13,6 @@ else
     export HOST_PORT=$ALTERNATE_HOST_PORT
 fi
 
-#'kubevirt-test-default1' is the default namespace of
-# Kubevirt VGPU tests where the VGPU VM's will be created.
-VGPU_TESTS_NS="${VGPU_TESTS_NS:-kubevirt-test-default1}"
-
 function set_kind_params() {
     export KIND_VERSION="${KIND_VERSION:-0.11.1}"
     export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-quay.io/kubevirtci/kindest_node:v1.19.11@sha256:cbecc517bfad65e368cd7975d1e8a4f558d91160c051d0b1d10ff81488f5fb06}"
@@ -42,16 +38,9 @@ function up() {
 
     ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/config_vgpu_cluster.sh
 
-    # In order to support live migration on containerized cluster we need to workaround
-    # Libvirt uuid check for source and target nodes.
-    # To do that we create PodPreset that mounts fake random product_uuid to virt-launcher pods,
-    # and kubevirt VGPU tests namespace for the PodPrest beforhand.
-    podpreset::expose_unique_product_uuid_per_node "$CLUSTER_NAME" "$VGPU_TESTS_NS"
-
     echo "$KUBEVIRT_PROVIDER cluster '$CLUSTER_NAME' is ready"
 }
 
 set_kind_params
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
-source ${KUBEVIRTCI_PATH}/cluster/kind/podpreset.sh
