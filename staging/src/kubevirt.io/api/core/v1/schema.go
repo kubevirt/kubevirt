@@ -467,6 +467,8 @@ const (
 
 // Represents the user's configuration to emulate sound cards in the VMI.
 type SoundDevice struct {
+	// User's defined name for this sound device
+	Name string `json:"name"`
 	// We only support ich9 or ac97.
 	// If SoundDevice is not set: No sound card is emulated.
 	// If SoundDevice is set but Model is not: ich9

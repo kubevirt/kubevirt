@@ -927,6 +927,7 @@ func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices
 
 	soundCards := make([]api.SoundCard, 1)
 	soundCards[0] = api.SoundCard{
+		Alias: api.NewUserDefinedAlias(sound.Name),
 		Model: model,
 	}
 

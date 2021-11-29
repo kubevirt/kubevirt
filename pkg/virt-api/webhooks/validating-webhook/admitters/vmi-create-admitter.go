@@ -772,6 +772,14 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 				Field:   field.Child("Sound").String(),
 			})
 		}
+		name := spec.Domain.Devices.Sound.Name
+		if name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Sound device requires a name field."),
+				Field:   field.Child("Sound").String(),
+			})
+		}
 	}
 	return causes
 }
