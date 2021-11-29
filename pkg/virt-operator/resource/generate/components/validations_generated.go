@@ -14391,6 +14391,12 @@ var CRDsValidation map[string]string = map[string]string{
                                         emulated. If SoundDevice is set but Model
                                         is not: ich9'
                                       type: string
+                                    name:
+                                      description: User's defined name for this sound
+                                        device
+                                      type: string
+                                  required:
+                                  - name
                                   type: object
                                 useVirtioTransitional:
                                   description: Fall back to legacy virtio 0.9 support
@@ -14686,7 +14692,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         that containes kernel artifacts
                                       properties:
                                         image:
-                                          description: Image that container initrd
+                                          description: Image that contains initrd
                                             / kernel files.
                                           type: string
                                         imagePullPolicy:
