@@ -12,5 +12,5 @@ if [ "${target}" = "build" ]; then
 fi
 
 if [ "${target}" = "push" ]; then
-    docker push ${docker_prefix}/tests:${docker_tag}
+    ${KUBEVIRT_CRI} push ${docker_prefix}/tests:${docker_tag}
 fi
