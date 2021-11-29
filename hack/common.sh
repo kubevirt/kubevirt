@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
 
+determine_cri_bin() {
+    if [ "${KUBEVIRT_CRI}" = "podman" ]; then
+        echo podman
+    elif [ "${KUBEVIRT_CRI}" = "docker" ]; then
+        echo docker
+    else
+        if podman ps >/dev/null 2>&1; then
+            echo podman
+        elif docker ps >/dev/null 2>&1; then
+            echo docker
+        else
+            echo >&2 "no working container runtime found. Neither docker nor podman seems to work."
+            exit 1
+        fi
+    fi
+}
+
 if [ -f cluster-up/hack/common.sh ]; then
     source cluster-up/hack/common.sh
 fi
@@ -25,6 +42,7 @@ ARCHITECTURE="${BUILD_ARCH:-$(uname -m)}"
 HOST_ARCHITECTURE="$(uname -m)"
 KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 OPERATOR_MANIFEST_PATH=$MANIFESTS_OUT_DIR/release/kubevirt-operator.yaml
+export KUBEVIRT_CRI="$(determine_cri_bin)"
 
 function build_func_tests() {
     mkdir -p "${TESTS_OUT_DIR}/"
@@ -39,7 +57,7 @@ function build_func_tests_image() {
         ${TESTS_OUT_DIR}/
     rsync -ar ${KUBEVIRT_DIR}/manifests/ ${TESTS_OUT_DIR}/manifests
     cd ${TESTS_OUT_DIR}
-    docker build \
+    ${KUBEVIRT_CRI} build \
         -t ${docker_prefix}/${bin_name}:${docker_tag} \
         --label ${job_prefix} \
         --label ${bin_name} .
