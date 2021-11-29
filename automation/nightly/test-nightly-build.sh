@@ -44,6 +44,7 @@ sed -i "s#quay.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
 sed -i "s#^KUBEVIRT_VERSION=.*#KUBEVIRT_VERSION=\"${kv_tag}\"#" hack/config
 (cd ./tools/digester && go build .)
 export HCO_VERSION="${IMAGE_TAG}"
+export DOCKER_API_VERSION=1.40
 ./automation/digester/update_images.sh
 
 HCO_OPERATOR_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_OPERATOR_IMAGE}:${IMAGE_TAG})
