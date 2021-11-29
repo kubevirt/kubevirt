@@ -165,6 +165,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logVirtLauncherCommands(virtCli, networkPodsDir)
 	r.logVirtLauncherPrivilegedCommands(virtCli, networkPodsDir, virtHandlerPods)
 	r.logVMICommands(virtCli, vmiNamespaces)
+
+	r.logCloudInit(virtCli, vmiNamespaces)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -382,6 +384,30 @@ func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, vmiN
 
 			r.executeVMICommands(vmi, logsdir, vmiType)
 		}
+	}
+}
+
+func (r *KubernetesReporter) logCloudInit(virtCli kubecli.KubevirtClient, vmiNamespaces []string) {
+	runningVMIs := getRunningVMIs(virtCli, vmiNamespaces)
+
+	if len(runningVMIs) < 1 {
+		return
+	}
+
+	logsDir := filepath.Join(r.artifactsDir, "cloud-init")
+	if err := os.MkdirAll(logsDir, 0777); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create directory %s: %v\n", logsDir, err)
+		return
+	}
+
+	for _, vmi := range runningVMIs {
+		vmiType, err := getVmiType(vmi)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
+			continue
+		}
+
+		r.executeCloudInitCommands(vmi, logsDir, vmiType)
 	}
 }
 
@@ -735,6 +761,39 @@ func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList 
 	}
 
 	return vmis
+}
+
+func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.VirtualMachineInstance {
+	runningVMIs := []v12.VirtualMachineInstance{}
+
+	for _, ns := range namespace {
+		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(&metav1.ListOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get vmis from namespace %s: %v\n", ns, err)
+			continue
+		}
+
+		for _, vmi := range nsVMIs.Items {
+			if vmi.Status.Phase != v12.Running {
+				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: phase is not Running\n", vmi.Namespace, vmi.Name)
+				continue
+			}
+
+			vmiType, err := getVmiType(vmi)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
+				continue
+			}
+
+			if err := prepareVmiConsole(vmi, vmiType); err != nil {
+				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed login: %v\n", vmi.Namespace, vmi.Name, err)
+				continue
+			}
+			runningVMIs = append(runningVMIs, vmi)
+		}
+	}
+
+	return runningVMIs
 }
 
 func getNodeList(virtCli kubecli.KubevirtClient) *v1.NodeList {
@@ -1112,6 +1171,37 @@ func (r *KubernetesReporter) executePriviledgedVirtLauncherCommands(virtCli kube
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write %s %s output: %v\n", target, "nftlist", err)
 		return
+	}
+}
+
+func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInstance, path string, vmiType string) {
+	var cmds []commands
+
+	if vmiType == "fedora" {
+		cmds = append(cmds, []commands{
+			{command: "cat /var/log/cloud-init.log", fileNameSuffix: "cloud-init-log"},
+			{command: "cat /var/log/cloud-init-output.log", fileNameSuffix: "cloud-init-output"},
+			{command: "cat /var/run/cloud-init/status.json", fileNameSuffix: "cloud-init-status"},
+		}...)
+	}
+	for _, cmd := range cmds {
+		res, err := console.SafeExpectBatchWithResponse(&vmi, []expect.Batcher{
+			&expect.BSnd{S: cmd.command + "\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+		}, 10)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed console vmi %s/%s: %v\n", vmi.Namespace, vmi.Name, err)
+			continue
+		}
+
+		fileName := fmt.Sprintf("%d_%s_%s_%s.log", r.failureCount, vmi.Namespace, vmi.Name, cmd.fileNameSuffix)
+		err = writeStringToFile(filepath.Join(path, fileName), res[0].Output)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write vmi %s/%s %s output: %v\n", vmi.Namespace, vmi.Name, cmd.fileNameSuffix, err)
+			continue
+		}
 	}
 }
 
