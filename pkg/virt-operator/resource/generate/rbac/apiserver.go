@@ -149,6 +149,17 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{
+					"controllerrevisions",
+				},
+				Verbs: []string{
+					"create", "get",
+				},
+			},
+			{
+				APIGroups: []string{
 					"apiextensions.k8s.io",
 				},
 				Resources: []string{

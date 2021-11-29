@@ -53,6 +53,7 @@ type VMsAdmitter struct {
 	FlavorMethods      flavor.Methods
 	ClusterConfig      *virtconfig.ClusterConfig
 	cloneAuthFunc      CloneAuthFunc
+	client             kubecli.KubevirtClient
 }
 
 type sarProxy struct {
@@ -69,7 +70,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	return &VMsAdmitter{
 		VMIInformer:        informers.VMIInformer,
 		DataSourceInformer: informers.DataSourceInformer,
-		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
+		FlavorMethods:      flavor.NewMethods(client, informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
 
 		ClusterConfig: clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {

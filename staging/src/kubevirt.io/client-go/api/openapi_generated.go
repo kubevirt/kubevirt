@@ -349,6 +349,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Firmware":                                                           schema_kubevirtio_api_core_v1_Firmware(ref),
 		"kubevirt.io/api/core/v1.Flags":                                                              schema_kubevirtio_api_core_v1_Flags(ref),
 		"kubevirt.io/api/core/v1.FlavorMatcher":                                                      schema_kubevirtio_api_core_v1_FlavorMatcher(ref),
+		"kubevirt.io/api/core/v1.FlavorRevisionSpec":                                                 schema_kubevirtio_api_core_v1_FlavorRevisionSpec(ref),
 		"kubevirt.io/api/core/v1.FloppyTarget":                                                       schema_kubevirtio_api_core_v1_FloppyTarget(ref),
 		"kubevirt.io/api/core/v1.FreezeUnfreezeTimeout":                                              schema_kubevirtio_api_core_v1_FreezeUnfreezeTimeout(ref),
 		"kubevirt.io/api/core/v1.GPU":                                                                schema_kubevirtio_api_core_v1_GPU(ref),
@@ -16086,6 +16087,25 @@ func schema_kubevirtio_api_core_v1_FlavorMatcher(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_api_core_v1_FlavorRevisionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is name of flavor revision",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_FloppyTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21281,11 +21301,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineStartFailure"),
 						},
 					},
+					"flavorRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FlavorSnapshot references a revision of flavor that is used to fill fields in Template",
+							Ref:         ref("kubevirt.io/api/core/v1.FlavorRevisionSpec"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
+			"kubevirt.io/api/core/v1.FlavorRevisionSpec", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
 	}
 }
 

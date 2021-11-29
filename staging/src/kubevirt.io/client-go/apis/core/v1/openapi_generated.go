@@ -443,6 +443,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.Firmware":                                                schema_client_go_apis_core_v1_Firmware(ref),
 		"kubevirt.io/client-go/apis/core/v1.Flags":                                                   schema_client_go_apis_core_v1_Flags(ref),
 		"kubevirt.io/client-go/apis/core/v1.FlavorMatcher":                                           schema_client_go_apis_core_v1_FlavorMatcher(ref),
+		"kubevirt.io/client-go/apis/core/v1.FlavorRevisionSpec":                                      schema_client_go_apis_core_v1_FlavorRevisionSpec(ref),
 		"kubevirt.io/client-go/apis/core/v1.FloppyTarget":                                            schema_client_go_apis_core_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/apis/core/v1.FreezeUnfreezeTimeout":                                   schema_client_go_apis_core_v1_FreezeUnfreezeTimeout(ref),
 		"kubevirt.io/client-go/apis/core/v1.GPU":                                                     schema_client_go_apis_core_v1_GPU(ref),
@@ -20818,6 +20819,32 @@ func schema_client_go_apis_core_v1_FlavorMatcher(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_client_go_apis_core_v1_FlavorRevisionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is name of flavor revision",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace is location where flavor revision is stored",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_client_go_apis_core_v1_FloppyTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25627,6 +25654,12 @@ func schema_client_go_apis_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 							Ref:         ref("kubevirt.io/client-go/apis/core/v1.FlavorMatcher"),
 						},
 					},
+					"flavorRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FlavorSnapshot references a revision of flavor that is used to fill fields in Template",
+							Ref:         ref("kubevirt.io/client-go/apis/core/v1.FlavorRevisionSpec"),
+						},
+					},
 					"template": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Template is the direct specification of VirtualMachineInstance",
@@ -25651,7 +25684,7 @@ func schema_client_go_apis_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/apis/core/v1.FlavorMatcher", "kubevirt.io/client-go/apis/core/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/apis/core/v1.FlavorMatcher", "kubevirt.io/client-go/apis/core/v1.FlavorRevisionSpec", "kubevirt.io/client-go/apis/core/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 

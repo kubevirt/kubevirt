@@ -151,6 +151,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				Verbs: []string{
 					"watch",
 					"list",
+					"get",
 					"create",
 					"delete",
 					"patch",

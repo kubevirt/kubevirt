@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -33,6 +34,7 @@ import (
 
 type VMsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	FlavorMethods flavor.Methods
 }
 
 // until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
@@ -67,6 +69,12 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
 	mutator.setDefaultMachineType(&vm)
 
+	err = mutator.createFlavorRevision(&vm)
+	if err != nil {
+		log.Log.V(1).Warningf("vm-mutator: unable to create flavor revision: " + err.Error())
+		return emptyValidResponse()
+	}
+
 	var patch []utiltypes.PatchOperation
 	var value interface{}
 	value = vm.Spec
@@ -83,6 +91,15 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Value: value,
 	})
 
+	if vm.Status.FlavorRevision != nil {
+		value = vm.Status.FlavorRevision
+		patch = append(patch, utiltypes.PatchOperation{
+			Op:    "replace",
+			Path:  "/status/flavorRevision",
+			Value: value,
+		})
+
+	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		log.Log.V(1).Warningf("vm-mutator: unable to marshal object in request")
@@ -95,6 +112,10 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
+}
+
+func (mutator *VMsMutator) createFlavorRevision(vm *v1.VirtualMachine) error {
+	return mutator.FlavorMethods.CreateFlavorRevision(vm)
 }
 
 func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {

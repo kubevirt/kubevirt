@@ -112,6 +112,7 @@ rules:
   verbs:
   - watch
   - list
+  - get
   - create
   - delete
   - patch
@@ -302,6 +303,13 @@ rules:
   verbs:
   - watch
   - list
+- apiGroups:
+  - apps
+  resources:
+  - controllerrevisions
+  verbs:
+  - create
+  - get
 - apiGroups:
   - apiextensions.k8s.io
   resources:

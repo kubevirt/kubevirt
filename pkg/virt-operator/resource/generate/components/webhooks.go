@@ -162,7 +162,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
-						Resources:   []string{"virtualmachines"},
+						Resources:   []string{"virtualmachines", "virtualmachines/status"},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{

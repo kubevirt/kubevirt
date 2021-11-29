@@ -9,8 +9,9 @@ import (
 )
 
 type MockFlavorMethods struct {
-	FindFlavorFunc func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error)
-	ApplyToVmiFunc func(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
+	FindFlavorFunc           func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error)
+	ApplyToVmiFunc           func(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
+	CreateFlavorRevisionFunc func(vm *v1.VirtualMachine) error
 }
 
 func (m *MockFlavorMethods) FindProfile(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
@@ -21,12 +22,19 @@ func (m *MockFlavorMethods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1al
 	return m.ApplyToVmiFunc(field, profile, vmiSpec)
 }
 
+func (m *MockFlavorMethods) CreateFlavorRevision(vm *v1.VirtualMachine) error {
+	return m.CreateFlavorRevisionFunc(vm)
+}
+
 func NewMockFlavorMethods() *MockFlavorMethods {
 	return &MockFlavorMethods{
 		FindFlavorFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 			return nil, nil
 		},
 		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+			return nil
+		},
+		CreateFlavorRevisionFunc: func(_ *v1.VirtualMachine) error {
 			return nil
 		},
 	}

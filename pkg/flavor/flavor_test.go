@@ -24,7 +24,7 @@ var _ = Describe("Flavor", func() {
 	BeforeEach(func() {
 		flavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineFlavor{})
 		clusterFlavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterFlavor{})
-		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore())
+		flavorMethods = flavor.NewMethods(nil, flavorInformer.GetStore(), clusterFlavorInformer.GetStore())
 	})
 
 	Context("Find Flavor profile", func() {

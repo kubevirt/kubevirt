@@ -5467,6 +5467,14 @@ var CRDsValidation map[string]string = map[string]string{
           description: Created indicates if the virtual machine is created in the
             cluster
           type: boolean
+        flavorRevision:
+          description: FlavorSnapshot references a revision of flavor that is used
+            to fill fields in Template
+          properties:
+            name:
+              description: Name is name of flavor revision
+              type: string
+          type: object
         printableStatus:
           description: PrintableStatus is a human readable, high-level representation
             of the status of the virtual machine
@@ -15982,6 +15990,14 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Created indicates if the virtual machine is created
                         in the cluster
                       type: boolean
+                    flavorRevision:
+                      description: FlavorSnapshot references a revision of flavor
+                        that is used to fill fields in Template
+                      properties:
+                        name:
+                          description: Name is name of flavor revision
+                          type: string
+                      type: object
                     printableStatus:
                       description: PrintableStatus is a human readable, high-level
                         representation of the status of the virtual machine

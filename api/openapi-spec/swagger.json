@@ -11990,6 +11990,15 @@
      }
     }
    },
+   "v1.FlavorRevisionSpec": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name is name of flavor revision",
+      "type": "string"
+     }
+    }
+   },
    "v1.FloppyTarget": {
     "type": "object",
     "properties": {
@@ -14689,6 +14698,10 @@
      "created": {
       "description": "Created indicates if the virtual machine is created in the cluster",
       "type": "boolean"
+     },
+     "flavorRevision": {
+      "description": "FlavorSnapshot references a revision of flavor that is used to fill fields in Template",
+      "$ref": "#/definitions/v1.FlavorRevisionSpec"
      },
      "printableStatus": {
       "description": "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",

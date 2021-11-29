@@ -80,6 +80,7 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
 	review.Request.OldObject = runtime.RawExtension{}
 
 	responseBytes, err := json.Marshal(response)
+
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed json encode webhook response")
 		resp.WriteHeader(http.StatusBadRequest)

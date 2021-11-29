@@ -316,6 +316,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
+		"flavorRevision":         "FlavorSnapshot references a revision of flavor that is used to fill fields in Template",
 	}
 }
 
@@ -712,5 +713,12 @@ func (FlavorMatcher) SwaggerDoc() map[string]string {
 		"name":    "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
 		"kind":    "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
 		"profile": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.\n+optional",
+	}
+}
+
+func (FlavorRevisionSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "+k8s:openapi-gen=true",
+		"name": "Name is name of flavor revision",
 	}
 }

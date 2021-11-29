@@ -535,7 +535,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore()),
+		flavor.NewMethods(vca.clientSet, vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore()),
 		recorder,
 		vca.clientSet)
 }

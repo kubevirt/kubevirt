@@ -1278,6 +1278,9 @@ type VirtualMachineStatus struct {
 	// +nullable
 	// +optional
 	StartFailure *VirtualMachineStartFailure `json:"startFailure,omitempty" optional:"true"`
+
+	// FlavorSnapshot references a revision of flavor that is used to fill fields in Template
+	FlavorRevision *FlavorRevisionSpec `json:"flavorRevision,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -2087,4 +2090,10 @@ type FlavorMatcher struct {
 	// Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.
 	// +optional
 	Profile string `json:"profile,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type FlavorRevisionSpec struct {
+	// Name is name of flavor revision
+	Name string `json:"name,omitempty"`
 }
