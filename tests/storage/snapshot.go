@@ -591,7 +591,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 			})
 
-			It("should succeed online snapshot with hot plug disk", func() {
+			It("[test_id:7472]should succeed online snapshot with hot plug disk", func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
