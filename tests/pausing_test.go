@@ -72,10 +72,12 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:4597]should signal paused state with condition", func() {
 				runVMI()
 
-				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
-				virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(vmi.Name, &v1.UnpauseOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(vmi.Name, &v1.UnpauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 			})
 		})
@@ -189,6 +191,22 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, time.Duration(5)*time.Second).Should(BeTrue())
 			})
 		})
+
+		It("should not appear as ready when paused", func() {
+			runVMI()
+
+			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 30)
+
+			By("Pausing the VMI and expecting to become unready")
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, 30)
+
+			By("Unpausing the VMI and expecting to become ready")
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(vmi.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 30)
+		})
 	})
 
 	Context("A valid VM", func() {
@@ -207,10 +225,12 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				runVM()
 
-				virtClient.VirtualMachineInstance(vm.Namespace).Pause(vm.Name, &v1.PauseOptions{})
+				err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(vm.Name, &v1.PauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
 
-				virtClient.VirtualMachineInstance(vm.Namespace).Unpause(vm.Name, &v1.UnpauseOptions{})
+				err = virtClient.VirtualMachineInstance(vm.Namespace).Unpause(vm.Name, &v1.UnpauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVMConditionRemovedOrFalse(virtClient, vm, v1.VirtualMachinePaused, 30)
 			})
 

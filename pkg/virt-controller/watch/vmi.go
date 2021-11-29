@@ -334,30 +334,6 @@ func (c *VMIController) execute(key string) error {
 
 }
 
-// verifies all conditions match even if they are not in the same order
-func conditionsEqual(a []virtv1.VirtualMachineInstanceCondition, b []virtv1.VirtualMachineInstanceCondition) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, aVal := range a {
-		found := false
-
-		for _, bVal := range b {
-			if reflect.DeepEqual(aVal, bVal) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
 
 	if curPodImage != "" && curPodImage != c.templateService.GetLauncherImage() {
@@ -416,6 +392,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	podConditionManager := controller.NewPodConditionManager()
 	vmiCopy := vmi.DeepCopy()
 	vmiPodExists := podExists(pod) && !isTempPod(pod)
 	tempPodExists := podExists(pod) && isTempPod(pod)
@@ -426,6 +403,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	c.syncReadyConditionFromPod(vmiCopy, pod)
+	if vmiPodExists {
+		err := c.syncPausedConditionToPod(vmiCopy, pod)
+		if err != nil {
+			return fmt.Errorf("error syncing paused condition to pod: %v", err)
+		}
+	}
 
 	switch {
 	case vmi.IsUnprocessed():
@@ -453,8 +436,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 				if tempPodExists {
 					// Add PodScheduled False condition to the VM
-					if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
-						conditionManager.AddPodCondition(vmiCopy, cond)
+					if podConditionManager.HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse) {
+						conditionManager.AddPodCondition(vmiCopy, podConditionManager.GetCondition(pod, k8sv1.PodScheduled))
 					} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
 						// Remove PodScheduling condition from the VM
 						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
@@ -494,8 +477,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			}
 
 			// Add PodScheduled False condition to the VM
-			if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
-				conditionManager.AddPodCondition(vmiCopy, cond)
+			if podConditionManager.HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse) {
+				conditionManager.AddPodCondition(vmiCopy, podConditionManager.GetCondition(pod, k8sv1.PodScheduled))
 			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
 				// Remove PodScheduling condition from the VM
 				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
@@ -598,7 +581,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
-		patchBytes, err := preparePatch(vmi, vmiCopy)
+		patchBytes, err := prepareVMIPatch(vmi, vmiCopy)
 		if err != nil {
 			return fmt.Errorf("error preparing VMI patch: %v", err)
 		}
@@ -639,7 +622,32 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	return nil
 }
 
-func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error) {
+func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
+	var patchOps []string
+
+	podConditions := controller.NewPodConditionManager()
+	if !podConditions.ConditionsEqual(oldPod, newPod) {
+
+		newConditions, err := json.Marshal(newPod.Status.Conditions)
+		if err != nil {
+			return nil, err
+		}
+		oldConditions, err := json.Marshal(oldPod.Status.Conditions)
+		if err != nil {
+			return nil, err
+		}
+
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions)))
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
+	}
+
+	if len(patchOps) == 0 {
+		return nil, nil
+	}
+	return controller.GeneratePatchBytes(patchOps), nil
+}
+
+func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error) {
 	var patchOps []string
 
 	if !reflect.DeepEqual(newVMI.Status.VolumeStatus, oldVMI.Status.VolumeStatus) {
@@ -661,7 +669,8 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 		log.Log.V(3).Object(oldVMI).Infof("Patching Volume Status")
 	}
 	// We don't own the object anymore, so patch instead of update
-	if !conditionsEqual(newVMI.Status.Conditions, oldVMI.Status.Conditions) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	if !vmiConditions.ConditionsEqual(oldVMI, newVMI) {
 
 		newConditions, err := json.Marshal(newVMI.Status.Conditions)
 		if err != nil {
@@ -730,11 +739,12 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 }
 
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
-	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	podConditions := controller.NewPodConditionManager()
 
 	now := v1.Now()
 	if pod == nil || isTempPod(pod) {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.PodNotExistsReason,
@@ -744,7 +754,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		})
 
 	} else if isPodDownOrGoingDown(pod) {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.PodTerminatingReason,
@@ -754,7 +764,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		})
 
 	} else if !vmi.IsRunning() {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.GuestNotRunningReason,
@@ -763,8 +773,8 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 
-	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+	} else if podReadyCond := podConditions.GetCondition(pod, k8sv1.PodReady); podReadyCond != nil {
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             podReadyCond.Status,
 			Reason:             podReadyCond.Reason,
@@ -774,7 +784,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		})
 
 	} else {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.PodConditionMissingReason,
@@ -783,6 +793,58 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 	}
+}
+
+func (c *VMIController) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	podConditions := controller.NewPodConditionManager()
+
+	podCopy := pod.DeepCopy()
+	now := v1.Now()
+	if vmiConditions.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
+		if podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+				Type:               virtv1.VirtualMachineUnpaused,
+				Status:             k8sv1.ConditionFalse,
+				Reason:             "Paused",
+				Message:            "the virtual machine is paused",
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+			})
+		}
+	} else {
+		if !podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+				Type:               virtv1.VirtualMachineUnpaused,
+				Status:             k8sv1.ConditionTrue,
+				Reason:             "NotPaused",
+				Message:            "the virtual machine is not paused",
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+			})
+		}
+	}
+
+	// Patch pod
+	patchBytes, err := preparePodPatch(pod, podCopy)
+	if err != nil {
+		return fmt.Errorf("error preparing pod patch: %v", err)
+	}
+
+	if len(patchBytes) > 0 {
+		log.Log.V(3).Object(pod).Infof("Patching pod conditions")
+
+		_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{}, "status")
+		// We could not retry if the "test" fails but we have no sane way to detect that right now:
+		// https://github.com/kubernetes/kubernetes/issues/68202 for details
+		// So just retry like with any other errors
+		if err != nil {
+			log.Log.Object(pod).Errorf("Patching of pod conditions failed: %v", err)
+			return fmt.Errorf("patching of pod conditions failed: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // checkForContainerImageError checks if an error has occured while handling the image of any of the pod's containers

@@ -961,7 +961,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(func() bool {
 					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return newVM.Status.Ready
+					return newVM.Status.Created
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Getting running VirtualMachineInstance with paused condition")
@@ -1461,7 +1461,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Eventually(func() bool {
 						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						return virtualMachine.Status.Ready
+						return virtualMachine.Status.Created
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 					By("Getting running VirtualMachineInstance with paused condition")
