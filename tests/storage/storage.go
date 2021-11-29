@@ -110,7 +110,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			AfterEach(func() {
-				tests.RemoveErrorDisk(nodeName, address)
+				tests.RemoveSCSIDisk(nodeName, address)
 			})
 
 			It(" should pause VMI on IO error", func() {
@@ -1160,6 +1160,61 @@ var _ = SIGDescribe("Storage", func() {
 				By("Checking that the virt-launcher pod spec contains the volumeDevice")
 				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
 				Expect(runningPod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal("disk0"))
+			})
+
+		})
+
+		Context("with lun disk", func() {
+			var (
+				nodeName, address, device string
+				pvc                       *k8sv1.PersistentVolumeClaim
+			)
+			addPVCLunDisk := func(vmi *virtv1.VirtualMachineInstance, deviceName, claimName string) {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
+					Name: deviceName,
+					DiskDevice: virtv1.DiskDevice{
+						LUN: &virtv1.LunTarget{
+							Bus:      "scsi",
+							ReadOnly: false,
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name: deviceName,
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: claimName,
+						}},
+					},
+				})
+
+			}
+
+			BeforeEach(func() {
+				nodeName = tests.NodeNameWithHandler()
+				address, device = tests.CreateSCSIDisk(nodeName, []string{})
+				var err error
+				_, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, util.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
+			})
+
+			AfterEach(func() {
+				tests.RemoveSCSIDisk(nodeName, address)
+			})
+
+			It("should run the VMI", func() {
+				By("Creating VMI with LUN disk")
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				addPVCLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
+				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Failed to create vmi")
+
+				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil(), "Failed to delete VMI")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 
 		})
