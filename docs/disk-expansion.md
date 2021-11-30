@@ -29,3 +29,24 @@ To expand a disk, edit the matching PersistentVolumeClaim:
 And increase the spec.resource.requests.storage to a larger size.
 A running VMI will be notified that the disk has been expanded.
 File systems remain unchanged - they need to be expanded to use the remaining data.
+
+## Why do we not expand file systems?
+
+An operating system may do its own caching of disk writes, and to expand a file
+system we need to write to portions of the disk that are already in use. This
+may result in corrupt data, unless the operating system expects this kind of
+operation to happen.
+
+For this reason we do not increase the file system size automatically.
+
+## Why is the DataVolume size and the VirtualMachine size unchanged?
+
+The DataVolume and VirtualMachine specs are currently immutable and are not updated to match the
+growing PersistentVolumeClaim.
+
+Additionally, DataVolumes are predecessors to PVC populators (still in progress), and in the future,
+will be unlinked and garbage-collected by kubernetes once the import is done.  
+They are not expected to continue to be used after the import is done.
+
+If you wish to track the current PVC size for a given VirtualMachineInstance without finding the
+matching PVC, you can inspect the vmi.status.volumeStatus PersistentVolumeClaimInfo field.
