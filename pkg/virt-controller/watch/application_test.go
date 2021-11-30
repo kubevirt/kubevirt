@@ -85,7 +85,8 @@ var _ = Describe("Application", func() {
 		nodeInformer, _ := testutils.NewFakeInformerFor(&kubev1.Node{})
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
-		config, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
 		pdbInformer, _ := testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -204,7 +205,7 @@ var _ = Describe("Application", func() {
 
 			app := VirtControllerApp{}
 
-			clusterConfig, _, crdInformer, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+			clusterConfig, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			app.clusterConfig = clusterConfig
 			app.reInitChan = make(chan string, 10)
 			app.hasCDI = hasCDIAtInit

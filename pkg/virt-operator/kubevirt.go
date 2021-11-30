@@ -27,22 +27,21 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
-
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
@@ -54,6 +53,8 @@ const (
 	virtOperatorJobAppLabel    = "virt-operator-strategy-dumper"
 	installStrategyKeyTemplate = "%s-%d"
 	defaultAddDelay            = 5 * time.Second
+	obsoleteCmName             = "kubevirt-config"
+	obsoleteCMReason           = "ObsoleteConfigMapExists"
 )
 
 type KubeVirtController struct {
@@ -1150,4 +1151,29 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	logger.Info("Processed deletion for this round")
 	return nil
+}
+
+// checkIfConfigMapStillExists This function validates that the obsolete kubevirt-config configMap is no longer exist.
+// The user should not use this configMap to configure KubeVirt, and KubeVirt will ignore it anyway. In case the configMap
+// still exists, this function emit an event to notify the user, and ask them to delete it.
+func (c *KubeVirtController) checkIfConfigMapStillExists(logger *log.FilteredLogger, stopChan <-chan struct{}) {
+	ctx := context.Background()
+	getOpts := metav1.GetOptions{}
+
+	msg := fmt.Sprintf("the %s configMap is still deployed. KubeVirt does not support this configMap and it can be safely removed", obsoleteCmName)
+
+	go wait.Until(func() {
+		logger.V(5).Info("read the kubevirt-config configMap. if exist, emmit an event")
+		cm, err := c.clientset.CoreV1().ConfigMaps(c.operatorNamespace).Get(ctx, obsoleteCmName, getOpts)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(5).Info("The obsolete kubevirt-config configMap could not be found. good.")
+			} else {
+				logger.Errorf("can't get the kubevirt-config configMap %v", err)
+			}
+		} else {
+			logger.Warning("The obsolete kubevirt-config configMap still exists. Please remove it.")
+			c.recorder.Eventf(cm, k8sv1.EventTypeWarning, obsoleteCMReason, msg)
+		}
+	}, time.Minute*10, stopChan)
 }

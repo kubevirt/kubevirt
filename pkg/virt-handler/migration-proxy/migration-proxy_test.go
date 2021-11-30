@@ -160,7 +160,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				Expect(err).ShouldNot(HaveOccurred())
 
-				config, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: migrationConfig,
 				})
 				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
@@ -228,7 +228,7 @@ var _ = Describe("MigrationProxy", func() {
 				defer directListener.Close()
 
 				Expect(err).ShouldNot(HaveOccurred())
-				config, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: migrationConfig,
 				})
 				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)

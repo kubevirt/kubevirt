@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -39,15 +38,29 @@ import (
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
-	_, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	_, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featureGate},
+					},
+				},
+			},
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: make([]string, 0),
+					},
+				},
+			},
+		})
 	}
 
 	AfterEach(func() {

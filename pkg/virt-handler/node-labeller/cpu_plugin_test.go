@@ -62,7 +62,7 @@ var _ = Describe("Node-labeller config", func() {
 		},
 	}
 
-	clusterConfig, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	BeforeSuite(func() {
 		ctrl := gomock.NewController(GinkgoT())

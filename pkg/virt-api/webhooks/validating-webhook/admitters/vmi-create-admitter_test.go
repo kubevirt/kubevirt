@@ -67,7 +67,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
@@ -3527,7 +3527,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	It("should work for empty network list", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}

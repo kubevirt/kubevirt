@@ -278,8 +278,7 @@ func Execute() {
 	}
 	log.Log.Infof("Operator image: %s", image)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.ConfigMap(),
-		app.informerFactory.CRD(),
+	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.CRD(),
 		app.informerFactory.KubeVirt(),
 		app.operatorNamespace)
 
@@ -383,11 +382,16 @@ func (app *VirtOperatorApp) Run() {
 				OnStartedLeading: func(ctx context.Context) {
 					leaderGauge.Set(1)
 					log.Log.Infof("Started leading")
+
+					log.Log.V(5).Info("start monitoring the kubevirt-config configMap")
+					app.kubeVirtController.checkIfConfigMapStillExists(log.Log, stop)
+
 					// run app
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},
 				OnStoppedLeading: func() {
 					leaderGauge.Set(0)
+					log.Log.V(5).Info("stop monitoring the kubevirt-config configMap")
 					golog.Fatal("leaderelection lost")
 				},
 			},

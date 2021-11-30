@@ -97,7 +97,7 @@ var _ = Describe("Node-labeller ", func() {
 			},
 		}
 
-		config, _, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
+		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
 
 		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata")
 		Expect(err).ToNot(HaveOccurred())

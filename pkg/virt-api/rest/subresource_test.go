@@ -95,7 +95,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		},
 	}
 
-	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {

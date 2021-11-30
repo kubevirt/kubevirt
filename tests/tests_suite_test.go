@@ -42,6 +42,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/performance"
 	_ "kubevirt.io/kubevirt/tests/realtime"
 	_ "kubevirt.io/kubevirt/tests/storage"
+	_ "kubevirt.io/kubevirt/tests/virtoperatorbasic"
 )
 
 var justAfterEachReporter = []reporter.JustAfterEachReporter{}

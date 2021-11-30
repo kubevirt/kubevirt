@@ -156,7 +156,7 @@ func config(featuregates ...string) *virtconfig.ClusterConfig {
 			FeatureGates: featuregates,
 		},
 	}
-	clusterConfig, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(cfg)
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(cfg)
 	return clusterConfig
 }
 

@@ -82,7 +82,7 @@ var _ = Describe("Evacuation", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&v12.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
-		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)

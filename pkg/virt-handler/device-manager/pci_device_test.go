@@ -125,7 +125,7 @@ pciHostDevices:
 				Phase: v1.KubeVirtPhaseDeploying,
 			},
 		}
-		fakeClusterConfig, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+		fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		By("creating an empty device controller")
 		deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig)
