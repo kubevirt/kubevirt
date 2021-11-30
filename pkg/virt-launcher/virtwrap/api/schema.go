@@ -372,7 +372,6 @@ type MigrationMetadata struct {
 type GracePeriodMetadata struct {
 	DeletionGracePeriodSeconds int64        `xml:"deletionGracePeriodSeconds"`
 	DeletionTimestamp          *metav1.Time `xml:"deletionTimestamp,omitempty"`
-	MarkedForGracefulShutdown  *bool        `xml:"markedForGracefulShutdown,omitempty"`
 }
 
 type Commandline struct {
