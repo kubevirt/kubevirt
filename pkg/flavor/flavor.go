@@ -75,6 +75,7 @@ func (m *methods) FindProfile(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Virtua
 func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	var conflicts Conflicts
 
+	vmiSpec.Flavor = profile.Name
 	conflicts = append(conflicts, applyCpu(field, profile, vmiSpec)...)
 
 	return conflicts

@@ -154,6 +154,9 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=atomic
 	// +optional
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
+
+	// Flavor references the name of a VirtualMachineFlavor or VirtualMachineClusterFlavor
+	Flavor string `json:"flavor,omitempty" optional:"true"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {

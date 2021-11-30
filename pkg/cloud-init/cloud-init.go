@@ -78,11 +78,13 @@ type PublicSSHKey struct {
 }
 
 type NoCloudMetadata struct {
+	InstanceType  string `json:"instance-type,omitempty"`
 	InstanceID    string `json:"instance-id"`
 	LocalHostname string `json:"local-hostname,omitempty"`
 }
 
 type ConfigDriveMetadata struct {
+	InstanceType  string            `json:"instance_type,omitempty"`
 	InstanceID    string            `json:"instance_id"`
 	LocalHostname string            `json:"local_hostname,omitempty"`
 	Hostname      string            `json:"hostname,omitempty"`
@@ -120,7 +122,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
-			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
+			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace, vmi.Spec.Flavor)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -132,7 +134,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
-			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys)
+			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys, vmi.Spec.Flavor)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -355,15 +357,17 @@ func readCloudInitConfigDriveSource(source *v1.CloudInitConfigDriveSource) (*Clo
 	}, nil
 }
 
-func readCloudInitNoCloudMetaData(name, hostname, namespace string) *NoCloudMetadata {
+func readCloudInitNoCloudMetaData(name, hostname, namespace string, instanceType string) *NoCloudMetadata {
 	return &NoCloudMetadata{
+		InstanceType:  instanceType,
 		InstanceID:    fmt.Sprintf("%s.%s", name, namespace),
 		LocalHostname: hostname,
 	}
 }
 
-func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string, keys map[string]string) *ConfigDriveMetadata {
+func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string, keys map[string]string, instanceType string) *ConfigDriveMetadata {
 	return &ConfigDriveMetadata{
+		InstanceType:  instanceType,
 		UUID:          uid,
 		InstanceID:    fmt.Sprintf("%s.%s", name, namespace),
 		Hostname:      hostname,
@@ -524,7 +528,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 	return nil
 }
 
-func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) error {
+func GenerateLocalData(vmiName string, namespace string, instanceType string, data *CloudInitData) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
@@ -548,6 +552,9 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 			data.NoCloudMetaData = &NoCloudMetadata{
 				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
 			}
+			if instanceType != "" {
+				data.NoCloudMetaData.InstanceType = instanceType
+			}
 		}
 		metaData, err = json.Marshal(data.NoCloudMetaData)
 		if err != nil {
@@ -565,8 +572,10 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 			data.ConfigDriveMetaData = &ConfigDriveMetadata{
 				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
 			}
+			if instanceType != "" {
+				data.ConfigDriveMetaData.InstanceType = instanceType
+			}
 		}
-
 		data.ConfigDriveMetaData.Devices = data.DevicesData
 		metaData, err = json.Marshal(data.ConfigDriveMetaData)
 		if err != nil {

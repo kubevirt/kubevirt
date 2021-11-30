@@ -4838,6 +4838,10 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualMachineInstance should be migrated instead of shut-off
                     in case of a node drain.
                   type: string
+                flavor:
+                  description: Flavor references the name of a VirtualMachineFlavor
+                    or VirtualMachineClusterFlavor
+                  type: string
                 hostname:
                   description: Specifies the hostname of the vmi If not specified,
                     the hostname will be set to the name of the vmi, if dhcp or cloud-init
@@ -7820,6 +7824,9 @@ var CRDsValidation map[string]string = map[string]string{
         evictionStrategy:
           description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance
             should be migrated instead of shut-off in case of a node drain.
+          type: string
+        flavor:
+          description: Flavor references the name of a VirtualMachineFlavor or VirtualMachineClusterFlavor
           type: string
         hostname:
           description: Specifies the hostname of the vmi If not specified, the hostname
@@ -11778,6 +11785,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: EvictionStrategy can be set to "LiveMigrate" if the
                     VirtualMachineInstance should be migrated instead of shut-off
                     in case of a node drain.
+                  type: string
+                flavor:
+                  description: Flavor references the name of a VirtualMachineFlavor
+                    or VirtualMachineClusterFlavor
                   type: string
                 hostname:
                   description: Specifies the hostname of the vmi If not specified,
@@ -18726,6 +18737,10 @@ var CRDsValidation map[string]string = map[string]string{
                               description: EvictionStrategy can be set to "LiveMigrate"
                                 if the VirtualMachineInstance should be migrated instead
                                 of shut-off in case of a node drain.
+                              type: string
+                            flavor:
+                              description: Flavor references the name of a VirtualMachineFlavor
+                                or VirtualMachineClusterFlavor
                               type: string
                             hostname:
                               description: Specifies the hostname of the vmi If not
