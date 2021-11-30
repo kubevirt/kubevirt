@@ -24,6 +24,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedCPU"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
               pod: "virt-controller-8546c99968-x9jgg"
               container: "virt-controller"
               namespace: ci
@@ -48,6 +50,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedMemory"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
               namespace: ci
               node: "node1"
               pod: "virt-controller-8546c99968-x9jgg"
@@ -84,6 +88,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 10m
         alertname: VirtControllerDown
         exp_alerts:
@@ -92,6 +98,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 10m
         alertname: VirtOperatorDown
         exp_alerts:
@@ -100,6 +108,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       # it must trigger when operators are not healthy
       - eval_time: 16m
         alertname: VirtAPIDown
@@ -109,6 +119,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 16m
         alertname: VirtControllerDown
         exp_alerts:
@@ -117,6 +129,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 16m
         alertname: VirtOperatorDown
         exp_alerts:
@@ -125,6 +139,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       # it must not trigger when operators are healthy
       - eval_time: 17m
         alertname: VirtAPIDown
@@ -162,6 +178,8 @@ tests:
               node: "node01"
               pod: "virt-handler-asdf"
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # Some virt controllers are not ready
   - interval: 1m
@@ -184,6 +202,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowReadyVirtControllersCount"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # All virt controllers are not ready
   - interval: 1m
@@ -204,6 +224,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # All virt operators are not ready
   - interval: 1m
@@ -224,6 +246,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
             exp_labels:
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # High REST errors
   - interval: 1m
@@ -255,6 +279,8 @@ tests:
             exp_labels:
               pod: "virt-controller-1"
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtControllerRESTErrorsBurst
         exp_alerts:
@@ -264,6 +290,8 @@ tests:
             exp_labels:
               pod: "virt-controller-1"
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtOperatorRESTErrorsHigh
         exp_alerts:
@@ -273,6 +301,8 @@ tests:
             exp_labels:
               pod: "virt-operator-1"
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtOperatorRESTErrorsBurst
         exp_alerts:
@@ -282,6 +312,8 @@ tests:
             exp_labels:
               pod: "virt-operator-1"
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtHandlerRESTErrorsHigh
         exp_alerts:
@@ -291,6 +323,8 @@ tests:
             exp_labels:
               pod: "virt-handler-1"
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtHandlerRESTErrorsBurst
         exp_alerts:
@@ -300,6 +334,8 @@ tests:
             exp_labels:
               pod: "virt-handler-1"
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtApiRESTErrorsHigh
         exp_alerts:
@@ -308,6 +344,8 @@ tests:
             exp_labels:
               pod: "virt-api-1"
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
       - eval_time: 5m
         alertname: VirtApiRESTErrorsBurst
         exp_alerts:
@@ -316,6 +354,8 @@ tests:
             exp_labels:
               pod: "virt-api-1"
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # Some nodes without KVM resources
   - interval: 1m
@@ -335,6 +375,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # All nodes without KVM resources
   - interval: 1m
@@ -354,6 +396,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # Two nodes with KVM resources
   - interval: 1m
@@ -386,6 +430,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
               pod: "virt-launcher-testvm-123"
               container: "compute"
 
@@ -418,6 +464,8 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VMCannotBeEvicted"
             exp_labels:
               severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
               name: "vm-evict-nonmigratable"
               namespace: "ns-test"
               node: "node1"
