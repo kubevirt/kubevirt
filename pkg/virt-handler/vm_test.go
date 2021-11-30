@@ -63,7 +63,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -90,7 +89,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
-	var mockGracefulShutdown *MockGracefulShutdown
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *container_disk.MockMounter
@@ -175,7 +173,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 
 		mockWatchdog = &MockWatchdog{shareDir}
-		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
@@ -387,48 +384,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(exists).To(BeFalse())
 		})
 
-		It("should not attempt graceful shutdown of Domain if domain is already down.", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.Status.Phase = v1.Running
-
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Crashed
-
-			initGracePeriodHelper(1, vmi, domain)
-			mockWatchdog.CreateFile(vmi)
-			mockGracefulShutdown.TriggerShutdown(vmi)
-
-			client.EXPECT().Ping()
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMISignalDeletion)
-		}, 3)
-		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.Status.Phase = v1.Running
-
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-
-			initGracePeriodHelper(1, vmi, domain)
-			mockWatchdog.CreateFile(vmi)
-			mockGracefulShutdown.TriggerShutdown(vmi)
-
-			vmiFeeder.Add(vmi)
-			vmiInterface.EXPECT().Update(gomock.Any())
-
-			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(vmi)
-			domainFeeder.Add(domain)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
-		}, 3)
-
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -591,45 +546,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeFalse())
 			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
-		}, 3)
-
-		It("should attempt force terminate Domain if grace period expires", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-
-			initGracePeriodHelper(1, vmi, domain)
-			metav1.Now()
-			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
-			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
-
-			mockWatchdog.CreateFile(vmi)
-			mockGracefulShutdown.TriggerShutdown(vmi)
-
-			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIStopping)
-		}, 3)
-
-		It("should immediately kill domain with grace period of 0", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-
-			initGracePeriodHelper(0, vmi, domain)
-			mockWatchdog.CreateFile(vmi)
-			mockGracefulShutdown.TriggerShutdown(vmi)
-
-			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIStopping)
 		}, 3)
 
 		It("should re-enqueue if the Key is unparseable", func() {
@@ -3255,21 +3171,6 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		})
 	})
 })
-
-type MockGracefulShutdown struct {
-	baseDir string
-}
-
-func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
-	Expect(os.MkdirAll(filepath.Join(m.baseDir, "graceful-shutdown-trigger"), os.ModePerm)).To(Succeed())
-
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	triggerFile := gracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
-	f, err := os.Create(triggerFile)
-	Expect(err).NotTo(HaveOccurred())
-	f.Close()
-}
 
 type MockWatchdog struct {
 	baseDir string
