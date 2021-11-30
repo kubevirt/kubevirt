@@ -570,6 +570,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				"summary":     "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
 				"runbook_url": runbookUrlBasePath + "OutdatedVirtualMachineInstanceWorkloads",
 			},
+			Labels: map[string]string{
+				"severity": "warning",
+			},
 		})
 	}
 
