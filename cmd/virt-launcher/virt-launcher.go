@@ -448,7 +448,7 @@ func main() {
 
 	gracefulShutdownCallback := func() {
 		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
-			err := domainManager.MarkGracefulShutdownVMI(vmi)
+			err := domainManager.SignalShutdownVMI(vmi)
 			if err != nil {
 				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
 				return false, err
