@@ -1627,29 +1627,6 @@ func vmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstan
 	return diskutils.RemoveFilesIfExist(triggerFile)
 }
 
-// Legacy, remove once we're certain we are no longer supporting
-// VMIs running with the old graceful shutdown trigger logic
-func vmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
-	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
-	return diskutils.FileExists(triggerFile)
-}
-
-// Determine if gracefulShutdown has been triggered by virt-launcher
-func (d *VirtualMachineController) hasGracefulShutdownTrigger(vmi *v1.VirtualMachineInstance, domain *api.Domain) (bool, error) {
-
-	// This is the new way of reporting GracefulShutdown, via domain metadata.
-	if domain != nil &&
-		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
-		domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
-		*domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
-		return true, nil
-	}
-
-	// Fallback to detecting the old way of reporting gracefulshutdown, via file.
-	// We keep this around in order to ensure backwards compatibility
-	return vmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
-}
-
 func (d *VirtualMachineController) defaultExecute(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
@@ -1686,18 +1663,6 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		domain.Status.Status != ""
 
 	domainMigrated := domainExists && domainMigrated(domain)
-
-	gracefulShutdown, err := d.hasGracefulShutdownTrigger(vmi, domain)
-	if err != nil {
-		return err
-	} else if gracefulShutdown && vmi.IsRunning() {
-		if domainAlive {
-			log.Log.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
-			shouldShutdown = true
-		} else {
-			shouldDelete = true
-		}
-	}
 
 	// Determine removal of VirtualMachineInstance from cache should result in deletion.
 	if !vmiExists {
@@ -1815,7 +1780,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
-		err = d.updateVMIStatus(vmi, domain, syncErr)
+		err := d.updateVMIStatus(vmi, domain, syncErr)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err

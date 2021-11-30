@@ -97,7 +97,6 @@ type DomainManager interface {
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
-	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
@@ -1245,46 +1244,6 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 	}
 
 	return nil
-}
-
-func (l *LibvirtDomainManager) MarkGracefulShutdownVMI(vmi *v1.VirtualMachineInstance) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain for shutdown failed.")
-		return err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-
-	t := true
-
-	if domainSpec.Metadata.KubeVirt.GracePeriod == nil {
-		domainSpec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{
-			MarkedForGracefulShutdown: &t,
-		}
-	} else if domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
-		*domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
-		// already marked, nothing to do
-		return nil
-	} else {
-		domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown = &t
-	}
-
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-	return nil
-
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
