@@ -42,7 +42,7 @@ ARCHITECTURE="${BUILD_ARCH:-$(uname -m)}"
 HOST_ARCHITECTURE="$(uname -m)"
 KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 OPERATOR_MANIFEST_PATH=$MANIFESTS_OUT_DIR/release/kubevirt-operator.yaml
-export KUBEVIRT_CRI="$(determine_cri_bin)"
+KUBEVIRT_CRI="$(determine_cri_bin)"
 
 function build_func_tests() {
     mkdir -p "${TESTS_OUT_DIR}/"
