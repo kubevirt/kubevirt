@@ -60,8 +60,6 @@ import (
 )
 
 const (
-	pathFormat  = "/apis/kubevirt.io/%s/namespaces/%s/%s/%s"
-	apiVersion  = "v1alpha3"
 	Running     = true
 	Paused      = true
 	NotRunning  = false
@@ -79,7 +77,6 @@ func (b *readCloserWrapper) Close() error { return nil }
 var _ = Describe("VirtualMachineInstance Subresources", func() {
 	kubecli.Init()
 
-	var server *ghttp.Server
 	var backend *ghttp.Server
 	var backendIP string
 	var request *restful.Request
@@ -95,6 +92,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	running := Running
 	notRunning := NotRunning
+	gracePeriodZero := int64(0)
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -129,7 +127,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8smetav1.NamespaceDefault).Return(migrateClient).AnyTimes()
 
-		server = ghttp.NewServer()
 		backend = ghttp.NewTLSServer()
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
@@ -137,8 +134,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.consoleServerPort = backendPort
 		flag.Set("kubeconfig", "")
-		flag.Set("master", server.URL())
-		//app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.virtCli = virtClient
 		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
@@ -466,14 +461,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				close(done)
 			})
 
-			It("should ForceRestart VirtualMachine", func(done Done) {
+			table.DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				body := map[string]int64{
-					"gracePeriodSeconds": 0,
-				}
-				bytesRepresentation, _ := json.Marshal(body)
+				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vm := newVirtualMachineWithRunning(&running)
@@ -499,7 +491,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
-				vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
+				vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+						Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
+						return vm, nil
+					})
 				kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					return true, &podList, nil
 				})
@@ -513,8 +509,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
-			})
+			},
+				table.Entry("with default", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero}),
+				table.Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: []string{k8smetav1.DryRunAll}}),
+			)
 
 			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func(done Done) {
 				request.PathParameters()["name"] = testVMName
@@ -590,15 +588,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		Context("stop", func() {
-			table.DescribeTable("should ForceStop VirtualMachine", func(statusPhase v1.VirtualMachineInstancePhase) {
+			table.DescribeTable("should ForceStop VirtualMachine according to options", func(statusPhase v1.VirtualMachineInstancePhase, stopOptions *v1.StopOptions) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 				var terminationGracePeriodSeconds int64 = 1800
 
-				body := map[string]int64{
-					"gracePeriod": 0,
-				}
-				bytesRepresentation, _ := json.Marshal(body)
+				bytesRepresentation, _ := json.Marshal(stopOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vm := newVirtualMachineWithRunning(&running)
@@ -619,15 +614,25 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
-				vmiClient.EXPECT().Patch(vmi.Name, types.MergePatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(&vmi, nil)
-				vmClient.EXPECT().Patch(vm.Name, types.MergePatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
+				vmiClient.EXPECT().Patch(vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
+						return &vmi, nil
+					})
+				vmClient.EXPECT().Patch(vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
+						return vm, nil
+					})
 
 				app.StopVMRequestHandler(request, response)
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				table.Entry("in status Running", v1.Running),
-				table.Entry("in status Failed", v1.Failed),
+				table.Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
+				table.Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
+				table.Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: []string{k8smetav1.DryRunAll}}),
+				table.Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: []string{k8smetav1.DryRunAll}}),
 			)
 		})
 	})
@@ -1139,7 +1144,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Subresource api - MigrateVMRequestHandler", func() {
-		table.DescribeTable("should fail if VirtualMachine not exists", func(migrateOptions *v1.MigrateOptions) {
+		table.DescribeTable("should fail if VirtualMachine not exists according to options", func(migrateOptions *v1.MigrateOptions) {
 
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -1152,11 +1157,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 		},
-			table.Entry("", &v1.MigrateOptions{}),
+			table.Entry("with default", &v1.MigrateOptions{}),
 			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
 
-		table.DescribeTable("should fail if VirtualMachine is not running", func(migrateOptions *v1.MigrateOptions) {
+		table.DescribeTable("should fail if VirtualMachine is not running according to options", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1174,11 +1179,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			Expect(status.Error()).To(ContainSubstring("VM is not running"))
 		},
-			table.Entry("", &v1.MigrateOptions{}),
+			table.Entry("with default", &v1.MigrateOptions{}),
 			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
 
-		table.DescribeTable("should fail if migration is not posted", func(migrateOptions *v1.MigrateOptions) {
+		table.DescribeTable("should fail if migration is not posted according to options", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1200,7 +1205,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 		},
-			table.Entry("", &v1.MigrateOptions{}),
+			table.Entry("with default", &v1.MigrateOptions{}),
 			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
 
@@ -1632,11 +1637,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 		})
-		It("should patch status on start", func(done Done) {
-			body := map[string]bool{
-				"paused": true,
-			}
-			bytesRepresentation, _ := json.Marshal(body)
+		table.DescribeTable("should patch status on start according to options", func(startOptions *v1.StartOptions) {
+
+			bytesRepresentation, _ := json.Marshal(startOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vm := v1.VirtualMachine{
@@ -1656,14 +1659,20 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(&vm, nil)
 			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
-			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(&vm, nil)
+			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+					Expect(opts.DryRun).To(BeEquivalentTo(startOptions.DryRun))
+					return &vm, nil
+				})
 
 			app.StartVMRequestHandler(request, response)
 
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-			close(done)
-		})
+		},
+			table.Entry("with default", &v1.StartOptions{Paused: Paused}),
+			table.Entry("with dry-run option", &v1.StartOptions{Paused: Paused, DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
 		table.DescribeTable("should patch status on start for VM with RunStrategy",
 			func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -1691,7 +1700,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	AfterEach(func() {
-		server.Close()
 		backend.Close()
 		disableFeatureGates()
 	})
