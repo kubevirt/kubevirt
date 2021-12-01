@@ -446,32 +446,6 @@ func main() {
 	cmdclient.SetLegacyBaseDir(*virtShareDir)
 	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 
-	gracefulShutdownCallback := func() {
-		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
-			err := domainManager.SignalShutdownVMI(vmi)
-			if err != nil {
-				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
-				return false, err
-			}
-
-			return true, nil
-		})
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
-		} else {
-			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
-		}
-	}
-
-	finalShutdownCallback := func(pid int) {
-		err := domainManager.KillVMI(vmi)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
-			syscall.Kill(pid, syscall.SIGTERM)
-		}
-	}
-
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
 	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
@@ -497,6 +471,47 @@ func main() {
 	markReady()
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
+
+	gracefulShutdownCallback := func() {
+		logger := log.Log.Object(vmi)
+		var expired bool
+		var timeLeft int64
+
+		if putil.IsACPIEnabled(vmi, domain) {
+			expired, timeLeft = putil.HasGracePeriodExpired(domain)
+		} else {
+			logger.Infof("ACPI is not enabled, giving up graceful shutdown")
+		}
+
+		if expired {
+			logger.Infof("graceful period is expired, giving up graceful shutdown")
+		}
+
+		err := wait.PollImmediate(time.Second, time.Duration(timeLeft)*time.Second, func() (bool, error) {
+			err := domainManager.SignalShutdownVMI(vmi)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
+				return false, err
+			}
+
+			return true, nil
+		})
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
+		} else {
+			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
+		}
+	}
+
+	finalShutdownCallback := func(pid int) {
+		err := domainManager.KillVMI(vmi)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
+			syscall.Kill(pid, syscall.SIGTERM)
+		}
+	}
+
 	if domain != nil {
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			*gracePeriodSeconds,
