@@ -4,6 +4,8 @@ source common.sh
 
 set -e
 
+fail_if_cri_bin_missing
+
 if [ -z ${GPG_PRIVATE_KEY_FILE} ]; then
     echo "GPG_PRIVATE_KEY_FILE env var must be set"
     exit 1

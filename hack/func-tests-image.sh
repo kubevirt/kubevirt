@@ -5,6 +5,7 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
+fail_if_cri_bin_missing
 target=$1
 
 if [ "${target}" = "build" ]; then

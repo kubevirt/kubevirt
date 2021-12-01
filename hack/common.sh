@@ -11,9 +11,15 @@ determine_cri_bin() {
         elif docker ps >/dev/null 2>&1; then
             echo docker
         else
-            echo >&2 "no working container runtime found. Neither docker nor podman seems to work."
-            exit 1
+            echo ""
         fi
+    fi
+}
+
+fail_if_cri_bin_missing() {
+    if [ -z "${KUBEVIRT_CRI}" ]; then
+        echo >&2 "no working container runtime found. Neither docker nor podman seems to work."
+        exit 1
     fi
 }
 

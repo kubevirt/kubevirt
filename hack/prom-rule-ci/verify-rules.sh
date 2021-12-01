@@ -18,6 +18,7 @@
 
 source $(dirname "$0")/../common.sh
 
+fail_if_cri_bin_missing
 readonly PROM_IMAGE="docker.io/prom/prometheus:v2.15.2"
 
 function cleanup() {

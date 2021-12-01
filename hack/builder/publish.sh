@@ -3,6 +3,8 @@ set -ex
 
 source $(dirname "$0")/../common.sh
 
+fail_if_cri_bin_missing
+
 SCRIPT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")"
     pwd
