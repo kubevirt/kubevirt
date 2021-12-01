@@ -2179,8 +2179,6 @@ var _ = Describe("Manager helper functions", func() {
 			var err error
 			tmpDir, err = os.MkdirTemp("", "tempdir")
 			Expect(err).ToNot(HaveOccurred())
-			err = os.MkdirAll(tmpDir, 0666)
-			Expect(err).ToNot(HaveOccurred())
 
 			getEphemeralDiskBaseDir = func() string {
 				return tmpDir
