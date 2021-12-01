@@ -181,12 +181,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			var err error
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
 			vm = tests.NewRandomVirtualMachine(vmi, false)
-			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -195,11 +192,41 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 		Context("and no snapshot", func() {
 			It("[test_id:5255]should reject restore", func() {
+				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
 				restore := createRestoreDef(vm, "foobar")
 
 				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VirtualMachineSnapshot \"foobar\" does not exist"))
+			})
+		})
+
+		Context("with run strategy and snapshot", func() {
+			var err error
+			var snapshot *snapshotv1.VirtualMachineSnapshot
+
+			runStrategyHalted := v1.RunStrategyHalted
+
+			AfterEach(func() {
+				deleteSnapshot(snapshot)
+			})
+
+			It("should successfully restore", func() {
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = &runStrategyHalted
+				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				snapshot = createSnapshot(vm)
+
+				restore := createRestoreDef(vm, snapshot.Name)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm)
+				Expect(restore.Status.Restores).To(HaveLen(0))
+				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 			})
 		})
 
@@ -209,6 +236,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
+				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
 
@@ -265,7 +294,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is running", vm.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {

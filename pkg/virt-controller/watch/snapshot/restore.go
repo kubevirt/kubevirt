@@ -456,8 +456,13 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	newVM := t.vm.DeepCopy()
 	newVM.Spec = snapshotVM.Spec
 	// update Running state in case snapshot was on online VM
-	running := false
-	newVM.Spec.Running = &running
+	if newVM.Spec.RunStrategy != nil {
+		runStrategyHalted := kubevirtv1.RunStrategyHalted
+		newVM.Spec.RunStrategy = &runStrategyHalted
+	} else if newVM.Spec.Running != nil {
+		running := false
+		newVM.Spec.Running = &running
+	}
 	newVM.Spec.DataVolumeTemplates = newTemplates
 	newVM.Spec.Template.Spec.Volumes = newVolumes
 	if newVM.Annotations == nil {
