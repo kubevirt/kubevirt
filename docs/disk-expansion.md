@@ -26,7 +26,7 @@ To expand a disk, edit the matching PersistentVolumeClaim:
 
 `kubectl edit pvc my-disk-pvc`
 
-And increase the spec.resource.requests.storage to a larger size.
+And increase the `spec.resource.requests.storage` to a larger size.
 A running VMI will be notified that the disk has been expanded.
 File systems remain unchanged - they need to be expanded to use the remaining data.
 
@@ -48,5 +48,5 @@ Additionally, DataVolumes are predecessors to PVC populators (still in progress)
 will be unlinked and garbage-collected by kubernetes once the import is done.  
 They are not expected to continue to be used after the import is done.
 
-If you wish to track the current PVC size for a given VirtualMachineInstance without finding the
-matching PVC, you can inspect the vmi.status.volumeStatus PersistentVolumeClaimInfo field.
+If you wish to track the current PVC size for a given `VirtualMachineInstance` without finding the
+matching PVC, you can inspect the `vmi.status.volumeStatus` `PersistentVolumeClaimInfo` field.
