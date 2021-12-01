@@ -150,7 +150,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		When("paused via virtctl with --dry-run flag", func() {
-			It("should not paused", func() {
+			It("[test_id:7671]should not paused", func() {
 				runVMI()
 				command := tests.NewRepeatableVirtctlCommand("pause", "vmi", "--dry-run", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
@@ -169,7 +169,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		When("unpaused via virtctl with --dry-run flag", func() {
-			It("should not unpaused", func() {
+			It("[test_id:7672]should not unpaused", func() {
 				runVMI()
 				command := tests.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
@@ -432,7 +432,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		When("paused via virtctl with --dry-run flag", func() {
-			It("should not paused", func() {
+			It("[test_id:7673]should not paused", func() {
 				runVM()
 				command := tests.NewRepeatableVirtctlCommand("pause", "vm", "--dry-run", "--namespace", util.NamespaceTestDefault, vm.Name)
 				Expect(command()).To(Succeed())
@@ -451,7 +451,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		When("unpaused via virtctl with --dry-run flag", func() {
-			It("should not unpaused", func() {
+			It("[test_id:7674]should not unpaused", func() {
 				runVM()
 				command := tests.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", util.NamespaceTestDefault, vm.Name)
 				Expect(command()).To(Succeed())

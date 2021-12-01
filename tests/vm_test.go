@@ -1810,7 +1810,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		Context("should not change anything if dry-run option is passed", func() {
-			It("in start command", func() {
+			It("[test_id:7530]in start command", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				thisVm := tests.NewRandomVirtualMachine(vmi, false)
 
@@ -1870,11 +1870,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(reflect.DeepEqual(newVMI, originalVMI)).To(BeTrue())
 			},
 
-				table.Entry("with no other flags"),
-				table.Entry("with grace period", "--grace-period=10", "--force"),
+				table.Entry("[test_id:7529]with no other flags"),
+				table.Entry("[test_id:7604]with grace period", "--grace-period=10", "--force"),
 			)
 
-			It("in restart command", func() {
+			It("[test_id:7528]in restart command", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				thisVm := tests.NewRandomVirtualMachine(vmi, true)
 
