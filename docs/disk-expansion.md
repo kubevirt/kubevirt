@@ -27,7 +27,7 @@ To expand a disk, edit the matching PersistentVolumeClaim:
 `kubectl edit pvc my-disk-pvc`
 
 And increase the `spec.resource.requests.storage` to a larger size.
-A running VMI will be notified that the disk has been expanded.
+A running guest will then be notified of the capacity change using block layer commands (for example, a SCSI disk will be sent a "capacity data has changed" message).
 File systems remain unchanged - they need to be expanded to use the remaining data.
 
 ## Why do we not expand file systems?
