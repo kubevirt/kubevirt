@@ -2186,7 +2186,7 @@ var _ = Describe("Manager helper functions", func() {
 				return tmpDir
 			}
 
-			zeroQuantity = *resource.NewScaledQuantity(0, 0) //resource.Quantity{Format: resource.BinarySI}
+			zeroQuantity = *resource.NewScaledQuantity(0, 0)
 		})
 
 		AfterEach(func() {
