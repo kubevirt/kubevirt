@@ -1009,6 +1009,16 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unfreeze(arg0 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unfreeze", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) SoftReboot(name string) error {
+	ret := _m.ctrl.Call(_m, "SoftReboot", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SoftReboot(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftReboot", arg0)
+}
+
 func (_m *MockVirtualMachineInstanceInterface) GuestOsInfo(name string) (v117.VirtualMachineInstanceGuestAgentInfo, error) {
 	ret := _m.ctrl.Call(_m, "GuestOsInfo", name)
 	ret0, _ := ret[0].(v117.VirtualMachineInstanceGuestAgentInfo)

@@ -85,6 +85,16 @@ func (_mr *_MockDomainManagerRecorder) UnfreezeVMI(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVMI", arg0)
 }
 
+func (_m *MockDomainManager) SoftRebootVMI(_param0 *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SoftRebootVMI", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) SoftRebootVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftRebootVMI", arg0)
+}
+
 func (_m *MockDomainManager) KillVMI(_param0 *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "KillVMI", _param0)
 	ret0, _ := ret[0].(error)

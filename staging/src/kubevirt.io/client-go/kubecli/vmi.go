@@ -258,6 +258,12 @@ func (v *vmis) Unfreeze(name string) error {
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
+func (v *vmis) SoftReboot(name string) error {
+	log.Log.Infof("SoftReboot VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "softreboot")
+	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+}
+
 func (v *vmis) Pause(name string, pauseOptions *v1.PauseOptions) error {
 	body, err := json.Marshal(pauseOptions)
 	if err != nil {

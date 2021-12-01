@@ -405,6 +405,16 @@ func (_mr *_MockVirDomainRecorder) ShutdownFlags(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShutdownFlags", arg0)
 }
 
+func (_m *MockVirDomain) Reboot(flags libvirt.DomainRebootFlagValues) error {
+	ret := _m.ctrl.Call(_m, "Reboot", flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) Reboot(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reboot", arg0)
+}
+
 func (_m *MockVirDomain) UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error {
 	ret := _m.ctrl.Call(_m, "UndefineFlags", flags)
 	ret0, _ := ret[0].(error)

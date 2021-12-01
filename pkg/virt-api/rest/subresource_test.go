@@ -151,7 +151,29 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	}
 
-	expectVMI := func(running, paused bool) {
+	guestAgentConnected := func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Status.Conditions == nil {
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{}
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceAgentConnected,
+			Status: k8sv1.ConditionTrue,
+		})
+	}
+
+	ACPIDisabled := func(vmi *v1.VirtualMachineInstance) {
+		_false := false
+		featureStateDisabled := v1.FeatureState{Enabled: &_false}
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{
+				ACPI: featureStateDisabled,
+			}
+		} else {
+			vmi.Spec.Domain.Features.ACPI = featureStateDisabled
+		}
+	}
+
+	expectVMI := func(running, paused bool, vmiWarpFunctions ...func(vmi *v1.VirtualMachineInstance)) {
 		request.PathParameters()["name"] = "testvmi"
 		request.PathParameters()["namespace"] = "default"
 
@@ -177,6 +199,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+		}
+
+		for _, f := range vmiWarpFunctions {
+			f(&vmi)
 		}
 
 		server.AppendHandlers(
@@ -1787,6 +1813,50 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnfreezeVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+	})
+
+	Context("SoftReboot", func() {
+		It("Should soft reboot a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/softreboot"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+
+			expectVMI(true, false, guestAgentConnected)
+
+			app.SoftRebootVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail soft reboot a not running VMI", func() {
+
+			expectVMI(false, false, guestAgentConnected)
+
+			app.SoftRebootVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should fail soft reboot a paused VMI", func() {
+
+			expectVMI(true, true, guestAgentConnected)
+
+			app.SoftRebootVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should fail soft reboot a guest agent disconnected and ACPI feature disabled VMI", func() {
+
+			expectVMI(true, false, ACPIDisabled)
+
+			app.SoftRebootVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 	})
 
