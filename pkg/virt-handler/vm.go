@@ -388,53 +388,6 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 	return nil
 }
 
-// Determines if a domain's grace period has expired during shutdown.
-// If the grace period has started but not expired, timeLeft represents
-// the time in seconds left until the period expires.
-// If the grace period has not started, timeLeft will be set to -1.
-func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int64) {
-
-	hasExpired = false
-	timeLeft = 0
-
-	if dom == nil {
-		hasExpired = true
-		return
-	}
-
-	startTime := int64(0)
-	if dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp != nil {
-		startTime = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp.UTC().Unix()
-	}
-	gracePeriod := dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds
-
-	// If gracePeriod == 0, then there will be no startTime set, deletion
-	// should occur immediately during shutdown.
-	if gracePeriod == 0 {
-		hasExpired = true
-		return
-	} else if startTime == 0 {
-		// If gracePeriod > 0, then the shutdown signal needs to be sent
-		// and the gracePeriod start time needs to be set.
-		timeLeft = -1
-		return
-	}
-
-	now := time.Now().UTC().Unix()
-	diff := now - startTime
-
-	if diff >= gracePeriod {
-		hasExpired = true
-		return
-	}
-
-	timeLeft = int64(gracePeriod - diff)
-	if timeLeft < 1 {
-		timeLeft = 1
-	}
-	return
-}
-
 func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
 	// give the target node 60 seconds to discover the libvirt domain via the domain informer
 	// before allowing the VMI to be processed. This closes the gap between the
@@ -1613,20 +1566,6 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 	return nil
 }
 
-// Legacy, remove once we're certain we are no longer supporting
-// VMIs running with the old graceful shutdown trigger logic
-func gracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, name string) string {
-	triggerFile := namespace + "_" + name
-	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
-}
-
-// Legacy, remove once we're certain we are no longer supporting
-// VMIs running with the old graceful shutdown trigger logic
-func vmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
-	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
-	return diskutils.RemoveFilesIfExist(triggerFile)
-}
-
 func (d *VirtualMachineController) defaultExecute(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
@@ -1894,13 +1833,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	vmiId := string(vmi.UID)
 
 	log.Log.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
-	// If the VMI is using the old graceful shutdown trigger on
-	// a hostmount, make sure to clear that file still.
-	err := vmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
-
 	d.migrationProxy.StopTargetListener(vmiId)
 	d.migrationProxy.StopSourceListener(vmiId)
 
@@ -1918,7 +1850,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.clearPodNetworkPhase1(vmi)
 
 	// Watch dog file and command client must be the last things removed here
-	err = d.closeLauncherClient(vmi)
+	err := d.closeLauncherClient(vmi)
 	if err != nil {
 		return err
 	}
@@ -2085,8 +2017,8 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 	}
 
 	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if isACPIEnabled(vmi, domain) {
-		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
+	if virtutil.IsACPIEnabled(vmi, domain) {
+		if expired, timeLeft := virtutil.HasGracePeriodExpired(domain); !expired {
 			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
 		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
@@ -2741,7 +2673,7 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				// When ACPI is available, the domain was tried to be shutdown,
 				// and destroyed means that the domain was destroyed after the graceperiod expired.
 				// Without ACPI a destroyed domain is ok.
-				if isACPIEnabled(vmi, domain) {
+				if virtutil.IsACPIEnabled(vmi, domain) {
 					return v1.Failed, nil
 				}
 				return v1.Succeeded, nil
@@ -2842,25 +2774,6 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func vmiHasTerminationGracePeriod(vmi *v1.VirtualMachineInstance) bool {
-	// if not set we use the default graceperiod
-	return vmi.Spec.TerminationGracePeriodSeconds == nil ||
-		(vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds != 0)
-}
-
-func domainHasGracePeriod(domain *api.Domain) bool {
-	return domain != nil &&
-		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
-		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds != 0
-}
-
-func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
-	return (vmiHasTerminationGracePeriod(vmi) || (vmi.Spec.TerminationGracePeriodSeconds == nil && domainHasGracePeriod(domain))) &&
-		domain != nil &&
-		domain.Spec.Features != nil &&
-		domain.Spec.Features.ACPI != nil
 }
 
 func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface, interfacesStatusByMac map[string]api.InterfaceStatus) {

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -132,4 +135,70 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 
 func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
+}
+
+func vmiHasTerminationGracePeriod(vmi *v1.VirtualMachineInstance) bool {
+	// if not set we use the default graceperiod
+	return vmi.Spec.TerminationGracePeriodSeconds == nil ||
+		(vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds != 0)
+}
+
+func domainHasGracePeriod(domain *api.Domain) bool {
+	return domain != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds != 0
+}
+
+func IsACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+	return (vmiHasTerminationGracePeriod(vmi) || (vmi.Spec.TerminationGracePeriodSeconds == nil && domainHasGracePeriod(domain))) &&
+		domain != nil &&
+		domain.Spec.Features != nil &&
+		domain.Spec.Features.ACPI != nil
+}
+
+// HasGracePeriodExpired Determines if a domain's grace period has expired during shutdown.
+// If the grace period has started but not expired, timeLeft represents
+// the time in seconds left until the period expires.
+// If the grace period has not started, timeLeft will be set to -1.
+func HasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int64) {
+
+	hasExpired = false
+	timeLeft = 0
+
+	if dom == nil {
+		hasExpired = true
+		return
+	}
+
+	startTime := int64(0)
+	if dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp != nil {
+		startTime = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp.UTC().Unix()
+	}
+	gracePeriod := dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds
+
+	// If gracePeriod == 0, then there will be no startTime set, deletion
+	// should occur immediately during shutdown.
+	if gracePeriod == 0 {
+		hasExpired = true
+		return
+	} else if startTime == 0 {
+		// If gracePeriod > 0, then the shutdown signal needs to be sent
+		// and the gracePeriod start time needs to be set.
+		timeLeft = -1
+		return
+	}
+
+	now := time.Now().UTC().Unix()
+	diff := now - startTime
+
+	if diff >= gracePeriod {
+		hasExpired = true
+		return
+	}
+
+	timeLeft = int64(gracePeriod - diff)
+	if timeLeft < 1 {
+		timeLeft = 1
+	}
+	return
 }
