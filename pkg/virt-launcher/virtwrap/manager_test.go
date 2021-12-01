@@ -2177,7 +2177,7 @@ var _ = Describe("Manager helper functions", func() {
 
 		BeforeEach(func() {
 			var err error
-			tmpDir, err = ioutil.TempDir("", "tempdir")
+			tmpDir, err = os.MkdirTemp("", "tempdir")
 			Expect(err).ToNot(HaveOccurred())
 			err = os.MkdirAll(tmpDir, 0666)
 			Expect(err).ToNot(HaveOccurred())
