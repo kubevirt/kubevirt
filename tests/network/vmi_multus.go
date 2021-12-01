@@ -72,7 +72,7 @@ const (
 const (
 	sriovnet1           = "sriov"
 	sriovnet2           = "sriov2"
-	sriovnetLinkEnabled = "sriov-link-enabled"
+	sriovnetLinkEnabled = "sriov-linked"
 )
 
 const (
