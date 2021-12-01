@@ -365,7 +365,7 @@ func getVMIEphemeralDisksTotalSize() *resource.Quantity {
 	})
 	if err != nil {
 		log.Log.Reason(err).Warning("failed to get VMI ephemeral disks size")
-		return resource.NewScaledQuantity(totalSize, 0)
+		return resource.NewScaledQuantity(0, 0)
 	}
 
 	return resource.NewScaledQuantity(totalSize, 0)
