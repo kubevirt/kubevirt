@@ -114,7 +114,7 @@ func Execute() {
 	log.InitializeLogging(programName)
 	cmd := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintln(cmd.Root().OutOrStdout(), strings.TrimSpace(err.Error()))
+		fmt.Fprintln(cmd.Root().ErrOrStderr(), strings.TrimSpace(err.Error()))
 		os.Exit(1)
 	}
 }
