@@ -2253,7 +2253,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should not be allowed to live-migrate if the VMI uses PCI host device", func() {
-				vmi := v1.NewMinimalVMI("testvmi")
+				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 					{
 						Name:       "name1",
@@ -2275,7 +2275,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					_ = os.Unsetenv(envName)
 				}()
 
-				vmi := v1.NewMinimalVMI("testvmi")
+				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 					{
 						Name:       "name1",
