@@ -12,13 +12,16 @@ import (
 // AttachConsole attaches stdin and stdout to the console
 // in -> stdinWriter | stdinReader -> console
 // out <- stdoutReader | stdoutWriter <- console
-func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdoutWriter *io.PipeWriter, message string, resChan <-chan error) error {
+func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdoutWriter *io.PipeWriter, message string, resChan <-chan error) (err error) {
 	stopChan := make(chan struct{}, 1)
 	writeStop := make(chan error)
 	readStop := make(chan error)
-	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return fmt.Errorf("Make raw terminal failed: %s", err)
+	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+		state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return fmt.Errorf("Make raw terminal failed: %s", err)
+		}
+		defer terminal.Restore(int(os.Stdin.Fd()), state)
 	}
 	fmt.Fprint(os.Stderr, message)
 
@@ -70,6 +73,5 @@ func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdout
 	case err = <-resChan:
 	}
 
-	terminal.Restore(int(os.Stdin.Fd()), state)
 	return err
 }
