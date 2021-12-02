@@ -1,0 +1,16 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: centos8
+  namespace: kubevirt-os-images
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations: null
+    from:
+      kind: DockerImage
+      name: quay.io/kubevirt/centos8-container-disk-images
+    importPolicy:
+      scheduled: true
+    name: latest

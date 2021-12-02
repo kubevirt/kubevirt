@@ -1,0 +1,16 @@
+- metadata:
+    name: centos8-image-cron-is
+  spec:
+    schedule: "0 */12 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            imageStream: "centos8"
+            pullMethod: node
+        storage:
+          resources:
+            requests:
+              storage: 10Gi
+    garbageCollect: Outdated
+    managedDataSource: centos8-is

@@ -1,0 +1,16 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: test-image-stream
+  namespace: test-image-stream-ns
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations: null
+    from:
+      kind: DockerImage
+      name: test-registry.io/test/test-image
+    importPolicy:
+      scheduled: true
+    name: latest

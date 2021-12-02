@@ -1,0 +1,31 @@
+- metadata:
+    name: fedora-image-cron
+  spec:
+    schedule: "* */1 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            url: docker://quay.io/kubevirt/fedora
+            imageStream: fedora
+    managedDataSource: fedora
+- metadata:
+    name: test-is
+  spec:
+    schedule: "* */1 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            imageStream: test-is
+    managedDataSource: test-is
+- metadata:
+    name: centos8-image-cron
+  spec:
+    schedule: "* */1 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            url: docker://quay.io/kubevirt/centos8
+    managedDataSource: centos8

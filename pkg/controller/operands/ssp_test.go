@@ -14,14 +14,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 var _ = Describe("SSP Operands", func() {
@@ -613,7 +613,6 @@ var _ = Describe("SSP Operands", func() {
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
 				})
-
 			})
 
 			Context("test applyDataImportSchedule", func() {

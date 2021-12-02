@@ -83,6 +83,7 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftC
 		h.objects = make([]client.Object, 0)
 		h.addOperands(scheme, hc, getQuickStartHandlers)
 		h.addOperands(scheme, hc, getDashboardHandlers)
+		h.addOperands(scheme, hc, getImageStreamHandlers)
 	}
 }
 

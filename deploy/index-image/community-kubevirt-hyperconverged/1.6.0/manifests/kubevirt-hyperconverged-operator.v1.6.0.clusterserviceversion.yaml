@@ -413,6 +413,14 @@ spec:
           - watch
           - update
           - patch
+        - apiGroups:
+          - image.openshift.io
+          resources:
+          - imagestreams
+          verbs:
+          - get
+          - list
+          - create
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:
