@@ -317,6 +317,7 @@ func (c *VMController) execute(key string) error {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}
 			}
 		}
+		virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 	}
 
 	if syncErr != nil {
