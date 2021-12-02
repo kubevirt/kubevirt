@@ -32,6 +32,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	grpcretry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -41,6 +42,7 @@ import (
 const (
 	DeviceNamespace   = "devices.kubevirt.io"
 	connectionTimeout = 5 * time.Second
+	retryTimes 		  = 5
 )
 
 type GenericDevice interface {
@@ -106,6 +108,7 @@ func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error)
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
 		grpc.WithTimeout(timeout),
+		grpc.WithUnaryInterceptor(grpcretry.UnaryClientInterceptor()),
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 			return net.DialTimeout("unix", addr, timeout)
 		}),
@@ -210,7 +213,7 @@ func (dpi *GenericDevicePlugin) Register() error {
 		ResourceName: dpi.resourceName,
 	}
 
-	_, err = client.Register(context.Background(), reqt)
+	_, err = client.Register(context.Background(), reqt, grpcretry.WithMax(retryTimes))
 	if err != nil {
 		return err
 	}
