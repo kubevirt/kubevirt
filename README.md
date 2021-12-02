@@ -128,4 +128,4 @@ KubeVirt is distributed under the
 
 ## FOSSA Status
 
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt?ref=badge_large)
+[![FOSSA Status](https://app.fossa.com/api/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git.svg?type=large)](https://app.fossa.com/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git?ref=badge_large)
