@@ -65,7 +65,7 @@ type PCIDevicePlugin struct {
 	deviceRoot    string
 	healthy       chan string
 	unhealthy     chan string
-	iommuToPCIMap map[string]string
+	iommuToPCIMap map[string][]string
 	initialized   bool
 	lock          *sync.Mutex
 }
@@ -73,7 +73,7 @@ type PCIDevicePlugin struct {
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
 	deviceIDStr := strings.Replace(pciDevices[0].pciID, ":", "-", -1)
 	serverSock := SocketPath(deviceIDStr)
-	iommuToPCIMap := make(map[string]string)
+	iommuToPCIMap := make(map[string][]string)
 
 	initHandler()
 
@@ -94,9 +94,9 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	return dpi
 }
 
-func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string][]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
-		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		iommuToPCIMap[pciDevice.iommuGroup] = append(iommuToPCIMap[pciDevice.iommuGroup], pciDevice.pciAddress)
 		dpiDev := &pluginapi.Device{
 			ID:     string(pciDevice.iommuGroup),
 			Health: pluginapi.Healthy,
@@ -223,11 +223,11 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 		deviceSpecs := make([]*pluginapi.DeviceSpec, 0)
 		for _, devID := range request.DevicesIDs {
 			// translate device's iommu group to its pci address
-			devPCIAddress, exist := dpi.iommuToPCIMap[devID]
+			devPCIAddresses, exist := dpi.iommuToPCIMap[devID]
 			if !exist {
 				continue
 			}
-			allocatedDevices = append(allocatedDevices, devPCIAddress)
+			allocatedDevices = append(allocatedDevices, devPCIAddresses...)
 			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
 		}
 		containerResponse.Devices = deviceSpecs
