@@ -747,6 +747,7 @@ rules:
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/softreboot
   verbs:
   - update
   - get
@@ -913,6 +914,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods/status
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
   - nodes
   verbs:
   - get
@@ -966,6 +973,7 @@ rules:
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/softreboot
   verbs:
   - update
 - apiGroups:
@@ -1113,6 +1121,7 @@ rules:
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/softreboot
   verbs:
   - update
 - apiGroups:
@@ -1188,6 +1197,7 @@ rules:
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/softreboot
   verbs:
   - update
 - apiGroups:

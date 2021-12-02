@@ -425,6 +425,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"uninstallStrategy":      "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
 		"productVersion":         "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
 		"productName":            "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
+		"productComponent":       "Designate the apps.kubevirt.io/component label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductComponent is not specified, the component label default value is kubevirt.",
 		"configuration":          "holds kubevirt configurations.\nsame as the virt-configMap",
 		"infra":                  "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
 		"workloads":              "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
@@ -490,6 +491,20 @@ func (StartOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "StartOptions may be provided on start request.",
 		"paused": "Indicates that VM will be started in paused state.\n+optional",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (PauseOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "PauseOptions may be provided on pause request.",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (UnpauseOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "UnpauseOptions may be provided on unpause request.",
 		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }

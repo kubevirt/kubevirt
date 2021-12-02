@@ -235,7 +235,7 @@ type EFI struct {
 
 // If set, the VM will be booted from the defined kernel / initrd.
 type KernelBootContainer struct {
-	// Image that container initrd / kernel files.
+	// Image that contains initrd / kernel files.
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
 	//+optional
@@ -445,6 +445,9 @@ type Devices struct {
 	// To configure and access client devices such as redirecting USB
 	// +optional
 	ClientPassthrough *ClientPassthroughDevices `json:"clientPassthrough,omitempty"`
+	// Whether to emulate a sound device.
+	// +optional
+	Sound *SoundDevice `json:"sound,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -461,6 +464,17 @@ type ClientPassthroughDevices struct {
 const (
 	UsbClientPassthroughMaxNumberOf = 4
 )
+
+// Represents the user's configuration to emulate sound cards in the VMI.
+type SoundDevice struct {
+	// User's defined name for this sound device
+	Name string `json:"name"`
+	// We only support ich9 or ac97.
+	// If SoundDevice is not set: No sound card is emulated.
+	// If SoundDevice is set but Model is not: ich9
+	// +optional
+	Model string `json:"model,omitempty"`
+}
 
 type Input struct {
 	// Bus indicates the bus of input device to emulate.

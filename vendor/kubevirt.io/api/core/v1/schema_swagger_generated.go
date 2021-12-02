@@ -128,7 +128,7 @@ func (EFI) SwaggerDoc() map[string]string {
 func (KernelBootContainer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "If set, the VM will be booted from the defined kernel / initrd.",
-		"image":           "Image that container initrd / kernel files.",
+		"image":           "Image that contains initrd / kernel files.",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.\n+optional",
 		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
 		"kernelPath":      "The fully-qualified path to the kernel image in the host OS\n+optional",
@@ -243,12 +243,21 @@ func (Devices) SwaggerDoc() map[string]string {
 		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
+		"sound":                      "Whether to emulate a sound device.\n+optional",
 	}
 }
 
 func (ClientPassthroughDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "Represent a subset of client devices that can be accessed by VMI. At the\nmoment only, USB devices using Usbredir's library and tooling. Another fit\nwould be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for\nuser-facing APIs. This structure simply turns on USB redirection of\nUsbClientPassthroughMaxNumberOf devices.",
+	}
+}
+
+func (SoundDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "Represents the user's configuration to emulate sound cards in the VMI.",
+		"name":  "User's defined name for this sound device",
+		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
 	}
 }
 

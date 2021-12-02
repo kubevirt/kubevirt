@@ -31,7 +31,7 @@ require (
 	k8s.io/apimachinery v0.22.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20211029090450-ec1f4c89925a
-	kubevirt.io/api v0.0.0-20211117075245-c94ce62baf5a
+	kubevirt.io/api v0.48.0-rc.0
 	kubevirt.io/containerized-data-importer-api v1.41.1
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
 	kubevirt.io/ssp-operator v0.13.0-rc.2

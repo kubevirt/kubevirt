@@ -493,7 +493,7 @@ spec:
                   infrastructure components
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -1196,6 +1196,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
               monitorAccount:
                 description: The name of the Prometheus service account that needs
@@ -1203,6 +1208,12 @@ spec:
                 type: string
               monitorNamespace:
                 description: The namespace Prometheus is deployed in Defaults to openshift-monitor
+                type: string
+              productComponent:
+                description: Designate the apps.kubevirt.io/component label for KubeVirt
+                  components. Useful if KubeVirt is included as part of a product.
+                  If ProductComponent is not specified, the component label default
+                  value is kubevirt.
                 type: string
               productName:
                 description: Designate the apps.kubevirt.io/part-of label for KubeVirt
@@ -1251,7 +1262,7 @@ spec:
                   workloads
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -1954,6 +1965,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
             type: object
           status:
@@ -2529,7 +2545,7 @@ spec:
                   infrastructure components
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -3232,6 +3248,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
               monitorAccount:
                 description: The name of the Prometheus service account that needs
@@ -3239,6 +3260,12 @@ spec:
                 type: string
               monitorNamespace:
                 description: The namespace Prometheus is deployed in Defaults to openshift-monitor
+                type: string
+              productComponent:
+                description: Designate the apps.kubevirt.io/component label for KubeVirt
+                  components. Useful if KubeVirt is included as part of a product.
+                  If ProductComponent is not specified, the component label default
+                  value is kubevirt.
                 type: string
               productName:
                 description: Designate the apps.kubevirt.io/part-of label for KubeVirt
@@ -3287,7 +3314,7 @@ spec:
                   workloads
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -3990,6 +4017,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
             type: object
           status:
