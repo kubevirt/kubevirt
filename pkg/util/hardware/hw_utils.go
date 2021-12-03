@@ -20,12 +20,17 @@
 package hardware
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -106,4 +111,65 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 		return nil, fmt.Errorf("failed to parse pci address %s", pciAddress)
 	}
 	return res[1:], nil
+}
+
+
+func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
+	pciBasePath := "/sys/bus/pci/devices"
+	numaNodePath := filepath.Join(pciBasePath, pciAddress, "numa_node")
+	// #nosec No risk for path injection. Reading static path of NUMA node info
+	numaNodeStr, err := os.ReadFile(numaNodePath)
+	if err != nil {
+		return nil, err
+	}
+	numaNodeStr = bytes.TrimSpace(numaNodeStr)
+	numaNodeInt, err := strconv.Atoi(string(numaNodeStr))
+	if err != nil {
+		return nil, err
+	}
+	numaNode := uint32(numaNodeInt)
+	return &numaNode, nil
+}
+
+func GetDeviceAlignedCPUs(pciAddress string) ([]int, error) {
+	numaNode, err := GetDeviceNumaNode(pciAddress)
+	if err != nil {
+		return nil, err
+	}
+	cpuList, err := GetNumaNodeCPUList(int(*numaNode))
+	if err != nil {
+		return nil, err
+	}
+	return cpuList, err
+}
+
+func GetNumaNodeCPUList(numaNode int) ([]int, error) {
+	filePath := fmt.Sprintf("/sys/bus/node/devices/node%d/cpulist", numaNode)
+	content, err := readFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	cpusList, err := ParseCPUSetLine(content, 50000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse cpulist file: %v", err)
+	}
+
+	return cpusList, nil
+}
+
+func readFile(path string) (string, error) {
+	var content string
+	file, err := os.Open(path)
+	if err != nil {
+		return content, err
+	}
+	defer util.CloseIOAndCheckErr(file, nil)
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		content = scanner.Text()
+	}
+	if err := scanner.Err(); err != nil {
+		return content, err
+	}
+	return content, nil
 }
