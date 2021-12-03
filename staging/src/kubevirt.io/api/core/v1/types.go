@@ -154,9 +154,6 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=atomic
 	// +optional
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
-
-	// Flavor references the name of a VirtualMachineFlavor or VirtualMachineClusterFlavor
-	Flavor string `json:"flavor,omitempty" optional:"true"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
@@ -823,6 +820,12 @@ const (
 
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
+
+	// Flavor is the name of a VirtualMachineFlavor
+	Flavor string = "kubevirt.io/flavor"
+
+	// ClusterFlavor is the name of a VirtualMachineClusterFlavor
+	ClusterFlavor string = "kubevirt.io/cluster-flavor"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

@@ -111,6 +111,7 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
 	precond.MustNotBeNil(vmi)
+	flavor, _ := vmi.Annotations["Flavor"]
 
 	hostname := dns.SanitizeHostname(vmi)
 
@@ -122,7 +123,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
-			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace, vmi.Spec.Flavor)
+			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace, flavor)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -134,7 +135,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
-			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys, vmi.Spec.Flavor)
+			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys, flavor)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -552,9 +553,7 @@ func GenerateLocalData(vmiName string, namespace string, instanceType string, da
 			data.NoCloudMetaData = &NoCloudMetadata{
 				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
 			}
-			if instanceType != "" {
-				data.NoCloudMetaData.InstanceType = instanceType
-			}
+			data.NoCloudMetaData.InstanceType = instanceType
 		}
 		metaData, err = json.Marshal(data.NoCloudMetaData)
 		if err != nil {
@@ -572,9 +571,7 @@ func GenerateLocalData(vmiName string, namespace string, instanceType string, da
 			data.ConfigDriveMetaData = &ConfigDriveMetadata{
 				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
 			}
-			if instanceType != "" {
-				data.ConfigDriveMetaData.InstanceType = instanceType
-			}
+			data.ConfigDriveMetaData.InstanceType = instanceType
 		}
 		data.ConfigDriveMetaData.Devices = data.DevicesData
 		metaData, err = json.Marshal(data.ConfigDriveMetaData)

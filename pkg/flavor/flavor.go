@@ -16,7 +16,7 @@ import (
 
 type Methods interface {
 	FindProfile(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error)
-	ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
+	ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) Conflicts
 }
 
 type Conflicts []*k8sfield.Path
@@ -72,11 +72,26 @@ func (m *methods) FindProfile(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Virtua
 	}
 }
 
-func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) Conflicts {
 	var conflicts Conflicts
+	var flavor string
 
-	vmiSpec.Flavor = profile.Name
-	conflicts = append(conflicts, applyCpu(field, profile, vmiSpec)...)
+	if vm.Spec.Flavor != nil {
+		flavor = strings.ToLower(vm.Spec.Flavor.Kind)
+	}
+
+	if vmi.Annotations == nil {
+		vmi.Annotations = make(map[string]string)
+	}
+
+	switch flavor {
+	case "virtualmachineflavors", "virtualmachineflavor":
+		vmi.Annotations[virtv1.Flavor] = vm.Spec.Flavor.Name
+	case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
+		vmi.Annotations[virtv1.ClusterFlavor] = vm.Spec.Flavor.Name
+	}
+
+	conflicts = append(conflicts, applyCpu(field, profile, &vmi.Spec)...)
 
 	return conflicts
 }

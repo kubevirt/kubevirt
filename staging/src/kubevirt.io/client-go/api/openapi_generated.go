@@ -21040,13 +21040,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 					},
-					"flavor": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Flavor references the name of a VirtualMachineFlavor or VirtualMachineClusterFlavor",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"domain"},
 			},
