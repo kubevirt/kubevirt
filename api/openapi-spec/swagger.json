@@ -16418,6 +16418,58 @@
      }
     }
    },
+   "v1alpha1.DevicesDefaults": {
+    "description": "DevicesDefaults contains various optional defaults for Disks, Interfaces and Inputs.",
+    "type": "object",
+    "properties": {
+     "diskDefaults": {
+      "description": "DiskDefaults optionally contains various preferred defaults for Disk Devices.",
+      "$ref": "#/definitions/v1alpha1.DiskDefaults"
+     },
+     "inputDefaults": {
+      "description": "InputDefaults optionally contains various preferred defaults for Input Devices.",
+      "$ref": "#/definitions/v1alpha1.InputDefaults"
+     },
+     "interfaceDefaults": {
+      "description": "InterfaceDefaults optionally contains various preferred defaults for Interface Devices.",
+      "$ref": "#/definitions/v1alpha1.InterfaceDefaults"
+     }
+    }
+   },
+   "v1alpha1.DiskDefaults": {
+    "description": "DiskDefaults contains optional defaults for Disks such as the preferred bus for each Disk.DiskDevice type, preferred cache etc.",
+    "type": "object",
+    "properties": {
+     "preferredBlockSize": {
+      "description": "PreferredBlockSize optionally defines the block size of Disk devices.",
+      "$ref": "#/definitions/v1.BlockSize"
+     },
+     "preferredCache": {
+      "description": "PreferredCache optionally defines the DriverCache to be used by Disk devices.",
+      "type": "string"
+     },
+     "preferredCdromBus": {
+      "description": "PreferredCdromBus optionally defines the preffered bus for Cdrom Disk devices.",
+      "type": "string"
+     },
+     "preferredDedicatedIoThread": {
+      "description": "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.",
+      "type": "boolean"
+     },
+     "preferredDiskBus": {
+      "description": "PreferredDiskBus optionally defines the preffered bus for Disk Disk devices.",
+      "type": "string"
+     },
+     "preferredIo": {
+      "description": "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.",
+      "type": "string"
+     },
+     "preferredLunBus": {
+      "description": "PreferredLunBus optionally defines the preffered bus for Lun Disk devices.",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.Error": {
     "description": "Error is the last error encountered during the snapshot/restore",
     "type": "object",
@@ -16427,6 +16479,26 @@
      },
      "time": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
+   "v1alpha1.InputDefaults": {
+    "description": "InputDefaults contains optional defaults for Inputs such as the preferred input model.",
+    "type": "object",
+    "properties": {
+     "preferredInputModel": {
+      "description": "PreferredInputModel specifices the model for Input devices.",
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.InterfaceDefaults": {
+    "description": "InterfaceDefaults contains optional defaults for Interfaces such as the prefferd model to be used.",
+    "type": "object",
+    "properties": {
+     "preferredInterfaceModel": {
+      "description": "PreferredInterfaceModel optionally defines the preffered model to be used by Interface devices.",
+      "type": "string"
      }
     }
    },
@@ -16716,6 +16788,10 @@
      "default": {
       "description": "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor. Zero or one profile can be set to default.",
       "type": "boolean"
+     },
+     "devicesDefaults": {
+      "description": "DevicesDefaults specifies default values for various device fields.",
+      "$ref": "#/definitions/v1alpha1.DevicesDefaults"
      },
      "domainTemplate": {
       "description": "DomainTemplate specifies domain that will be used to fill missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.",

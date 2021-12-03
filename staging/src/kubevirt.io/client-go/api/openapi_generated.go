@@ -489,6 +489,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VolumeStatus":                                                       schema_kubevirtio_api_core_v1_VolumeStatus(ref),
 		"kubevirt.io/api/core/v1.Watchdog":                                                           schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
+		"kubevirt.io/api/flavor/v1alpha1.DevicesDefaults":                                            schema_kubevirtio_api_flavor_v1alpha1_DevicesDefaults(ref),
+		"kubevirt.io/api/flavor/v1alpha1.DiskDefaults":                                               schema_kubevirtio_api_flavor_v1alpha1_DiskDefaults(ref),
+		"kubevirt.io/api/flavor/v1alpha1.InputDefaults":                                              schema_kubevirtio_api_flavor_v1alpha1_InputDefaults(ref),
+		"kubevirt.io/api/flavor/v1alpha1.InterfaceDefaults":                                          schema_kubevirtio_api_flavor_v1alpha1_InterfaceDefaults(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
@@ -22084,6 +22088,142 @@ func schema_kubevirtio_api_core_v1_WatchdogDevice(ref common.ReferenceCallback) 
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_DevicesDefaults(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DevicesDefaults contains various optional defaults for Disks, Interfaces and Inputs.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"diskDefaults": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DiskDefaults optionally contains various preferred defaults for Disk Devices.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.DiskDefaults"),
+						},
+					},
+					"interfaceDefaults": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InterfaceDefaults optionally contains various preferred defaults for Interface Devices.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.InterfaceDefaults"),
+						},
+					},
+					"inputDefaults": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InputDefaults optionally contains various preferred defaults for Input Devices.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.InputDefaults"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/flavor/v1alpha1.DiskDefaults", "kubevirt.io/api/flavor/v1alpha1.InputDefaults", "kubevirt.io/api/flavor/v1alpha1.InterfaceDefaults"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_DiskDefaults(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DiskDefaults contains optional defaults for Disks such as the preferred bus for each Disk.DiskDevice type, preferred cache etc.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredDiskBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDiskBus optionally defines the preffered bus for Disk Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredLunBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredLunBus optionally defines the preffered bus for Lun Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredCdromBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCdromBus optionally defines the preffered bus for Cdrom Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDedicatedIoThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredCache": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCache optionally defines the DriverCache to be used by Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredIo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredBlockSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredBlockSize optionally defines the block size of Disk devices.",
+							Ref:         ref("kubevirt.io/api/core/v1.BlockSize"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.BlockSize"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_InputDefaults(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InputDefaults contains optional defaults for Inputs such as the preferred input model.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredInputModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInputModel specifices the model for Input devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_InterfaceDefaults(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InterfaceDefaults contains optional defaults for Interfaces such as the prefferd model to be used.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredInterfaceModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInterfaceModel optionally defines the preffered model to be used by Interface devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22397,12 +22537,18 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref commo
 							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorDomainTemplateSpec"),
 						},
 					},
+					"devicesDefaults": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DevicesDefaults specifies default values for various device fields.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.DevicesDefaults"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorDomainTemplateSpec"},
+			"kubevirt.io/api/flavor/v1alpha1.DevicesDefaults", "kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorDomainTemplateSpec"},
 	}
 }
 

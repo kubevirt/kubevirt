@@ -6779,6 +6779,83 @@ var CRDsValidation map[string]string = map[string]string{
               the default for the VirtualMachineFlavor. Zero or one profile can be
               set to default.
             type: boolean
+          devicesDefaults:
+            description: DevicesDefaults specifies default values for various device
+              fields.
+            properties:
+              diskDefaults:
+                description: DiskDefaults optionally contains various preferred defaults
+                  for Disk Devices.
+                properties:
+                  preferredBlockSize:
+                    description: PreferredBlockSize optionally defines the block size
+                      of Disk devices.
+                    properties:
+                      custom:
+                        description: CustomBlockSize represents the desired logical
+                          and physical block size for a VM disk.
+                        properties:
+                          logical:
+                            type: integer
+                          physical:
+                            type: integer
+                        required:
+                        - logical
+                        - physical
+                        type: object
+                      matchVolume:
+                        description: Represents if a feature is enabled or disabled.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                  preferredCache:
+                    description: PreferredCache optionally defines the DriverCache
+                      to be used by Disk devices.
+                    type: string
+                  preferredCdromBus:
+                    description: PreferredCdromBus optionally defines the preffered
+                      bus for Cdrom Disk devices.
+                    type: string
+                  preferredDedicatedIoThread:
+                    description: PreferredDedicatedIoThread optionally enables dedicated
+                      IO threads for Disk devices.
+                    type: boolean
+                  preferredDiskBus:
+                    description: PreferredDiskBus optionally defines the preffered
+                      bus for Disk Disk devices.
+                    type: string
+                  preferredIo:
+                    description: PreferredIo optionally defines the QEMU disk IO mode
+                      to be used by Disk devices.
+                    type: string
+                  preferredLunBus:
+                    description: PreferredLunBus optionally defines the preffered
+                      bus for Lun Disk devices.
+                    type: string
+                type: object
+              inputDefaults:
+                description: InputDefaults optionally contains various preferred defaults
+                  for Input Devices.
+                properties:
+                  preferredInputModel:
+                    description: PreferredInputModel specifices the model for Input
+                      devices.
+                    type: string
+                type: object
+              interfaceDefaults:
+                description: InterfaceDefaults optionally contains various preferred
+                  defaults for Interface Devices.
+                properties:
+                  preferredInterfaceModel:
+                    description: PreferredInterfaceModel optionally defines the preffered
+                      model to be used by Interface devices.
+                    type: string
+                type: object
+            type: object
           domainTemplate:
             description: DomainTemplate specifies domain that will be used to fill
               missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.
@@ -7771,6 +7848,83 @@ var CRDsValidation map[string]string = map[string]string{
               the default for the VirtualMachineFlavor. Zero or one profile can be
               set to default.
             type: boolean
+          devicesDefaults:
+            description: DevicesDefaults specifies default values for various device
+              fields.
+            properties:
+              diskDefaults:
+                description: DiskDefaults optionally contains various preferred defaults
+                  for Disk Devices.
+                properties:
+                  preferredBlockSize:
+                    description: PreferredBlockSize optionally defines the block size
+                      of Disk devices.
+                    properties:
+                      custom:
+                        description: CustomBlockSize represents the desired logical
+                          and physical block size for a VM disk.
+                        properties:
+                          logical:
+                            type: integer
+                          physical:
+                            type: integer
+                        required:
+                        - logical
+                        - physical
+                        type: object
+                      matchVolume:
+                        description: Represents if a feature is enabled or disabled.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                  preferredCache:
+                    description: PreferredCache optionally defines the DriverCache
+                      to be used by Disk devices.
+                    type: string
+                  preferredCdromBus:
+                    description: PreferredCdromBus optionally defines the preffered
+                      bus for Cdrom Disk devices.
+                    type: string
+                  preferredDedicatedIoThread:
+                    description: PreferredDedicatedIoThread optionally enables dedicated
+                      IO threads for Disk devices.
+                    type: boolean
+                  preferredDiskBus:
+                    description: PreferredDiskBus optionally defines the preffered
+                      bus for Disk Disk devices.
+                    type: string
+                  preferredIo:
+                    description: PreferredIo optionally defines the QEMU disk IO mode
+                      to be used by Disk devices.
+                    type: string
+                  preferredLunBus:
+                    description: PreferredLunBus optionally defines the preffered
+                      bus for Lun Disk devices.
+                    type: string
+                type: object
+              inputDefaults:
+                description: InputDefaults optionally contains various preferred defaults
+                  for Input Devices.
+                properties:
+                  preferredInputModel:
+                    description: PreferredInputModel specifices the model for Input
+                      devices.
+                    type: string
+                type: object
+              interfaceDefaults:
+                description: InterfaceDefaults optionally contains various preferred
+                  defaults for Interface Devices.
+                properties:
+                  preferredInterfaceModel:
+                    description: PreferredInterfaceModel optionally defines the preffered
+                      model to be used by Interface devices.
+                    type: string
+                type: object
+            type: object
           domainTemplate:
             description: DomainTemplate specifies domain that will be used to fill
               missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.

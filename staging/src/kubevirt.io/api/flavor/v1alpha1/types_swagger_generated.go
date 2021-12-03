@@ -30,10 +30,11 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineFlavorProfile) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.\n\n+k8s:openapi-gen=true",
-		"name":           "Name specifies the name of this custom profile.",
-		"default":        "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor.\nZero or one profile can be set to default.\n\n+optional",
-		"domainTemplate": "DomainTemplate specifies domain that will be used to fill missing values in a VMI domain.\nDevices filed is not allowed in DomainTemplate.\n\n+optional",
+		"":                "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.\n\n+k8s:openapi-gen=true",
+		"name":            "Name specifies the name of this custom profile.",
+		"default":         "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor.\nZero or one profile can be set to default.\n\n+optional",
+		"domainTemplate":  "DomainTemplate specifies domain that will be used to fill missing values in a VMI domain.\nDevices filed is not allowed in DomainTemplate.\n\n+optional",
+		"devicesDefaults": "DevicesDefaults specifies default values for various device fields.\n\n+optional",
 	}
 }
 
@@ -51,5 +52,41 @@ func (VirtualMachineFlavorDomainTemplateSpec) SwaggerDoc() map[string]string {
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
+	}
+}
+
+func (DevicesDefaults) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "DevicesDefaults contains various optional defaults for Disks, Interfaces and Inputs.\n\n+k8s:openapi-gen=true",
+		"diskDefaults":      "DiskDefaults optionally contains various preferred defaults for Disk Devices.\n\n+optional",
+		"interfaceDefaults": "InterfaceDefaults optionally contains various preferred defaults for Interface Devices.\n\n+optional",
+		"inputDefaults":     "InputDefaults optionally contains various preferred defaults for Input Devices.\n\n+optional",
+	}
+}
+
+func (InputDefaults) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                    "InputDefaults contains optional defaults for Inputs such as the preferred input model.\n\n+k8s:openapi-gen=true",
+		"preferredInputModel": "PreferredInputModel specifices the model for Input devices.\n\n+optional",
+	}
+}
+
+func (DiskDefaults) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                           "DiskDefaults contains optional defaults for Disks such as the preferred bus for each Disk.DiskDevice type, preferred cache etc.\n\n+k8s:openapi-gen=true",
+		"preferredDiskBus":           "PreferredDiskBus optionally defines the preffered bus for Disk Disk devices.\n\n+optional",
+		"preferredLunBus":            "PreferredLunBus optionally defines the preffered bus for Lun Disk devices.\n\n+optional",
+		"preferredCdromBus":          "PreferredCdromBus optionally defines the preffered bus for Cdrom Disk devices.\n\n+optional",
+		"preferredDedicatedIoThread": "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.\n\n+optional",
+		"preferredCache":             "PreferredCache optionally defines the DriverCache to be used by Disk devices.\n\n+optional",
+		"preferredIo":                "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.\n\n+optional",
+		"preferredBlockSize":         "PreferredBlockSize optionally defines the block size of Disk devices.\n\n+optional",
+	}
+}
+
+func (InterfaceDefaults) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                        "InterfaceDefaults contains optional defaults for Interfaces such as the prefferd model to be used.\n\n+k8s:openapi-gen=true",
+		"preferredInterfaceModel": "PreferredInterfaceModel optionally defines the preffered model to be used by Interface devices.\n\n+optional",
 	}
 }

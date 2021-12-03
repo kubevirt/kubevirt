@@ -93,6 +93,11 @@ type VirtualMachineFlavorProfile struct {
 	//
 	// +optional
 	DomainTemplate *VirtualMachineFlavorDomainTemplateSpec `json:"domainTemplate,omitempty"`
+
+	// DevicesDefaults specifies default values for various device fields.
+	//
+	// +optional
+	DevicesDefaults *DevicesDefaults `json:"devicesDefaults,omitempty"`
 }
 
 // VirtualMachineFlavorDomainTemplateSpec contains the generic spec definition for the flavor.
@@ -135,4 +140,86 @@ type VirtualMachineFlavorDomainTemplateSpec struct {
 	// Launch Security setting of the vmi.
 	// +optional
 	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
+}
+
+// DevicesDefaults contains various optional defaults for Disks, Interfaces and Inputs.
+//
+// +k8s:openapi-gen=true
+type DevicesDefaults struct {
+	// DiskDefaults optionally contains various preferred defaults for Disk Devices.
+	//
+	// +optional
+	DiskDefaults *DiskDefaults `json:"diskDefaults,omitempty"`
+
+	// InterfaceDefaults optionally contains various preferred defaults for Interface Devices.
+	//
+	// +optional
+	InterfaceDefaults *InterfaceDefaults `json:"interfaceDefaults,omitempty"`
+
+	// InputDefaults optionally contains various preferred defaults for Input Devices.
+	//
+	// +optional
+	InputDefaults *InputDefaults `json:"inputDefaults,omitempty"`
+}
+
+// InputDefaults contains optional defaults for Inputs such as the preferred input model.
+//
+// +k8s:openapi-gen=true
+type InputDefaults struct {
+	// PreferredInputModel specifices the model for Input devices.
+	//
+	// +optional
+	PreferredInputModel string `json:"preferredInputModel,omitempty"`
+}
+
+// DiskDefaults contains optional defaults for Disks such as the preferred bus for each Disk.DiskDevice type, preferred cache etc.
+//
+// +k8s:openapi-gen=true
+type DiskDefaults struct {
+
+	// PreferredDiskBus optionally defines the preffered bus for Disk Disk devices.
+	//
+	// +optional
+	PreferredDiskBus string `json:"preferredDiskBus,omitempty"`
+
+	// PreferredLunBus optionally defines the preffered bus for Lun Disk devices.
+	//
+	// +optional
+	PreferredLunBus string `json:"preferredLunBus,omitempty"`
+
+	// PreferredCdromBus optionally defines the preffered bus for Cdrom Disk devices.
+	//
+	// +optional
+	PreferredCdromBus string `json:"preferredCdromBus,omitempty"`
+
+	// PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.
+	//
+	// +optional
+	PreferredDedicatedIoThread *bool `json:"preferredDedicatedIoThread,omitempty"`
+
+	// PreferredCache optionally defines the DriverCache to be used by Disk devices.
+	//
+	// +optional
+	PreferredCache v1.DriverCache `json:"preferredCache,omitempty"`
+
+	// PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.
+	//
+	// +optional
+	PreferredIo v1.DriverIO `json:"preferredIo,omitempty"`
+
+	// PreferredBlockSize optionally defines the block size of Disk devices.
+	//
+	// +optional
+	PreferredBlockSize *v1.BlockSize `json:"preferredBlockSize,omitempty"`
+}
+
+// InterfaceDefaults contains optional defaults for Interfaces such as the prefferd model to be used.
+//
+// +k8s:openapi-gen=true
+type InterfaceDefaults struct {
+
+	// PreferredInterfaceModel optionally defines the preffered model to be used by Interface devices.
+	//
+	// +optional
+	PreferredInterfaceModel string `json:"preferredInterfaceModel,omitempty"`
 }
