@@ -16,21 +16,21 @@ require (
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.0
 	github.com/operator-framework/api v0.10.7
-	github.com/operator-framework/operator-lib v0.8.0
+	github.com/operator-framework/operator-lib v0.9.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/tools v0.1.7
-	k8s.io/api v0.22.3
-	k8s.io/apiextensions-apiserver v0.22.3
-	k8s.io/apimachinery v0.22.3
+	k8s.io/api v0.22.4
+	k8s.io/apiextensions-apiserver v0.22.4
+	k8s.io/apimachinery v0.22.4
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20211029090450-ec1f4c89925a
+	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 	kubevirt.io/api v0.48.0-rc.0
 	kubevirt.io/containerized-data-importer-api v1.41.1
-	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
+	kubevirt.io/controller-lifecycle-operator-sdk v0.2.2
 	kubevirt.io/ssp-operator v0.13.0-rc.2
 	sigs.k8s.io/controller-runtime v0.10.3
 	sigs.k8s.io/controller-tools v0.7.0
@@ -85,8 +85,8 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/component-base v0.22.3 // indirect
-	k8s.io/klog/v2 v2.9.0 // indirect
+	k8s.io/component-base v0.22.4 // indirect
+	k8s.io/klog/v2 v2.10.0 // indirect
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
@@ -136,33 +136,33 @@ exclude k8s.io/metrics v0.0.0
 
 exclude k8s.io/sample-apiserver v0.0.0
 
-// Pinned to v0.22.3
+// Pinned to v0.22.4
 replace (
-	k8s.io/api => k8s.io/api v0.22.3
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.3
-	k8s.io/apimachinery => k8s.io/apimachinery v0.22.3
-	k8s.io/apiserver => k8s.io/apiserver v0.22.3
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.22.3
-	k8s.io/client-go => k8s.io/client-go v0.22.3
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.22.3
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.22.3
-	k8s.io/code-generator => k8s.io/code-generator v0.22.3
-	k8s.io/component-base => k8s.io/component-base v0.22.3
-	k8s.io/cri-api => k8s.io/cri-api v0.22.3
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.22.3
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.3
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.22.3
+	k8s.io/api => k8s.io/api v0.22.4
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.4
+	k8s.io/apimachinery => k8s.io/apimachinery v0.22.4
+	k8s.io/apiserver => k8s.io/apiserver v0.22.4
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.22.4
+	k8s.io/client-go => k8s.io/client-go v0.22.4
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.22.4
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.22.4
+	k8s.io/code-generator => k8s.io/code-generator v0.22.4
+	k8s.io/component-base => k8s.io/component-base v0.22.4
+	k8s.io/cri-api => k8s.io/cri-api v0.22.4
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.22.4
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.4
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.22.4
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.22.3
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.3
-	k8s.io/kubectl => k8s.io/kubectl v0.22.3
-	k8s.io/kubelet => k8s.io/kubelet v0.22.3
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.3
-	k8s.io/metrics => k8s.io/metrics v0.22.3
-	k8s.io/node-api => k8s.io/node-api v0.22.3
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.22.3
-	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.22.3
-	k8s.io/sample-controller => k8s.io/sample-controller v0.22.3
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.22.4
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.4
+	k8s.io/kubectl => k8s.io/kubectl v0.22.4
+	k8s.io/kubelet => k8s.io/kubelet v0.22.4
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.4
+	k8s.io/metrics => k8s.io/metrics v0.22.4
+	k8s.io/node-api => k8s.io/node-api v0.22.4
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.22.4
+	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.22.4
+	k8s.io/sample-controller => k8s.io/sample-controller v0.22.4
 )
 
 replace (
