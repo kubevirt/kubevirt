@@ -153,3 +153,53 @@ webhooks:
     - ssps
   sideEffects: None
   timeoutSeconds: 10
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  namespace: kubevirt-hyperconverged
+  name: hostpath-provisioner-operator-webhook-service-cert
+  labels:
+    name: hostpath-provisioner-operator
+spec:
+  secretName: hostpath-provisioner-operator-webhook-service-cert
+  dnsNames:
+  - hostpath-provisioner-operator-webhook-service.hostpath-provisioner.svc
+  issuerRef:
+    name: selfsigned
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: hostpathprovisioner.kubevirt.io
+  annotations:
+    cert-manager.io/inject-ca-from: hostpath-provisioner/hostpath-provisioner-operator-webhook-service-cert
+  labels:
+    name: hostpath-provisioner-operator
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: hostpath-provisioner-operator-webhook-service
+      namespace: hostpath-provisioner
+      path: /validate-hostpathprovisioner-kubevirt-io-v1beta1-hostpathprovisioner
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: validate-hostpath-provisioner.kubevirt.io
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - hostpathprovisioner.kubevirt.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
+    - "*/*"
+    scope: '*'
+  sideEffects: None
+  timeoutSeconds: 30

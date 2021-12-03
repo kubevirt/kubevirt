@@ -64,7 +64,7 @@ spec:
         - name: NMO_VERSION
           value: v0.10.0
         - name: HPPO_VERSION
-          value: v0.10.1
+          value: v0.11.0
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -637,9 +637,12 @@ spec:
         app.kubernetes.io/version: 1.6.0
         name: hostpath-provisioner-operator
         operator.hostpath-provisioner.kubevirt.io: ""
+        prometheus.hostpathprovisioner.kubevirt.io: "true"
     spec:
       containers:
-      - env:
+      - command:
+        - hostpath-provisioner-operator
+        env:
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -648,12 +651,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: hostpath-provisioner-operator
-        - name: PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner@sha256:12fea4b3c6fe5c98b7887d31c3af8e6693a336ff20be8d6b4dd6ff9de60f0da9
-        - name: PULL_POLICY
-          value: IfNotPresent
         - name: INSTALLER_PART_OF_LABEL
           valueFrom:
             fieldRef:
@@ -662,15 +659,71 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['app.kubernetes.io/version']
-        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:97e4f5b01051bde5d78bad46b2265275d59f445d99e819d67b1b900187be1929
+        - name: OPERATOR_NAME
+          value: hostpath-provisioner-operator
+        - name: OPERATOR_IMAGE
+          value: quay.io/kubevirt/hostpath-provisioner-operator:latest
+        - name: PROVISIONER_IMAGE
+          value: quay.io/kubevirt/hostpath-provisioner:latest
+        - name: CSI_PROVISIONER_IMAGE
+          value: quay.io/kubevirt/hostpath-csi-driver:latest
+        - name: EXTERNAL_HEALTH_MON_IMAGE
+          value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
+        - name: NODE_DRIVER_REG_IMAGE
+          value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
+        - name: LIVENESS_PROBE_IMAGE
+          value: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
+        - name: CSI_SNAPSHOT_IMAGE
+          value: k8s.gcr.io/sig-storage/csi-snapshotter:v4.2.1
+        - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
+          value: k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1
+        - name: VERBOSITY
+          value: "3"
+        - name: MONITORING_NAMESPACE
+        - name: PRIORITY_CLASS
+          value: kubevirt-cluster-critical
+        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:1c2d284c71a25b756a7b3b16470f6f26f6868da5650ca5d0d78afdd192c75455
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /livez
+            port: 6060
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
         name: hostpath-provisioner-operator
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /readyz
+            port: 6060
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
         resources:
           requests:
             cpu: 10m
             memory: 150Mi
-      priorityClassName: openshift-user-critical
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: apiservice-cert
+      priorityClassName: kubevirt-cluster-critical
       serviceAccountName: hostpath-provisioner-operator
+      volumes:
+      - name: apiservice-cert
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          secretName: hostpath-provisioner-operator-webhook-service-cert
 ---
 apiVersion: v1
 kind: Service
@@ -716,4 +769,21 @@ spec:
     targetPort: 8443
   selector:
     name: node-maintenance-operator
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: hostpath-provisioner-operator
+  name: hostpath-provisioner-operator-service
+spec:
+  ports:
+  - name: "9443"
+    port: 9443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    name: hostpath-provisioner-operator
+    operator.hostpath-provisioner.kubevirt.io: ""
   type: ClusterIP

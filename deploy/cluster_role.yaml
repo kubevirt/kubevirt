@@ -189,18 +189,57 @@ rules:
   - delete
   - update
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+  - delete
+  - update
+- apiGroups:
   - ""
   resources:
-  - pods
+  - endpoints
   verbs:
   - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+- apiGroups:
+  - ""
+  resourceNames:
+  - hpp-prometheus-metrics
+  resources:
+  - services
+  verbs:
+  - update
+  - delete
 - apiGroups:
   - ""
   resources:
   - configmaps
   verbs:
-  - get
   - create
+  - get
+- apiGroups:
+  - ""
+  resourceNames:
+  - hostpath-provisioner-operator-lock
+  resources:
+  - configmaps
+  verbs:
+  - update
 - apiGroups:
   - ""
   resources:
@@ -233,14 +272,36 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  - prometheusrules
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+  - delete
+  - update
+  - patch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
   verbs:
   - list
-  - create
   - get
   - watch
+  - create
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - list
+  - get
+  - watch
+  - create
 - apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
@@ -248,6 +309,7 @@ rules:
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
   - hostpath-provisioner-health-check
+  - hostpath-provisioner-monitoring
   resources:
   - rolebindings
   verbs:
@@ -255,25 +317,26 @@ rules:
   - delete
 - apiGroups:
   - rbac.authorization.k8s.io
-  resources:
-  - roles
-  verbs:
-  - list
-  - create
-  - get
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
   resourceNames:
   - hostpath-provisioner
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
   - hostpath-provisioner-health-check
+  - hostpath-provisioner-monitoring
   resources:
   - roles
   verbs:
   - update
   - delete
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2008,6 +2071,15 @@ rules:
   - create
 - apiGroups:
   - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+- apiGroups:
+  - rbac.authorization.k8s.io
   resourceNames:
   - hostpath-provisioner
   - hostpath-provisioner-admin
@@ -2018,15 +2090,6 @@ rules:
   verbs:
   - update
   - delete
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  verbs:
-  - list
-  - get
-  - watch
-  - create
 - apiGroups:
   - apps
   resourceNames:
@@ -2054,6 +2117,7 @@ rules:
   - security.openshift.io
   resourceNames:
   - hostpath-provisioner
+  - hostpath-provisioner-csi
   resources:
   - securitycontextconstraints
   verbs:
@@ -2064,8 +2128,8 @@ rules:
   resources:
   - storageclasses
   verbs:
-  - get
   - list
+  - get
   - watch
 - apiGroups:
   - ""
@@ -2099,8 +2163,8 @@ rules:
   resources:
   - csidrivers
   verbs:
-  - update
   - delete
+  - update
 - apiGroups:
   - storage.k8s.io
   resources:
@@ -2115,6 +2179,39 @@ rules:
   resources:
   - volumeattachments/status
   verbs:
+  - patch
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshotclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshots
+  verbs:
+  - get
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshotcontents
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - delete
+  - patch
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshotcontents/status
+  verbs:
+  - update
   - patch
 - apiGroups:
   - ""

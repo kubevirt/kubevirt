@@ -1865,6 +1865,15 @@ spec:
           - create
         - apiGroups:
           - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          verbs:
+          - list
+          - get
+          - watch
+          - create
+        - apiGroups:
+          - rbac.authorization.k8s.io
           resourceNames:
           - hostpath-provisioner
           - hostpath-provisioner-admin
@@ -1875,15 +1884,6 @@ spec:
           verbs:
           - update
           - delete
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - clusterroles
-          verbs:
-          - list
-          - get
-          - watch
-          - create
         - apiGroups:
           - apps
           resourceNames:
@@ -1911,6 +1911,7 @@ spec:
           - security.openshift.io
           resourceNames:
           - hostpath-provisioner
+          - hostpath-provisioner-csi
           resources:
           - securitycontextconstraints
           verbs:
@@ -1921,8 +1922,8 @@ spec:
           resources:
           - storageclasses
           verbs:
-          - get
           - list
+          - get
           - watch
         - apiGroups:
           - ""
@@ -1956,8 +1957,8 @@ spec:
           resources:
           - csidrivers
           verbs:
-          - update
           - delete
+          - update
         - apiGroups:
           - storage.k8s.io
           resources:
@@ -1972,6 +1973,39 @@ spec:
           resources:
           - volumeattachments/status
           verbs:
+          - patch
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshotclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshots
+          verbs:
+          - get
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshotcontents
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshotcontents/status
+          verbs:
+          - update
           - patch
         - apiGroups:
           - ""
@@ -2047,7 +2081,7 @@ spec:
                 - name: NMO_VERSION
                   value: v0.10.0
                 - name: HPPO_VERSION
-                  value: v0.10.1
+                  value: v0.11.0
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -2560,9 +2594,12 @@ spec:
                 app.kubernetes.io/version: 1.6.0
                 name: hostpath-provisioner-operator
                 operator.hostpath-provisioner.kubevirt.io: ""
+                prometheus.hostpathprovisioner.kubevirt.io: "true"
             spec:
               containers:
-              - env:
+              - command:
+                - hostpath-provisioner-operator
+                env:
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -2571,12 +2608,6 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
-                - name: OPERATOR_NAME
-                  value: hostpath-provisioner-operator
-                - name: PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner@sha256:12fea4b3c6fe5c98b7887d31c3af8e6693a336ff20be8d6b4dd6ff9de60f0da9
-                - name: PULL_POLICY
-                  value: IfNotPresent
                 - name: INSTALLER_PART_OF_LABEL
                   valueFrom:
                     fieldRef:
@@ -2585,15 +2616,71 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.labels['app.kubernetes.io/version']
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:97e4f5b01051bde5d78bad46b2265275d59f445d99e819d67b1b900187be1929
+                - name: OPERATOR_NAME
+                  value: hostpath-provisioner-operator
+                - name: OPERATOR_IMAGE
+                  value: quay.io/kubevirt/hostpath-provisioner-operator:latest
+                - name: PROVISIONER_IMAGE
+                  value: quay.io/kubevirt/hostpath-provisioner:latest
+                - name: CSI_PROVISIONER_IMAGE
+                  value: quay.io/kubevirt/hostpath-csi-driver:latest
+                - name: EXTERNAL_HEALTH_MON_IMAGE
+                  value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
+                - name: NODE_DRIVER_REG_IMAGE
+                  value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
+                - name: LIVENESS_PROBE_IMAGE
+                  value: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
+                - name: CSI_SNAPSHOT_IMAGE
+                  value: k8s.gcr.io/sig-storage/csi-snapshotter:v4.2.1
+                - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
+                  value: k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1
+                - name: VERBOSITY
+                  value: "3"
+                - name: MONITORING_NAMESPACE
+                - name: PRIORITY_CLASS
+                  value: kubevirt-cluster-critical
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:1c2d284c71a25b756a7b3b16470f6f26f6868da5650ca5d0d78afdd192c75455
                 imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  failureThreshold: 1
+                  httpGet:
+                    path: /livez
+                    port: 6060
+                    scheme: HTTP
+                  initialDelaySeconds: 30
+                  periodSeconds: 5
                 name: hostpath-provisioner-operator
+                ports:
+                - containerPort: 8080
+                  name: metrics
+                  protocol: TCP
+                readinessProbe:
+                  failureThreshold: 1
+                  httpGet:
+                    path: /readyz
+                    port: 6060
+                    scheme: HTTP
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
                 resources:
                   requests:
                     cpu: 10m
                     memory: 150Mi
-              priorityClassName: openshift-user-critical
+                volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: apiservice-cert
+              priorityClassName: kubevirt-cluster-critical
               serviceAccountName: hostpath-provisioner-operator
+              volumes:
+              - name: apiservice-cert
+                secret:
+                  defaultMode: 420
+                  items:
+                  - key: tls.crt
+                    path: tls.crt
+                  - key: tls.key
+                    path: tls.key
+                  secretName: hostpath-provisioner-operator-webhook-service-cert
       permissions:
       - rules:
         - apiGroups:
@@ -2755,18 +2842,57 @@ spec:
           - delete
           - update
         - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - list
+          - get
+          - watch
+          - create
+          - delete
+          - update
+        - apiGroups:
           - ""
           resources:
-          - pods
+          - endpoints
           verbs:
           - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+        - apiGroups:
+          - ""
+          resourceNames:
+          - hpp-prometheus-metrics
+          resources:
+          - services
+          verbs:
+          - update
+          - delete
         - apiGroups:
           - ""
           resources:
           - configmaps
           verbs:
-          - get
           - create
+          - get
+        - apiGroups:
+          - ""
+          resourceNames:
+          - hostpath-provisioner-operator-lock
+          resources:
+          - configmaps
+          verbs:
+          - update
         - apiGroups:
           - ""
           resources:
@@ -2799,14 +2925,36 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          - prometheusrules
+          verbs:
+          - list
+          - get
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
           - rbac.authorization.k8s.io
           resources:
           - rolebindings
           verbs:
           - list
-          - create
           - get
           - watch
+          - create
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - roles
+          verbs:
+          - list
+          - get
+          - watch
+          - create
         - apiGroups:
           - rbac.authorization.k8s.io
           resourceNames:
@@ -2814,6 +2962,7 @@ spec:
           - hostpath-provisioner-admin
           - hostpath-provisioner-admin-csi
           - hostpath-provisioner-health-check
+          - hostpath-provisioner-monitoring
           resources:
           - rolebindings
           verbs:
@@ -2821,25 +2970,26 @@ spec:
           - delete
         - apiGroups:
           - rbac.authorization.k8s.io
-          resources:
-          - roles
-          verbs:
-          - list
-          - create
-          - get
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
           resourceNames:
           - hostpath-provisioner
           - hostpath-provisioner-admin
           - hostpath-provisioner-admin-csi
           - hostpath-provisioner-health-check
+          - hostpath-provisioner-monitoring
           resources:
           - roles
           verbs:
           - update
           - delete
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - list
+          - watch
         serviceAccountName: hostpath-provisioner-operator
     strategy: deployment
   installModes:
@@ -2894,7 +3044,7 @@ spec:
     name: cni-default-plugins
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:12fea4b3c6fe5c98b7887d31c3af8e6693a336ff20be8d6b4dd6ff9de60f0da9
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:97e4f5b01051bde5d78bad46b2265275d59f445d99e819d67b1b900187be1929
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:1c2d284c71a25b756a7b3b16470f6f26f6868da5650ca5d0d78afdd192c75455
     name: hostpath-provisioner-operator
   - image: +IMAGE_TO_REPLACE+
     name: hyperconverged-cluster-operator
@@ -3024,3 +3174,24 @@ spec:
     timeoutSeconds: 15
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-nodemaintenance-kubevirt-io-v1beta1-nodemaintenances
+  - admissionReviewVersions:
+    - v1beta1
+    containerPort: 9443
+    deploymentName: hostpath-provisioner-operator
+    failurePolicy: Fail
+    generateName: validate-hostpath-provisioner.kubevirt.io
+    rules:
+    - apiGroups:
+      - hostpathprovisioner.kubevirt.io
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - DELETE
+      - UPDATE
+      resources:
+      - hostpathprovisioners
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-hostpathprovisioner-kubevirt-io-v1beta1-hostpathprovisioner

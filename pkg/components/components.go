@@ -950,6 +950,13 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 }
 
 func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
+	// check if there is already a volume for api certificates
+	for _, vol := range deploy.Spec.Template.Spec.Volumes {
+		if vol.Name == certVolume {
+			return
+		}
+	}
+
 	defaultMode := int32(420)
 	volume := v1.Volume{
 		Name: certVolume,
@@ -975,7 +982,7 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 	for index, container := range deploy.Spec.Template.Spec.Containers {
 		deploy.Spec.Template.Spec.Containers[index].VolumeMounts = append(container.VolumeMounts,
 			corev1.VolumeMount{
-				Name:      "apiservice-cert",
+				Name:      certVolume,
 				MountPath: hcoutil.DefaultWebhookCertDir,
 			})
 	}
