@@ -1647,7 +1647,7 @@ spec:
 
 			By("Verifying that a once migrated VMI after an update can be migrated again")
 			vmi := migratableVMIs[0]
-			migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewRandomMigration(vmi.Name, vmi.Namespace))
+			migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewRandomMigration(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
 

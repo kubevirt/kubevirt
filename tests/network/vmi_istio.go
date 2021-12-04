@@ -171,7 +171,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			JustBeforeEach(func() {
 				sourcePodName = tests.GetVmPodName(virtClient, vmi)
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() error {
 					return migrationCompleted(migration)

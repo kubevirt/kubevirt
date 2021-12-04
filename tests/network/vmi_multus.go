@@ -880,7 +880,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				Eventually(func() error {
-					_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
+					_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
 					return err
 				}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
 			})

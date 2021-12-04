@@ -151,7 +151,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -227,7 +227,7 @@ var _ = Describe("Evacuation", func() {
 			migration.Status.Phase = v1.MigrationSucceeded
 			migrationFeeder.Modify(migration)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
 		})
@@ -242,7 +242,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmi.Status.EvacuationNodeName = node.Name
 			vmiFeeder.Add(vmi)
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
 		})
@@ -328,7 +328,7 @@ var _ = Describe("Evacuation", func() {
 			migration.Status.Phase = v1.MigrationSucceeded
 			migrationFeeder.Modify(migration)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).
+			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).
 				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -377,7 +377,7 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)

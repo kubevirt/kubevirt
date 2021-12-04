@@ -8237,6 +8237,16 @@
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
      "operationId": "v1Migrate",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.MigrateOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -9403,6 +9413,16 @@
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
      "operationId": "v1alpha3Migrate",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.MigrateOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -12876,6 +12896,28 @@
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
+     }
+    }
+   },
+   "v1.MigrateOptions": {
+    "description": "MigrateOptions may be provided on migrate request.",
+    "type": "object",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
      }
     }
    },

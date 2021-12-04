@@ -484,7 +484,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
-			})
+			}, &metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)

@@ -1222,6 +1222,32 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return nextVMI.Status.MigrationState != nil && nextVMI.Status.MigrationState.Completed
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})
+
+				It("should not migrate a running vm if dry-run option is passed", func() {
+					nodes := util.GetAllSchedulableNodes(virtClient)
+					if len(nodes.Items) < 2 {
+						Skip("Migration tests require at least 2 nodes")
+					}
+					By("creating a VM with RunStrategyAlways")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Invoking virtctl migrate with dry-run option")
+					migrateCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_MIGRATE, "--dry-run", "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					Expect(migrateCommand()).To(Succeed())
+
+					By("Check that no migration was actually created")
+					Consistently(func() bool {
+						_, err = virtClient.VirtualMachineInstanceMigration(virtualMachine.Namespace).Get(virtualMachine.Name, &metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 60*time.Second, 5*time.Second).Should(BeTrue(), "migration should not be created in a dry run mode")
+				})
 			})
 
 			Context("Using RunStrategyRerunOnFailure", func() {
