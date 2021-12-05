@@ -8,6 +8,7 @@ function main {
   declare -A CURRENT_VERSIONS
   declare -A UPDATED_VERSIONS
   declare -A COMPONENTS_REPOS
+  declare -A IMPORT_REPOS
   declare SHOULD_UPDATED
 
   echo "INFO: Checking go version"
@@ -76,10 +77,7 @@ function get_updated_versions {
     ["KUBEVIRT"]="kubevirt.io/api"
     ["CDI"]="kubevirt.io/containerized-data-importer-api"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
-    ["SSP"]="kubevirt/ssp-operator"
-    ["NMO"]="kubevirt/node-maintenance-operator"
-    ["HPPO"]="kubevirt/hostpath-provisioner-operator"
-    ["HPP"]="kubevirt/hostpath-provisioner"
+    ["SSP"]="kubevirt.io/ssp-operator"
   )
 
   UPDATED_VERSIONS=()
@@ -187,29 +185,13 @@ function update_go_mod() {
   UPDATED_COMPONENT=$(cat updated_component.txt)
   UPDATED_VERSION=$(cat updated_version.txt)
 
-  if [ $UPDATED_COMPONENT == "KUBEVIRT" ]; then
-    MODULE_PATH="kubevirt.io"
-
-    EXCLUSION_LIST=(
-      "containerized-data-importer-api"
-      "controller-lifecycle-operator-sdk"
-      "qe-tools"
-      "ssp-operator"
-    )
-    LAST=$(( ${#EXCLUSION_LIST[*]} - 1 ))
-    EXCLUSION='/'
-    for excl in "${EXCLUSION_LIST[@]}"; do
-      EXCLUSION+="(${excl})"
-      if [ "${excl}" == "${EXCLUSION_LIST[$LAST]}" ]; then
-        EXCLUSION+='/!'
-      else
-        EXCLUSION+='|'
-      fi
-    done
+  if [[ -v IMPORT_REPOS[$UPDATED_COMPONENT] ]]; then
+    MODULE_PATH=${IMPORT_REPOS[$UPDATED_COMPONENT]}
+    sed -E -i "s|(${MODULE_PATH}.*)v.+|\1${UPDATED_VERSION}|" go.mod
   else
-    MODULE_PATH=$(echo ${IMPORT_REPOS[$UPDATED_COMPONENT]} | cut -d "/" -f 2)
+    echo "No need to update go.mod for ${UPDATED_COMPONENT}"
   fi
-  sed -E -i "${EXCLUSION} s/(${MODULE_PATH}.*)v.+/\1${UPDATED_VERSION}/" go.mod
+
 }
 
 main
