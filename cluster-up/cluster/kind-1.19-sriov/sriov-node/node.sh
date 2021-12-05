@@ -60,11 +60,16 @@ function node::configure_sriov_pfs_and_vfs() {
     # KIND mounts sysfs as read-only by default, remount as R/W"
     node_exec="docker exec $node"
     $node_exec mount -o remount,rw /sys
-    $node_exec chmod 666 /dev/vfio/vfio
+
+    ls_node_dev_vfio="${node_exec} ls -la -Z /dev/vfio"
+    $ls_node_dev_vfio
+    $node_exec chmod 0666 /dev/vfio/vfio
+    $ls_node_dev_vfio
 
     # Create and configure SRIOV Virtual Functions on SRIOV node
     docker cp "$CONFIGURE_VFS_SCRIPT_PATH" "$node:/"
     $node_exec bash -c "DRIVER=$VFS_DRIVER DRIVER_KMODULE=$VFS_DRIVER_KMODULE ./$config_vf_script"
+    $ls_node_dev_vfio
 
     _kubectl label node $node $SRIOV_NODE_LABEL
   done
