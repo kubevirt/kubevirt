@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 func (r *releaseData) writeHeader(span string) error {
@@ -119,12 +120,12 @@ func (r *releaseData) findProjectsCurrentAndPreviousReleases() error {
 	}
 
 	for _, p := range r.projects {
-		p.currentTag = newConfig[p.short + "_VERSION"]
+		p.currentTag = newConfig[p.short+"_VERSION"]
 		_, p.tagBranch, err = semverGetBranchFromTag(p.currentTag)
 		if err != nil {
 			return err
 		}
-		p.previousTag = oldConfig[p.short + "_VERSION"]
+		p.previousTag = oldConfig[p.short+"_VERSION"]
 	}
 
 	return nil
@@ -245,8 +246,8 @@ func createProjects(baseDir string, token string) []*project {
 	var projects []*project
 	for _, n := range projectNames {
 		projects = append(projects, &project{
-			short: n.short,
-			name: n.name,
+			short:   n.short,
+			name:    n.name,
 			repoDir: baseDir + n.name,
 			repoUrl: fmt.Sprintf("https://%s@github.com/kubevirt/%s.git", token, n.name),
 		})
@@ -285,10 +286,10 @@ func parseArguments() *releaseData {
 	return &releaseData{
 		org: "kubevirt",
 		hco: project{
-			name: hco,
+			name:       hco,
 			currentTag: *release,
-			repoDir: baseDir + hco,
-			repoUrl: fmt.Sprintf("https://%s@github.com/kubevirt/%s.git", gitToken, hco),
+			repoDir:    baseDir + hco,
+			repoUrl:    fmt.Sprintf("https://%s@github.com/kubevirt/%s.git", gitToken, hco),
 		},
 		projects: createProjects(baseDir, gitToken),
 	}

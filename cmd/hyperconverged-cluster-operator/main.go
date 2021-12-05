@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
-	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -30,9 +28,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/retry"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -41,12 +36,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 // Change below variables to serve metrics on different host or port.

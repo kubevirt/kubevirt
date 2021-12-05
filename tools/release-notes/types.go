@@ -1,21 +1,22 @@
 package main
 
 import (
-	"github.com/google/go-github/v32/github"
 	"os"
+
+	"github.com/google/go-github/v32/github"
 )
 
 var githubClient *github.Client
 
 var projectNames = []*projectName{
-	{"KUBEVIRT",       "kubevirt"},
-	{"CDI",            "containerized-data-importer"},
+	{"KUBEVIRT", "kubevirt"},
+	{"CDI", "containerized-data-importer"},
 	{"NETWORK_ADDONS", "cluster-network-addons-operator"},
-	{"SSP",            "ssp-operator"},
-	{"NMO",            "node-maintenance-operator"},
-	{"HPPO",           "hostpath-provisioner-operator"},
-	{"HPP",            "hostpath-provisioner"},
-	{"VM_IMPORT",      "vm-import-operator"},
+	{"SSP", "ssp-operator"},
+	{"NMO", "node-maintenance-operator"},
+	{"HPPO", "hostpath-provisioner-operator"},
+	{"HPP", "hostpath-provisioner"},
+	{"VM_IMPORT", "vm-import-operator"},
 }
 
 type projectName struct {
@@ -24,11 +25,11 @@ type projectName struct {
 }
 
 type project struct {
-	short			  string
-	name			  string
-	currentTag 	  	  string
-	previousTag 	  string
-	tagBranch         string
+	short       string
+	name        string
+	currentTag  string
+	previousTag string
+	tagBranch   string
 
 	repoDir string
 	repoUrl string
@@ -39,9 +40,9 @@ type project struct {
 }
 
 type releaseData struct {
-	org       string
-	hco 	  project
-	projects  []*project
+	org      string
+	hco      project
+	projects []*project
 
 	outFile *os.File
 }

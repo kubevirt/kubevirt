@@ -24,7 +24,7 @@ sanity: generate-doc validate-no-offensive-lang
 	go version
 	go fmt ./...
 	go install golang.org/x/tools/cmd/goimports@latest
-	goimports -w -local="kubevirt.io,github.com/kubevirt,github.com/kubevirt/hyperconverged-cluster-operator"  $(find . -type f -name '*.go' ! -path "./vendor/*" ! -path "./tests/vendor/*" ! -path "./_kubevirtci/*" ! -path "*zz_generated*" )
+	goimports -w -local="kubevirt.io,github.com/kubevirt,github.com/kubevirt/hyperconverged-cluster-operator"  $(shell find . -type f -name '*.go' ! -path "*/vendor/*" ! -path "./_kubevirtci/*" ! -path "*zz_generated*" )
 	go mod tidy -v
 	go mod vendor
 	./hack/build-manifests.sh

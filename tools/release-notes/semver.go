@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver"
-	"github.com/google/go-github/v32/github"
 	"log"
 	"sort"
+
+	"github.com/Masterminds/semver"
+	"github.com/google/go-github/v32/github"
 )
 
 func semverGetBranchFromTag(tag string) (*semver.Version, string, error) {

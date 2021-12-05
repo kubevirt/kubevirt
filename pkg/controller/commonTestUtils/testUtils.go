@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
@@ -18,17 +17,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 // Name and Namespace of our primary resource

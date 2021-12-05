@@ -31,7 +31,6 @@ import (
 	"time"
 
 	docker "github.com/docker/docker/client"
-
 )
 
 const (
