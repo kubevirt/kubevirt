@@ -27,7 +27,7 @@ var _ = Describe("virt-operator basic tests", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("[sig-compute][serial]Obsolete ConfigMap", func() {
+	Context("[sig-compute][Serial]Obsolete ConfigMap", func() {
 		ctx := context.Background()
 		virtOpLabelSelector := metav1.ListOptions{
 			LabelSelector: "kubevirt.io=virt-operator",
