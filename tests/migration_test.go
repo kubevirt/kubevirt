@@ -2442,7 +2442,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[sig-compute]should delete PDBs created by an old virt-controller", func() {
+			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
 				By("creating the VMI")
 				createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
