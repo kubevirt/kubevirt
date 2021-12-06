@@ -65,7 +65,7 @@ function get_pseudo_tag() {
     NAME=$1
     API_REF_DIR=/tmp/${NAME}
     pushd ${API_REF_DIR} >/dev/null
-    echo "v0.0.0-$(date -u +%Y%M%d%H%M%S)-$(git rev-parse --short=12 HEAD)"
+    echo "v0.0.0-$(TZ=UTC0 git show --quiet --date='format-local:%Y%m%d%H%M%S' --format="%cd")-$(git rev-parse --short=12 HEAD)"
     popd >/dev/null
 }
 
