@@ -529,11 +529,6 @@ type VirtualMachineInstanceGuestOSInfo struct {
 // +k8s:openapi-gen=true
 type MigrationConfigSource string
 
-const (
-	ClusterWideConfig     MigrationConfigSource = "ClusterWideConfig"
-	MigrationPolicyConfig MigrationConfigSource = "MigrationPolicyConfig"
-)
-
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
@@ -569,7 +564,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
 	// Name of the migration policy. If string is empty, no policy is matched
-	MigrationPolicyName string `json:"migrationPolicyName,omitempty"`
+	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
 	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
 }

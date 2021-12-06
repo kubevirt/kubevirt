@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -61,15 +63,31 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 
 	var causes []metav1.StatusCause
 
-	switch ar.Request.Operation {
-	case admissionv1.Create:
-		break
+	sourceField := k8sfield.NewPath("spec")
 
-	case admissionv1.Update:
-		break
+	spec := policy.Spec
+	if spec.CompletionTimeoutPerGiB != nil && *spec.CompletionTimeoutPerGiB < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "must not be negative",
+			Field:   sourceField.Child("completionTimeoutPerGiB").String(),
+		})
+	}
 
-	default:
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected operation %s", ar.Request.Operation))
+	if spec.BandwidthPerMigration != nil {
+		quantity, ok := spec.BandwidthPerMigration.AsInt64()
+		if !ok {
+			dec := spec.BandwidthPerMigration.AsDec()
+			quantity = int64(dec.Sign())
+		}
+
+		if quantity < 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "must not be negative",
+				Field:   sourceField.Child("bandwidthPerMigration").String(),
+			})
+		}
 	}
 
 	if len(causes) > 0 {

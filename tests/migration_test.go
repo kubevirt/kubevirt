@@ -2304,13 +2304,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("with migration policies", func() {
 
-			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName string) {
+			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Retrieving the VMI post migration")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the VMI's configuration source")
-				Expect(vmi.Status.MigrationState.MigrationPolicyName).To(Equal(expectedName))
+				if expectedName == nil {
+					Expect(vmi.Status.MigrationState.MigrationPolicyName).To(BeNil())
+				} else {
+					Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
+					Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(*expectedName))
+				}
 			}
 
 			getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
@@ -2328,7 +2333,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-				var expectedPolicyName string
+				var expectedPolicyName *string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
 					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
@@ -2337,7 +2342,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					expectedPolicyName = policy.Name
+					expectedPolicyName = &policy.Name
 				}
 
 				By("Starting the VirtualMachineInstance")

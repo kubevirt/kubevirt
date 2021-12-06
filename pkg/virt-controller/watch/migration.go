@@ -1485,7 +1485,7 @@ func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineIns
 	}
 
 	if isUpdated {
-		vmi.Status.MigrationState.MigrationPolicyName = matchedPolicy.Name
+		vmi.Status.MigrationState.MigrationPolicyName = &matchedPolicy.Name
 		vmi.Status.MigrationState.MigrationConfiguration = &migrationConfigCopy
 		log.Log.Object(vmi).Infof("migration is updated by migration policy named %s.", matchedPolicy.Name)
 	}
