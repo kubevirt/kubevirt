@@ -3555,6 +3555,18 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	util2.PanicOnError(err)
+
+	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
+	} else if err != nil {
+		util2.PanicOnError(err)
+	}
+}
+
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 

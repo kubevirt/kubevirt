@@ -57,6 +57,12 @@ function _ensure_cdi_deployment() {
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 }
 
+function configure_prometheus() {
+    if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && _kubectl get crd prometheuses.monitoring.coreos.com; then
+        _kubectl patch prometheus k8s -n monitoring --type=json -p '[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {"kubevirt.io": ""}}}]'
+    fi
+}
+
 trap dump_kubevirt EXIT
 
 echo "Deploying ..."
@@ -124,5 +130,7 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m
 done
+
+configure_prometheus
 
 echo "Done $0"

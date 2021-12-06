@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 
+	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
 	_ "kubevirt.io/kubevirt/tests/numa"
 	_ "kubevirt.io/kubevirt/tests/performance"
