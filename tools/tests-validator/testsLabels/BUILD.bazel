@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["tests-labels.go"],
+    importpath = "kubevirt.io/kubevirt/tools/tests-validator/testsLabels",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/golang.org/x/tools/go/analysis:go_default_library"],
+)

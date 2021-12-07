@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["tests-validator.go"],
+    importpath = "kubevirt.io/kubevirt/tools/tests-validator",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//tools/tests-validator/testsLabels:go_default_library",
+        "//vendor/golang.org/x/tools/go/analysis/singlechecker:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "tests-validator",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

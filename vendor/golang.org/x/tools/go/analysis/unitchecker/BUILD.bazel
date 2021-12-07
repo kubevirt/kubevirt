@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "unitchecker.go",
+        "unitchecker112.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/go/analysis/unitchecker",
+    importpath = "golang.org/x/tools/go/analysis/unitchecker",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/golang.org/x/tools/go/analysis:go_default_library",
+        "//vendor/golang.org/x/tools/go/analysis/internal/analysisflags:go_default_library",
+        "//vendor/golang.org/x/tools/go/analysis/internal/facts:go_default_library",
+    ],
+)
