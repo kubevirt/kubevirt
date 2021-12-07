@@ -387,6 +387,12 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 			if err != nil {
 				return err
 			}
+			for _, nonProxiedPort := range istio.NonProxiedPorts() {
+				err = b.forwardPortUsingNftables(proto, nonProxiedPort)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
@@ -438,6 +444,15 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 			if err != nil {
 				return err
 			}
+		} else {
+			for _, nonProxiedPort := range istio.NonProxiedPorts() {
+				if int(port.Port) == nonProxiedPort {
+					err = b.forwardPortUsingNftables(proto, nonProxiedPort)
+					if err != nil {
+						return err
+					}
+				}
+			}
 		}
 
 		err = b.handler.NftablesAppendRule(proto, "nat", "output",
@@ -470,6 +485,12 @@ func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(p
 		}
 	}
 	return nil
+}
+
+func (b *MasqueradePodNetworkConfigurator) forwardPortUsingNftables(proto iptables.Protocol, port int) error {
+	return b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+		"tcp", "dport", fmt.Sprintf("%d", port), "counter",
+		"dnat", "to", b.geVmIfaceIpByProtocol(proto))
 }
 
 func (b *MasqueradePodNetworkConfigurator) getGatewayByProtocol(proto iptables.Protocol) string {
