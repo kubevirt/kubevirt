@@ -87,8 +87,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is slirp, GetDefaultNetworkInterface should return slirp", "slirp", "slirp"),
 		Entry("is masquerade, GetDefaultNetworkInterface should return masquerade", "masquerade", "masquerade"),
 		Entry("when unset, GetDefaultNetworkInterface should return the default", "", "bridge"),
-		// todo: is it a bug? this use case returns "invalid" instead of the default "bridge"
-		//Entry("when invalid, GetDefaultNetworkInterface should return the default", "invalid", "bridge"),
+		Entry("when invalid, GetDefaultNetworkInterface should return the default", "invalid", "bridge"),
 	)
 
 	DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {
@@ -101,8 +100,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is Never, GetImagePullPolicy should return Never", "Never", kubev1.PullNever),
 		Entry("is IsNotPresent, GetImagePullPolicy should return IsNotPresent", "IfNotPresent", kubev1.PullIfNotPresent),
 		Entry("when unset, GetImagePullPolicy should return PullIfNotPresent", "", kubev1.PullIfNotPresent),
-		// todo: is it a bug? in CM it would return the default value. The API server does not reject it.
-		// Entry("when invalid, GetImagePullPolicy should return the default", "invalid", kubev1.PullIfNotPresent),
+		Entry("when invalid, GetImagePullPolicy should return the default", "invalid", kubev1.PullIfNotPresent),
 	)
 
 	DescribeTable(" when lessPVCSpaceToleration", func(value int, result int) {
@@ -115,8 +113,7 @@ var _ = Describe("test configuration", func() {
 	},
 		Entry("is set, GetLessPVCSpaceToleration should return correct value", 5, 5),
 		Entry("is unset, GetLessPVCSpaceToleration should return the default", 0, virtconfig.DefaultLessPVCSpaceToleration),
-		// todo: is it a bug? this use case is failing, returning -1 instead of 10
-		//Entry("is invalid, GetLessPVCSpaceToleration should return the default", -1, virtconfig.DefaultLessPVCSpaceToleration),
+		Entry("is invalid, GetLessPVCSpaceToleration should return the default", -1, virtconfig.DefaultLessPVCSpaceToleration),
 	)
 
 	nodeSelectors := map[string]string{
@@ -192,6 +189,20 @@ var _ = Describe("test configuration", func() {
 	},
 		Entry("when set, GetMemoryOvercommit should return the value", 150, 150),
 		Entry("when unset, GetMemoryOvercommit should return the default", 0, virtconfig.DefaultMemoryOvercommit),
+		Entry("when negative, GetMemoryOvercommit should return the default", -150, virtconfig.DefaultMemoryOvercommit),
+	)
+
+	DescribeTable(" when CPUAllocationRatio", func(value int, result int) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				CPUAllocationRatio: value,
+			},
+		})
+		Expect(clusterConfig.GetCPUAllocationRatio()).To(Equal(result))
+	},
+		Entry("when set, GetCPUAllocationRatio should return the value", 150, 150),
+		Entry("when unset, GetCPUAllocationRatio should return the default", 0, virtconfig.DefaultCPUAllocationRatio),
+		Entry("when negative, GetCPUAllocationRatio should return the default", -150, virtconfig.DefaultCPUAllocationRatio),
 	)
 
 	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachines []string, result []string) {
@@ -311,59 +322,33 @@ var _ = Describe("test configuration", func() {
 		}).Should(BeEquivalentTo(9))
 	})
 
-	// todo: this is not working. the the wrong value is returned. Is it a bug?
-	//It("Should stick with the last good config", func() {
-	//
-	//	clusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-	//		ImagePullPolicy: kubev1.PullAlways,
-	//	})
-	//	Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
-	//
-	//	kv := &v1.KubeVirt{
-	//		ObjectMeta: metav1.ObjectMeta{
-	//			Name:      "kubevirt",
-	//			Namespace: "kubevirt",
-	//		},
-	//		Spec: v1.KubeVirtSpec{
-	//			Configuration: v1.KubeVirtConfiguration{
-	//				ImagePullPolicy: kubev1.PullPolicy("invalid"),
-	//			},
-	//		},
-	//		Status: v1.KubeVirtStatus{
-	//			Phase: "Deployed",
-	//		},
-	//	}
-	//	testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-	//
-	//	Consistently(func() kubev1.PullPolicy {
-	//		return clusterConfig.GetImagePullPolicy()
-	//	}).Should(Equal(kubev1.PullAlways))
-	//})
+	It("Should stick with the last good config", func() {
 
-	// todo: this is not working. the the wrong value is returned. Is it a bug?
-	//It("Should pick up the latest config once it is fixed and parsable again", func() {
-	//	clusterConfig, store, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-	//		Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
-	//	})
-	//	result := clusterConfig.GetMigrationConfiguration()
-	//	Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
-	//
-	//	invalidCfg := &kubev1.ConfigMap{
-	//		Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`},
-	//	}
-	//	testutils.UpdateFakeClusterConfig(store, invalidCfg)
-	//	Consistently(func() uint32 {
-	//		return *clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
-	//	}).Should(BeNumerically("==", 10))
-	//
-	//	validCfg := &kubev1.ConfigMap{
-	//		Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "9"}`},
-	//	}
-	//	testutils.UpdateFakeClusterConfig(store, validCfg)
-	//	Consistently(func() uint32 {
-	//		return *clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
-	//	}).Should(BeNumerically("==", 9))
-	//})
+		clusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			ImagePullPolicy: kubev1.PullAlways,
+		})
+		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
+
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					ImagePullPolicy: kubev1.PullPolicy("invalid"),
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+
+		Consistently(func() kubev1.PullPolicy {
+			return clusterConfig.GetImagePullPolicy()
+		}).Should(Equal(kubev1.PullAlways))
+	})
 
 	It("should return the default config if no config map exists", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
@@ -481,42 +466,6 @@ var _ = Describe("test configuration", func() {
 		}).Should(BeTrue())
 	})
 
-	It("Should still get GetPermittedHostDevices after invalid update", func() {
-		//expectedDevices := `{"pciHostDevices":[{"pciVendorSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}],"mediatedDevices":[{"mdevNameSelector":"GRID T4-1Q","resourceName":"nvidia.com/GRID_T4-1Q"}]}`
-		expectedDevices := v1.PermittedHostDevices{
-			PciHostDevices: []v1.PciHostDevice{
-				{
-					PCIVendorSelector: "10DE:1EB8",
-					ResourceName:      "nvidia.com/TU104GL_Tesla_T4",
-				},
-			},
-			MediatedDevices: []v1.MediatedHostDevice{
-				{
-					MDEVNameSelector: "GRID T4-1Q",
-					ResourceName:     "nvidia.com/GRID_T4-1Q",
-				},
-			},
-		}
-		//invalidPermittedHostDevicesConfig := "something wrong"
-
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-			PermittedHostDevices: &expectedDevices,
-		})
-
-		Expect(*clusterConfig.GetPermittedHostDevices()).To(BeEquivalentTo(expectedDevices))
-
-		// Todo: is it testable? Is it a relevant test case?
-		//testutils.UpdateFakeClusterConfig(store, &kubev1.ConfigMap{
-		//	Data: map[string]string{virtconfig.PermittedHostDevicesKey: invalidPermittedHostDevicesConfig},
-		//})
-		//hostdevs := clusterConfig.GetPermittedHostDevices()
-		//
-		//hostdevsJson, err := json.Marshal(hostdevs)
-		//Expect(err).ToNot(HaveOccurred())
-		//
-		//Expect(string(hostdevsJson)).To(BeEquivalentTo(expectedDevices))
-	})
-
 	DescribeTable("when kubevirt CR holds config", func(value v1.KubeVirtConfiguration, getPart func(*v1.KubeVirtConfiguration) interface{}, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -564,7 +513,7 @@ var _ = Describe("test configuration", func() {
 				return c.DeveloperConfiguration
 			},
 			`{"featureGates":["test1","test2"],"pvcTolerateLessSpaceUpToPercent":5,"minimumReservePVCBytes":131072,"memoryOvercommit":150,"nodeSelectors":{"test":"test"},"useEmulation":true,"cpuAllocationRatio":25,"diskVerification":{"memoryLimit":"1G"},"logVerbosity":{"virtAPI":2,"virtController":2,"virtHandler":2,"virtLauncher":2,"virtOperator":2}}`),
-		Entry("when networkConfiguration set, should equal to result",
+		Entry("when wrong networkConfiguration set, should use the default",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					NetworkInterface:                  "test",
@@ -575,7 +524,30 @@ var _ = Describe("test configuration", func() {
 			func(c *v1.KubeVirtConfiguration) interface{} {
 				return c.NetworkConfiguration
 			},
-			`{"defaultNetworkInterface":"test","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
+			`{"defaultNetworkInterface":"bridge","permitSlirpInterface":false,"permitBridgeInterfaceOnPodNetwork":true}`),
+		Entry("when networkConfiguration set, should equal to result",
+			v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					NetworkInterface:                  string(v1.SlirpInterface),
+					PermitSlirpInterface:              pointer.BoolPtr(true),
+					PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+				},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.NetworkConfiguration
+			},
+			`{"defaultNetworkInterface":"slirp","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
+		Entry("when networkConfiguration set with empty NetworkInterface, should use the default",
+			v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					PermitSlirpInterface:              pointer.BoolPtr(true),
+					PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+				},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.NetworkConfiguration
+			},
+			`{"defaultNetworkInterface":"bridge","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
 	)
 
 	DescribeTable("when ClusterProfiler feature-gate", func(openFeatureGates []string, isEnabled bool) {

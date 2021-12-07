@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
@@ -267,7 +268,7 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 		return err
 	}
 
-	return nil
+	return validateConfig(config)
 }
 
 // getCPUArchSpecificDefault get arch specific default config
@@ -388,4 +389,36 @@ func parseNodeSelectors(str string) (map[string]string, error) {
 		nodeSelectors[v[0]] = v[1]
 	}
 	return nodeSelectors, nil
+}
+
+func validateConfig(config *v1.KubeVirtConfiguration) error {
+	// set image pull policy
+	switch config.ImagePullPolicy {
+	case "", k8sv1.PullAlways, k8sv1.PullNever, k8sv1.PullIfNotPresent:
+		break
+	default:
+		return fmt.Errorf("invalid dev.imagePullPolicy in config: %v", config.ImagePullPolicy)
+	}
+
+	if config.DeveloperConfiguration.MemoryOvercommit <= 0 {
+		return fmt.Errorf("invalid memoryOvercommit in ConfigMap: %d", config.DeveloperConfiguration.MemoryOvercommit)
+	}
+
+	if config.DeveloperConfiguration.CPUAllocationRatio <= 0 {
+		return fmt.Errorf("invalid cpu allocation ratio in ConfigMap: %d", config.DeveloperConfiguration.CPUAllocationRatio)
+	}
+
+	if toleration := config.DeveloperConfiguration.LessPVCSpaceToleration; toleration < 0 || toleration > 100 {
+		return fmt.Errorf("invalid lessPVCSpaceToleration in ConfigMap: %d", toleration)
+	}
+
+	// set default network interface
+	switch config.NetworkConfiguration.NetworkInterface {
+	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
+		break
+	default:
+		return fmt.Errorf("invalid default-network-interface in config: %v", config.NetworkConfiguration.NetworkInterface)
+	}
+
+	return nil
 }
