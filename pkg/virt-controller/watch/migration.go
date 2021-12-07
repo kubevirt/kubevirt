@@ -1404,14 +1404,20 @@ func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) 
 
 func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.VirtualMachineInstance, targetPod *k8sv1.Pod) {
 	const warningMessage = "Migration cannot proceed since no node is suitable to run the required CPU model / required features"
+	fittingNodeFound := false
 
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel && isPodPending(targetPod) {
 		nodes := c.nodeInformer.GetStore().List()
 		for _, node := range nodes {
-			if !isNodeSuitableForHostModelMigration(node.(*k8sv1.Node), targetPod) {
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMessage)
-				log.Log.Object(vmi).Warning(warningMessage)
+			if isNodeSuitableForHostModelMigration(node.(*k8sv1.Node), targetPod) {
+				fittingNodeFound = true
+				break
 			}
+		}
+
+		if !fittingNodeFound {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMessage)
+			log.Log.Object(vmi).Warning(warningMessage)
 		}
 	}
 }
