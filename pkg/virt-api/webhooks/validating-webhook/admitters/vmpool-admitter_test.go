@@ -26,18 +26,18 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 var _ = Describe("Validating Pool Admitter", func() {
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 	poolAdmitter := &VMPoolAdmitter{ClusterConfig: config}
 
 	always := v1.RunStrategyAlways
