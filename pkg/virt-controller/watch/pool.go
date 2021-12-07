@@ -13,6 +13,7 @@ import (
 
 	randutil "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/trace"
 
 	"github.com/davecgh/go-spew/spew"
 	k8score "k8s.io/api/core/v1"
@@ -30,6 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 )
 
 // PoolController is the main PoolController struct.
@@ -59,6 +61,8 @@ const (
 	SuccessfulPausedPoolReason = "SuccessfulPaused"
 	SuccessfulResumePoolReason = "SuccessfulResume"
 )
+
+var virtControllerPoolWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 // NewPoolController creates a new instance of the PoolController struct.
 func NewPoolController(clientset kubecli.KubevirtClient,
@@ -836,6 +840,10 @@ func (c *PoolController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
+
+	virtControllerPoolWorkQueueTracer.StartTrace(key.(string), "virt-controller VMPool workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerPoolWorkQueueTracer.StopTrace(key.(string))
+
 	err := c.execute(key.(string))
 
 	if err != nil {
@@ -849,6 +857,13 @@ func (c *PoolController) Execute() bool {
 }
 
 func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, syncErr syncError) error {
+
+	key, err := controller.KeyFunc(origPool)
+	if err != nil {
+		return err
+	}
+	defer virtControllerPoolWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMPool Name", Value: origPool.Name})
+
 	pool := origPool.DeepCopy()
 
 	labelSelector, err := metav1.LabelSelectorAsSelector(pool.Spec.Selector)
@@ -969,6 +984,8 @@ func (c *PoolController) execute(key string) error {
 			// Handle updates after scale operations are satisfied.
 			syncErr = c.update(pool, vms)
 		}
+
+		virtControllerPoolWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMPool Name", Value: pool.Name})
 	}
 
 	err = c.updateStatus(pool, vms, syncErr)
