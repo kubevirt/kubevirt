@@ -777,44 +777,6 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundCond).To(BeTrue())
 			})
 
-			kvCmName := "kubevirt-config"
-
-			It("should remove the kubevirt-config CM not in upgrade", func() {
-				cm := &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      kvCmName,
-						Namespace: commonTestUtils.Namespace,
-					},
-					Data: map[string]string{
-						"fakeKey": "fakeValue",
-					},
-				}
-				expected := getBasicDeployment()
-				cl := commonTestUtils.InitClient(append(expected.toArray(), cm))
-
-				By("Make sure the CM is there before starting", func() {
-					res := &corev1.ConfigMap{}
-					err := cl.Get(context.TODO(),
-						types.NamespacedName{Name: kvCmName, Namespace: namespace},
-						res)
-
-					Expect(err).ToNot(HaveOccurred())
-					Expect(res.Data["fakeKey"]).Should(Equal("fakeValue"))
-				})
-
-				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				By("should not find the configMap")
-				res := &corev1.ConfigMap{}
-				err := cl.Get(context.TODO(),
-					types.NamespacedName{Name: kvCmName, Namespace: namespace},
-					res)
-
-				Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			})
-
 			It("Should upgrade the status.observedGeneration field", func() {
 				expected := getBasicDeployment()
 				expected.hco.ObjectMeta.Generation = 10
