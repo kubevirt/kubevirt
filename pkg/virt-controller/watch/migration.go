@@ -467,14 +467,6 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				} else {
 					migrationCopy.Status.Phase = virtv1.MigrationScheduled
 				}
-			} else if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel && isPodPending(pod) {
-				nodes := c.nodeInformer.GetStore().List()
-				for _, node := range nodes {
-					if !isNodeSuitableForHostModelMigration(node.(*k8sv1.Node), pod) {
-						c.recorder.Eventf(migration, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration,
-							"Migration cannot proceed since no node is suitable to run the required CPU model / required features.")
-					}
-				}
 			}
 		case virtv1.MigrationScheduled:
 			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNode != "" {
@@ -940,6 +932,7 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 	secondsSpentPending := timeSinceCreationSeconds(&pod.ObjectMeta)
 
 	if isPodPendingUnschedulable(pod) {
+		c.alertIfHostModelIsUnschedulable(vmi, pod)
 		if secondsSpentPending >= unschedulableTimeout {
 			return c.deleteTimedOutTargetPod(migration, vmi, pod, "unschedulable pod timeout period exceeded")
 		} else {
@@ -1407,6 +1400,20 @@ func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) 
 
 	node := obj.(*k8sv1.Node)
 	return node, nil
+}
+
+func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.VirtualMachineInstance, targetPod *k8sv1.Pod) {
+	const warningMessage = "Migration cannot proceed since no node is suitable to run the required CPU model / required features"
+
+	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel && isPodPending(targetPod) {
+		nodes := c.nodeInformer.GetStore().List()
+		for _, node := range nodes {
+			if !isNodeSuitableForHostModelMigration(node.(*k8sv1.Node), targetPod) {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMessage)
+				log.Log.Object(vmi).Warning(warningMessage)
+			}
+		}
+	}
 }
 
 func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod) error {
