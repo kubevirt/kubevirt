@@ -42,6 +42,7 @@ var permanentDevicePluginPaths = map[string]string{
 
 type DeviceControllerInterface interface {
 	Initialized() bool
+	RefreshMediatedDevicesTypes()
 }
 
 type DeviceController struct {
@@ -201,17 +202,27 @@ func removeSelectorSpaces(selectorName string) string {
 
 }
 
-func (c *DeviceController) refreshMediatedDevicesTypes() {
+func (c *DeviceController) RefreshMediatedDevicesTypes() {
+	go func() {
+		if c.refreshMediatedDevicesTypes() {
+			c.refreshPermittedDevices()
+		}
+	}()
+}
+
+func (c *DeviceController) refreshMediatedDevicesTypes() bool {
+	requiresDevicePluginsUpdate := false
 	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
-		return
+		return requiresDevicePluginsUpdate
 	}
 	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
-	err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
+	requiresDevicePluginsUpdate, err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
 	}
+	return requiresDevicePluginsUpdate
 }
 
 func (c *DeviceController) refreshPermittedDevices() {
@@ -254,7 +265,10 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev)
 	}
-	c.virtConfig.SetConfigModifiedCallback(c.refreshMediatedDevicesTypes)
+	refreshMediatedDevicesTypesFn := func() {
+		c.refreshMediatedDevicesTypes()
+	}
+	c.virtConfig.SetConfigModifiedCallback(refreshMediatedDevicesTypesFn)
 	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
 	c.refreshPermittedDevices()
 

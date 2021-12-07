@@ -465,6 +465,85 @@ var _ = Describe("test configuration", func() {
 			return callbackSet1 && callbackSet2
 		}).Should(BeTrue())
 	})
+	DescribeTable("mdev configuration", func(nodeLabels map[string]string, expectedResult []string) {
+		node := &kubev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testNode",
+			},
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: v1.GroupVersion.String(),
+			},
+		}
+
+		node.Status.Phase = kubev1.NodeRunning
+		node.ObjectMeta.Labels = nodeLabels
+		KV := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: rand.String(10),
+				Name:            "kubevirt",
+				Namespace:       "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
+						MediatedDevicesTypes: []string{
+
+							"nvidia-222",
+							"nvidia-228",
+							"i915-GVTg_V5_4",
+						},
+						NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+							{
+								NodeSelector: map[string]string{
+									"testLabel1": "true",
+								},
+								MediatedDevicesTypes: []string{
+									"nvidia-223",
+								},
+							},
+							{
+								NodeSelector: map[string]string{
+									"testLabel2": "true",
+								},
+								MediatedDevicesTypes: []string{
+									"nvidia-229",
+								},
+							},
+							{
+								NodeSelector: map[string]string{
+									"testLabel3": "true",
+									"testLabel4": "true",
+								},
+								MediatedDevicesTypes: []string{
+									"nvidia-230",
+								},
+							},
+						},
+					},
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: v1.KubeVirtPhaseDeploying,
+			},
+		}
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(KV)
+		nodeMdevConf := clusterConfig.GetDesiredMDEVTypes(node)
+		Expect(nodeMdevConf).Should(ConsistOf(expectedResult))
+	},
+		Entry("expect default config when no selecors matched",
+			map[string]string{},
+			[]string{"nvidia-222", "nvidia-228", "i915-GVTg_V5_4"}),
+		Entry("specific label match",
+			map[string]string{"testLabel1": "true"},
+			[]string{"nvidia-223"}),
+		Entry("should match node by multiple selectors",
+			map[string]string{"testLabel3": "true", "testLabel4": "true"},
+			[]string{"nvidia-230"}),
+		Entry("expect a merged result when several selectors match the same node",
+			map[string]string{"testLabel1": "true", "testLabel2": "true"},
+			[]string{"nvidia-223", "nvidia-229"}),
+	)
 
 	DescribeTable("when kubevirt CR holds config", func(value v1.KubeVirtConfiguration, getPart func(*v1.KubeVirtConfiguration) interface{}, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{

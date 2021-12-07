@@ -398,6 +398,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Network":                                                            schema_kubevirtio_api_core_v1_Network(ref),
 		"kubevirt.io/api/core/v1.NetworkConfiguration":                                               schema_kubevirtio_api_core_v1_NetworkConfiguration(ref),
 		"kubevirt.io/api/core/v1.NetworkSource":                                                      schema_kubevirtio_api_core_v1_NetworkSource(ref),
+		"kubevirt.io/api/core/v1.NodeMediatedDeviceTypesConfig":                                      schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref),
 		"kubevirt.io/api/core/v1.NodePlacement":                                                      schema_kubevirtio_api_core_v1_NodePlacement(ref),
 		"kubevirt.io/api/core/v1.PITTimer":                                                           schema_kubevirtio_api_core_v1_PITTimer(ref),
 		"kubevirt.io/api/core/v1.PauseOptions":                                                       schema_kubevirtio_api_core_v1_PauseOptions(ref),
@@ -17635,7 +17636,7 @@ func schema_kubevirtio_api_core_v1_MediatedDevicesConfiguration(ref common.Refer
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/client-go/apis/core/v1.NodeMediatedDeviceTypesConfig"),
+										Ref: ref("kubevirt.io/api/core/v1.NodeMediatedDeviceTypesConfig"),
 									},
 								},
 							},
@@ -17645,7 +17646,7 @@ func schema_kubevirtio_api_core_v1_MediatedDevicesConfiguration(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/apis/core/v1.NodeMediatedDeviceTypesConfig"},
+			"kubevirt.io/api/core/v1.NodeMediatedDeviceTypesConfig"},
 	}
 }
 
@@ -17976,10 +17977,7 @@ func schema_kubevirtio_api_core_v1_NetworkSource(ref common.ReferenceCallback) c
 	}
 }
 
-<<<<<<< HEAD:staging/src/kubevirt.io/client-go/api/openapi_generated.go
-func schema_kubevirtio_api_core_v1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
-=======
-func schema_client_go_apis_core_v1_NodeMediatedDeviceTypesConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18026,8 +18024,7 @@ func schema_client_go_apis_core_v1_NodeMediatedDeviceTypesConfig(ref common.Refe
 	}
 }
 
-func schema_client_go_apis_core_v1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
->>>>>>> c656db559 (extend mediated devices configuration API with per node config):staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1/openapi_generated.go
+func schema_kubevirtio_api_core_v1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
