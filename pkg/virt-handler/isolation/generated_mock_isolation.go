@@ -99,16 +99,6 @@ func (_mr *_MockIsolationResultRecorder) NetNamespace() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NetNamespace")
 }
 
-func (_m *MockIsolationResult) DoNetNS(_param0 func() error) error {
-	ret := _m.ctrl.Call(_m, "DoNetNS", _param0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIsolationResultRecorder) DoNetNS(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DoNetNS", arg0)
-}
-
 func (_m *MockIsolationResult) Mounts(_param0 mountinfo.FilterFunc) ([]*mountinfo.Info, error) {
 	ret := _m.ctrl.Call(_m, "Mounts", _param0)
 	ret0, _ := ret[0].([]*mountinfo.Info)

@@ -32,7 +32,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	mount "github.com/moby/sys/mountinfo"
 
 	"kubevirt.io/client-go/log"
@@ -55,8 +54,6 @@ type IsolationResult interface {
 	MountNamespace() string
 	// full path to the network namespace
 	NetNamespace() string
-	// execute a function in the process network namespace
-	DoNetNS(func() error) error
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 }
@@ -70,16 +67,6 @@ type RealIsolationResult struct {
 
 func NewIsolationResult(pid, ppid int, slice string, controller []string) IsolationResult {
 	return &RealIsolationResult{pid: pid, ppid: ppid, slice: slice, controller: controller}
-}
-
-func (r *RealIsolationResult) DoNetNS(f func() error) error {
-	netns, err := ns.GetNS(r.NetNamespace())
-	if err != nil {
-		return fmt.Errorf("failed to get launcher pod network namespace: %v", err)
-	}
-	return netns.Do(func(_ ns.NetNS) error {
-		return f()
-	})
 }
 
 func (r *RealIsolationResult) PIDNamespace() string {

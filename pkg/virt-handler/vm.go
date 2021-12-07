@@ -81,7 +81,7 @@ import (
 )
 
 type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, doNetNS func(func() error) error, preSetup func() error) error
+	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 	SetupCompleted(vmi *v1.VirtualMachineInstance) bool
 }
@@ -495,7 +495,7 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 	rootMount := isolationRes.MountRoot()
 	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
 
-	return d.netConf.Setup(vmi, isolationRes.Pid(), isolationRes.DoNetNS, func() error {
+	return d.netConf.Setup(vmi, isolationRes.Pid(), func() error {
 		if requiresDeviceClaim {
 			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))

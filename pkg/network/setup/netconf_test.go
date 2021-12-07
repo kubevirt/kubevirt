@@ -39,36 +39,36 @@ var _ = Describe("netconf", func() {
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netConf = netsetup.NewNetConf(&interfaceCacheFactoryStub{})
-
+		netConf = netsetup.NewNetConfWithNSFactory(&interfaceCacheFactoryStub{}, nsNoopFactory)
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 	})
 
 	It("runs setup successfully", func() {
-		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
 	})
 
 	It("runs teardown successfully", func() {
-		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
 		Expect(netConf.Teardown(vmi)).To(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("skips secondary setup runs", func() {
-		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupFail)).To(Succeed())
+		Expect(netConf.Setup(vmi, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, launcherPid, netPreSetupFail)).To(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
 	})
 
 	It("fails the pre-setup run", func() {
-		Expect(netConf.Setup(vmi, launcherPid, doNetNSDummyNoop, netPreSetupFail)).NotTo(Succeed())
+		Expect(netConf.Setup(vmi, launcherPid, netPreSetupFail)).NotTo(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("fails the setup run", func() {
-		Expect(netConf.Setup(vmi, launcherPid, doNetNSFail, netPreSetupDummyNoop)).NotTo(Succeed())
+		netConf := netsetup.NewNetConfWithNSFactory(&interfaceCacheFactoryStub{}, nsFailureFactory)
+		Expect(netConf.Setup(vmi, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
@@ -109,8 +109,19 @@ func (p podInterfaceCacheStoreStub) Remove() error {
 	return nil
 }
 
-func doNetNSDummyNoop(func() error) error { return nil }
-func netPreSetupDummyNoop() error         { return nil }
+type netnsStub struct {
+	shouldFail bool
+}
 
-func doNetNSFail(func() error) error { return fmt.Errorf("do-netns failure") }
-func netPreSetupFail() error         { return fmt.Errorf("pre-setup failure") }
+func (n netnsStub) Do(func() error) error {
+	if n.shouldFail {
+		return fmt.Errorf("do-netns failure")
+	}
+	return nil
+}
+func nsNoopFactory(_ int) netsetup.NSExecutor    { return netnsStub{} }
+func nsFailureFactory(_ int) netsetup.NSExecutor { return netnsStub{shouldFail: true} }
+
+func netPreSetupDummyNoop() error { return nil }
+
+func netPreSetupFail() error { return fmt.Errorf("pre-setup failure") }
