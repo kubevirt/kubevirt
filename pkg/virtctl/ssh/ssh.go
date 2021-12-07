@@ -40,6 +40,61 @@ const (
 	knownHostsFilePathFlag                          = "known-hosts"
 )
 
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		glog.Warningf("failed to determine user home directory: %v", err)
+	}
+
+	c := &SSH{
+		clientConfig: clientConfig,
+		options: SSHOptions{
+			WrapLocalSSH:              false,
+			SshPort:                   22,
+			SshUsername:               defaultUsername(),
+			IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
+			IdentityFilePathProvided:  false,
+			KnownHostsFilePath:        "",
+			KnownHostsFilePathDefault: "",
+		},
+	}
+
+	if len(homeDir) > 0 {
+		c.options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "known_hosts")
+	}
+
+	cmd := &cobra.Command{
+		Use:     "ssh (VM|VMI)",
+		Short:   "Open a SSH connection to a virtual machine instance.",
+		Example: usage(),
+		Args:    templates.ExactArgs("ssh", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c.options.IdentityFilePathProvided = cmd.Flags().Changed(identityFilePathFlag)
+
+			return c.Run(cmd, args)
+		},
+	}
+
+	cmd.Flags().StringVarP(&c.options.SshUsername, usernameFlag, usernameFlagShort, c.options.SshUsername,
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, c.options.SshUsername))
+	cmd.Flags().StringVarP(&c.options.IdentityFilePath, identityFilePathFlag, identityFilePathFlagShort, c.options.IdentityFilePath,
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", identityFilePathFlag))
+	cmd.Flags().StringVar(&c.options.KnownHostsFilePath, knownHostsFilePathFlag, c.options.KnownHostsFilePathDefault,
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/known_hosts: Set the path to the known_hosts file; If not provided, the client will skip host checks", knownHostsFilePathFlag))
+	cmd.Flags().IntVarP(&c.options.SshPort, portFlag, portFlagShort, c.options.SshPort,
+		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
+	cmd.Flags().BoolVar(&c.options.WrapLocalSSH, wrapLocalSSHFlag, c.options.WrapLocalSSH,
+		fmt.Sprintf("--%s=true: Set this to true to use the SSH command available on your system by using this command as ProxyCommand; If unassigned, this will establish a SSH connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+type SSH struct {
+	clientConfig clientcmd.ClientConfig
+	options      SSHOptions
+}
+
 type SSHOptions struct {
 	WrapLocalSSH              bool
 	SshPort                   int
@@ -50,77 +105,25 @@ type SSHOptions struct {
 	KnownHostsFilePathDefault string
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		glog.Warningf("failed to determine user home directory: %v", err)
-	}
-
-	sshOptions := &SSHOptions{
-		WrapLocalSSH:              false,
-		SshPort:                   22,
-		SshUsername:               defaultUsername(),
-		IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
-		IdentityFilePathProvided:  false,
-		KnownHostsFilePath:        "",
-		KnownHostsFilePathDefault: "",
-	}
-
-	if len(homeDir) > 0 {
-		sshOptions.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "known_hosts")
-	}
-
-	cmd := &cobra.Command{
-		Use:     "ssh (VM|VMI)",
-		Short:   "Open a SSH connection to a virtual machine instance.",
-		Example: usage(),
-		Args:    templates.ExactArgs("ssh", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			sshOptions.IdentityFilePathProvided = cmd.Flags().Changed(identityFilePathFlag)
-
-			c := SSH{clientConfig: clientConfig}
-			return c.Run(cmd, sshOptions, args)
-		},
-	}
-
-	cmd.Flags().StringVarP(&sshOptions.SshUsername, usernameFlag, usernameFlagShort, sshOptions.SshUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, sshOptions.SshUsername))
-	cmd.Flags().StringVarP(&sshOptions.IdentityFilePath, identityFilePathFlag, identityFilePathFlagShort, sshOptions.IdentityFilePath,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", identityFilePathFlag))
-	cmd.Flags().StringVar(&sshOptions.KnownHostsFilePath, knownHostsFilePathFlag, sshOptions.KnownHostsFilePathDefault,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/known_hosts: Set the path to the known_hosts file; If not provided, the client will skip host checks", knownHostsFilePathFlag))
-	cmd.Flags().IntVarP(&sshOptions.SshPort, portFlag, portFlagShort, sshOptions.SshPort,
-		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
-	cmd.Flags().BoolVar(&sshOptions.WrapLocalSSH, wrapLocalSSHFlag, sshOptions.WrapLocalSSH,
-		fmt.Sprintf("--%s=true: Set this to true to use the SSH command available on your system by using this command as ProxyCommand; If unassigned, this will establish a SSH connection with limited capabilities provided by this client", wrapLocalSSHFlag))
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-type SSH struct {
-	clientConfig clientcmd.ClientConfig
-}
-
-func (o *SSH) Run(cmd *cobra.Command, sshOptions *SSHOptions, args []string) error {
-
-	kind, namespace, name, err := o.prepareCommand(args, sshOptions)
+	kind, namespace, name, err := o.prepareCommand(args)
 	if err != nil {
 		return err
 	}
 
-	if sshOptions.WrapLocalSSH {
-		return runLocalCommandClient(kind, namespace, name, sshOptions)
+	if o.options.WrapLocalSSH {
+		return o.runLocalCommandClient(kind, namespace, name)
 	}
 
-	client, err := o.prepareSSHClient(kind, namespace, name, sshOptions)
+	client, err := o.prepareSSHClient(kind, namespace, name)
 	if err != nil {
 		return err
 	}
 	return o.startSession(client)
 }
 
-func (o *SSH) prepareCommand(args []string, sshOptions *SSHOptions) (kind, namespace, name string, err error) {
+func (o *SSH) prepareCommand(args []string) (kind, namespace, name string, err error) {
 	var targetUsername string
 	kind, namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
 	if err != nil {
@@ -135,13 +138,13 @@ func (o *SSH) prepareCommand(args []string, sshOptions *SSHOptions) (kind, names
 	}
 
 	if len(targetUsername) > 0 {
-		sshOptions.SshUsername = targetUsername
+		o.options.SshUsername = targetUsername
 	}
 
 	return
 }
 
-func (o *SSH) prepareSSHTunnel(kind, namespace, name string, options *SSHOptions) (kubecli.StreamInterface, error) {
+func (o *SSH) prepareSSHTunnel(kind, namespace, name string) (kubecli.StreamInterface, error) {
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
 		return nil, err
@@ -149,12 +152,12 @@ func (o *SSH) prepareSSHTunnel(kind, namespace, name string, options *SSHOptions
 
 	var stream kubecli.StreamInterface
 	if kind == "vmi" {
-		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, options.SshPort, "tcp")
+		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.options.SshPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
 		}
 	} else if kind == "vm" {
-		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, options.SshPort, "tcp")
+		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.options.SshPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
 		}
