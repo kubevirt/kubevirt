@@ -1951,8 +1951,8 @@ k8s.io/utils v0.0.0-20210709001253-0e1f9d693477/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20210802155522-efc7438f0176/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a h1:8dYfu/Fc9Gz2rNJKB9IQRGgQOh2clmRzNIPPY1xLY5g=
 k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-kubevirt.io/api v0.48.0-rc.0 h1:wynmm/TC0su8dA8YcCrTPQggELTZd96n0Ksl4Wfl5C4=
-kubevirt.io/api v0.48.0-rc.0/go.mod h1:RoYMmFt76vWvFtw/FSiL0YUHZ2Ao6UfXlgpZAQnRswo=
+kubevirt.io/api v0.48.0 h1:sGmfRdcl75B1ninpZTy0wu6q7vRHZ/x5G7nGTbtdQmY=
+kubevirt.io/api v0.48.0/go.mod h1:RoYMmFt76vWvFtw/FSiL0YUHZ2Ao6UfXlgpZAQnRswo=
 kubevirt.io/client-go v0.43.0/go.mod h1:aW+x4P8QCOc47ItwAW1Yuq3EQwPk5ZuBRKk2olmFgUc=
 kubevirt.io/containerized-data-importer v1.34.1/go.mod h1:0s5/wkzXWI5JyG/GFOmFoji9BIm+LS0iXm2xDbU7mYY=
 kubevirt.io/containerized-data-importer-api v1.41.0/go.mod h1:0xadDFtaMd8iy+/oD2+dYoPxACZ/YizKqay5QIrQ6cw=
