@@ -37,7 +37,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -836,13 +835,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
-	err = c.applyFlavorToVmi(vm, vmi)
-	if err != nil {
-		log.Log.Object(vm).Infof("Failed to apply flavor to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply flavor: %v", err)
-		return err
-	}
-
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
 	if err != nil {
@@ -1126,24 +1118,6 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	}
 
 	return vmi
-}
-
-func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	flavorProfile, err := c.flavorMethods.FindProfile(vm)
-	if err != nil {
-		return err
-	}
-
-	if flavorProfile == nil {
-		return nil
-	}
-
-	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorProfile, &vmi.Spec)
-	if len(conflicts) == 0 {
-		return nil
-	}
-
-	return fmt.Errorf("VMI conflicts with flavor profile in fields: [%s]", conflicts.String())
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {

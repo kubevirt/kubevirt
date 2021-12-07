@@ -20,7 +20,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
-        "//pkg/flavor:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/util/hardware:go_default_library",
@@ -68,7 +67,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/flavor:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/webhooks:go_default_library",

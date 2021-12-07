@@ -23,8 +23,13 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/flavor"
+
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -33,6 +38,7 @@ import (
 
 type VMsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	FlavorMethods flavor.Methods
 }
 
 // until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
@@ -67,6 +73,13 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
 	mutator.setDefaultMachineType(&vm)
 
+	if ar.Request.Operation == admissionv1.Create && vm.Spec.Flavor != nil {
+		causes := mutator.applyFlavorToVm(&vm, ar)
+		if len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+	}
+
 	var patch []utiltypes.PatchOperation
 	var value interface{}
 	value = vm.Spec
@@ -95,6 +108,33 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
+}
+
+func (mutator *VMsMutator) applyFlavorToVm(vm *v1.VirtualMachine, ar *admissionv1.AdmissionReview) []metav1.StatusCause {
+	flavorProfile, err := mutator.FlavorMethods.FindProfile(vm)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: "Could not find flavor profile:",
+			Field:   "spec.flavor",
+		}}
+	}
+
+	if flavorProfile == nil {
+		return nil
+	}
+
+	conflicts := mutator.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorProfile, &vm.Spec.Template.Spec)
+	causes := []metav1.StatusCause{}
+	for _, conflict := range conflicts {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "VM field conflicts with selected Flavor profile",
+			Field:   conflict.String(),
+		})
+	}
+
+	return causes
 }
 
 func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {

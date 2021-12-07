@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"context"
+	"encoding/json"
 	goerrors "errors"
 	"time"
 
@@ -11,10 +12,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	utiltype "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/util"
@@ -217,6 +220,91 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			return updatedVM
 		}
 
+		Context("flavor application rules", func() {
+			It("[test_id:TODO] should apply flavor only during vm creation, not during update", func() {
+				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
+
+				flavor := newVirtualMachineFlavor()
+				flavor.Profiles[0].CPU = cpu
+
+				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+					Create(context.Background(), flavor, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros),
+				)
+				vmi.Spec.Domain.CPU = nil
+
+				vm := tests.NewRandomVirtualMachine(vmi, false)
+				vm.Spec.Flavor = &v1.FlavorMatcher{
+					Name: flavor.Name,
+					Kind: namespacedFlavorKind,
+				}
+
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Spec.Template.Spec.Domain.CPU).ToNot(BeNil())
+
+				p := []utiltype.PatchOperation{{
+					Op:    "replace",
+					Path:  "/spec/template/spec/domain/cpu",
+					Value: v1.CPU{Sockets: 1},
+				}}
+				payloadBytes, err := json.Marshal(p)
+				Expect(err).ToNot(HaveOccurred())
+
+				patchedVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Patch(vm.Name, types.JSONPatchType, payloadBytes, &metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(patchedVM.Spec.Template.Spec.Domain.CPU).ToNot(BeNil())
+				Expect(patchedVM.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
+			})
+
+			It("[test_id:TODO] should not change flavor struct on update", func() {
+				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
+
+				flavor := newVirtualMachineFlavor()
+				flavor.Profiles[0].CPU = cpu
+				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+					Create(context.Background(), flavor, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros),
+				)
+				vmi.Spec.Domain.CPU = nil
+
+				vm := tests.NewRandomVirtualMachine(vmi, false)
+				vm.Spec.Flavor = &v1.FlavorMatcher{
+					Name: flavor.Name,
+					Kind: namespacedFlavorKind,
+				}
+
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Spec.Template.Spec.Domain.CPU).ToNot(BeNil())
+
+				flavor = newVirtualMachineFlavor()
+
+				flavor, err = virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+					Create(context.Background(), flavor, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				p := []utiltype.PatchOperation{{
+					Op:    "replace",
+					Path:  "/spec/flavor/name",
+					Value: flavor.Name,
+				}}
+				payloadBytes, err := json.Marshal(p)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Patch(vm.Name, types.JSONPatchType, payloadBytes, &metav1.PatchOptions{})
+				Expect(err).To(HaveOccurred())
+
+			})
+		})
+
 		Context("CPU", func() {
 			It("[test_id:TODO] should apply flavor to CPU", func() {
 				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
@@ -275,7 +363,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				cause := apiStatus.Status().Details.Causes[0]
 
 				Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-				Expect(cause.Message).To(Equal("VMI field conflicts with selected Flavor profile"))
+				Expect(cause.Message).To(Equal("VM field conflicts with selected Flavor profile"))
 				Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
 			})
 		})
