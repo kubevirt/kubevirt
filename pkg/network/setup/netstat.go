@@ -66,16 +66,6 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	// This is needed to be backwards compatible with vmi's which have status interfaces
-	// with the name not being set
-	if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
-		for _, network := range vmi.Spec.Networks {
-			if network.NetworkSource.Pod != nil {
-				vmi.Status.Interfaces[0].Name = network.Name
-			}
-		}
-	}
-
 	if len(vmi.Status.Interfaces) == 0 {
 		// Set Pod Interface
 		interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)

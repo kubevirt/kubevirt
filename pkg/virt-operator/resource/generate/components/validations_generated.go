@@ -8637,9 +8637,8 @@ var CRDsValidation map[string]string = map[string]string{
                 description: Hardware address of a Virtual Machine interface
                 type: string
               name:
-                description: 'Name of the interface, corresponds to name of the network
-                  assigned to the interface TODO: remove omitempty, when api breaking
-                  changes are allowed'
+                description: Name of the interface, corresponds to name of the network
+                  assigned to the interface
                 type: string
             type: object
           type: array
