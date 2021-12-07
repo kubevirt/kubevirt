@@ -301,3 +301,5 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     rm ${SANDBOX_DIR} -rf
     kubevirt::bootstrap::regenerate aarch64
 fi
+
+echo '```release-note\nNONE\n```'
