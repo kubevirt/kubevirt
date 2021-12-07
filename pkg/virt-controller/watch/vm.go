@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -52,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 )
 
@@ -175,11 +177,17 @@ func (c *VMController) needsSync(key string) bool {
 	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 }
 
+var virtControllerVMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
+
 func (c *VMController) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
 	}
+
+	virtControllerVMWorkQueueTracer.StartTrace(key.(string), "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMWorkQueueTracer.StopTrace(key.(string))
+
 	defer c.Queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
@@ -309,6 +317,7 @@ func (c *VMController) execute(key string) error {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}
 			}
 		}
+		virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 	}
 
 	if syncErr != nil {
@@ -1559,6 +1568,9 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 }
 
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {
+	key := controller.VirtualMachineKey(vmOrig)
+	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vmOrig.Name})
+
 	vm := vmOrig.DeepCopy()
 
 	created := vmi != nil
