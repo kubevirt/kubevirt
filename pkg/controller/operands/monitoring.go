@@ -21,14 +21,19 @@ import (
 )
 
 const (
-	operatorPortName        = "http-metrics"
-	defaultOperatorName     = "hyperconverged-cluster-operator"
-	operatorNameEnv         = "OPERATOR_NAME"
-	metricsSuffix           = "-operator-metrics"
-	alertRuleGroup          = "kubevirt.hyperconverged.rules"
-	outOfBandUpdateAlert    = "KubevirtHyperconvergedClusterOperatorCRModification"
-	unsafeModificationAlert = "KubevirtHyperconvergedClusterOperatorUSModification"
-	runbookUrlTemplate      = "https://kubevirt.io/monitoring/runbooks/%s"
+	operatorPortName         = "http-metrics"
+	defaultOperatorName      = "hyperconverged-cluster-operator"
+	operatorNameEnv          = "OPERATOR_NAME"
+	metricsSuffix            = "-operator-metrics"
+	alertRuleGroup           = "kubevirt.hyperconverged.rules"
+	outOfBandUpdateAlert     = "KubevirtHyperconvergedClusterOperatorCRModification"
+	unsafeModificationAlert  = "KubevirtHyperconvergedClusterOperatorUSModification"
+	runbookUrlTemplate       = "https://kubevirt.io/monitoring/runbooks/%s"
+	severityAlertLabelKey    = "severity"
+	partOfAlertLabelKey      = "kubernetes_operator_part_of"
+	partOfAlertLabelValue    = "kubevirt"
+	componentAlertLabelKey   = "kubernetes_operator_component"
+	componentAlertLabelValue = "hyperconverged-cluster-operator"
 )
 
 var (
@@ -264,9 +269,9 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 						"runbook_url": outOfBandUpdateRunbookUrl,
 					},
 					Labels: map[string]string{
-						"severity":                      "warning",
-						"kubernetes_operator_part_of":   "kubevirt",
-						"kubernetes_operator_component": "hyperconverged-cluster-operator",
+						severityAlertLabelKey:  "warning",
+						partOfAlertLabelKey:    partOfAlertLabelValue,
+						componentAlertLabelKey: componentAlertLabelValue,
 					},
 				},
 				{
@@ -278,9 +283,9 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 						"runbook_url": unsafeModificationRunbookUrl,
 					},
 					Labels: map[string]string{
-						"severity":                      "info",
-						"kubernetes_operator_part_of":   "kubevirt",
-						"kubernetes_operator_component": "hyperconverged-cluster-operator",
+						severityAlertLabelKey:  "info",
+						partOfAlertLabelKey:    partOfAlertLabelValue,
+						componentAlertLabelKey: componentAlertLabelValue,
 					},
 				},
 				// Recording rules for openshift/cluster-monitoring-operator
