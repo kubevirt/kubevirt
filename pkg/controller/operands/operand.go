@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
@@ -143,6 +144,14 @@ func (h *genericOperand) addCrToTheRelatedObjectList(req *common.HcoRequest, fou
 	objectRef, err := reference.GetReference(h.Scheme, found)
 	if err != nil {
 		return err
+	}
+
+	existingRef, err := objectreferencesv1.FindObjectReference(req.Instance.Status.RelatedObjects, *objectRef)
+	if err != nil {
+		return err
+	}
+	if existingRef != nil && !reflect.DeepEqual(existingRef, *objectRef) {
+		req.StatusDirty = true
 	}
 
 	err = objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)

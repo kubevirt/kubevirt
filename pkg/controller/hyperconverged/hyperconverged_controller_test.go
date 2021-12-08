@@ -363,6 +363,60 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(latestHCO.Status.RelatedObjects).To(ContainElement(*kubevirtRef))
 			})
 
+			It("should update resource versions of objects in relatedObjects even when there is no update on secondary CR", func() {
+
+				expected := getBasicDeployment()
+				cl := expected.initClient()
+
+				r := initReconciler(cl, nil)
+
+				// Reconcile to get all related objects under HCO's status
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Update Kubevirt's resource version (an example of secondary CR)
+				foundKubevirt := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
+						foundKubevirt),
+				).ToNot(HaveOccurred())
+				// no change. only to bump resource version
+				Expect(cl.Update(context.TODO(), foundKubevirt)).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in secondary CR
+				ph, err := getSecondaryCRPlaceholder()
+				Expect(err).ToNot(HaveOccurred())
+				rq := request
+				rq.NamespacedName = ph
+
+				// Reconcile again to update HCO's status
+				res, err = r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Get the latest objects
+				latestHCO := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						latestHCO),
+				).ToNot(HaveOccurred())
+
+				latestKubevirt := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
+						latestKubevirt),
+				).ToNot(HaveOccurred())
+
+				kubevirtRef, err := reference.GetReference(cl.Scheme(), latestKubevirt)
+				Expect(err).ToNot(HaveOccurred())
+				// This fails when resource versions are not up-to-date
+				Expect(latestHCO.Status.RelatedObjects).To(ContainElement(*kubevirtRef))
+			})
+
 			It("should set different template namespace to ssp CR", func() {
 				expected := getBasicDeployment()
 				expected.hco.Spec.CommonTemplatesNamespace = &expected.hco.Namespace
