@@ -66,20 +66,11 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{}
-	for _, network := range vmi.Spec.Networks {
-		podIface, err := c.getPodInterfacefromFileCache(vmi, network.Name)
-		if err != nil {
-			return err
-		}
-
-		ifc := v1.VirtualMachineInstanceNetworkInterface{
-			Name: network.Name,
-			IP:   podIface.PodIP,
-			IPs:  podIface.PodIPs,
-		}
-		vmi.Status.Interfaces = append(vmi.Status.Interfaces, ifc)
+	interfacesStatus, err := c.ifacesStatusFromPod(vmi)
+	if err != nil {
+		return err
 	}
+	vmi.Status.Interfaces = interfacesStatus
 
 	if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
 		// This calculates the vmi.Status.Interfaces based on the following data sets:
@@ -178,6 +169,23 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		vmi.Status.Interfaces = newInterfaces
 	}
 	return nil
+}
+
+func (c *NetStat) ifacesStatusFromPod(vmi *v1.VirtualMachineInstance) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
+	ifacesStatus := []v1.VirtualMachineInstanceNetworkInterface{}
+	for _, network := range vmi.Spec.Networks {
+		podIface, err := c.getPodInterfacefromFileCache(vmi, network.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		ifacesStatus = append(ifacesStatus, v1.VirtualMachineInstanceNetworkInterface{
+			Name: network.Name,
+			IP:   podIface.PodIP,
+			IPs:  podIface.PodIPs,
+		})
+	}
+	return ifacesStatus, nil
 }
 
 func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
