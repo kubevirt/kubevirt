@@ -165,6 +165,34 @@ var _ = Describe("netstat", func() {
 
 			Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, primaryNetworkName)).To(BeTrue())
 		})
+
+		It("should update existing interface status with MAC from the domain", func() {
+			const (
+				origMAC      = "C0:01:BE:E7:15:G0:0D"
+				newDomainMAC = "1C:CE:C0:01:BE:E7"
+			)
+
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					IP:   primaryPodIPv4,
+					IPs:  []string{primaryPodIPv4, primaryPodIPv6},
+					MAC:  origMAC,
+					Name: primaryNetworkName,
+				},
+			}
+
+			domain := &api.Domain{
+				Spec: api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{
+					newDomainSpecIface(primaryNetworkName, newDomainMAC),
+				}}},
+			}
+
+			netStat.UpdateStatus(vmi, domain)
+
+			Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, newDomainMAC, ""),
+			}), "the pod IP/s should be reported in the status")
+		})
 	})
 
 	It("runs teardown that clears volatile cache", func() {
@@ -176,38 +204,6 @@ var _ = Describe("netstat", func() {
 
 		Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, iface0)).To(BeFalse())
 		Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, iface1)).To(BeFalse())
-	})
-
-	It("should update existing interface status with MAC from the domain", func() {
-		const (
-			primaryNetworkName = "primary"
-
-			origIPv4 = "1.1.1.1"
-			origMAC  = "C0:01:BE:E7:15:G0:0D"
-
-			newDomainMAC = "1C:CE:C0:01:BE:E7"
-		)
-
-		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP:   origIPv4,
-				IPs:  []string{origIPv4},
-				MAC:  origMAC,
-				Name: primaryNetworkName,
-			},
-		}
-
-		domain := &api.Domain{
-			Spec: api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{
-				newDomainSpecIface(primaryNetworkName, newDomainMAC),
-			}}},
-		}
-
-		netStat.UpdateStatus(vmi, domain)
-
-		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(primaryNetworkName, []string{origIPv4}, newDomainMAC, ""),
-		}), "the pod IP/s should be reported in the status")
 	})
 
 	It("should update existing interface status with IP from the guest-agent", func() {
@@ -250,10 +246,7 @@ var _ = Describe("netstat", func() {
 	It("should add a new interface based on the domain spec", func() {
 		const (
 			existingNetworkName = "primary"
-
-			existingIPv4 = "1.1.1.1"
-			existingIPv6 = "fd10:1111::1111"
-			existingMAC  = "C0:01:BE:E7:15:G0:0D"
+			existingMAC         = "C0:01:BE:E7:15:G0:0D"
 
 			newNetworkName = "secondary"
 			newDomainMAC   = "22:22:22:22:22:22"
@@ -261,8 +254,6 @@ var _ = Describe("netstat", func() {
 
 		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
 			{
-				IP:   existingIPv4,
-				IPs:  []string{existingIPv4, existingIPv6},
 				MAC:  existingMAC,
 				Name: existingNetworkName,
 			},
@@ -278,7 +269,7 @@ var _ = Describe("netstat", func() {
 		netStat.UpdateStatus(vmi, domain)
 
 		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(existingNetworkName, []string{existingIPv4, existingIPv6}, existingMAC, ""),
+			newVMIStatusIface(existingNetworkName, nil, existingMAC, ""),
 			newVMIStatusIface(newNetworkName, nil, newDomainMAC, ""),
 		}), "the new interface should be reported in the status")
 	})
