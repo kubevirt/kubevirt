@@ -108,7 +108,6 @@ type ConverterContext struct {
 	DisksInfo             map[string]*cmdv1.DiskInfo
 	SMBios                *cmdv1.SMBios
 	SRIOVDevices          []api.HostDevice
-	LegacyHostDevices     []api.HostDevice
 	GenericHostDevices    []api.HostDevice
 	GPUHostDevices        []api.HostDevice
 	EFIConfiguration      *EFIConfiguration
@@ -1711,12 +1710,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GPUHostDevices...)
-
-	// This is needed to support a legacy approach to device assignment
-	// Append HostDevices to DomXML if GPU is requested
-	if util.IsGPUVMI(vmi) {
-		domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.LegacyHostDevices...)
-	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel

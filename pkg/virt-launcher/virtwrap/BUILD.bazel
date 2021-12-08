@@ -37,7 +37,6 @@ go_library(
         "//pkg/virt-launcher/virtwrap/device/hostdevice:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/generic:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/gpu:go_default_library",
-        "//pkg/virt-launcher/virtwrap/device/hostdevice/legacy:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/sriov:go_default_library",
         "//pkg/virt-launcher/virtwrap/efi:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
