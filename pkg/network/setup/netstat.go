@@ -75,14 +75,12 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 				return err
 			}
 
-			if podIface != nil {
-				ifc := v1.VirtualMachineInstanceNetworkInterface{
-					Name: network.Name,
-					IP:   podIface.PodIP,
-					IPs:  podIface.PodIPs,
-				}
-				interfaces = append(interfaces, ifc)
+			ifc := v1.VirtualMachineInstanceNetworkInterface{
+				Name: network.Name,
+				IP:   podIface.PodIP,
+				IPs:  podIface.PodIPs,
 			}
+			interfaces = append(interfaces, ifc)
 		}
 		vmi.Status.Interfaces = interfaces
 	}

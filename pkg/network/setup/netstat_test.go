@@ -370,7 +370,7 @@ func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache
 type podInterfaceCacheStoreStatusStub struct{ failRemove bool }
 
 func (p podInterfaceCacheStoreStatusStub) Read(iface string) (*cache.PodCacheInterface, error) {
-	return nil, nil
+	return &cache.PodCacheInterface{Iface: &v1.Interface{Name: "net-name"}}, nil
 }
 
 func (p podInterfaceCacheStoreStatusStub) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
