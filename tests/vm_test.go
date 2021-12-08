@@ -868,7 +868,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VM with a DataVolume cloned from an invalid source")
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("no-such-image",
+			// Registry URL scheme validated in CDI
+			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
 				util.NamespaceTestDefault, storageClassName, k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
 			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
