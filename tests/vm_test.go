@@ -857,7 +857,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			),
 		)
 
-		It("should report an error status when data volume error occurs", func() {
+		It("[test_id:7679]should report an error status when data volume error occurs", func() {
 			By("Verifying that required StorageClass is configured")
 			storageClassName := tests.Config.StorageClassLocal
 
