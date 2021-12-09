@@ -644,7 +644,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				} else {
 					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
-					vm = tests.NewRandomVMWithRegistryDataVolume(url, util.NamespaceTestDefault)
+					vm = tests.NewRandomVMWithDataVolume(url, util.NamespaceTestDefault)
 				}
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
