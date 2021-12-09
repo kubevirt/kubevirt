@@ -1408,8 +1408,15 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel && isPodPending(targetPod) {
 		nodes := c.nodeInformer.GetStore().List()
-		for _, node := range nodes {
-			if isNodeSuitableForHostModelMigration(node.(*k8sv1.Node), targetPod) {
+		for _, nodeInterface := range nodes {
+			node := nodeInterface.(*k8sv1.Node)
+
+			if node.Name == vmi.Status.NodeName {
+				continue // avoid checking the VMI's source node
+			}
+
+			if isNodeSuitableForHostModelMigration(node, targetPod) {
+				log.Log.Object(vmi).Infof("Node %s is suitable to run vmi %s host model cpu mode (more nodes may fit as well)", node.Name, vmi.Name)
 				fittingNodeFound = true
 				break
 			}
@@ -1451,15 +1458,11 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod) error 
 
 func isNodeSuitableForHostModelMigration(node *k8sv1.Node, pod *k8sv1.Pod) bool {
 	nodeHasLabel := func(key, value string) bool {
-		if nodeValue, ok := node.Labels[key]; ok {
-			if value == nodeValue {
-				return true
-			}
-		}
-		return false
+		nodeValue, ok := node.Labels[key]
+		return ok && nodeValue == value
 	}
 
-	for key, value := range pod.Labels {
+	for key, value := range pod.Spec.NodeSelector {
 		if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
 			if !nodeHasLabel(key, value) {
 				return false
