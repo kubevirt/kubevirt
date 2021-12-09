@@ -284,6 +284,13 @@ spec:
           - list
           - watch
         - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - get
+          - list
+        - apiGroups:
           - apps
           resources:
           - deployments
@@ -377,6 +384,7 @@ spec:
           - config.openshift.io
           resources:
           - clusterversions
+          - infrastructures
           - ingresses
           verbs:
           - get

@@ -906,6 +906,19 @@ Version: 1.2.3`)
 		})
 
 		Context("Test node placement", func() {
+
+			getClusterInfo := hcoutil.GetClusterInfo
+
+			BeforeEach(func() {
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commonTestUtils.ClusterInfoMock{}
+				}
+			})
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
 			It("should add node placement if missing in KubeVirt", func() {
 				existingResource, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
@@ -1395,6 +1408,13 @@ Version: 1.2.3`)
 			})
 
 			Context("Test getKvFeatureGateList", func() {
+
+				getClusterInfo := hcoutil.GetClusterInfo
+
+				AfterEach(func() {
+					hcoutil.GetClusterInfo = getClusterInfo
+				})
+
 				DescribeTable("Should return featureGate slice",
 					func(isKVMEmulation bool, fgs *hcov1beta1.HyperConvergedFeatureGates, expectedLength int, expectedFgs [][]string) {
 						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(isKVMEmulation)
@@ -1440,6 +1460,26 @@ Version: 1.2.3`)
 						len(hardCodeKvFgs)+2,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
+
+				It("Should include LiveMigration if running in openshift with HighlyAvailable infrastructure", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+					hco_fg := hcov1beta1.HyperConvergedFeatureGates{}
+					fgs := getKvFeatureGateList(&hco_fg)
+					Expect(fgs).To(HaveLen(len(hardCodeKvFgs) + 1))
+					Expect(fgs).To(ContainElement(kvLiveMigrationGate))
+				})
+
+				It("Should include LiveMigration if running in openshift with SingleReplica infrastructure", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSNOMock{}
+					}
+					hco_fg := hcov1beta1.HyperConvergedFeatureGates{}
+					fgs := getKvFeatureGateList(&hco_fg)
+					Expect(fgs).To(HaveLen(len(hardCodeKvFgs)))
+					Expect(fgs).To(Not(ContainElement(kvLiveMigrationGate)))
+				})
 			})
 
 			Context("Test getMandatoryKvFeatureGates", func() {
@@ -1981,6 +2021,188 @@ Version: 1.2.3`)
 				Expect(*foundUpdateStrategy.BatchEvictionSize).Should(Equal(hcoModifiedBatchEvictionSize))
 				Expect(foundUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("5m0s"))
 			})
+		})
+
+		Context("SNO replicas", func() {
+
+			getClusterInfo := hcoutil.GetClusterInfo
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
+			Context("Custom Infra placement, default Workloads placement", func() {
+
+				BeforeEach(func() {
+					hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				})
+
+				It("should set replica=1 on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSNOMock{}
+					}
+
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(Not(BeNil()))
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
+					Expect(kv.Spec.Workloads).To(BeNil())
+				})
+
+				It("should not set replica when not on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(BeNil())
+					Expect(kv.Spec.Workloads).To(BeNil())
+				})
+
+				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSRCPHAIMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(BeNil())
+					Expect(kv.Spec.Workloads).To(BeNil())
+				})
+
+			})
+
+			Context("Custom Workloads placement, default Infra placement", func() {
+
+				BeforeEach(func() {
+					hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				})
+
+				It("should set replica=1 on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSNOMock{}
+					}
+
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(Not(BeNil()))
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
+					Expect(kv.Spec.Workloads).To(Not(BeNil()))
+					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
+				})
+
+				It("should not set replica when not on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(BeNil())
+					Expect(kv.Spec.Workloads).To(Not(BeNil()))
+					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
+				})
+
+				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSRCPHAIMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(BeNil())
+					Expect(kv.Spec.Workloads).To(Not(BeNil()))
+					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
+				})
+
+			})
+
+			Context("Default Infra and Workload placement", func() {
+
+				It("should set replica=1 on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSNOMock{}
+					}
+
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(Not(BeNil()))
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
+					Expect(kv.Spec.Infra.NodePlacement).To(BeNil())
+					Expect(kv.Spec.Workloads).To(BeNil())
+				})
+
+				It("should not set replica when not on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(BeNil())
+					Expect(kv.Spec.Workloads).To(BeNil())
+				})
+
+				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSRCPHAIMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(BeNil())
+					Expect(kv.Spec.Workloads).To(BeNil())
+				})
+
+			})
+
+			Context("Custom Infra and Workloads placement", func() {
+
+				BeforeEach(func() {
+					hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+					hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				})
+
+				It("should set replica=1 on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSNOMock{}
+					}
+
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(Not(BeNil()))
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
+					Expect(kv.Spec.Workloads).To(Not(BeNil()))
+					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
+				})
+
+				It("should not set replica when not on SNO", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(BeNil())
+					Expect(kv.Spec.Workloads).To(Not(BeNil()))
+					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
+				})
+
+				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSRCPHAIMock{}
+					}
+					kv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(BeNil())
+					Expect(kv.Spec.Workloads).To(Not(BeNil()))
+					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
+				})
+
+			})
+
 		})
 
 		It("should handle conditions", func() {

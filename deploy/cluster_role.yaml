@@ -454,6 +454,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -547,6 +554,7 @@ rules:
   - config.openshift.io
   resources:
   - clusterversions
+  - infrastructures
   - ingresses
   verbs:
   - get

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
@@ -189,4 +192,79 @@ func (matcher *RepresentConditionMatcher) FailureMessage(actual interface{}) (me
 
 func (matcher *RepresentConditionMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return fmt.Sprintf("Expected\n\t%#v\nnot to match the condition\n\t%#v", actual, matcher.expected)
+}
+
+// ClusterInfoMock mocks regular Openshift
+type ClusterInfoMock struct{}
+
+func (ClusterInfoMock) Init(_ context.Context, _ client.Client, _ logr.Logger) error {
+	return nil
+}
+func (ClusterInfoMock) IsOpenshift() bool {
+	return true
+}
+func (ClusterInfoMock) IsRunningLocally() bool {
+	return false
+}
+func (ClusterInfoMock) IsManagedByOLM() bool {
+	return true
+}
+func (ClusterInfoMock) IsControlPlaneHighlyAvailable() bool {
+	return true
+}
+func (ClusterInfoMock) IsInfrastructureHighlyAvailable() bool {
+	return true
+}
+func (ClusterInfoMock) GetDomain() string {
+	return "domain"
+}
+
+// ClusterInfoSNOMock mocks Openshift SNO
+type ClusterInfoSNOMock struct{}
+
+func (ClusterInfoSNOMock) Init(_ context.Context, _ client.Client, _ logr.Logger) error {
+	return nil
+}
+func (ClusterInfoSNOMock) IsOpenshift() bool {
+	return true
+}
+func (ClusterInfoSNOMock) IsRunningLocally() bool {
+	return false
+}
+func (ClusterInfoSNOMock) IsManagedByOLM() bool {
+	return true
+}
+func (ClusterInfoSNOMock) IsControlPlaneHighlyAvailable() bool {
+	return false
+}
+func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
+	return false
+}
+func (ClusterInfoSNOMock) GetDomain() string {
+	return "domain"
+}
+
+// ClusterInfoSRCPHAIMock mocks Openshift with SingleReplica ControlPlane and HighAvailable Infrastructure
+type ClusterInfoSRCPHAIMock struct{}
+
+func (ClusterInfoSRCPHAIMock) Init(_ context.Context, _ client.Client, _ logr.Logger) error {
+	return nil
+}
+func (ClusterInfoSRCPHAIMock) IsOpenshift() bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) IsRunningLocally() bool {
+	return false
+}
+func (ClusterInfoSRCPHAIMock) IsManagedByOLM() bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) IsControlPlaneHighlyAvailable() bool {
+	return false
+}
+func (ClusterInfoSRCPHAIMock) IsInfrastructureHighlyAvailable() bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) GetDomain() string {
+	return "domain"
 }

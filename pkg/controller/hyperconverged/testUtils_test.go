@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -322,22 +321,4 @@ func checkAvailability(hco *hcov1beta1.HyperConverged, expected metav1.Condition
 	if !found {
 		Fail(fmt.Sprintf(`Can't find 'Available' condition; %v`, hco.Status.Conditions))
 	}
-}
-
-type ClusterInfoMock struct{}
-
-func (ClusterInfoMock) Init(_ context.Context, _ client.Client, _ logr.Logger) error {
-	return nil
-}
-func (ClusterInfoMock) IsOpenshift() bool {
-	return true
-}
-func (ClusterInfoMock) IsRunningLocally() bool {
-	return false
-}
-func (ClusterInfoMock) IsManagedByOLM() bool {
-	return true
-}
-func (ClusterInfoMock) GetDomain() string {
-	return "domain"
 }

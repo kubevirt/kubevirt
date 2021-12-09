@@ -58,7 +58,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 	BeforeSuite(func() {
 		hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-			return &ClusterInfoMock{}
+			return &commonTestUtils.ClusterInfoMock{}
 		}
 
 		wd, _ := os.Getwd()
@@ -137,12 +137,14 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should create all managed resources", func() {
+
 				hco := commonTestUtils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: true,
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+
 				r := initReconciler(cl, nil)
 
 				// Do the reconcile

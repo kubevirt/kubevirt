@@ -4,6 +4,10 @@ import (
 	"context"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,13 +22,17 @@ type ClusterInfo interface {
 	IsRunningLocally() bool
 	GetDomain() string
 	IsManagedByOLM() bool
+	IsControlPlaneHighlyAvailable() bool
+	IsInfrastructureHighlyAvailable() bool
 }
 
 type ClusterInfoImp struct {
-	runningInOpenshift bool
-	managedByOLM       bool
-	runningLocally     bool
-	domain             string
+	runningInOpenshift            bool
+	managedByOLM                  bool
+	runningLocally                bool
+	controlPlaneHighlyAvailable   bool
+	infrastructureHighlyAvailable bool
+	domain                        string
 }
 
 var clusterInfo ClusterInfo
@@ -63,6 +71,50 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	// We assume that this Operator is managed by OLM when this variable is present.
 	_, c.managedByOLM = os.LookupEnv(OperatorConditionNameEnvVar)
 
+	if c.runningInOpenshift {
+		clusterInfrastructure := &openshiftconfigv1.Infrastructure{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster",
+			},
+		}
+		err := cl.Get(ctx, client.ObjectKeyFromObject(clusterInfrastructure), clusterInfrastructure)
+		if err != nil {
+			return err
+		}
+		logger.Info("Cluster Infrastructure", "platform", clusterInfrastructure.Status.PlatformStatus.Type)
+		logger.Info("Cluster Infrastructure", "controlPlaneTopology", clusterInfrastructure.Status.ControlPlaneTopology)
+		logger.Info("Cluster Infrastructure", "infrastructureTopology", clusterInfrastructure.Status.InfrastructureTopology)
+		c.controlPlaneHighlyAvailable = clusterInfrastructure.Status.ControlPlaneTopology == openshiftconfigv1.HighlyAvailableTopologyMode
+		c.infrastructureHighlyAvailable = clusterInfrastructure.Status.InfrastructureTopology == openshiftconfigv1.HighlyAvailableTopologyMode
+	} else {
+		masterNodeList := &corev1.NodeList{}
+		masterReq, err := labels.NewRequirement("node-role.kubernetes.io/master", selection.Exists, nil)
+		if err != nil {
+			return err
+		}
+		masterSelector := labels.NewSelector().Add(*masterReq)
+		masterLabelSelector := client.MatchingLabelsSelector{Selector: masterSelector}
+		err = cl.List(context.TODO(), masterNodeList, masterLabelSelector)
+		if err != nil {
+			return err
+		}
+
+		workerNodeList := &corev1.NodeList{}
+		workerReq, err := labels.NewRequirement("node-role.kubernetes.io/worker", selection.Exists, nil)
+		if err != nil {
+			return err
+		}
+		workerSelector := labels.NewSelector().Add(*workerReq)
+		workerLabelSelector := client.MatchingLabelsSelector{Selector: workerSelector}
+		err = cl.List(context.TODO(), workerNodeList, workerLabelSelector)
+		if err != nil {
+			return err
+		}
+
+		c.controlPlaneHighlyAvailable = len(masterNodeList.Items) >= 3
+		c.infrastructureHighlyAvailable = len(workerNodeList.Items) >= 2
+	}
+
 	return nil
 }
 
@@ -76,6 +128,14 @@ func (c ClusterInfoImp) IsOpenshift() bool {
 
 func (c ClusterInfoImp) IsRunningLocally() bool {
 	return c.runningLocally
+}
+
+func (c ClusterInfoImp) IsControlPlaneHighlyAvailable() bool {
+	return c.controlPlaneHighlyAvailable
+}
+
+func (c ClusterInfoImp) IsInfrastructureHighlyAvailable() bool {
+	return c.infrastructureHighlyAvailable
 }
 
 func (c ClusterInfoImp) GetDomain() string {

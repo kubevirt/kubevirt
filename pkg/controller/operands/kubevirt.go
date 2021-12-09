@@ -21,7 +21,6 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -99,7 +98,6 @@ var (
 	hardCodeKvFgs = []string{
 		kvDataVolumesGate,
 		kvSRIOVGate,
-		kvLiveMigrationGate,
 		kvCPUManagerGate,
 		kvCPUNodeDiscoveryGate,
 		kvSnapshotGate,
@@ -221,7 +219,7 @@ func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
 		}
-		util.DeepCopyLabels(&virt.ObjectMeta, &found.ObjectMeta)
+		hcoutil.DeepCopyLabels(&virt.ObjectMeta, &found.ObjectMeta)
 		virt.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -240,10 +238,12 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 
 	kvCertConfig := hcoCertConfig2KvCertificateRotateStrategy(hc.Spec.CertConfig)
 
+	infrastructureHighlyAvailable := hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable()
+
 	spec := kubevirtcorev1.KubeVirtSpec{
 		UninstallStrategy:           kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
-		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra),
-		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads),
+		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra, infrastructureHighlyAvailable),
+		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads, true),
 		Configuration:               *config,
 		CertificateRotationStrategy: *kvCertConfig,
 		WorkloadUpdateStrategy:      hcWorkloadUpdateStrategyToKv(hc.Spec.WorkloadUpdateStrategy),
@@ -450,9 +450,18 @@ func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kub
 	}
 }
 
-func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtcorev1.ComponentConfig {
+func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, infrastructureHighlyAvailable bool) *kubevirtcorev1.ComponentConfig {
+	if hcoConfig.NodePlacement == nil && infrastructureHighlyAvailable {
+		return nil
+	}
+
+	kvConfig := &kubevirtcorev1.ComponentConfig{}
+	if !infrastructureHighlyAvailable {
+		var singleReplica uint8 = 1
+		kvConfig.Replicas = &singleReplica
+	}
+
 	if hcoConfig.NodePlacement != nil {
-		kvConfig := &kubevirtcorev1.ComponentConfig{}
 		kvConfig.NodePlacement = &kubevirtcorev1.NodePlacement{}
 
 		if hcoConfig.NodePlacement.Affinity != nil {
@@ -472,10 +481,8 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtcore
 			hcoTolr.DeepCopyInto(&kvTolr)
 			kvConfig.NodePlacement.Tolerations = append(kvConfig.NodePlacement.Tolerations, kvTolr)
 		}
-
-		return kvConfig
 	}
-	return nil
+	return kvConfig
 }
 
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) []string {
@@ -593,7 +600,6 @@ func translateKubeVirtConds(orig []kubevirtcorev1.KubeVirtCondition) []metav1.Co
 
 func getMandatoryKvFeatureGates(isKVMEmulation bool) []string {
 	mandatoryFeatureGates := hardCodeKvFgs
-
 	if !isKVMEmulation {
 		mandatoryFeatureGates = append(mandatoryFeatureGates, sspConditionKvFgs...)
 	}
@@ -604,9 +610,12 @@ func getMandatoryKvFeatureGates(isKVMEmulation bool) []string {
 // get list of feature gates or KV FG list
 func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	checks := getFeatureGateChecks(fgs)
-	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates))
+	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates)+1)
 	res = append(res, mandatoryKvFeatureGates...)
 	res = append(res, checks...)
+	if hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() {
+		res = append(res, kvLiveMigrationGate)
+	}
 
 	return res
 }
