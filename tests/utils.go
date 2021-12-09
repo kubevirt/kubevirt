@@ -1979,7 +1979,14 @@ func createNamespaces() {
 }
 
 func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, Config.StorageClassLocal, accessMode)
+	sc, exists := GetRWOFileSystemStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, exists = GetRWXFileSystemStorageClass()
+	}
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
+	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode)
 }
 
 func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
