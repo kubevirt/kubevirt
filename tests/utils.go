@@ -1986,14 +1986,7 @@ func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 	return newRandomBlankDataVolume(namespace, storageClass, size, accessMode, volumeMode)
 }
 
-func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	if !HasCDI() {
-		Skip("Skip DataVolume tests when CDI is not present")
-	}
-	sc, exists := GetCephStorageClass()
-	if !exists {
-		Skip("Skip OCS tests when Ceph is not present")
-	}
+func newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -2003,6 +1996,36 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
 	return NewRandomVMIWithDataVolume(dv.Name), dv
+}
+
+func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+	if !HasCDI() {
+		Skip("Skip DataVolume tests when CDI is not present")
+	}
+	sc, exists := GetRWOFileSystemStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, exists = GetRWXFileSystemStorageClass()
+	}
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
+
+	return newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
+}
+
+func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+	if !HasCDI() {
+		Skip("Skip DataVolume tests when CDI is not present")
+	}
+	sc, exists := GetRWOBlockStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, exists = GetRWXBlockStorageClass()
+	}
+	if !exists {
+		Skip("Skip test when Block storage is not present")
+	}
+
+	return newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
 func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -5329,10 +5352,10 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 	return addVolumeName
 }
 
-func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource.Quantity) *k8sv1.PersistentVolumeClaim {
-	sc, exists := GetCephStorageClass()
+func CreateBlockPVC(virtClient kubecli.KubevirtClient, name string, size resource.Quantity) *k8sv1.PersistentVolumeClaim {
+	sc, exists := GetRWOBlockStorageClass()
 	if !exists {
-		Skip("Skip OCS tests when Ceph is not present")
+		Skip("Skip test when RWOBlock storage class in not present")
 	}
 	mode := k8sv1.PersistentVolumeBlock
 	createdPvc, err := virtClient.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Create(context.Background(), &k8sv1.PersistentVolumeClaim{

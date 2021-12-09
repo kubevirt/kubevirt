@@ -1154,8 +1154,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			})
-			It("[test_id:1479][rook-ceph] should migrate a vmi with a shared OCS disk", func() {
-				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+			It("[test_id:1479][block-storage] should migrate a vmi with a shared block disk", func() {
+				vmi, dv := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				defer deleteDataVolume(dv)
 
 				By("Starting the VirtualMachineInstance")
@@ -1226,11 +1226,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("[rook-ceph]with an Alpine shared block volume PVC", func() {
+		Context("[block-storage]with an Alpine shared block volume PVC", func() {
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
 
@@ -1256,7 +1256,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1277,12 +1277,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("[rook-ceph]with an Cirros shared block volume PVC", func() {
+		Context("[block-storage]with an Cirros shared block volume PVC", func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -2080,12 +2080,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("[rook-ceph]with an Cirros non-shared block volume PVC", func() {
+		Context("[block-storage]with an Cirros non-shared block volume PVC", func() {
 
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = string(cd.ContainerDiskCirros)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -2126,13 +2126,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				return tests.NewRandomFedoraVMIWithGuestAgent(), nil
 			}
 
-			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
-				sc, exists := tests.GetCephStorageClass()
+				sc, exists := tests.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip OCS tests when Ceph is not present")
+					Skip("Skip migration test when RWX block storage is not present")
 				}
 
 				quantity, err := resource.ParseQuantity("5Gi")
@@ -2190,7 +2190,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
 				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				table.Entry("[sig-storage][rook-ceph][test_id:2731] with OCS disk from block volume PVC", newVirtualMachineInstanceWithFedoraOCSDisk),
+				table.Entry("[sig-storage][block-storage][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk),
 			)
 			It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
