@@ -186,12 +186,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
-		newVirtualMachineInstanceWithOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
-		newVirtualMachineInstanceWithOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
+		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
 		deleteDataVolume := func(dv *cdiv1.DataVolume) {
@@ -423,8 +423,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][block-storage]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][block-storage]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -441,8 +441,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][block-storage]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][block-storage]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -565,8 +565,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][block-storage]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][block-storage]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
