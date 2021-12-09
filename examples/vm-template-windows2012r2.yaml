@@ -53,6 +53,7 @@ objects:
             - masquerade: {}
               model: e1000
               name: default
+            tpm: {}
           features:
             acpi: {}
             apic: {}
@@ -61,7 +62,11 @@ objects:
               spinlocks:
                 spinlocks: 8191
               vapic: {}
+            smm: {}
           firmware:
+            bootloader:
+              efi:
+                secureBoot: true
             uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
           resources:
             requests:

@@ -238,7 +238,7 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 			cmd := exec.Command("/usr/sbin/libvirtd", args...)
 			if l.user != 0 {
 				cmd.SysProcAttr = &syscall.SysProcAttr{
-					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
+					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE, unix.CAP_SYS_PTRACE},
 				}
 			}
 

@@ -459,6 +459,17 @@ type Devices struct {
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
 	SoundCards  []SoundCard        `xml:"sound,omitempty"`
+	TPMs        []TPM              `xml:"tpm,omitempty"`
+}
+
+type TPM struct {
+	Model   string     `xml:"model,attr"`
+	Backend TPMBackend `xml:"backend"`
+}
+
+type TPMBackend struct {
+	Type    string `xml:"type,attr"`
+	Version string `xml:"version,attr"`
 }
 
 // RedirectedDevice describes a device to be redirected
