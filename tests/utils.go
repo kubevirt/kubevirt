@@ -4351,6 +4351,31 @@ func HasBindingModeWaitForFirstConsumer() bool {
 		*storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
 
+func GetSnapshotStorageClass() (string, bool) {
+	storageSnapshot := Config.StorageSnapshot
+	return storageSnapshot, storageSnapshot != ""
+}
+
+func GetRWXFileSystemStorageClass() (string, bool) {
+	storageRWXFileSystem := Config.StorageRWXFileSystem
+	return storageRWXFileSystem, storageRWXFileSystem != ""
+}
+
+func GetRWOFileSystemStorageClass() (string, bool) {
+	storageRWOFileSystem := Config.StorageRWOFileSystem
+	return storageRWOFileSystem, storageRWOFileSystem != ""
+}
+
+func GetRWOBlockStorageClass() (string, bool) {
+	storageRWOBlock := Config.StorageRWOBlock
+	return storageRWOBlock, storageRWOBlock != ""
+}
+
+func GetRWXBlockStorageClass() (string, bool) {
+	storageRWXBlock := Config.StorageRWXBlock
+	return storageRWXBlock, storageRWXBlock != ""
+}
+
 func GetCephStorageClass() (string, bool) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())

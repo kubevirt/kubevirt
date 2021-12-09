@@ -43,6 +43,16 @@ type KubeVirtTestsConfiguration struct {
 	StorageClassWindows string `json:"storageClassWindows"`
 	// Flag if true the storageclasses are managed, false otherwise
 	ManageStorageClasses bool `json:"manageStorageClasses"`
+	// StorageClass supporting RWX Filesystem
+	StorageRWXFileSystem string `json:"storageRWXFileSystem"`
+	// StorageClass supporting RWX Block
+	StorageRWXBlock string `json:"storageRWXBlock"`
+	// StorageClass supporting RWO Filesystem
+	StorageRWOFileSystem string `json:"storageRWOFileSystem"`
+	// StorageClass supporting RWO Block
+	StorageRWOBlock string `json:"storageRWOBlock"`
+	// StorageClass supporting snapshot
+	StorageSnapshot string `json:"storageSnapshot"`
 }
 
 func loadConfig() (*KubeVirtTestsConfiguration, error) {
