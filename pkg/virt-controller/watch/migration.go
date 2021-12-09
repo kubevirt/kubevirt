@@ -1403,29 +1403,38 @@ func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) 
 }
 
 func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.VirtualMachineInstance, targetPod *k8sv1.Pod) {
-	const warningMessage = "Migration cannot proceed since no node is suitable to run the required CPU model / required features"
 	fittingNodeFound := false
 
-	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel && isPodPending(targetPod) {
-		nodes := c.nodeInformer.GetStore().List()
-		for _, nodeInterface := range nodes {
-			node := nodeInterface.(*k8sv1.Node)
+	if cpu := vmi.Spec.Domain.CPU; cpu == nil || cpu.Model != virtv1.CPUModeHostModel {
+		return
+	}
 
-			if node.Name == vmi.Status.NodeName {
-				continue // avoid checking the VMI's source node
-			}
+	requiredNodeLabels := map[string]string{}
+	for key, value := range targetPod.Spec.NodeSelector {
+		if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
+			requiredNodeLabels[key] = value
+		}
+	}
 
-			if isNodeSuitableForHostModelMigration(node, targetPod) {
-				log.Log.Object(vmi).Infof("Node %s is suitable to run vmi %s host model cpu mode (more nodes may fit as well)", node.Name, vmi.Name)
-				fittingNodeFound = true
-				break
-			}
+	nodes := c.nodeInformer.GetStore().List()
+	for _, nodeInterface := range nodes {
+		node := nodeInterface.(*k8sv1.Node)
+
+		if node.Name == vmi.Status.NodeName {
+			continue // avoid checking the VMI's source node
 		}
 
-		if !fittingNodeFound {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMessage)
-			log.Log.Object(vmi).Warning(warningMessage)
+		if isNodeSuitableForHostModelMigration(node, requiredNodeLabels) {
+			log.Log.Object(vmi).Infof("Node %s is suitable to run vmi %s host model cpu mode (more nodes may fit as well)", node.Name, vmi.Name)
+			fittingNodeFound = true
+			break
 		}
+	}
+
+	if !fittingNodeFound {
+		warningMsg := fmt.Sprintf("Migration cannot proceed since no node is suitable to run the required CPU model / required features: %v", requiredNodeLabels)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, NoSuitableNodesForHostModelMigration, warningMsg)
+		log.Log.Object(vmi).Warning(warningMsg)
 	}
 }
 
@@ -1456,17 +1465,12 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod) error 
 	return nil
 }
 
-func isNodeSuitableForHostModelMigration(node *k8sv1.Node, pod *k8sv1.Pod) bool {
-	nodeHasLabel := func(key, value string) bool {
+func isNodeSuitableForHostModelMigration(node *k8sv1.Node, requiredNodeLabels map[string]string) bool {
+	for key, value := range requiredNodeLabels {
 		nodeValue, ok := node.Labels[key]
-		return ok && nodeValue == value
-	}
 
-	for key, value := range pod.Spec.NodeSelector {
-		if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
-			if !nodeHasLabel(key, value) {
-				return false
-			}
+		if !ok || nodeValue != value {
+			return false
 		}
 	}
 

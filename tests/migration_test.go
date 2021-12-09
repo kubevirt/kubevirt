@@ -2354,7 +2354,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					Expect(node.Annotations).To(Equal(originalNodeAnnotations))
 				})
 
-				It("when no node is suited for host model", func() {
+				It("[test_id:7505]when no node is suited for host model", func() {
 					By("Changing node labels to support fake host model")
 					// Remove all supported host models
 					for key, _ := range node.Labels {
@@ -2381,8 +2381,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					By("Expecting for an alert to be triggered")
 					Eventually(func() []k8sv1.Event {
-						//var hostModelEvents []k8sv1.Event
-
 						events, err := virtClient.CoreV1().Events(vmi.Namespace).List(
 							context.Background(),
 							metav1.ListOptions{
