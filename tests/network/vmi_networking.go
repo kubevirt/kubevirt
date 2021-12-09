@@ -881,26 +881,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.TODO(), nad, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
 
-				// Saving the list of virt-handler pods prior to changing migration settings, see comment below.
-				listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-				virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-				Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
-
 				By("Setting it as the migration network in the KubeVirt CR")
 				tests.SetDedicatedMigrationNetwork(nad.Name)
-
-				// FIXME?: By design, changing migration settings trigger a re-creation of the virt-handler pods, amongst other things.
-				//   However, even if SetDedicatedMigrationNetwork() calls UpdateKubeVirtConfigValueAndWait(), VMIs still seem to get scheduled on outdated virt-handler pods.
-				//   Not sure if it's a bug or a feature though. Waiting for all "old" virt-handlers to disappear ensures test VMIs will be created on updated virt-handler pods.
-				Eventually(func() bool {
-					for _, pod := range virtHandlerPods.Items {
-						_, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-						if err == nil {
-							return false
-						}
-					}
-					return true
-				}, 180*time.Second, 10*time.Second).Should(BeTrue(), "Some virt-handler pods survived the migration settings change")
 			})
 			AfterEach(func() {
 				By("Clearing the migration network in the KubeVirt CR")
@@ -915,7 +897,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
-				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
 				By("Starting the migration")

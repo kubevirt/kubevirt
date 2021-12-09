@@ -52,7 +52,7 @@ const (
 )
 
 var _ = Describe("virt-handler", func() {
-	Context("getMigrationIp", func() {
+	Context("findMigrationIp", func() {
 		It("Should error on missing file", func() {
 			_, err := findMigrationIP("/not-a-real-file", originalIP)
 			Expect(err).To(HaveOccurred())

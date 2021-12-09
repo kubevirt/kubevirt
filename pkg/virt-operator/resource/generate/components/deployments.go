@@ -112,7 +112,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(podName string, imageName string, repository string, version string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, migrationNetwork *string, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(podName string, imageName string, repository string, version string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
 
 	version = AddVersionSeparatorPrefix(version)
 
@@ -136,14 +136,6 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 				},
 			},
 		},
-	}
-
-	if migrationNetwork != nil {
-		if podTemplateSpec.ObjectMeta.Annotations == nil {
-			podTemplateSpec.ObjectMeta.Annotations = make(map[string]string)
-		}
-		// Join the pod to the migration network and name the corresponding interface "migration0"
-		podTemplateSpec.ObjectMeta.Annotations["k8s.v1.cni.cncf.io/networks"] = *migrationNetwork + "@migration0"
 	}
 
 	if productVersion != "" {
@@ -205,7 +197,7 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 
 func newBaseDeployment(deploymentName string, imageName string, namespace string, repository string, version string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, nil, podAffinity, envVars)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, podAffinity, envVars)
 	if err != nil {
 		return nil, err
 	}

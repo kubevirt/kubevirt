@@ -25,9 +25,17 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, migrationNetwork, nil, env)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, nil, env)
 	if err != nil {
 		return nil, err
+	}
+
+	if migrationNetwork != nil {
+		if podTemplateSpec.ObjectMeta.Annotations == nil {
+			podTemplateSpec.ObjectMeta.Annotations = make(map[string]string)
+		}
+		// Join the pod to the migration network and name the corresponding interface "migration0"
+		podTemplateSpec.ObjectMeta.Annotations["k8s.v1.cni.cncf.io/networks"] = *migrationNetwork + "@migration0"
 	}
 
 	daemonset := &appsv1.DaemonSet{
