@@ -25,7 +25,59 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	v1 "kubevirt.io/api/core/v1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 )
+
+type VirtualMachinePoolConditionManager struct {
+}
+
+func NewVirtualMachinePoolConditionManager() *VirtualMachinePoolConditionManager {
+	return &VirtualMachinePoolConditionManager{}
+}
+
+func (d *VirtualMachinePoolConditionManager) GetCondition(pool *poolv1.VirtualMachinePool, cond poolv1.VirtualMachinePoolConditionType) *poolv1.VirtualMachinePoolCondition {
+	if pool == nil {
+		return nil
+	}
+	for _, c := range pool.Status.Conditions {
+		if c.Type == cond {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (d *VirtualMachinePoolConditionManager) HasCondition(pool *poolv1.VirtualMachinePool, cond poolv1.VirtualMachinePoolConditionType) bool {
+	return d.GetCondition(pool, cond) != nil
+}
+
+func (d *VirtualMachinePoolConditionManager) RemoveCondition(pool *poolv1.VirtualMachinePool, cond poolv1.VirtualMachinePoolConditionType) {
+	var conds []poolv1.VirtualMachinePoolCondition
+	for _, c := range pool.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	pool.Status.Conditions = conds
+}
+
+// UpdateCondition updates the given VirtualMachinePoolCondition, unless it is already set with the same status and reason.
+func (d *VirtualMachinePoolConditionManager) UpdateCondition(pool *poolv1.VirtualMachinePool, cond *poolv1.VirtualMachinePoolCondition) {
+	for i, c := range pool.Status.Conditions {
+		if c.Type != cond.Type {
+			continue
+		}
+
+		if c.Status != cond.Status || c.Reason != cond.Reason {
+			pool.Status.Conditions[i] = *cond
+		}
+
+		return
+	}
+
+	pool.Status.Conditions = append(pool.Status.Conditions, *cond)
+}
 
 type VirtualMachineConditionManager struct {
 }

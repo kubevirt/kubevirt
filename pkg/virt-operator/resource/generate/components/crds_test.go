@@ -25,6 +25,7 @@ var _ = Describe("CRDs", func() {
 		table.Entry("for KV", NewKubeVirtCrd),
 		table.Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd),
 		table.Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd),
+		table.Entry("for VMPOOL", NewVirtualMachinePoolCrd),
 	)
 
 	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {

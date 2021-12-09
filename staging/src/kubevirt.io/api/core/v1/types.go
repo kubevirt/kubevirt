@@ -768,6 +768,12 @@ const (
 	// VirtualMachineUnpaused is a custom pod condition set for the virt-launcher pod.
 	// It's used as a readiness gate to prevent paused VMs from being marked as ready.
 	VirtualMachineUnpaused k8sv1.PodConditionType = "kubevirt.io/virtual-machine-unpaused"
+
+	// VirtualMahcineTemplateHash is used by the pool controller to determine when a VM needs to be updated
+	VirtualMachineTemplateHash string = "kubevirt.io/vm-template-hash"
+
+	// VirtualMahcineInstanceTemplateHash is used by the pool controller to determine when a VMI needs to be updated
+	VirtualMachineInstanceTemplateHash string = "kubevirt.io/vmi-template-hash"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -835,6 +841,18 @@ func NewVMIReferenceWithUUID(namespace string, name string, uuid types.UID) *Vir
 type VMISelector struct {
 	// Name of the VirtualMachineInstance to migrate
 	Name string `json:"name" valid:"required"`
+}
+
+func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine {
+	vm := &VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachines/%s", GroupVersion.String(), namespace, name),
+		},
+	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VirtualMachine", Version: GroupVersion.Version})
+	return vm
 }
 
 // Given a VirtualMachineInstance, update all NodeSelectorTerms with anti-affinity for that VirtualMachineInstance's node.

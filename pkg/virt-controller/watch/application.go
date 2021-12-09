@@ -150,6 +150,9 @@ type VirtControllerApp struct {
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
+	poolController *PoolController
+	poolInformer   cache.SharedIndexInformer
+
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
@@ -204,6 +207,7 @@ type VirtControllerApp struct {
 	nodeControllerThreads             int
 	vmiControllerThreads              int
 	rsControllerThreads               int
+	poolControllerThreads             int
 	vmControllerThreads               int
 	migrationControllerThreads        int
 	evacuationControllerThreads       int
@@ -313,6 +317,7 @@ func Execute() {
 	app.vmiRecorder = app.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	app.rsInformer = app.informerFactory.VMIReplicaSet()
+	app.poolInformer = app.informerFactory.VMPool()
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
@@ -351,6 +356,7 @@ func Execute() {
 
 	app.initCommon()
 	app.initReplicaSet()
+	app.initPool()
 	app.initVirtualMachines()
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
@@ -443,6 +449,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
+		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go vca.vmController.Run(vca.vmControllerThreads, stop)
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
@@ -522,6 +529,16 @@ func (vca *VirtControllerApp) initCommon() {
 func (vca *VirtControllerApp) initReplicaSet() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
 	vca.rsController = NewVMIReplicaSet(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+}
+
+func (vca *VirtControllerApp) initPool() {
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinepool-controller")
+	vca.poolController = NewPoolController(vca.clientSet,
+		vca.vmiInformer,
+		vca.vmInformer,
+		vca.poolInformer,
+		recorder,
+		controller.BurstReplicas)
 }
 
 func (vca *VirtControllerApp) initVirtualMachines() {
@@ -673,6 +690,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.rsControllerThreads, "rs-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for replicaset controller")
+
+	flag.IntVar(&vca.poolControllerThreads, "pool-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for pool controller")
 
 	flag.IntVar(&vca.vmControllerThreads, "vm-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for vm controller")

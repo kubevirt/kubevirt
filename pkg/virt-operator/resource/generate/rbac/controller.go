@@ -192,6 +192,24 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"pool.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinepools",
+				},
+
+				Verbs: []string{
+					"watch",
+					"list",
+					"create",
+					"delete",
+					"update",
+					"patch",
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
 					"kubevirt.io",
 				},
 				Resources: []string{

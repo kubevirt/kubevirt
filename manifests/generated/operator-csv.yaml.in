@@ -544,6 +544,18 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
+          - update
+          - patch
+          - get
+        - apiGroups:
           - kubevirt.io
           resources:
           - '*'
@@ -762,6 +774,19 @@ spec:
           - watch
           - deletecollection
         - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/console
@@ -835,6 +860,18 @@ spec:
           - list
           - watch
         - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - kubevirts
@@ -876,6 +913,14 @@ spec:
           resources:
           - virtualmachineflavors
           - virtualmachineclusterflavors
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
           verbs:
           - get
           - list

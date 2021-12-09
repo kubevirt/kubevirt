@@ -66,7 +66,8 @@ import (
 	versioned0 "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	versioned1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	v1alpha16 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
-	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
+	v1alpha18 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	versioned2 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	versioned3 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 )
@@ -122,6 +123,16 @@ func (_mr *_MockKubevirtClientRecorder) ReplicaSet(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplicaSet", arg0)
 }
 
+func (_m *MockKubevirtClient) VirtualMachinePool(namespace string) v1alpha17.VirtualMachinePoolInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachinePool", namespace)
+	ret0, _ := ret[0].(v1alpha17.VirtualMachinePoolInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VirtualMachinePool(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachinePool", arg0)
+}
+
 func (_m *MockKubevirtClient) VirtualMachine(namespace string) VirtualMachineInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachine", namespace)
 	ret0, _ := ret[0].(VirtualMachineInterface)
@@ -152,9 +163,9 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineInstancePreset(arg0 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineInstancePreset", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineSnapshot(namespace string) v1alpha17.VirtualMachineSnapshotInterface {
+func (_m *MockKubevirtClient) VirtualMachineSnapshot(namespace string) v1alpha18.VirtualMachineSnapshotInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineSnapshot", namespace)
-	ret0, _ := ret[0].(v1alpha17.VirtualMachineSnapshotInterface)
+	ret0, _ := ret[0].(v1alpha18.VirtualMachineSnapshotInterface)
 	return ret0
 }
 
@@ -162,9 +173,9 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineSnapshot(arg0 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineSnapshot", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineSnapshotContent(namespace string) v1alpha17.VirtualMachineSnapshotContentInterface {
+func (_m *MockKubevirtClient) VirtualMachineSnapshotContent(namespace string) v1alpha18.VirtualMachineSnapshotContentInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineSnapshotContent", namespace)
-	ret0, _ := ret[0].(v1alpha17.VirtualMachineSnapshotContentInterface)
+	ret0, _ := ret[0].(v1alpha18.VirtualMachineSnapshotContentInterface)
 	return ret0
 }
 
@@ -172,9 +183,9 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineSnapshotContent(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineSnapshotContent", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineRestore(namespace string) v1alpha17.VirtualMachineRestoreInterface {
+func (_m *MockKubevirtClient) VirtualMachineRestore(namespace string) v1alpha18.VirtualMachineRestoreInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineRestore", namespace)
-	ret0, _ := ret[0].(v1alpha17.VirtualMachineRestoreInterface)
+	ret0, _ := ret[0].(v1alpha18.VirtualMachineRestoreInterface)
 	return ret0
 }
 
