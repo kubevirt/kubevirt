@@ -1657,7 +1657,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[QUARANTINE][test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
+			It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
 				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
 			})
 
