@@ -859,7 +859,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
 			By("Verifying that required StorageClass is configured")
-			storageClassName := tests.Config.StorageClassLocal
+			storageClassName := tests.Config.StorageRWOFileSystem
 
 			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
