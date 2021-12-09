@@ -713,10 +713,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 
 				running := false
-				vm = tests.NewRandomVMWithDataVolumeInStorageClass(
+				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					sc,
+					corev1.ReadWriteOnce,
 				)
 				vm.Spec.Running = &running
 
