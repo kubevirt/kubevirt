@@ -320,3 +320,8 @@ func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 func (c *ClusterConfig) GetClusterCPUArch() string {
 	return c.cpuArch
 }
+
+//GetVirtLauncherOverrides returns the file->URL map of files to override in virt-launcher
+func (c *ClusterConfig) GetVirtLauncherOverrides() map[string]string {
+	return c.GetConfig().DeveloperConfiguration.OverrideVirtLauncherFiles
+}

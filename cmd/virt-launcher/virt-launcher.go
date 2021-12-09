@@ -22,6 +22,8 @@ package main
 import (
 	goflag "flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -323,6 +325,40 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	}
 }
 
+// downloadFile will download a url to a local file. It's efficient because it will
+// write as it downloads and not load the whole file into memory.
+// Note: This function was stolen from somehwere on the internet...
+func downloadFile(filepath string, url string) error {
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+func overrideFilesFromURL(overrides *map[string]string) {
+	for file, url := range *overrides {
+		os.Rename(file, file+"_orig")
+		err := downloadFile(file, url)
+		if err != nil {
+			log.Log.Reason(err).Warningf("Failed to override %s", file)
+		}
+		os.Chmod(file, 0755)
+	}
+}
+
 func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
@@ -344,6 +380,7 @@ func main() {
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
+	overrideFiles := pflag.StringToString("override-files", nil, "Map of files to override from http URL")
 
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
@@ -390,6 +427,10 @@ func main() {
 	err = l.SetupLibvirt(libvirtLogFilters)
 	if err != nil {
 		panic(err)
+	}
+
+	if overrideFiles != nil {
+		overrideFilesFromURL(overrideFiles)
 	}
 
 	l.StartLibvirt(stopChan)

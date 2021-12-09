@@ -743,6 +743,13 @@ func (in *DeveloperConfiguration) DeepCopyInto(out *DeveloperConfiguration) {
 		*out = new(LogVerbosity)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.OverrideVirtLauncherFiles != nil {
+		in, out := &in.OverrideVirtLauncherFiles, &out.OverrideVirtLauncherFiles
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

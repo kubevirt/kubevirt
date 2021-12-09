@@ -2235,6 +2235,8 @@ type DeveloperConfiguration struct {
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
 	DiskVerification           *DiskVerification `json:"diskVerification,omitempty"`
 	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
+	// Map of path->URL of files to override in virt-launcher before starting libvirtd
+	OverrideVirtLauncherFiles map[string]string `json:"overrideVirtLauncherFiles,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components

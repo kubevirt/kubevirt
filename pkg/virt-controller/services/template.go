@@ -439,6 +439,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
+	overrides := t.clusterConfig.GetVirtLauncherOverrides()
+
 	var command []string
 	if tempPod {
 		logger := log.DefaultLogger()
@@ -465,6 +467,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			command = append(command, "--libvirt-log-filters", customDebugFilters)
+		}
+		if overrides != nil && len(overrides) != 0 {
+			flag := ""
+			for file, url := range overrides {
+				flag += file + "=" + url + ","
+			}
+			flag = flag[:len(flag)-1]
+			command = append(command, "--override-files", flag)
 		}
 	}
 

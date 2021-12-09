@@ -15635,6 +15635,13 @@
        "type": "string"
       }
      },
+     "overrideVirtLauncherFiles": {
+      "description": "Map of path-\u003eURL of files to override in virt-launcher before starting libvirtd",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
+     },
      "pvcTolerateLessSpaceUpToPercent": {
       "type": "integer",
       "format": "int32"

@@ -700,6 +700,12 @@ var CRDsValidation map[string]string = map[string]string{
                   additionalProperties:
                     type: string
                   type: object
+                overrideVirtLauncherFiles:
+                  additionalProperties:
+                    type: string
+                  description: Map of path->URL of files to override in virt-launcher
+                    before starting libvirtd
+                  type: object
                 pvcTolerateLessSpaceUpToPercent:
                   type: integer
                 useEmulation:

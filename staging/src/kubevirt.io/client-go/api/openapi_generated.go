@@ -15599,6 +15599,21 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 							Ref: ref("kubevirt.io/api/core/v1.LogVerbosity"),
 						},
 					},
+					"overrideVirtLauncherFiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Map of path->URL of files to override in virt-launcher before starting libvirtd",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
