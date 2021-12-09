@@ -263,9 +263,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	verifyNoVolumeAttached := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
 		By("Verify that the number of attached volumes does not change")
-		nameMap := make(map[string]bool)
+		volumeNamesMap := make(map[string]struct{}, len(volumeNames))
 		for _, volumeName := range volumeNames {
-			nameMap[volumeName] = true
+			volumeNamesMap[volumeName] = struct{}{}
 		}
 		Consistently(func() error {
 			currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -275,7 +275,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			foundVolume := 0
 			for _, volumeStatus := range currentVMI.Status.VolumeStatus {
 				log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
-				if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil && volumeStatus.Target != "" {
+				if _, ok := volumeNamesMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil && volumeStatus.Target != "" {
 					if volumeStatus.Phase == v1.VolumeReady {
 						foundVolume++
 					}

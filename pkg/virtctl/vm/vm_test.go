@@ -434,8 +434,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		table.DescribeTable("should fail with missing required or invalid parameters", func(commandName, errorString string, args ...string) {
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, commandName)
+			commandAndArgs := []string{commandName}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
@@ -449,19 +448,20 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("removevolume name, missing required volume-name", "removevolume", "required flag(s)", "testvmi"),
 			table.Entry("removevolume name, invalid extra parameter", "removevolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
 		)
-		table.DescribeTable("should fail addvolume when no source is found according to option", func(args ...string) {
+		table.DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {
 			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, "addvolume", "testvmi")
-			commandAndArgs = append(commandAndArgs, args...)
+			commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume"}
+			if isDryRun {
+				commandAndArgs = append(commandAndArgs, "--dry-run")
+			}
 			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
 			Expect(res).ToNot(BeNil())
 			Expect(res.Error()).To(ContainSubstring("Volume testvolume is not a DataVolume or PersistentVolumeClaim"))
 		},
-			table.Entry("with default", "--volume-name=testvolume"),
-			table.Entry("with dry-run arg", "--volume-name=testvolume", "--dry-run"),
+			table.Entry("with default", false),
+			table.Entry("with dry-run arg", true),
 		)
 
 		table.DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, useDv bool), args ...string) {
@@ -475,10 +475,7 @@ var _ = Describe("VirtualMachine", func() {
 				}
 			}
 			expectFunc(vmiName, volumeName, useDv)
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, commandName)
-			commandAndArgs = append(commandAndArgs, vmiName)
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf("--volume-name=%s", volumeName))
+			commandAndArgs := []string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmd := tests.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(BeNil())
@@ -502,18 +499,19 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("removevolume pvc, with persist with dry-run should call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist", "--dry-run"),
 		)
 
-		table.DescribeTable("removevolume should report error if call returns error according to option", func(args ...string) {
+		table.DescribeTable("removevolume should report error if call returns error according to option", func(isDryRun bool) {
 			expectVMIEndpointRemoveVolumeError("testvmi", "testvolume")
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, "removevolume", "testvmi")
-			commandAndArgs = append(commandAndArgs, args...)
+			commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
+			if isDryRun {
+				commandAndArgs = append(commandAndArgs, "--dry-run")
+			}
 			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
 			Expect(res).ToNot(BeNil())
 			Expect(res.Error()).To(ContainSubstring("error removing"))
 		},
-			table.Entry("with default", "--volume-name=testvolume"),
-			table.Entry("with dry-run arg", "--volume-name=testvolume", "--dry-run"),
+			table.Entry("with default", false),
+			table.Entry("with dry-run arg", true),
 		)
 	})
 

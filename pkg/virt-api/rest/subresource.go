@@ -1257,9 +1257,9 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 
 func (app *SubresourceAPIApp) getDryRunOption(volumeRequest *v1.VirtualMachineVolumeRequest) []string {
 	var dryRunOption []string
-	if volumeRequest.AddVolumeOptions != nil && volumeRequest.AddVolumeOptions.DryRun != nil && volumeRequest.AddVolumeOptions.DryRun[0] == k8smetav1.DryRunAll {
+	if options := volumeRequest.AddVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == k8smetav1.DryRunAll {
 		dryRunOption = volumeRequest.AddVolumeOptions.DryRun
-	} else if volumeRequest.RemoveVolumeOptions != nil && volumeRequest.RemoveVolumeOptions.DryRun != nil && volumeRequest.RemoveVolumeOptions.DryRun[0] == k8smetav1.DryRunAll {
+	} else if options := volumeRequest.RemoveVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == k8smetav1.DryRunAll {
 		dryRunOption = volumeRequest.RemoveVolumeOptions.DryRun
 	}
 	return dryRunOption

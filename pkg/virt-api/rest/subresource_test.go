@@ -74,7 +74,7 @@ type readCloserWrapper struct {
 
 func (b *readCloserWrapper) Close() error { return nil }
 
-func dryRunAll() []string {
+func getDryRunOption() []string {
 	return []string{k8smetav1.DryRunAll}
 }
 
@@ -516,7 +516,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
 				table.Entry("with default", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero}),
-				table.Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: dryRunAll()}),
+				table.Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 
 			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func(done Done) {
@@ -638,8 +638,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			},
 				table.Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
 				table.Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
-				table.Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: dryRunAll()}),
-				table.Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: dryRunAll()}),
+				table.Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
+				table.Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 		})
 	})
@@ -699,10 +699,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{}),
 			table.Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{}),
 
-			table.Entry("Always with dry-run option", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{DryRun: dryRunAll()}),
-			table.Entry("Manual with dry-run option", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{DryRun: dryRunAll()}),
-			table.Entry("RerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{DryRun: dryRunAll()}),
-			table.Entry("Halted with dry-run option", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{DryRun: dryRunAll()}),
+			table.Entry("Always with dry-run option", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			table.Entry("Manual with dry-run option", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			table.Entry("RerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			table.Entry("Halted with dry-run option", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{DryRun: getDryRunOption()}),
 		)
 	})
 
@@ -839,49 +839,49 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-				DryRun:       dryRunAll(),
+				DryRun:       getDryRunOption(),
 			}, nil, true, http.StatusAccepted, true),
 			table.Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-				DryRun:       dryRunAll(),
+				DryRun:       getDryRunOption(),
 			}, nil, false, http.StatusAccepted, true),
 			table.Entry("VMI with an invalid add volume request that's missing a name with DryRun", &v1.AddVolumeOptions{
 				VolumeSource: &v1.HotplugVolumeSource{},
 				Disk:         &v1.Disk{},
-				DryRun:       dryRunAll(),
+				DryRun:       getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
 			table.Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				VolumeSource: &v1.HotplugVolumeSource{},
-				DryRun:       dryRunAll(),
+				DryRun:       getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
 			table.Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
 				Name:   "vol1",
 				Disk:   &v1.Disk{},
-				DryRun: dryRunAll(),
+				DryRun: getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
 			table.Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "vol1",
-				DryRun: dryRunAll(),
+				DryRun: getDryRunOption(),
 			}, true, http.StatusAccepted, true),
 			table.Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "existingvol",
-				DryRun: dryRunAll(),
+				DryRun: getDryRunOption(),
 			}, false, http.StatusAccepted, true),
 			table.Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
-				DryRun: dryRunAll(),
+				DryRun: getDryRunOption(),
 			}, false, http.StatusBadRequest, true),
 			table.Entry("VMI with a valid remove volume request but no feature gate with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "existingvol",
-				DryRun: dryRunAll(),
+				DryRun: getDryRunOption(),
 			}, false, http.StatusBadRequest, false),
 			table.Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-				DryRun:       dryRunAll(),
+				DryRun:       getDryRunOption(),
 			}, nil, true, http.StatusBadRequest, false),
 		)
 
@@ -1093,9 +1093,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{}),
 			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{}),
 
-			table.Entry("Always without VMI and with dry-run option", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{DryRun: dryRunAll()}),
-			table.Entry("Always with VMI in phase Running and with dry-run option", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{DryRun: dryRunAll()}),
-			table.Entry("RerunOnFailure with VMI in phase Failed and with dry-run option", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{DryRun: dryRunAll()}),
+			table.Entry("Always without VMI and with dry-run option", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{DryRun: getDryRunOption()}),
+			table.Entry("Always with VMI in phase Running and with dry-run option", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{DryRun: getDryRunOption()}),
+			table.Entry("RerunOnFailure with VMI in phase Failed and with dry-run option", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("should not fail on VM with RunStrategy ",
@@ -1164,10 +1164,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{}),
 			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{}),
 
-			table.Entry("RunStrategyAlways with dry-run option", v1.RunStrategyAlways, "", false, &v1.StopOptions{DryRun: dryRunAll()}),
-			table.Entry("RunStrategyRerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{DryRun: dryRunAll()}),
-			table.Entry("RunStrategyManual with dry-run option", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{DryRun: dryRunAll()}),
-			table.Entry("RunStrategyHalted with dry-run option", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{DryRun: dryRunAll()}),
+			table.Entry("RunStrategyAlways with dry-run option", v1.RunStrategyAlways, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
+			table.Entry("RunStrategyRerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
+			table.Entry("RunStrategyManual with dry-run option", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{DryRun: getDryRunOption()}),
+			table.Entry("RunStrategyHalted with dry-run option", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{DryRun: getDryRunOption()}),
 		)
 
 		It("should fail on VM with VMI in Unknown Phase", func() {
@@ -1236,7 +1236,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 		},
 			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("should fail if VirtualMachine is not running according to options", func(migrateOptions *v1.MigrateOptions) {
@@ -1258,7 +1258,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(status.Error()).To(ContainSubstring("VM is not running"))
 		},
 			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("should fail if migration is not posted according to options", func(migrateOptions *v1.MigrateOptions) {
@@ -1284,7 +1284,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 		},
 			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("should migrate VirtualMachine according to options", func(migrateOptions *v1.MigrateOptions) {
@@ -1316,7 +1316,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
 			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 	})
 
@@ -1648,7 +1648,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		},
 			table.Entry("with default", &v1.PauseOptions{}),
-			table.Entry("with dry-run option", &v1.PauseOptions{DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("Should fail pausing", func(running bool, paused bool, pauseOptions *v1.PauseOptions) {
@@ -1663,10 +1663,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		},
 			table.Entry("a not running VMI", NotRunning, UnPaused, &v1.PauseOptions{}),
-			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: dryRunAll()}),
+			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: getDryRunOption()}),
 
 			table.Entry("a running but paused VMI", Running, Paused, &v1.PauseOptions{}),
-			table.Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: dryRunAll()}),
+			table.Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
@@ -1681,10 +1681,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		},
 			table.Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}),
-			table.Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: dryRunAll()}),
+			table.Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 
 			table.Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}),
-			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: dryRunAll()}),
+			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
@@ -1706,7 +1706,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		},
 			table.Entry("with default", &v1.UnpauseOptions{}),
-			table.Entry("with dry-run option", &v1.UnpauseOptions{DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 		)
 	})
 
@@ -1750,7 +1750,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
 			table.Entry("with default", &v1.StartOptions{Paused: Paused}),
-			table.Entry("with dry-run option", &v1.StartOptions{Paused: Paused, DryRun: dryRunAll()}),
+			table.Entry("with dry-run option", &v1.StartOptions{Paused: Paused, DryRun: getDryRunOption()}),
 		)
 
 		table.DescribeTable("should patch status on start for VM with RunStrategy",
