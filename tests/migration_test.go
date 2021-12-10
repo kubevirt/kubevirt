@@ -2371,7 +2371,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	})
 
 	Context("with a live-migrate eviction strategy set", func() {
-		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
+		Context("[rfe_id:2293] with a VMI running with an eviction strategy set", func() {
 
 			var vmi *v1.VirtualMachineInstance
 

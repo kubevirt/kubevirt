@@ -91,7 +91,7 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(1))
 		})
 
-		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
+		It("[test_id:864][rfe_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 

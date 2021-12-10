@@ -45,7 +45,7 @@ const (
 	DefaultPollIntervalInSeconds         = 3
 )
 
-var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", func() {
+var _ = Describe("[Serial][rfe_id:2717][sig-compute]KubeVirt control plane resilience", func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient

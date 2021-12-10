@@ -175,7 +175,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Context("[ref_id:139]VMI is created", func() {
+		Context("[rfe_id:139]VMI is created", func() {
 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
@@ -257,7 +257,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		})
 	})
 
-	Context("[ref_id:142]with kubectl command", func() {
+	Context("[rfe_id:142]with kubectl command", func() {
 		var workDir string
 		var yamlFile string
 		BeforeEach(func() {

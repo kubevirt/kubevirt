@@ -303,7 +303,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
+	Context("[rfe_id:5105]should create the Admin user as specified in the Autounattend.xml", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 		var output string
