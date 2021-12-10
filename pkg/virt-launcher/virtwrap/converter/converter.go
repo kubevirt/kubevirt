@@ -1638,7 +1638,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Index: "0",
 			Model: "pcie-root",
 		})
-		for i := 1; i < 24; i++ {
+		for i := uint8(1); i < vmi.Spec.Domain.Devices.NumberPciPorts; i++ {
 			domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 				Type:  "pci",
 				Index: fmt.Sprintf("%d", i),
@@ -2011,10 +2011,14 @@ func generateTapDeviceName(networkName string) string {
 }
 
 func needsMorePCIEControlers(vmi *v1.VirtualMachineInstance) bool {
-	const pciSlotHungryMachineType = "q35"
+	const (
+		defaultPciSlots          = 0
+		pciSlotHungryMachineType = "q35"
+	)
 	if vmi.Spec.Domain.Machine != nil {
 		if vmi.Spec.Domain.Machine.Type != "" {
-			return strings.Contains(vmi.Spec.Domain.Machine.Type, pciSlotHungryMachineType)
+			return strings.Contains(vmi.Spec.Domain.Machine.Type, pciSlotHungryMachineType) &&
+				vmi.Spec.Domain.Devices.NumberPciPorts != defaultPciSlots
 		}
 	}
 	return false
