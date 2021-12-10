@@ -12,19 +12,19 @@ import (
 	"golang.org/x/term"
 )
 
-func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
-	streamer, err := o.prepareSSHTunnel(kind, namespace, name)
+func (o *SSH) prepareSSHClient(kind, namespace, name string, options *SSHOptions) (*ssh.Client, error) {
+	streamer, err := o.prepareSSHTunnel(kind, namespace, name, options)
 	if err != nil {
 		return nil, err
 	}
 
 	conn := streamer.AsConn()
-	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, sshPort)
-	authMethods := o.getAuthMethods(kind, namespace, name)
+	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, options.SshPort)
+	authMethods := o.getAuthMethods(kind, namespace, name, options)
 
 	hostKeyCallback := ssh.InsecureIgnoreHostKey()
-	if len(knownHostsFilePath) > 0 {
-		hostKeyCallback, err = InteractiveHostKeyCallback(knownHostsFilePath)
+	if len(options.KnownHostsFilePath) > 0 {
+		hostKeyCallback, err = InteractiveHostKeyCallback(options.KnownHostsFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +37,7 @@ func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error
 		&ssh.ClientConfig{
 			HostKeyCallback: hostKeyCallback,
 			Auth:            authMethods,
-			User:            sshUsername,
+			User:            options.SshUsername,
 		},
 	)
 	if err != nil {
@@ -47,14 +47,14 @@ func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error
 	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
-func (o *SSH) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
+func (o *SSH) getAuthMethods(kind, namespace, name string, options *SSHOptions) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
 
 	methods = trySSHAgent(methods)
-	methods = tryPrivateKey(methods)
+	methods = tryPrivateKey(methods, options)
 
 	methods = append(methods, ssh.PasswordCallback(func() (secret string, err error) {
-		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", sshUsername, kind, name, namespace))
+		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", options.SshUsername, kind, name, namespace))
 		fmt.Println()
 		return string(password), err
 	}))
@@ -69,7 +69,7 @@ func trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	}
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
-		glog.Error("no connection to ssh agent:", err)
+		glog.Error("no connection to ssh agent, skipping agent authentication:", err)
 		return methods
 	}
 	agentClient := agent.NewClient(conn)
@@ -77,16 +77,26 @@ func trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	return append(methods, ssh.PublicKeysCallback(agentClient.Signers))
 }
 
-func tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
+func tryPrivateKey(methods []ssh.AuthMethod, options *SSHOptions) []ssh.AuthMethod {
+
+	// If the identity file at the default does not exist but was
+	// not explicitly provided, don't add the authentication mechanism.
+	if !options.IdentityFilePathProvided {
+		if _, err := os.Stat(options.IdentityFilePath); os.IsNotExist(err) {
+			glog.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", options.IdentityFilePath)
+			return methods
+		}
+	}
+
 	callback := ssh.PublicKeysCallback(func() (signers []ssh.Signer, err error) {
-		key, err := ioutil.ReadFile(identityFilePath)
+		key, err := ioutil.ReadFile(options.IdentityFilePath)
 		if err != nil {
 			return nil, err
 		}
 
 		signer, err := ssh.ParsePrivateKey(key)
 		if _, isPassErr := err.(*ssh.PassphraseMissingError); isPassErr {
-			signer, err = parsePrivateKeyWithPassphrase(key)
+			signer, err = parsePrivateKeyWithPassphrase(key, options)
 			if err != nil {
 				return nil, err
 			}
@@ -97,8 +107,8 @@ func tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	return append(methods, callback)
 }
 
-func parsePrivateKeyWithPassphrase(key []byte) (ssh.Signer, error) {
-	password, err := readPassword(fmt.Sprintf("Key %s requires a password: ", identityFilePath))
+func parsePrivateKeyWithPassphrase(key []byte, options *SSHOptions) (ssh.Signer, error) {
+	password, err := readPassword(fmt.Sprintf("Key %s requires a password: ", options.IdentityFilePath))
 	fmt.Println()
 	if err != nil {
 		return nil, err
