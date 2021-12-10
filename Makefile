@@ -73,7 +73,10 @@ go-test: go-build
 
 test: bazel-test
 
-build-functests:
+verify-functests:
+	hack/dockerized "hack/verify-func-tests.sh"
+
+build-functests: verify-functests
 	hack/dockerized "hack/bazel-fmt.sh && hack/build-func-tests.sh"
 
 functest: build-functests
@@ -217,4 +220,5 @@ fossa:
 	goveralls \
 	build-functests \
 	fossa \
-	realtime-perftest
+	realtime-perftest \
+	verify-functests
