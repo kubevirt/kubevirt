@@ -4209,7 +4209,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: List of ports to be forwarded to the
                                   virtual machine.
                                 items:
-                                  description: Port repesents a port to expose from
+                                  description: Port represents a port to expose from
                                     the virtual machine. Default protocol TCP. The
                                     port field is mandatory
                                   properties:
@@ -7201,7 +7201,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: List of ports to be forwarded to the virtual
                           machine.
                         items:
-                          description: Port repesents a port to expose from the virtual
+                          description: Port represents a port to expose from the virtual
                             machine. Default protocol TCP. The port field is mandatory
                           properties:
                             name:
@@ -9237,7 +9237,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: List of ports to be forwarded to the virtual
                           machine.
                         items:
-                          description: Port repesents a port to expose from the virtual
+                          description: Port represents a port to expose from the virtual
                             machine. Default protocol TCP. The port field is mandatory
                           properties:
                             name:
@@ -11057,7 +11057,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: List of ports to be forwarded to the
                                   virtual machine.
                                 items:
-                                  description: Port repesents a port to expose from
+                                  description: Port represents a port to expose from
                                     the virtual machine. Default protocol TCP. The
                                     port field is mandatory
                                   properties:
@@ -14331,7 +14331,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: List of ports to be forwarded
                                           to the virtual machine.
                                         items:
-                                          description: Port repesents a port to expose
+                                          description: Port represents a port to expose
                                             from the virtual machine. Default protocol
                                             TCP. The port field is mandatory
                                           properties:
@@ -17948,9 +17948,10 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: List of ports to be forwarded
                                               to the virtual machine.
                                             items:
-                                              description: Port repesents a port to
-                                                expose from the virtual machine. Default
-                                                protocol TCP. The port field is mandatory
+                                              description: Port represents a port
+                                                to expose from the virtual machine.
+                                                Default protocol TCP. The port field
+                                                is mandatory
                                               properties:
                                                 name:
                                                   description: If specified, this
