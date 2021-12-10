@@ -5347,6 +5347,12 @@ var CRDsValidation map[string]string = map[string]string{
                             depends on additional factors of the VirtualMachineInstance,
                             like the number of guest CPUs.
                           type: boolean
+                        numberPciPorts:
+                          description: The number of PCIe ports available for the
+                            VM. A value lower than the required amount will get bumped
+                            by libvirt to same as amount of inserted PCIe cards. Defaults
+                            to 0.
+                          type: integer
                         rng:
                           description: Whether to have random number generator from
                             host
@@ -9560,6 +9566,11 @@ var CRDsValidation map[string]string = map[string]string{
                     factors of the VirtualMachineInstance, like the number of guest
                     CPUs.
                   type: boolean
+                numberPciPorts:
+                  description: The number of PCIe ports available for the VM. A value
+                    lower than the required amount will get bumped by libvirt to same
+                    as amount of inserted PCIe cards. Defaults to 0.
+                  type: integer
                 rng:
                   description: Whether to have random number generator from host
                   type: object
@@ -11914,6 +11925,11 @@ var CRDsValidation map[string]string = map[string]string{
                     factors of the VirtualMachineInstance, like the number of guest
                     CPUs.
                   type: boolean
+                numberPciPorts:
+                  description: The number of PCIe ports available for the VM. A value
+                    lower than the required amount will get bumped by libvirt to same
+                    as amount of inserted PCIe cards. Defaults to 0.
+                  type: integer
                 rng:
                   description: Whether to have random number generator from host
                   type: object
@@ -14011,6 +14027,12 @@ var CRDsValidation map[string]string = map[string]string{
                             depends on additional factors of the VirtualMachineInstance,
                             like the number of guest CPUs.
                           type: boolean
+                        numberPciPorts:
+                          description: The number of PCIe ports available for the
+                            VM. A value lower than the required amount will get bumped
+                            by libvirt to same as amount of inserted PCIe cards. Defaults
+                            to 0.
+                          type: integer
                         rng:
                           description: Whether to have random number generator from
                             host
@@ -17988,6 +18010,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     factors of the VirtualMachineInstance, like the
                                     number of guest CPUs.
                                   type: boolean
+                                numberPciPorts:
+                                  description: The number of PCIe ports available
+                                    for the VM. A value lower than the required amount
+                                    will get bumped by libvirt to same as amount of
+                                    inserted PCIe cards. Defaults to 0.
+                                  type: integer
                                 rng:
                                   description: Whether to have random number generator
                                     from host
@@ -22687,6 +22715,13 @@ var CRDsValidation map[string]string = map[string]string{
                                         factors of the VirtualMachineInstance, like
                                         the number of guest CPUs.
                                       type: boolean
+                                    numberPciPorts:
+                                      description: The number of PCIe ports available
+                                        for the VM. A value lower than the required
+                                        amount will get bumped by libvirt to same
+                                        as amount of inserted PCIe cards. Defaults
+                                        to 0.
+                                      type: integer
                                     rng:
                                       description: Whether to have random number generator
                                         from host

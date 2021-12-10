@@ -465,6 +465,13 @@ type Devices struct {
 	// Whether to emulate a TPM device.
 	// +optional
 	TPM *TPMDevice `json:"tpm,omitempty"`
+
+	// The number of PCIe ports available for the VM. A value lower than the
+	// required amount will get bumped by libvirt to same as amount of inserted
+	// PCIe cards.
+	// Defaults to 0.
+	// +optional
+	NumberPciPorts uint8 `json:"numberPciPorts,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
