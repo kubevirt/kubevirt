@@ -248,6 +248,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
 		"tpm":                        "Whether to emulate a TPM device.\n+optional",
+		"numberPciPorts":             "The number of PCIe ports available for the VM. A value lower than the\nrequired amount will get bumped by libvirt to same as amount of inserted\nPCIe cards.\nDefaults to 0.\n+optional",
 	}
 }
 

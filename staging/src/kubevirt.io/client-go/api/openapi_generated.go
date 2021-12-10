@@ -15866,6 +15866,13 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Ref:         ref("kubevirt.io/api/core/v1.TPMDevice"),
 						},
 					},
+					"numberPciPorts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The number of PCIe ports available for the VM. A value lower than the required amount will get bumped by libvirt to same as amount of inserted PCIe cards. Defaults to 0.",
+							Type:        []string{"integer"},
+							Format:      "byte",
+						},
+					},
 				},
 			},
 		},

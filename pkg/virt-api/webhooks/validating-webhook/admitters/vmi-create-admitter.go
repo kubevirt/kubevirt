@@ -152,6 +152,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateRealtime(field, spec, !root)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
+	causes = append(causes, validateNumberOfPCIPorts(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -1547,6 +1548,19 @@ func validateMemoryRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 				field.Child("domain", "cpu", "realtime").String(),
 			),
 			Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+		})
+	}
+	return causes
+}
+
+func validateNumberOfPCIPorts(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Devices.NumberPciPorts > 28 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s: '%d' must be between 0 <= X <= 28",
+				field.Child("domain", "devices", "numberPciPorts").String(),
+				spec.Domain.Devices.NumberPciPorts),
+			Field: field.Child("domain", "devices", "numberPciPorts").String(),
 		})
 	}
 	return causes
