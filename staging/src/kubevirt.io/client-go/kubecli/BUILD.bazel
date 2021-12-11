@@ -26,10 +26,12 @@ go_library(
     deps = [
         "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned:go_default_library",
@@ -113,6 +115,7 @@ go_test(
         "kubecli_suite_test.go",
         "kv_test.go",
         "migration_test.go",
+        "migrationpolicy_test.go",
         "replicaset_test.go",
         "version_test.go",
         "vm_test.go",
@@ -123,6 +126,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",

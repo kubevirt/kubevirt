@@ -180,6 +180,8 @@ type VirtControllerApp struct {
 	flavorInformer        cache.SharedIndexInformer
 	clusterFlavorInformer cache.SharedIndexInformer
 
+	migrationPolicyInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
@@ -354,6 +356,8 @@ func Execute() {
 	app.flavorInformer = app.informerFactory.VirtualMachineFlavor()
 	app.clusterFlavorInformer = app.informerFactory.VirtualMachineClusterFlavor()
 
+	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
+
 	app.initCommon()
 	app.initReplicaSet()
 	app.initPool()
@@ -518,6 +522,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.nodeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.pdbInformer,
+		vca.migrationPolicyInformer,
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.clusterConfig,

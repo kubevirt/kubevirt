@@ -524,6 +524,12 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	ID string `json:"id,omitempty"`
 }
 
+// MigrationConfigSource indicates the source of migration configuration.
+//
+// +k8s:openapi-gen=true
+type MigrationConfigSource string
+
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
 	// +nullable
@@ -557,6 +563,10 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// Name of the migration policy. If string is empty, no policy is matched
+	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
+	// Migration configurations to apply
+	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
 }
 
 type MigrationAbortStatus string

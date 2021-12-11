@@ -66,8 +66,9 @@ import (
 	versioned0 "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	versioned1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	v1alpha16 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
-	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
-	v1alpha18 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
+	v1alpha18 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
+	v1alpha19 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	versioned2 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	versioned3 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 )
@@ -123,9 +124,9 @@ func (_mr *_MockKubevirtClientRecorder) ReplicaSet(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplicaSet", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachinePool(namespace string) v1alpha17.VirtualMachinePoolInterface {
+func (_m *MockKubevirtClient) VirtualMachinePool(namespace string) v1alpha18.VirtualMachinePoolInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachinePool", namespace)
-	ret0, _ := ret[0].(v1alpha17.VirtualMachinePoolInterface)
+	ret0, _ := ret[0].(v1alpha18.VirtualMachinePoolInterface)
 	return ret0
 }
 
@@ -163,9 +164,9 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineInstancePreset(arg0 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineInstancePreset", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineSnapshot(namespace string) v1alpha18.VirtualMachineSnapshotInterface {
+func (_m *MockKubevirtClient) VirtualMachineSnapshot(namespace string) v1alpha19.VirtualMachineSnapshotInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineSnapshot", namespace)
-	ret0, _ := ret[0].(v1alpha18.VirtualMachineSnapshotInterface)
+	ret0, _ := ret[0].(v1alpha19.VirtualMachineSnapshotInterface)
 	return ret0
 }
 
@@ -173,9 +174,9 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineSnapshot(arg0 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineSnapshot", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineSnapshotContent(namespace string) v1alpha18.VirtualMachineSnapshotContentInterface {
+func (_m *MockKubevirtClient) VirtualMachineSnapshotContent(namespace string) v1alpha19.VirtualMachineSnapshotContentInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineSnapshotContent", namespace)
-	ret0, _ := ret[0].(v1alpha18.VirtualMachineSnapshotContentInterface)
+	ret0, _ := ret[0].(v1alpha19.VirtualMachineSnapshotContentInterface)
 	return ret0
 }
 
@@ -183,9 +184,9 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineSnapshotContent(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineSnapshotContent", arg0)
 }
 
-func (_m *MockKubevirtClient) VirtualMachineRestore(namespace string) v1alpha18.VirtualMachineRestoreInterface {
+func (_m *MockKubevirtClient) VirtualMachineRestore(namespace string) v1alpha19.VirtualMachineRestoreInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineRestore", namespace)
-	ret0, _ := ret[0].(v1alpha18.VirtualMachineRestoreInterface)
+	ret0, _ := ret[0].(v1alpha19.VirtualMachineRestoreInterface)
 	return ret0
 }
 
@@ -211,6 +212,16 @@ func (_m *MockKubevirtClient) VirtualMachineClusterFlavor() v1alpha16.VirtualMac
 
 func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterFlavor() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterFlavor")
+}
+
+func (_m *MockKubevirtClient) MigrationPolicy() v1alpha17.MigrationPolicyInterface {
+	ret := _m.ctrl.Call(_m, "MigrationPolicy")
+	ret0, _ := ret[0].(v1alpha17.MigrationPolicyInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) MigrationPolicy() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicy")
 }
 
 func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
@@ -341,6 +352,16 @@ func (_m *MockKubevirtClient) DynamicClient() dynamic.Interface {
 
 func (_mr *_MockKubevirtClientRecorder) DynamicClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DynamicClient")
+}
+
+func (_m *MockKubevirtClient) MigrationPolicyClient() *v1alpha17.MigrationsV1alpha1Client {
+	ret := _m.ctrl.Call(_m, "MigrationPolicyClient")
+	ret0, _ := ret[0].(*v1alpha17.MigrationsV1alpha1Client)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) MigrationPolicyClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicyClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {

@@ -2394,6 +2394,144 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"migrationpolicy": `openAPIV3Schema:
+  description: MigrationPolicy holds migration policy (i.e. configurations) to apply
+    to a VM or group of VMs
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      properties:
+        allowAutoConverge:
+          type: boolean
+        allowPostCopy:
+          type: boolean
+        bandwidthPerMigration:
+          anyOf:
+          - type: integer
+          - type: string
+          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+          x-kubernetes-int-or-string: true
+        completionTimeoutPerGiB:
+          format: int64
+          type: integer
+        disableTLS:
+          type: boolean
+        selectors:
+          properties:
+            namespaceSelector:
+              description: A label selector is a label query over a set of resources.
+                The result of matchLabels and matchExpressions are ANDed. An empty
+                label selector matches all objects. A null label selector matches
+                no objects.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
+            virtualMachineInstanceSelector:
+              description: A label selector is a label query over a set of resources.
+                The result of matchLabels and matchExpressions are ANDed. An empty
+                label selector matches all objects. A null label selector matches
+                no objects.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
+          type: object
+      required:
+      - selectors
+      type: object
+    status:
+      nullable: true
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"virtualmachine": `openAPIV3Schema:
   description: VirtualMachine handles the VirtualMachines that are not running or
     are in a stopped state The VirtualMachine contains the template to create the
@@ -8474,6 +8612,42 @@ var CRDsValidation map[string]string = map[string]string{
             failed:
               description: Indicates that the migration failed
               type: boolean
+            migrationConfiguration:
+              description: Migration configurations to apply
+              properties:
+                allowAutoConverge:
+                  type: boolean
+                allowPostCopy:
+                  type: boolean
+                bandwidthPerMigration:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                completionTimeoutPerGiB:
+                  format: int64
+                  type: integer
+                disableTLS:
+                  type: boolean
+                nodeDrainTaintKey:
+                  type: string
+                parallelMigrationsPerCluster:
+                  format: int32
+                  type: integer
+                parallelOutboundMigrationsPerNode:
+                  format: int32
+                  type: integer
+                progressTimeout:
+                  format: int64
+                  type: integer
+                unsafeMigrationOverride:
+                  type: boolean
+              type: object
+            migrationPolicyName:
+              description: Name of the migration policy. If string is empty, no policy
+                is matched
+              type: string
             migrationUid:
               description: The VirtualMachineInstanceMigration object associated with
                 this migration

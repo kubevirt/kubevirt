@@ -148,6 +148,7 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":                               "+k8s:openapi-gen=true",
 		"startTimestamp":                 "The time the migration action began\n+nullable",
 		"endTimestamp":                   "The time the migration action ended\n+nullable",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
@@ -163,6 +164,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
+		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
+		"migrationConfiguration":         "Migration configurations to apply",
 	}
 }
 

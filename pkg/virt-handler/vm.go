@@ -2473,7 +2473,10 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 		}
 	} else {
-		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
+		migrationConfiguration := vmi.Status.MigrationState.MigrationConfiguration
+		if migrationConfiguration == nil {
+			migrationConfiguration = d.clusterConfig.GetMigrationConfiguration()
+		}
 
 		options := &cmdclient.MigrationOptions{
 			Bandwidth:               *migrationConfiguration.BandwidthPerMigration,

@@ -28,6 +28,8 @@ import (
 	clientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	fakeflavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1/fake"
+	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
+	fakemigrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1/fake"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	fakepoolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1/fake"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
@@ -84,6 +86,11 @@ var _ clientset.Interface = &Clientset{}
 // FlavorV1alpha1 retrieves the FlavorV1alpha1Client
 func (c *Clientset) FlavorV1alpha1() flavorv1alpha1.FlavorV1alpha1Interface {
 	return &fakeflavorv1alpha1.FakeFlavorV1alpha1{Fake: &c.Fake}
+}
+
+// MigrationsV1alpha1 retrieves the MigrationsV1alpha1Client
+func (c *Clientset) MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface {
+	return &fakemigrationsv1alpha1.FakeMigrationsV1alpha1{Fake: &c.Fake}
 }
 
 // PoolV1alpha1 retrieves the PoolV1alpha1Client

@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations"
 )
 
 const ApiServiceAccountName = "kubevirt-apiserver"
@@ -206,6 +207,17 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					migrations.GroupName,
+				},
+				Resources: []string{
+					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 		},

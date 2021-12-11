@@ -24707,6 +24707,13 @@ func schema_client_go_apis_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"migrationConfigSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

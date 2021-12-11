@@ -47,6 +47,8 @@ import (
 	"sync"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -1869,6 +1871,14 @@ func cleanNamespaces() {
 
 		// Remove all Istio PeerAuthentications
 		util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
+
+		// Remove migration policies
+		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
+		util2.PanicOnError(err)
+		for _, policy := range migrationPolicyList.Items {
+			util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
+		}
+
 	}
 }
 
@@ -5299,4 +5309,48 @@ func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource
 
 	return createdPvc
 
+}
+
+func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+	Expect(vmi).ToNot(BeNil())
+	Expect(namespace).ToNot(BeNil())
+	Expect(name).ToNot(BeEmpty())
+
+	policy := kubecli.NewMinimalMigrationPolicy(name)
+
+	if vmi.Labels == nil {
+		vmi.Labels = make(map[string]string)
+	}
+	if namespace.Labels == nil {
+		namespace.Labels = make(map[string]string)
+	}
+
+	if policy.Spec.Selectors == nil {
+		policy.Spec.Selectors = &migrationsv1.Selectors{
+			VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+			NamespaceSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{}},
+		}
+	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
+		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	} else if policy.Spec.Selectors.NamespaceSelector == nil {
+		policy.Spec.Selectors.NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	}
+
+	labelKeyPattern := "mp-key-%d"
+	labelValuePattern := "mp-value-%d"
+
+	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
+		for i := 0; i < labelCount; i++ {
+			labelKey := fmt.Sprintf(labelKeyPattern, i)
+			labelValue := fmt.Sprintf(labelValuePattern, i)
+
+			vmiOrNSLabels[labelKey] = labelValue
+			policyLabels[labelKey] = labelValue
+		}
+	}
+
+	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmi.Labels, matchingVmiLabels)
+	applyLabels(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespace.Labels, matchingNSLabels)
+
+	return policy
 }

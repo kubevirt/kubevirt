@@ -3999,6 +3999,16 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 			(*out)[key] = val
 		}
 	}
+	if in.MigrationPolicyName != nil {
+		in, out := &in.MigrationPolicyName, &out.MigrationPolicyName
+		*out = new(string)
+		**out = **in
+	}
+	if in.MigrationConfiguration != nil {
+		in, out := &in.MigrationConfiguration, &out.MigrationConfiguration
+		*out = new(MigrationConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
