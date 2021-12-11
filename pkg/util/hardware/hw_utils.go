@@ -113,7 +113,6 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 	return res[1:], nil
 }
 
-
 func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
 	pciBasePath := "/sys/bus/pci/devices"
 	numaNodePath := filepath.Join(pciBasePath, pciAddress, "numa_node")

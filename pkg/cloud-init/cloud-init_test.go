@@ -162,13 +162,13 @@ var _ = Describe("CloudInit", func() {
 }`
 				devices := []DeviceData{
 					{
-						Type:     HostDevMetadataType,
-						Bus:      "pci",
-						Address:  "0000:65:10:0",
-						MAC:      "",
-						NumaNode: uint32(1),
+						Type:        HostDevMetadataType,
+						Bus:         "pci",
+						Address:     "0000:65:10:0",
+						MAC:         "",
+						NumaNode:    uint32(1),
 						AlignedCPUs: []uint32{0, 1},
-						Tags:     []string{"testtag1"},
+						Tags:        []string{"testtag1"},
 					},
 				}
 

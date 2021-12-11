@@ -43,6 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -73,8 +74,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/legacy"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -203,18 +202,26 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 	return &manager, nil
 }
 
-func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
+func getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
+	var newSpec api.DomainSpec
 	xmlstr, err := dom.GetXMLDesc(0)
 	if err != nil {
-		return api.Devices{}, err
+		return &newSpec, err
 	}
-	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
-		return api.Devices{}, err
+		return &newSpec, err
 	}
 
-	return newSpec.Devices, nil
+	return &newSpec, nil
+}
+
+func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
+	domSpec, err := getDomainSpec(dom)
+	if err != nil {
+		return domSpec.Devices, err
+	}
+	return domSpec.Devices, nil
 }
 
 func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
@@ -1483,8 +1490,35 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	return l.virConn.GetDomainStats(statsTypes, flags)
 }
 
-func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData) []cloudinit.DeviceData {
-	pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+func lookupDeviceCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]uint32, error) {
+	alignedVCPUList := []uint32{}
+	p2vCPUMap := make(map[string]uint32)
+	alignedPhysicalCPUs, err := hardware.GetDeviceAlignedCPUs(pciAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure that the VMI has cpus from this numa node.
+	cpuTune := domainSpec.CPUTune.VCPUPin
+	for _, vcpuPin := range cpuTune {
+		p2vCPUMap[vcpuPin.CPUSet] = vcpuPin.VCPU
+	}
+
+	for _, pcpu := range alignedPhysicalCPUs {
+		if vCPU, exist := p2vCPUMap[strconv.Itoa(int(pcpu))]; exist {
+			alignedVCPUList = append(alignedVCPUList, uint32(vCPU))
+		}
+	}
+	return alignedVCPUList, nil
+
+}
+
+func formatPCIAddressStr(address *api.Address) string {
+	return fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+}
+
+func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData, numa *uint32, numaAlignedCPUs []uint32) []cloudinit.DeviceData {
+	pciAddrStr := formatPCIAddressStr(address)
 	deviceData := cloudinit.DeviceData{
 		Type:    metadataType,
 		Bus:     address.Type,
@@ -1492,14 +1526,35 @@ func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api
 		MAC:     mac,
 		Tags:    []string{tag},
 	}
+	if numa != nil {
+		deviceData.NumaNode = *numa
+	}
+	if len(numaAlignedCPUs) > 0 {
+		deviceData.AlignedCPUs = numaAlignedCPUs
+	}
 	devicesMetadata = append(devicesMetadata, deviceData)
 	return devicesMetadata
 }
 
+func getDeviceNUMACPUAffinity(pciAddress string, vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (numaNodePtr *uint32, cpuList []uint32) {
+	if vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
+		if numa, err := hardware.GetDeviceNumaNode(pciAddress); err == nil {
+			numaNodePtr = numa
+			return
+		}
+	} else if vmi.IsCPUDedicated() {
+		if vCPUList, err := lookupDeviceCPUAffinity(pciAddress, domainSpec); err == nil {
+			cpuList = vCPUList
+			return
+		}
+	}
+	return
+}
+
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
 	taggedInterfaces := make(map[string]v1.Interface)
-	taggedHostDevices := make(map[string]v1.HostDevices)
-	taggedGPUs := make(map[string]v1.GPUs)
+	taggedHostDevices := make(map[string]v1.HostDevice)
+	taggedGPUs := make(map[string]v1.GPU)
 	var devicesMetadata []cloudinit.DeviceData
 
 	// Get all tagged interfaces for lookup
@@ -1523,11 +1578,11 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		}
 	}
 
-	devices, err := getAllDomainDevices(dom)
+	domainSpec, err := getDomainSpec(dom)
 	if err != nil {
 		return nil, err
 	}
-
+	devices := domainSpec.Devices
 	interfaces := devices.Interfaces
 	for _, nic := range interfaces {
 		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
@@ -1535,11 +1590,15 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			if nic.MAC != nil {
 				mac = nic.MAC.MAC
 			}
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(formatPCIAddressStr(nic.Source.Address), vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
 				nic.Address,
 				mac,
 				data.Tag,
-				devicesMetadata)
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
 		}
 	}
 
@@ -1547,31 +1606,39 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	for _, dev := range hostDevices {
 		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), sriov.AliasPrefix, "", -1)
 		hostDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), generic.AliasPrefix, "", -1)
+		gpuDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", -1)
 		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(formatPCIAddressStr(dev.Source.Address), vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
 				dev.Address,
 				"",
 				data.Tag,
-				devicesMetadata)
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
 		}
 		if data, exist := taggedHostDevices[hostDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(formatPCIAddressStr(dev.Source.Address), vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
 				dev.Address,
 				"",
 				data.Tag,
-				devicesMetadata)
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
 		}
-	}
-
-	GPUs := devices.GPUs
-	for _, dev := range GPUs {
-		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", -1)
-		if data, exist := taggedGPUs[devAliasNoPrefix]; exist {
-			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+		if data, exist := taggedHostDevices[gpuDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(formatPCIAddressStr(dev.Source.Address), vmi, domainSpec)
+			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
 				dev.Address,
 				"",
 				data.Tag,
-				devicesMetadata)
+				devicesMetadata,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
 		}
 	}
 	return devicesMetadata, nil
