@@ -31,5 +31,6 @@ func generateSchedule() string {
 	s := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s)
 	randMinute := r.Intn(60)
-	return fmt.Sprintf("%d */12 * * *", randMinute)
+	randHour := r.Intn(12) // not using r.Intn(24) because, for example, 2/12 and 14/12 are exactly the same.
+	return fmt.Sprintf("%d %d/12 * * *", randMinute, randHour)
 }
