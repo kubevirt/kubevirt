@@ -70,6 +70,7 @@ import (
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -326,7 +327,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return err
 	}
 
-	if err := sriov.AttachHostDevices(domain, sriovHostDevices); err != nil {
+	if err := hostdevice.AttachHostDevices(domain, sriovHostDevices); err != nil {
 		return err
 	}
 
