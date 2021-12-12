@@ -305,11 +305,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 
-			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-
 			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIStopping)
+			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
 		})
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {

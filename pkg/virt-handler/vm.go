@@ -102,8 +102,6 @@ const (
 	VMIMigrating = "VirtualMachineInstance is migrating."
 	//VMIMigrationTargetPrepared is the reason set when the migration target has been prepared
 	VMIMigrationTargetPrepared = "VirtualMachineInstance Migration Target Prepared."
-	//VMIStopping is the reason set when the VMI is stopping
-	VMIStopping = "VirtualMachineInstance stopping"
 	//VMIGracefulShutdown is the reason set when the VMI is gracefully shut down
 	VMIGracefulShutdown = "Signaled Graceful Shutdown"
 	//VMISignalDeletion is the reason set when the VMI has signal deletion
@@ -1572,8 +1570,8 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	domain *api.Domain,
 	domainExists bool) error {
 
-	// set to true when domain needs to be shutdown.
-	shouldShutdown := false
+	// set to true when domain is being shut down by virt-launcher
+	shouldWaitForShutdown := false
 	// set to true when domain needs to be removed from libvirt.
 	shouldDelete := false
 	// optimization. set to true when processing already deleted domain.
@@ -1608,9 +1606,9 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		switch {
 		case domainAlive:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is alive,
-			// then shut down the domain.
-			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
-			shouldShutdown = true
+			// then wait for domain shut down.
+			log.Log.Object(vmi).V(3).Info("VirtualMachineInstance does not exist - waiting for virt-launcher to shut down domain")
+			shouldWaitForShutdown = true
 		case domainExists:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
 			// then delete the domain.
@@ -1627,8 +1625,8 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
 		switch {
 		case domainAlive:
-			log.Log.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
-			shouldShutdown = true
+			log.Log.Object(vmi).V(3).Info("VirtualMachineInstance with deletion timestamp - waiting for virt-launcher to shut down domain")
+			shouldWaitForShutdown = true
 		case domainExists:
 			log.Log.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
 			shouldDelete = true
@@ -1693,9 +1691,9 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	switch {
 	case forceIgnoreSync:
 		log.Log.Object(vmi).V(3).Info("No update processing required: forced ignore")
-	case shouldShutdown:
-		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
-		syncErr = d.processVmShutdown(vmi, domain)
+	case shouldWaitForShutdown:
+		log.Log.Object(vmi).V(3).Info("Waiting for virt-launcher to shut itself down")
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
 	case shouldDelete:
 		log.Log.Object(vmi).V(3).Info("Processing deletion.")
 		syncErr = d.processVmDelete(vmi)
@@ -2006,81 +2004,6 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	})
 
 	return client, nil
-}
-
-func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-
-	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
-	client, err := d.getVerifiedLauncherClient(vmi)
-	if err != nil {
-		return err
-	}
-
-	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if virtutil.IsACPIEnabled(vmi, domain) {
-		if expired, timeLeft := virtutil.HasGracePeriodExpired(domain); !expired {
-			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
-		}
-		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
-	} else {
-		log.Log.Object(vmi).Infof("ACPI feature not available, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
-	}
-
-	err = client.KillVirtualMachine(vmi)
-	if err != nil && !cmdclient.IsDisconnected(err) {
-		// Only report err if it wasn't the result of a disconnect.
-		//
-		// Both virt-launcher and virt-handler are trying to destroy
-		// the VirtualMachineInstance at the same time. It's possible the client may get
-		// disconnected during the kill request, which shouldn't be
-		// considered an error.
-		return err
-	}
-
-	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), VMIStopping)
-
-	return nil
-}
-
-func (d *VirtualMachineController) handleVMIShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient, timeLeft int64) error {
-	if domain.Status.Status != api.Shutdown {
-		return d.shutdownVMI(vmi, client, timeLeft)
-	}
-	log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
-	return nil
-}
-
-func (d *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient, timeLeft int64) error {
-	err := client.ShutdownVirtualMachine(vmi)
-	if err != nil && !cmdclient.IsDisconnected(err) {
-		// Only report err if it wasn't the result of a disconnect.
-		//
-		// Both virt-launcher and virt-handler are trying to destroy
-		// the VirtualMachineInstance at the same time. It's possible the client may get
-		// disconnected during the kill request, which shouldn't be
-		// considered an error.
-		return err
-	}
-
-	log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
-
-	// Make sure that we don't hot-loop in case we send the first domain notification
-	if timeLeft == -1 {
-		timeLeft = 5
-		if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
-			timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
-		}
-	}
-	// In case we have a long grace period, we want to resend the graceful shutdown every 5 seconds
-	// That's important since a booting OS can miss ACPI signals
-	if timeLeft > 5 {
-		timeLeft = 5
-	}
-
-	// pending graceful shutdown.
-	d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
-	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
-	return nil
 }
 
 func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstance) error {
