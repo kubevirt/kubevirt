@@ -837,37 +837,18 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				return true
 			}
 		}
-		getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, withOCS bool) int64 {
+		getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume) int64 {
 			var imageSize int64
 			var unused string
-			if withOCS {
-				var matchingPv *k8sv1.PersistentVolume
-				pvs, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, pv := range pvs.Items {
-					if pv.Spec.ClaimRef != nil && pv.Spec.ClaimRef.Name == dv.Name {
-						matchingPv = &pv
-						break
-					}
-				}
-				Expect(matchingPv).ToNot(BeNil())
-				rbdCmd := fmt.Sprintf("rbd diff %s/%s | awk '{ SUM += $2 } END { print SUM }'",
-					matchingPv.Spec.CSI.VolumeAttributes["pool"],
-					matchingPv.Spec.CSI.VolumeAttributes["imageName"])
-				dfOutput, err := tests.ExecuteCommandOnCephToolbox(virtClient, []string{"sh", "-c", rbdCmd})
-				Expect(err).ToNot(HaveOccurred())
-				fmt.Sscanf(dfOutput, "%d\n", &imageSize, &unused)
-			} else {
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				lsOutput, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused)
-			}
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			lsOutput, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				pod,
+				"compute",
+				[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused)
 			return imageSize
 		}
 
@@ -892,21 +873,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dv.Annotations = map[string]string{"user.custom.annotation/storage.thick-provisioned": "false"}
 			return dv
 		}
-		table.DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller, withOCS bool) {
+		table.DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("5Gi")
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation
-
-			if withOCS {
-				volumeMode := k8sv1.PersistentVolumeBlock
-				dataVolume.Spec.PVC.VolumeMode = &volumeMode
-				sc, exists := tests.GetCephStorageClass()
-				if !exists {
-					Skip("Skip OCS tests when Ceph is not present")
-				}
-				dataVolume.Spec.PVC.StorageClassName = &sc
-			}
 
 			vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
@@ -921,7 +892,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-			imageSizeAfterBoot := getImageSize(vmi, dataVolume, withOCS)
+			imageSizeAfterBoot := getImageSize(vmi, dataVolume)
 			By(fmt.Sprintf("image size after boot is %d", imageSizeAfterBoot))
 
 			By("Filling out disk space")
@@ -936,12 +907,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			if preallocated {
 				// Preallocation means no changes to disk size
-				Eventually(imageSizeEqual(getImageSize(vmi, dataVolume, withOCS), imageSizeAfterBoot), 120*time.Second).Should(BeTrue())
+				Eventually(imageSizeEqual(getImageSize(vmi, dataVolume), imageSizeAfterBoot), 120*time.Second).Should(BeTrue())
 			} else {
-				Eventually(getImageSize(vmi, dataVolume, withOCS), 120*time.Second).Should(BeNumerically(">", imageSizeAfterBoot))
+				Eventually(getImageSize(vmi, dataVolume), 120*time.Second).Should(BeNumerically(">", imageSizeAfterBoot))
 			}
 
-			imageSizeBeforeTrim := getImageSize(vmi, dataVolume, withOCS)
+			imageSizeBeforeTrim := getImageSize(vmi, dataVolume)
 			By(fmt.Sprintf("image size before trim is %d", imageSizeBeforeTrim))
 
 			By("Writing a small file so that we detect a disk space usage change.")
@@ -966,7 +937,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 60)
 				Expect(err).ToNot(HaveOccurred())
 
-				currentImageSize := getImageSize(vmi, dataVolume, withOCS)
+				currentImageSize := getImageSize(vmi, dataVolume)
 				if expectSmaller {
 					// Trim should make the space usage go down
 					By(fmt.Sprintf("We expect disk usage to go down from the use of trim.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
@@ -984,16 +955,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).To(BeNil())
 		},
-			table.Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true, false),
-			table.Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false, false),
-			table.Entry("[test_id:5897]with preallocation false, fstrim will make the image smaller", addPreallocationFalse, true, false),
-			table.Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false, false),
-			table.Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true, false),
-			table.Entry("[test_id:5894]with OCS, by default, fstrim will make the ceph space usage go down", noop, true, true),
-			table.Entry("[test_id:5898]with OCS, with preallocation true, fstrim has no effect", addPreallocationTrue, false, true),
-			table.Entry("[test_id:5897]with OCS, with preallocation false, fstrim will the ceph space usage go down", addPreallocationFalse, true, true),
-			table.Entry("[test_id:5899]with OCS, with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false, true),
-			table.Entry("[test_id:5896]with OCS, with thick provision false, fstrim will make the ceph space usage go down", addThickProvisionedFalseAnnotation, true, true),
+			table.Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true),
+			table.Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false),
+			table.Entry("[test_id:5897]with preallocation false, fstrim will make the image smaller", addPreallocationFalse, true),
+			table.Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false),
+			table.Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true),
 		)
 	})
 })
