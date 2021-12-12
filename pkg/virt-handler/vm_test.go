@@ -319,8 +319,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			initGracePeriodHelper(1, vmi, domain)
 			mockWatchdog.CreateFile(vmi)
 
-			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()

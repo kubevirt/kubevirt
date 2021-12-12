@@ -113,26 +113,6 @@ func (_mr *_MockLauncherClientRecorder) SignalTargetPodCleanup(arg0 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalTargetPodCleanup", arg0)
 }
 
-func (_m *MockLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "ShutdownVirtualMachine", vmi)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockLauncherClientRecorder) ShutdownVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShutdownVirtualMachine", arg0)
-}
-
-func (_m *MockLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "KillVirtualMachine", vmi)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockLauncherClientRecorder) KillVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVirtualMachine", arg0)
-}
-
 func (_m *MockLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
 	ret := _m.ctrl.Call(_m, "MigrateVirtualMachine", vmi, options)
 	ret0, _ := ret[0].(error)

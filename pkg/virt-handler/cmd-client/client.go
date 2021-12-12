@@ -85,8 +85,6 @@ type LauncherClient interface {
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error
-	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
-	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error
 	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
 	FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
@@ -446,14 +444,6 @@ func (c *VirtLauncherClient) UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstan
 
 func (c *VirtLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("SoftReboot", c.v1client.SoftRebootVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
-}
-
-func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Shutdown", c.v1client.ShutdownVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
-}
-
-func (c *VirtLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Kill", c.v1client.KillVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
