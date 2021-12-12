@@ -1409,10 +1409,18 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
 	}
 
+	if vmiContainsPCIHostDevice(vmi) {
+		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+	}
+
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
 	}, isBlockMigration
+}
+
+func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.HostDevices) > 0 || len(vmi.Spec.Domain.Devices.GPUs) > 0
 }
 
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {

@@ -66,6 +66,7 @@ go_test(
         "//pkg/network/cache:go_default_library",
         "//pkg/network/errors:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",

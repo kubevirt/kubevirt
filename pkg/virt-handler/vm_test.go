@@ -37,6 +37,7 @@ import (
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
@@ -2238,6 +2239,56 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
+		})
+
+		Context("check that migration is not supported when using Host Devices", func() {
+			envName := util.ResourceNameToEnvVar("PCI_RESOURCE", "dev1")
+
+			BeforeEach(func() {
+				_ = os.Setenv(envName, "0000:81:01.0")
+			})
+
+			AfterEach(func() {
+				_ = os.Unsetenv(envName)
+			})
+
+			It("should not be allowed to live-migrate if the VMI uses PCI host device", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+					{
+						Name:       "name1",
+						DeviceName: "dev1",
+					},
+				}
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				Expect(isBlockMigration).To(BeFalse())
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
+			})
+
+			It("should not be allowed to live-migrate if the VMI uses PCI GPU", func() {
+				envName := util.ResourceNameToEnvVar("PCI_RESOURCE", "dev1")
+				_ = os.Setenv(envName, "0000:81:01.0")
+				defer func() {
+					_ = os.Unsetenv(envName)
+				}()
+
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+					{
+						Name:       "name1",
+						DeviceName: "dev1",
+					},
+				}
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				Expect(isBlockMigration).To(BeFalse())
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
+			})
 		})
 
 		Context("with network configuration", func() {
