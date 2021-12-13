@@ -291,33 +291,9 @@ func (c *VMController) execute(key string) error {
 
 	var syncErr syncError
 
-	// Scale up or down, if all expected creates and deletes were report by the listener
-	if c.needsSync(key) && vm.ObjectMeta.DeletionTimestamp == nil {
-		runStrategy, err := vm.RunStrategy()
-		if err != nil {
-			return err
-		}
-
-		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
-		if err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}
-		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
-			syncErr = c.startStop(vm, vmi)
-		} else {
-			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
-		}
-
-		// Must check needsSync again here because a VMI can be created or
-		// deleted in the startStop function which impacts how we process
-		// hotplugged volumes
-		if c.needsSync(key) && syncErr == nil {
-
-			err = c.handleVolumeRequests(vm, vmi)
-			if err != nil {
-				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}
-			}
-		}
-		virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
+	syncErr, err = c.sync(vm, vmi, key, dataVolumes)
+	if err != nil {
+		return err
 	}
 
 	if syncErr != nil {
@@ -2032,6 +2008,41 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 		}
 		vm.Status.VolumeRequests = tmpVolRequests
 	}
+}
+
+func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (syncError, error) {
+	var syncErr syncError
+
+	// Scale up or down, if all expected creates and deletes were report by the listener
+	if c.needsSync(key) && vm.ObjectMeta.DeletionTimestamp == nil {
+		runStrategy, err := vm.RunStrategy()
+		if err != nil {
+			return nil, err
+		}
+
+		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
+		if err != nil {
+			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}
+		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
+			syncErr = c.startStop(vm, vmi)
+		} else {
+			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
+		}
+
+		// Must check needsSync again here because a VMI can be created or
+		// deleted in the startStop function which impacts how we process
+		// hotplugged volumes
+		if c.needsSync(key) && syncErr == nil {
+
+			err = c.handleVolumeRequests(vm, vmi)
+			if err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}
+			}
+		}
+		virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
+	}
+
+	return syncErr, nil
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
