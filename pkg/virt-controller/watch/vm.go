@@ -1582,48 +1582,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 	vm.Status.Ready = ready
 
-	if len(vm.Status.VolumeRequests) > 0 {
-		volumeMap := make(map[string]virtv1.Volume)
-		diskMap := make(map[string]virtv1.Disk)
-
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			volumeMap[volume.Name] = volume
-		}
-		for _, disk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
-			diskMap[disk.Name] = disk
-		}
-
-		tmpVolRequests := vm.Status.VolumeRequests[:0]
-		for _, request := range vm.Status.VolumeRequests {
-
-			var added bool
-			var volName string
-
-			removeRequest := false
-
-			if request.AddVolumeOptions != nil {
-				volName = request.AddVolumeOptions.Name
-				added = true
-			} else if request.RemoveVolumeOptions != nil {
-				volName = request.RemoveVolumeOptions.Name
-				added = false
-			}
-
-			_, volExists := volumeMap[volName]
-			_, diskExists := diskMap[volName]
-
-			if added && volExists && diskExists {
-				removeRequest = true
-			} else if !added && !volExists && !diskExists {
-				removeRequest = true
-			}
-
-			if !removeRequest {
-				tmpVolRequests = append(tmpVolRequests, request)
-			}
-		}
-		vm.Status.VolumeRequests = tmpVolRequests
-	}
+	c.trimDoneVolumeRequests(vm)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
 		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
@@ -2028,6 +1987,51 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 	}
 
 	return clearChangeRequest
+}
+
+func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
+	if len(vm.Status.VolumeRequests) > 0 {
+		volumeMap := make(map[string]virtv1.Volume)
+		diskMap := make(map[string]virtv1.Disk)
+
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			volumeMap[volume.Name] = volume
+		}
+		for _, disk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+			diskMap[disk.Name] = disk
+		}
+
+		tmpVolRequests := vm.Status.VolumeRequests[:0]
+		for _, request := range vm.Status.VolumeRequests {
+
+			var added bool
+			var volName string
+
+			removeRequest := false
+
+			if request.AddVolumeOptions != nil {
+				volName = request.AddVolumeOptions.Name
+				added = true
+			} else if request.RemoveVolumeOptions != nil {
+				volName = request.RemoveVolumeOptions.Name
+				added = false
+			}
+
+			_, volExists := volumeMap[volName]
+			_, diskExists := diskMap[volName]
+
+			if added && volExists && diskExists {
+				removeRequest = true
+			} else if !added && !volExists && !diskExists {
+				removeRequest = true
+			}
+
+			if !removeRequest {
+				tmpVolRequests = append(tmpVolRequests, request)
+			}
+		}
+		vm.Status.VolumeRequests = tmpVolRequests
+	}
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
