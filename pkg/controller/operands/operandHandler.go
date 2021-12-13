@@ -51,8 +51,6 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		(*genericOperand)(newKubevirtHandler(client, scheme)),
 		(*genericOperand)(newCdiHandler(client, scheme)),
 		(*genericOperand)(newStorageConfigHandler(client, scheme)),
-		(*genericOperand)(newConfigReaderRoleHandler(client, scheme)),
-		(*genericOperand)(newConfigReaderRoleBindingHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
 	}
 
@@ -78,12 +76,19 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 // The k8s client is not available when calling to NewOperandHandler.
 // Initial operations that need to read/write from the cluster can only be done when the client is already working.
 func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftCluster bool, hc *hcov1beta1.HyperConverged) {
+	h.objects = make([]client.Object, 0)
 	if isOpenshiftCluster {
-		h.objects = make([]client.Object, 0)
 		h.addOperands(scheme, hc, getQuickStartHandlers)
 		h.addOperands(scheme, hc, getDashboardHandlers)
 		h.addOperands(scheme, hc, getImageStreamHandlers)
+		h.addOperands(scheme, hc, newVirtioWinCmHandler)
+		h.addOperands(scheme, hc, newVirtioWinCmReaderRoleHandler)
+		h.addOperands(scheme, hc, newVirtioWinCmReaderRoleBindingHandler)
 	}
+	// Role and RoleBinding for kvStorage Config Map should be created both on Openshift and plain k8s
+	h.addOperands(scheme, hc, NewConfigReaderRoleHandler)
+	h.addOperands(scheme, hc, newConfigReaderRoleBindingHandler)
+
 }
 
 func (h *OperandHandler) GetQuickStartNames() []string {

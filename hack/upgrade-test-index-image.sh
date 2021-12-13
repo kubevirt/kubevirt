@@ -311,6 +311,13 @@ fi
 Msg "check golden images"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_defaults.sh
 
+Msg "check virtio-win image is in configmap"
+VIRTIOWIN_IMAGE_CSV=$(${CMD} get ${CSV} -n ${HCO_NAMESPACE} \
+  -o jsonpath='{.spec.install.spec.deployments[?(@.name=="hco-operator")].spec.template.spec.containers[0].env[?(@.name=="VIRTIOWIN_CONTAINER")].value}')
+VIRTIOWIN_IMAGE_CM=$(${CMD} get cm virtio-win -n ${HCO_NAMESPACE} -o jsonpath='{.data.virtio-win-image}')
+
+[[ "${VIRTIOWIN_IMAGE_CSV}" == "${VIRTIOWIN_IMAGE_CM}" ]]
+
 Msg "Read the HCO operator log before it been deleted"
 HCO_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-operator" -o name)
 ${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}"

@@ -1070,12 +1070,14 @@ var _ = Describe("CDI Operand", func() {
 
 		Context("Config Reader Role", func() {
 			It("should do nothing if exists", func() {
-				expectedRole := NewConfigReaderRoleForCR(hco, hco.Namespace)
+				expectedRole := NewCdiConfigReaderRole(hco)
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRole})
 
-				handler := (*genericOperand)(newConfigReaderRoleHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.Err).ToNot(HaveOccurred())
+				handlers, err := NewConfigReaderRoleHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+				Expect(handlers).To(HaveLen(1))
+				Expect(err).To(BeNil())
+				res := handlers[0].ensure(req)
+				Expect(res.Err).NotTo(HaveOccurred())
 
 				foundRole := &rbacv1.Role{}
 				Expect(
@@ -1089,15 +1091,17 @@ var _ = Describe("CDI Operand", func() {
 			})
 
 			It("should update if labels are missing", func() {
-				expectedRole := NewConfigReaderRoleForCR(hco, hco.Namespace)
+				expectedRole := NewCdiConfigReaderRole(hco)
 				expectedLabels := expectedRole.Labels
 				expectedRole.Labels = nil
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRole})
 
-				handler := (*genericOperand)(newConfigReaderRoleHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.Err).ToNot(HaveOccurred())
+				handlers, err := NewConfigReaderRoleHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+				Expect(handlers).To(HaveLen(1))
+				Expect(err).To(BeNil())
+				res := handlers[0].ensure(req)
+				Expect(res.Err).NotTo(HaveOccurred())
 
 				foundRole := &rbacv1.Role{}
 				Expect(
@@ -1112,13 +1116,15 @@ var _ = Describe("CDI Operand", func() {
 
 		Context("Config Reader Role Binding", func() {
 			It("should do nothing if exists", func() {
-				expectedRoleBinding := NewConfigReaderRoleBindingForCR(hco, hco.Namespace)
+				expectedRoleBinding := NewCdiConfigReaderRoleBinding(hco)
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRoleBinding})
 
-				handler := (*genericOperand)(newConfigReaderRoleBindingHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.Err).ToNot(HaveOccurred())
+				handlers, err := newConfigReaderRoleBindingHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+				Expect(handlers).To(HaveLen(1))
+				Expect(err).To(BeNil())
+				res := handlers[0].ensure(req)
+				Expect(res.Err).NotTo(HaveOccurred())
 
 				foundRoleBinding := &rbacv1.RoleBinding{}
 				Expect(
@@ -1131,15 +1137,17 @@ var _ = Describe("CDI Operand", func() {
 			})
 
 			It("should update if labels are missing", func() {
-				expectedRoleBinding := NewConfigReaderRoleBindingForCR(hco, hco.Namespace)
+				expectedRoleBinding := NewCdiConfigReaderRoleBinding(hco)
 				expectedLabels := expectedRoleBinding.Labels
 				expectedRoleBinding.Labels = nil
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRoleBinding})
 
-				handler := (*genericOperand)(newConfigReaderRoleBindingHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.Err).ToNot(HaveOccurred())
+				handlers, err := newConfigReaderRoleBindingHandler(logger, cl, commonTestUtils.GetScheme(), hco)
+				Expect(handlers).To(HaveLen(1))
+				Expect(err).To(BeNil())
+				res := handlers[0].ensure(req)
+				Expect(res.Err).NotTo(HaveOccurred())
 
 				foundRoleBinding := &rbacv1.RoleBinding{}
 				Expect(

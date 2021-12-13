@@ -117,7 +117,7 @@ var _ = Describe("Dashboard tests", func() {
 			{ // for the next test
 				handler, ok := handlers[0].(*genericOperand)
 				Expect(ok).To(BeTrue())
-				hooks, ok := handler.hooks.(*dashboardHooks)
+				hooks, ok := handler.hooks.(*cmHooks)
 				Expect(ok).To(BeTrue())
 				exists = hooks.required.DeepCopy()
 			}

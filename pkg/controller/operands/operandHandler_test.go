@@ -27,6 +27,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		_ = os.Setenv(quickStartManifestLocationVarName, testFileLocation+"/quickstarts")
 		_ = os.Setenv(dashboardManifestLocationVarName, testFileLocation+"/dashboards")
+		_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
 
 		It("should create all objects are created", func() {
 			hco := commonTestUtils.NewHco()

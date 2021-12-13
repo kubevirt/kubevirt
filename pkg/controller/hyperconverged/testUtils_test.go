@@ -119,6 +119,9 @@ type BasicExpected struct {
 	cliDownload          *consolev1.ConsoleCLIDownload
 	cliDownloadsRoute    *routev1.Route
 	cliDownloadsService  *corev1.Service
+	virtioWinConfig      *corev1.ConfigMap
+	virtioWinRole        *rbacv1.Role
+	virtioWinRoleBinding *rbacv1.RoleBinding
 	hcoCRD               *apiextensionsv1.CustomResourceDefinition
 }
 
@@ -139,6 +142,9 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.cliDownload,
 		be.cliDownloadsRoute,
 		be.cliDownloadsService,
+		be.virtioWinConfig,
+		be.virtioWinRole,
+		be.virtioWinRoleBinding,
 		be.hcoCRD,
 	}
 }
@@ -184,11 +190,11 @@ func getBasicDeployment() *BasicExpected {
 	expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
 	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageConfig = expectedKVStorageConfig
-	expectedKVStorageRole := operands.NewConfigReaderRoleForCR(hco, namespace)
+	expectedKVStorageRole := operands.NewCdiConfigReaderRole(hco)
 	expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRole = expectedKVStorageRole
 
-	expectedKVStorageRoleBinding := operands.NewConfigReaderRoleBindingForCR(hco, namespace)
+	expectedKVStorageRoleBinding := operands.NewCdiConfigReaderRoleBinding(hco)
 	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 
@@ -240,6 +246,16 @@ func getBasicDeployment() *BasicExpected {
 	expectedCliDownloadsService := operands.NewCliDownloadsService(hco)
 	expectedCliDownloadsService.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/services/%s", expectedCliDownloadsService.Namespace, expectedCliDownloadsService.Name)
 	res.cliDownloadsService = expectedCliDownloadsService
+
+	expectedVirtioWinConfig, err := operands.NewVirtioWinCm(hco)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	res.virtioWinConfig = expectedVirtioWinConfig
+
+	expectedVirtioWinRole := operands.NewVirtioWinCmReaderRole(hco)
+	res.virtioWinRole = expectedVirtioWinRole
+
+	expectedVirtioWinRoleBinding := operands.NewVirtioWinCmReaderRoleBinding(hco)
+	res.virtioWinRoleBinding = expectedVirtioWinRoleBinding
 
 	hcoCrd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
