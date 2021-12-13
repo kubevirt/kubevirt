@@ -495,7 +495,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		{
 			APIGroups: stringListToSlice("image.openshift.io"),
 			Resources: stringListToSlice("imagestreams"),
-			Verbs:     stringListToSlice("get", "list", "create"),
+			Verbs:     stringListToSlice("get", "list", "watch", "update", "create"),
 		},
 	}
 }

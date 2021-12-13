@@ -216,6 +216,9 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				&openshiftroutev1.Route{}: {
 					Field: namespaceSelector,
 				},
+				&imagev1.ImageStream{}: {
+					Label: labelSelector,
+				},
 			},
 		},
 	)

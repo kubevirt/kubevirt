@@ -7,15 +7,14 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/pkg/errors"
-
 	"github.com/blang/semver/v4"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
 	consolev1 "github.com/openshift/api/console/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	operatorhandler "github.com/operator-framework/operator-lib/handler"
+	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -178,6 +177,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 			&monitoringv1.PrometheusRule{},
 			&routev1.Route{},
 			&consolev1.ConsoleCLIDownload{},
+			&imagev1.ImageStream{},
 		}...)
 	}
 

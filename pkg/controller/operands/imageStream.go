@@ -99,7 +99,7 @@ func (h isHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 
 func (h *isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool {
 	modified := false
-	if reflect.DeepEqual(h.required.ObjectMeta, found.ObjectMeta) {
+	if !reflect.DeepEqual(h.required.Labels, found.Labels) {
 		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
 		modified = true
 	}

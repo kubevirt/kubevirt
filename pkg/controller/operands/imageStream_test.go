@@ -402,5 +402,141 @@ var _ = Describe("imageStream tests", func() {
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 			})
 		})
+
+		It("should not update the imageStream if nothing has changed", func() {
+
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			exists := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-image-stream",
+					Namespace: "test-image-stream-ns",
+				},
+
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							From: &corev1.ObjectReference{
+								Kind: "DockerImage",
+								Name: "test-registry.io/test/test-image",
+								UID:  types.UID("1234567890"),
+							},
+							ImportPolicy: imagev1.TagImportPolicy{Insecure: true, Scheduled: false},
+							Name:         "latest",
+						},
+					},
+				},
+			}
+			exists.Labels = getLabels(hco, util.AppComponentCompute)
+
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
+			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlers).To(HaveLen(1))
+			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
+
+			hco := commonTestUtils.NewHco()
+			By("apply the ImageStream CRs", func() {
+				req := commonTestUtils.NewReq(hco)
+				res := handlers[0].ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Updated).To(BeFalse()) // <=== should not update the imageStream
+
+				imageStreamObjects := &imagev1.ImageStreamList{}
+				err := cli.List(context.TODO(), imageStreamObjects)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(imageStreamObjects.Items).To(HaveLen(1))
+
+				is := imageStreamObjects.Items[0]
+
+				Expect(is.Name).Should(Equal("test-image-stream"))
+				// check that the existing object was reconciled
+				Expect(is.Spec.Tags).To(HaveLen(1))
+				tag := is.Spec.Tags[0]
+				Expect(tag.Name).Should(Equal("latest"))
+				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				// check that this tag was not changed by the handler, by checking a field that is not controlled by it.
+				Expect(tag.From.UID).Should(Equal(types.UID("1234567890")))
+				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: true, Scheduled: false}))
+
+				// ObjectReference should have been updated
+				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+				objectRefOutdated, err := reference.GetReference(schemeForTest, exists)
+				Expect(err).To(BeNil())
+				objectRefFound, err := reference.GetReference(schemeForTest, &imageStreamObjects.Items[0])
+				Expect(err).To(BeNil())
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefOutdated))
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
+			})
+		})
+
+		It("should update the ImageStream labels", func() {
+
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			exists := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-image-stream",
+					Namespace: "test-image-stream-ns",
+				},
+
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							From: &corev1.ObjectReference{
+								Kind: "DockerImage",
+								Name: "test-registry.io/test/test-image",
+							},
+							Name: "latest",
+						},
+					},
+				},
+			}
+			exists.Labels = getLabels(hco, util.AppComponentCompute)
+			exists.ObjectMeta.Labels["to-be-removed"] = "test"
+
+			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlers).To(HaveLen(1))
+			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
+
+			hco := commonTestUtils.NewHco()
+			By("apply the ImageStream CRs", func() {
+				req := commonTestUtils.NewReq(hco)
+				res := handlers[0].ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Updated).To(BeTrue())
+
+				imageStreamObjects := &imagev1.ImageStreamList{}
+				err := cli.List(context.TODO(), imageStreamObjects)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(imageStreamObjects.Items).To(HaveLen(1))
+
+				is := imageStreamObjects.Items[0]
+
+				Expect(is.Name).Should(Equal("test-image-stream"))
+				// check that the existing object was reconciled
+				Expect(is.Spec.Tags).To(HaveLen(1))
+				tag := is.Spec.Tags[0]
+				Expect(tag.Name).Should(Equal("latest"))
+				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+
+				// ObjectReference should have been updated
+				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+				objectRefOutdated, err := reference.GetReference(schemeForTest, exists)
+				Expect(err).To(BeNil())
+				objectRefFound, err := reference.GetReference(schemeForTest, &imageStreamObjects.Items[0])
+				Expect(err).To(BeNil())
+				Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
+
+				Expect(exists.ObjectMeta.Labels).ToNot(ContainElement("to-be-removed"))
+			})
+		})
 	})
 })

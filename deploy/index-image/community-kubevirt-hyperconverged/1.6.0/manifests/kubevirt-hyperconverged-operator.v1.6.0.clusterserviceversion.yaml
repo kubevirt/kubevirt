@@ -428,6 +428,8 @@ spec:
           verbs:
           - get
           - list
+          - watch
+          - update
           - create
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
