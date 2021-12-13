@@ -50,6 +50,7 @@ import (
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
@@ -2276,48 +2277,18 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 }
 
 func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
-	err := validatePodNetworkInterfaceUsesMasqueradeBinding(vmi)
-	if err != nil {
-		return err
+	ifaces := vmi.Spec.Domain.Devices.Interfaces
+	if len(ifaces) == 0 {
+		return nil
 	}
 
-	err = d.validateSRIOVInterfacesForMigration(vmi)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validatePodNetworkInterfaceUsesMasqueradeBinding(vmi *v1.VirtualMachineInstance) error {
-	interfacesByName := map[string]v1.Interface{}
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		interfacesByName[iface.Name] = iface
-	}
-
-	vmiPodNetworkName := lookupVMIPodNetworkName(vmi.Spec.Networks)
-	if vmiPodNetworkName != "" && interfacesByName[vmiPodNetworkName].Masquerade == nil {
+	if !netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
 		return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network")
 	}
 
-	return nil
-}
-
-func lookupVMIPodNetworkName(networks []v1.Network) string {
-	for _, network := range networks {
-		if network.Pod != nil {
-			return network.Name
-		}
-	}
-
-	return ""
-}
-
-func (d *VirtualMachineController) validateSRIOVInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil && !d.clusterConfig.SRIOVLiveMigrationEnabled() {
-			return fmt.Errorf("SRIOVLiveMigration feature-gate is closed, can't migrate VMI with SRIOV interfaces")
-		}
+	sriovLiveMigrationEnabled := d.clusterConfig.SRIOVLiveMigrationEnabled()
+	if len(netvmispec.FilterSRIOVInterfaces(ifaces)) > 0 && !sriovLiveMigrationEnabled {
+		return fmt.Errorf("SRIOVLiveMigration feature-gate is closed, can't migrate VMI with SRIOV interfaces")
 	}
 
 	return nil
