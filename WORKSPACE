@@ -3323,61 +3323,91 @@ rpm(
 rpm(
     name = "libvirt-client-0__7.6.0-6.el8s.aarch64",
     sha256 = "b3bbb74465f8cf00e7f8f5889ef952b3849ac5392c032cd2eec423b04d89c179",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-client-7.6.0-6.el8s.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-client-7.6.0-6.el8s.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/b3bbb74465f8cf00e7f8f5889ef952b3849ac5392c032cd2eec423b04d89c179",
+    ],
 )
 
 rpm(
     name = "libvirt-client-0__7.6.0-6.el8s.x86_64",
     sha256 = "9eea0d26a51c00032f31da04b29ece265b82250f011a1ef0cdad75ec1a547b0d",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-client-7.6.0-6.el8s.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-client-7.6.0-6.el8s.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9eea0d26a51c00032f31da04b29ece265b82250f011a1ef0cdad75ec1a547b0d",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-0__7.6.0-6.el8s.aarch64",
     sha256 = "c6e4128f38aa16a27d79681716865f0eb903421d1097bda3e30effc29e9a129e",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-daemon-7.6.0-6.el8s.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-daemon-7.6.0-6.el8s.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c6e4128f38aa16a27d79681716865f0eb903421d1097bda3e30effc29e9a129e",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-0__7.6.0-6.el8s.x86_64",
     sha256 = "6aa8e6f8d7dc8c419a6bc01773900402facce418cad5eb8b43781fb603e1460c",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-daemon-7.6.0-6.el8s.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-daemon-7.6.0-6.el8s.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6aa8e6f8d7dc8c419a6bc01773900402facce418cad5eb8b43781fb603e1460c",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-driver-qemu-0__7.6.0-6.el8s.aarch64",
     sha256 = "021cd9f5005bbd9db238b0840cc1725366671599987ad8622eb399ed20fc7395",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-daemon-driver-qemu-7.6.0-6.el8s.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-daemon-driver-qemu-7.6.0-6.el8s.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/021cd9f5005bbd9db238b0840cc1725366671599987ad8622eb399ed20fc7395",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-driver-qemu-0__7.6.0-6.el8s.x86_64",
     sha256 = "9e7dbb1b6f81c6100e7517663d63cb8ac9eab5758a979a8ba86d5fcd8072aded",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-daemon-driver-qemu-7.6.0-6.el8s.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-daemon-driver-qemu-7.6.0-6.el8s.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9e7dbb1b6f81c6100e7517663d63cb8ac9eab5758a979a8ba86d5fcd8072aded",
+    ],
 )
 
 rpm(
     name = "libvirt-devel-0__7.6.0-6.el8s.aarch64",
     sha256 = "f6d8f8edd459aed9a0ef14e23afd0beedc299c8ad2133d52d61e919d5bd4fd0f",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-devel-7.6.0-6.el8s.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-devel-7.6.0-6.el8s.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f6d8f8edd459aed9a0ef14e23afd0beedc299c8ad2133d52d61e919d5bd4fd0f",
+    ],
 )
 
 rpm(
     name = "libvirt-devel-0__7.6.0-6.el8s.x86_64",
     sha256 = "9d0f5740c176cb7630e4d4add1b839a4648a9ad723be754abd324eb9a65c504f",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-devel-7.6.0-6.el8s.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-devel-7.6.0-6.el8s.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9d0f5740c176cb7630e4d4add1b839a4648a9ad723be754abd324eb9a65c504f",
+    ],
 )
 
 rpm(
     name = "libvirt-libs-0__7.6.0-6.el8s.aarch64",
     sha256 = "79071ce936c963eca72fea4280008a6df494a594eb5346bcdf4810080eb09bd1",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-libs-7.6.0-6.el8s.aarch64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/Packages/l/libvirt-libs-7.6.0-6.el8s.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/79071ce936c963eca72fea4280008a6df494a594eb5346bcdf4810080eb09bd1",
+    ],
 )
 
 rpm(
     name = "libvirt-libs-0__7.6.0-6.el8s.x86_64",
     sha256 = "d0ced5e0ffae07a2aa17da0509e01a3efd251901eca47b4078bf89c476e801b1",
-    urls = ["http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-libs-7.6.0-6.el8s.x86_64.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-libs-7.6.0-6.el8s.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d0ced5e0ffae07a2aa17da0509e01a3efd251901eca47b4078bf89c476e801b1",
+    ],
 )
 
 rpm(
