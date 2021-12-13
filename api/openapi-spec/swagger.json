@@ -15676,9 +15676,6 @@
       "type": "integer",
       "format": "int64"
      },
-     "disableTLS": {
-      "type": "boolean"
-     },
      "selectors": {
       "$ref": "#/definitions/v1alpha1.Selectors"
      }

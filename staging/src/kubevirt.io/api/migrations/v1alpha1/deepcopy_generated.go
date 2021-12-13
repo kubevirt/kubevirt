@@ -114,11 +114,6 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.DisableTLS != nil {
-		in, out := &in.DisableTLS, &out.DisableTLS
-		*out = new(bool)
-		**out = **in
-	}
 	return
 }
 
