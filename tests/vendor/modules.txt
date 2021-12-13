@@ -198,6 +198,10 @@ github.com/openshift/custom-resource-status/conditions/v1
 # github.com/pborman/uuid v1.2.0
 ## explicit
 github.com/pborman/uuid
+# github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.1
+## explicit; go 1.17
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/spf13/cobra v1.1.1
 ## explicit; go 1.12
 github.com/spf13/cobra
