@@ -1582,45 +1582,6 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 	vm.Status.Ready = ready
 
-	clearChangeRequest := false
-	if len(vm.Status.StateChangeRequests) != 0 {
-		// Only consider one stateChangeRequest at a time. The second and subsequent change
-		// requests have not been acted upon by this controller yet!
-		stateChange := vm.Status.StateChangeRequests[0]
-		switch stateChange.Action {
-		case virtv1.StopRequest:
-			if vmi == nil {
-				// because either the VM or VMI informers can trigger processing here
-				// double check the state of the cluster before taking action
-				_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(vm.GetName(), &v1.GetOptions{})
-				if err != nil && errors.IsNotFound(err) {
-					// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
-					log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
-					clearChangeRequest = true
-				}
-			} else {
-				if stateChange.UID == nil {
-					// It never makes sense to have a request to stop a VMI that doesn't
-					// have a UUID associated with it. This shouldn't be possible -- but if
-					// it occurs, clear the stopRequest because it can't be acted upon
-					log.Log.Object(vm).Errorf("Stop Request has no UID.")
-					clearChangeRequest = true
-				} else if *stateChange.UID != vmi.UID {
-					// If there is a VMI, but the UID doesn't match, then it
-					// must have been previously stopped, so the stopRequest can be cleared
-					log.Log.Object(vm).V(4).Infof("VMI's UID doesn't match. clearing stop request")
-					clearChangeRequest = true
-				}
-			}
-		case virtv1.StartRequest:
-			// If the current VMI is running, then it has been started.
-			if vmi != nil {
-				log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
-				clearChangeRequest = true
-			}
-		}
-	}
-
 	if len(vm.Status.VolumeRequests) > 0 {
 		volumeMap := make(map[string]virtv1.Volume)
 		diskMap := make(map[string]virtv1.Disk)
@@ -1664,7 +1625,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		vm.Status.VolumeRequests = tmpVolRequests
 	}
 
-	if clearChangeRequest {
+	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
 		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
 	}
 
@@ -2023,6 +1984,50 @@ func (c *VMController) processFailureCondition(vm *virtv1.VirtualMachine, vmi *v
 	})
 
 	return
+}
+
+func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	clearChangeRequest := false
+
+	if len(vm.Status.StateChangeRequests) != 0 {
+		// Only consider one stateChangeRequest at a time. The second and subsequent change
+		// requests have not been acted upon by this controller yet!
+		stateChange := vm.Status.StateChangeRequests[0]
+		switch stateChange.Action {
+		case virtv1.StopRequest:
+			if vmi == nil {
+				// because either the VM or VMI informers can trigger processing here
+				// double check the state of the cluster before taking action
+				_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(vm.GetName(), &v1.GetOptions{})
+				if err != nil && errors.IsNotFound(err) {
+					// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
+					log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
+					clearChangeRequest = true
+				}
+			} else {
+				if stateChange.UID == nil {
+					// It never makes sense to have a request to stop a VMI that doesn't
+					// have a UUID associated with it. This shouldn't be possible -- but if
+					// it occurs, clear the stopRequest because it can't be acted upon
+					log.Log.Object(vm).Errorf("Stop Request has no UID.")
+					clearChangeRequest = true
+				} else if *stateChange.UID != vmi.UID {
+					// If there is a VMI, but the UID doesn't match, then it
+					// must have been previously stopped, so the stopRequest can be cleared
+					log.Log.Object(vm).V(4).Infof("VMI's UID doesn't match. clearing stop request")
+					clearChangeRequest = true
+				}
+			}
+		case virtv1.StartRequest:
+			// If the current VMI is running, then it has been started.
+			if vmi != nil {
+				log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
+				clearChangeRequest = true
+			}
+		}
+	}
+
+	return clearChangeRequest
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
