@@ -244,37 +244,6 @@ var _ = Describe("netstat", func() {
 		}), "the pod IP/s should be reported in the status")
 	})
 
-	It("should add a new interface based on the domain spec", func() {
-		const (
-			existingNetworkName = "primary"
-			existingMAC         = "C0:01:BE:E7:15:G0:0D"
-
-			newNetworkName = "secondary"
-			newDomainMAC   = "22:22:22:22:22:22"
-		)
-
-		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-			{
-				MAC:  existingMAC,
-				Name: existingNetworkName,
-			},
-		}
-
-		domain := &api.Domain{
-			Spec: api.DomainSpec{Devices: api.Devices{Interfaces: []api.Interface{
-				newDomainSpecIface(existingNetworkName, existingMAC),
-				newDomainSpecIface(newNetworkName, newDomainMAC),
-			}}},
-		}
-
-		netStat.UpdateStatus(vmi, domain)
-
-		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(existingNetworkName, nil, existingMAC, "", netvmispec.InfoSourceDomain),
-			newVMIStatusIface(newNetworkName, nil, newDomainMAC, "", netvmispec.InfoSourceDomain),
-		}), "the new interface should be reported in the status")
-	})
-
 	It("should report SR-IOV interface with MAC and network name, based on VMI spec and guest-agent data", func() {
 		const (
 			networkName    = "sriov-network"
