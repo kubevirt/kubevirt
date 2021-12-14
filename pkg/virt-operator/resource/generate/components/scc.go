@@ -27,15 +27,22 @@ import (
 )
 
 func GetAllSCC(namespace string, managed bool) []*secv1.SecurityContextConstraints {
-	if managed {
-		return []*secv1.SecurityContextConstraints{
-			NewKubeVirtHandlerSCC(namespace),
-		}
-	}
-	return []*secv1.SecurityContextConstraints{
+	sccs := []*secv1.SecurityContextConstraints{
 		NewKubeVirtHandlerSCC(namespace),
-		NewKubeVirtControllerSCC(namespace),
+		newBaseVirtSCC(),
 	}
+
+	base := newBaseVirtSCC
+	sccs = append(sccs, name(cpuPinningSCC(base()), "kubevirt-cpu-pinning"))
+	sccs = append(sccs, name(hostDiskSCC(base()), "kubevirt-host-disk"))
+
+	sccs = append(sccs, name(hostDiskSCC(cpuPinningSCC(base())), "kubevirt-cpu-pinning-and-host-disk"))
+
+	if managed {
+		sccs = append(sccs, NewKubeVirtControllerSCC(namespace))
+	}
+	return sccs
+
 }
 
 func newBlankSCC() *secv1.SecurityContextConstraints {
@@ -88,5 +95,46 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 	scc.AllowHostDirVolumePlugin = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
 
+	return scc
+}
+
+func newBaseVirtSCC() *secv1.SecurityContextConstraints {
+	scc := newBlankSCC()
+
+	scc.Name = "kubevirt-base"
+	scc.AllowPrivilegedContainer = false
+	scc.RunAsUser = secv1.RunAsUserStrategyOptions{
+		Type: secv1.RunAsUserStrategyRunAsAny,
+	}
+	scc.SELinuxContext = secv1.SELinuxContextStrategyOptions{
+		Type: secv1.SELinuxStrategyRunAsAny,
+	}
+
+	scc.AllowedCapabilities = []corev1.Capability{
+		// add CAP_NET_BIND_SERVICE capability to allow dhcp and slirp operations
+		"NET_BIND_SERVICE",
+	}
+	scc.AllowHostDirVolumePlugin = false
+	scc.AllowHostNetwork = false
+	scc.FSGroup = secv1.FSGroupStrategyOptions{
+		// This is default - avaible for all policies except restricted
+		Type: secv1.FSGroupStrategyRunAsAny,
+	}
+
+	return scc
+}
+
+func cpuPinningSCC(scc *secv1.SecurityContextConstraints) *secv1.SecurityContextConstraints {
+	scc.AllowedCapabilities = append(scc.AllowedCapabilities, "SYS_NICE")
+	return scc
+}
+
+func hostDiskSCC(scc *secv1.SecurityContextConstraints) *secv1.SecurityContextConstraints {
+	scc.AllowHostDirVolumePlugin = true
+	return scc
+}
+
+func name(scc *secv1.SecurityContextConstraints, name string) *secv1.SecurityContextConstraints {
+	scc.Name = name
 	return scc
 }

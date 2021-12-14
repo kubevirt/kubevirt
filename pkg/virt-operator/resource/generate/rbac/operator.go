@@ -249,6 +249,10 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				ResourceNames: []string{
 					"kubevirt-handler",
 					"kubevirt-controller",
+					"kubevirt-base",
+					"kubevirt-cpu-pinning",
+					"kubevirt-host-disk",
+					"kubevirt-cpu-pinning-and-host-disk",
 				},
 				Verbs: []string{
 					"get",

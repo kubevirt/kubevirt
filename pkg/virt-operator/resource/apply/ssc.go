@@ -43,9 +43,10 @@ func (r *Reconciler) createOrUpdateSCC() error {
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
 			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+			injectUsers(scc, cachedSCC)
 			_, err := sec.SecurityContextConstraints().Update(context.Background(), scc, metav1.UpdateOptions{})
 			if err != nil {
-				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
+				return fmt.Errorf("Unable to update %s SecurityContextConstraints, %s", scc.Name, err)
 			}
 
 			log.Log.V(2).Infof("SecurityContextConstraints %s updated", scc.Name)
@@ -56,6 +57,12 @@ func (r *Reconciler) createOrUpdateSCC() error {
 	}
 
 	return nil
+}
+
+func injectUsers(scc, cachedScc *secv1.SecurityContextConstraints) {
+	if len(scc.Users) == 0 {
+		scc.Users = cachedScc.Users
+	}
 }
 
 func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace string) error {
