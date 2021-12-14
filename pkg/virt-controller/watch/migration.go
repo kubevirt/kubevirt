@@ -696,6 +696,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 
 	// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
+		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// Let's wait until some migrations are done
 		c.Queue.AddAfter(key, time.Second*5)
 		return nil
@@ -710,6 +711,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
 		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
+		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		c.Queue.AddAfter(key, time.Second*5)
 		return nil
 	}
