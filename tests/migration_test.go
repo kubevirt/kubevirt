@@ -1789,9 +1789,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			}
 			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
 
-			vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default", Tag: "testnic",
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "testnic",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{}}}}}
+					Masquerade: &v1.InterfaceMasquerade{}}}}
 
 			vmi = runVMIAndExpectLaunch(vmi, 180)
 
