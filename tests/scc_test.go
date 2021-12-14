@@ -109,6 +109,25 @@ var _ = Describe("[Serial][sig-operator] SCC", func() {
 		})
 	})
 
+	It("VMI should have label kubevirt.io/sa-missing", func() {
+		if checks.HasFeature(virtconfig.NoManagedSCC) {
+			tests.DisableFeatureGate(virtconfig.NoManagedSCC)
+			defer tests.EnableFeatureGate(virtconfig.NoManagedSCC)
+
+		}
+		By("Creating VMI without SA")
+		vmi := libvmi.NewCirros()
+		tests.RunVMIAndExpectLaunch(vmi, 180)
+
+		Eventually(func() map[string]string {
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			return vmi.Labels
+
+		}, 30*time.Second, time.Second).Should(HaveKey(v1.SAMissingLabel))
+	})
+
 	Context("NoManagedSCC feature gate enabled", func() {
 		var dissableFeature func()
 

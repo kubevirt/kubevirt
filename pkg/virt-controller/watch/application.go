@@ -28,6 +28,8 @@ import (
 	"runtime"
 	"time"
 
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 
 	"github.com/emicklei/go-restful"
@@ -358,7 +360,11 @@ func Execute() {
 
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
 
-	app.initCommon()
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error determining cluster type: %v", err)
+	}
+	app.initCommon(onOpenShift)
 	app.initReplicaSet()
 	app.initPool()
 	app.initVirtualMachines()
@@ -473,7 +479,7 @@ func (vca *VirtControllerApp) newRecorder(namespace string, componentName string
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
 }
 
-func (vca *VirtControllerApp) initCommon() {
+func (vca *VirtControllerApp) initCommon(onOpenShift bool) {
 	var err error
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -510,6 +516,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
+		onOpenShift,
 	)
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")

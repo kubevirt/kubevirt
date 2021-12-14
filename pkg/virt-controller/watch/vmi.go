@@ -144,6 +144,7 @@ func NewVMIController(templateService services.TemplateService,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
+	onOpenShift bool,
 ) *VMIController {
 
 	c := &VMIController{
@@ -162,6 +163,7 @@ func NewVMIController(templateService services.TemplateService,
 		cdiConfigInformer:  cdiConfigInformer,
 		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
+		onOpenshift:        onOpenShift,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -223,6 +225,7 @@ type VMIController struct {
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 	clusterConfig      *virtconfig.ClusterConfig
+	onOpenshift        bool
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -380,6 +383,28 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 	return false
 }
 
+func (c *VMIController) setSaMissingLabel(vmi *virtv1.VirtualMachineInstance) {
+	if !c.onOpenshift {
+		return
+	}
+
+	if vmi.Spec.ServiceAccountName != "" {
+		if vmi.Labels == nil {
+			return
+		}
+
+		if _, ok := vmi.Labels[virtv1.SAMissingLabel]; ok {
+			delete(vmi.Labels, virtv1.SAMissingLabel)
+		}
+		return
+	}
+
+	if vmi.Labels == nil {
+		vmi.Labels = map[string]string{virtv1.SAMissingLabel: "true"}
+	}
+	vmi.Labels[virtv1.SAMissingLabel] = "true"
+}
+
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
 	key := controller.VirtualMachineInstanceKey(vmi)
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: vmi.Name})
@@ -419,6 +444,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			return fmt.Errorf("error syncing paused condition to pod: %v", err)
 		}
 	}
+
+	c.setSaMissingLabel(vmiCopy)
 
 	switch {
 	case vmi.IsUnprocessed():

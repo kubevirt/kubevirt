@@ -762,6 +762,8 @@ const (
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 
+	SAMissingLabel = "kubevirt.io/sa-missing"
+
 	// This annotation represents vmi running nonroot implementation
 	NonRootVMIAnnotation = "kubevirt.io/nonroot"
 
