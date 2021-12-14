@@ -20,7 +20,7 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -348,7 +348,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 					Phase: v1.KubeVirtPhaseDeploying,
 				},
 			}
-			fakeClusterConfig, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{
