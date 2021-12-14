@@ -308,7 +308,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			By("checking that we can still start virtual machines and connect to the VMI")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi = tests.RunVMI(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		})
 
@@ -324,7 +324,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 			Eventually(func() (rotated bool) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi = tests.RunVMI(vmi, 60)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
