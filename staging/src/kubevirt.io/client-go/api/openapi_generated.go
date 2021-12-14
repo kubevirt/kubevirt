@@ -14372,7 +14372,7 @@ func schema_kubevirtio_api_core_v1_ClientPassthroughDevices(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
+				Description: "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
 				Type:        []string{"object"},
 			},
 		},
@@ -18278,7 +18278,7 @@ func schema_kubevirtio_api_core_v1_Port(ref common.ReferenceCallback) common.Ope
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
+				Description: "Port represents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
