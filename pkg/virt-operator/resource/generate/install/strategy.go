@@ -478,8 +478,10 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
 
+	managed := !config.NoManagedSCCEnabled()
+
 	strategy.daemonSets = append(strategy.daemonSets, handler)
-	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace(), managed)...)
 	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecret(operatorNamespace))

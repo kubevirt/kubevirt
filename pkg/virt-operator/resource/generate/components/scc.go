@@ -26,7 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GetAllSCC(namespace string) []*secv1.SecurityContextConstraints {
+func GetAllSCC(namespace string, managed bool) []*secv1.SecurityContextConstraints {
+	if managed {
+		return []*secv1.SecurityContextConstraints{
+			NewKubeVirtHandlerSCC(namespace),
+		}
+	}
 	return []*secv1.SecurityContextConstraints{
 		NewKubeVirtHandlerSCC(namespace),
 		NewKubeVirtControllerSCC(namespace),

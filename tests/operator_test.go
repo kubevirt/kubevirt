@@ -30,7 +30,9 @@ import (
 	"os"
 	"path/filepath"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	util2 "kubevirt.io/kubevirt/tests/util"
 
@@ -2077,13 +2079,26 @@ spec:
 				}
 			})
 
+			checkHandlerSCC := func() {
+				By("Checking if virt-handler is assigned to kubevirt-handler SCC")
+				l, err := labels.Parse("kubevirt.io=virt-handler")
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: l.String()})
+				ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Should get virt-handler")
+				ExpectWithOffset(1, pods.Items).ToNot(BeEmpty())
+				ExpectWithOffset(1, pods.Items[0].Annotations["openshift.io/scc"]).To(
+					Equal("kubevirt-handler"), "Should virt-handler be assigned to kubevirt-handler SCC",
+				)
+			}
+
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
 				var expectedSCCs, sccs []string
 
 				By("Checking if kubevirt SCCs have been created")
 				secClient := virtClient.SecClient()
-				operatorSCCs := components.GetAllSCC(flags.KubeVirtInstallNamespace)
+				operatorSCCs := components.GetAllSCC(flags.KubeVirtInstallNamespace, !checks.HasFeature(virtconfig.NoManagedSCC))
 				for _, scc := range operatorSCCs {
 					expectedSCCs = append(expectedSCCs, scc.GetName())
 				}
@@ -2095,16 +2110,7 @@ spec:
 				}
 				Expect(sccs).To(ConsistOf(expectedSCCs))
 
-				By("Checking if virt-handler is assigned to kubevirt-handler SCC")
-				l, err := labels.Parse("kubevirt.io=virt-handler")
-				Expect(err).ToNot(HaveOccurred())
-
-				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: l.String()})
-				Expect(err).ToNot(HaveOccurred(), "Should get virt-handler")
-				Expect(pods.Items).ToNot(BeEmpty())
-				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
-					Equal("kubevirt-handler"), "Should virt-handler be assigned to kubevirt-handler SCC",
-				)
+				checkHandlerSCC()
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -2114,12 +2120,81 @@ spec:
 
 				uid := vmi.GetObjectMeta().GetUID()
 				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-				pods, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+				pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
 				Expect(len(pods.Items)).To(Equal(1))
 				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
 					Equal("kubevirt-controller"), "Should virt-launcher be assigned to kubevirt-controller SCC",
 				)
+			})
+
+			Context("NoManagedSCC feature gate enabled", func() {
+				var dissableFeature func()
+
+				BeforeEach(func() {
+					if !checks.HasFeature(virtconfig.NoManagedSCC) {
+						tests.EnableFeatureGate(virtconfig.NoManagedSCC)
+
+						dissableFeature = func() {
+							tests.DisableFeatureGate(virtconfig.NoManagedSCC)
+							Eventually(func() error {
+								_, err := virtClient.SecClient().SecurityContextConstraints().Get(context.Background(), "kubevirt-controller", metav1.GetOptions{})
+								return err
+							}, 2*time.Minute, time.Second).ShouldNot(HaveOccurred())
+						}
+					}
+					Eventually(func() error {
+						ssc, err := virtClient.SecClient().SecurityContextConstraints().Get(context.Background(), "kubevirt-controller", metav1.GetOptions{})
+						if errors.IsNotFound(err) {
+							return nil
+						}
+						if err == nil {
+							return fmt.Errorf("The SSC exists %v", ssc)
+						}
+
+						return err
+					}, 5*time.Minute, time.Minute).ShouldNot(HaveOccurred())
+
+				})
+
+				AfterEach(func() {
+					if dissableFeature != nil {
+						dissableFeature()
+					}
+				})
+
+				shouldFailToCreate := func(vmi *v1.VirtualMachineInstance) {
+					vmi = tests.RunVMI(vmi, 60)
+					var err error
+
+					refreshVMI := ThisVMI(vmi)
+					EventuallyWithOffset(1, func() bool {
+						vmi, err = refreshVMI()
+						ExpectWithOffset(2, err).NotTo(HaveOccurred())
+
+						for _, condition := range vmi.Status.Conditions {
+							if condition.Type == v1.VirtualMachineInstanceSynchronized {
+								Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+								ExpectWithOffset(2, condition.Reason).To(Equal("FailedCreate"))
+								ExpectWithOffset(2, condition.Message).To(ContainSubstring("security context constraint"))
+								return true
+							}
+						}
+						return false
+					}, 30*time.Second, time.Second).Should(BeTrue())
+				}
+
+				It("Should fail to create VMI without SA", func() {
+					By("Checking operator deleted the SCC")
+					checkHandlerSCC()
+
+					By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
+					_, err := virtClient.SecClient().SecurityContextConstraints().Get(context.Background(), "kubevirt-controller", metav1.GetOptions{})
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					shouldFailToCreate(vmi)
+				})
+
 			})
 		})
 	})
