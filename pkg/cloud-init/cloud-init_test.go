@@ -150,7 +150,10 @@ var _ = Describe("CloudInit", func() {
       "bus": "pci",
       "address": "0000:65:10:0",
       "numaNode": 1,
-      "alignedCPUs": [0, 1],
+      "alignedCPUs": [
+        0,
+        1
+      ],
       "tags": [
         "testtag1"
       ]
@@ -181,6 +184,9 @@ var _ = Describe("CloudInit", func() {
 				}
 				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
 				Expect(err).To(BeNil())
+				fmt.Println("expected: ", string(buf))
+				fmt.Println("exmapleJsob: ", exampleJSONParsed)
+
 				Expect(string(buf)).To(Equal(exampleJSONParsed))
 			})
 			It("should match the generated nocloud metadata", func() {

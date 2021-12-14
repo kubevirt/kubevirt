@@ -2249,32 +2249,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]with cpu pinning enabled", func() {
-			const (
-				cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-				cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-			)
-
-			getPodCPUSet := func(pod *kubev1.Pod) (output string, err error) {
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"cat", cgroupV2cpusetPath},
-				)
-
-				if err == nil {
-					return
-				}
-
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"cat", cgroupV1cpusetPath},
-				)
-
-				return
-			}
 
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
@@ -2343,7 +2317,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := getPodCPUSet(readyPod)
+				output, err := tests.GetPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2458,7 +2432,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := getPodCPUSet(readyPod)
+				output, err := tests.GetPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")

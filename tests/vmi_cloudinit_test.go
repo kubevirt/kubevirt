@@ -420,7 +420,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
 				nic := domSpec.Devices.Interfaces[0]
 				address := nic.Address
-				pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 				deviceData := []cloudinit.DeviceData{
 					{
 						Type:    cloudinit.NICMetadataType,
