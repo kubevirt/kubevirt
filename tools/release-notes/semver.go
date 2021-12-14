@@ -9,15 +9,6 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-func semverGetBranchFromTag(tag string) (*semver.Version, string, error) {
-	tagSemver, err := semver.NewVersion(tag)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return tagSemver, fmt.Sprintf("release-%d.%d", tagSemver.Major(), tagSemver.Minor()), nil
-}
-
 func semverGetVersions(releases []*github.RepositoryRelease) []*semver.Version {
 	var vs []*semver.Version
 
@@ -86,7 +77,7 @@ func (r *releaseData) semverVerifyReleaseBranch(expectedBranch string) error {
 }
 
 func (r *releaseData) semverVerifyTag() error {
-	tagSemver, expectedBranch, err := semverGetBranchFromTag(r.hco.currentTag)
+	tagSemver, err := semver.NewVersion(r.hco.currentTag)
 	if err != nil {
 		return err
 	}
@@ -101,13 +92,6 @@ func (r *releaseData) semverVerifyTag() error {
 	} else {
 		log.Printf("Previous Tag [%s]", r.hco.previousTag)
 	}
-
-	err = r.semverVerifyReleaseBranch(expectedBranch)
-	if err != nil {
-		return err
-	}
-
-	r.hco.tagBranch = expectedBranch
 
 	return nil
 }

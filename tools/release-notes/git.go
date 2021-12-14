@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 	"os/exec"
@@ -145,10 +146,22 @@ func (p *project) gitGetTypeOfChanges(span string) (string, error) {
 	return strings.TrimSpace(typeOfChanges), nil
 }
 
-func (p *project) switchToBranch(branch string) error {
+func (p *project) gitSwitchToBranch(branch string) error {
 	_, err := gitCommand("-C", p.repoDir, "checkout", branch)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (p *project) gitCheckCurrentTagExists() error {
+	output, err := gitCommand("-C", p.repoDir, "tag", "-l", p.currentTag)
+	if err != nil {
+		return err
+	}
+	if len(output) == 0 {
+		return errors.New("requested tag '" + p.currentTag + "' does not exist")
 	}
 
 	return nil
