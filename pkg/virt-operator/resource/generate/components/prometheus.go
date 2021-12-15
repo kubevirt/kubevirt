@@ -19,6 +19,7 @@ const (
 	partOfAlertLabelValue         = "kubevirt"
 	componentAlertLabelKey        = "kubernetes_operator_component"
 	componentAlertLabelValue      = "kubevirt"
+	durationFiveMinutes           = "5 minutes"
 )
 
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *v1.ServiceMonitor {
@@ -242,7 +243,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     getRestCallsFailedWarning(80, "virt-controller", "5 minutes"),
+							"summary":     getRestCallsFailedWarning(80, "virt-controller", durationFiveMinutes),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
@@ -320,7 +321,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_5m / vec_by_virt_operators_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     getRestCallsFailedWarning(80, "virt-operator", "5 minutes"),
+							"summary":     getRestCallsFailedWarning(80, "virt-operator", durationFiveMinutes),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsBurst",
 						},
 						Labels: map[string]string{
@@ -435,7 +436,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     getRestCallsFailedWarning(80, "virt-handler", "5 minutes"),
+							"summary":     getRestCallsFailedWarning(80, "virt-handler", durationFiveMinutes),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
@@ -482,7 +483,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_5m / vec_by_virt_apis_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": getRestCallsFailedWarning(80, "virt-api", "5 minutes"),
+							"summary": getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "critical",

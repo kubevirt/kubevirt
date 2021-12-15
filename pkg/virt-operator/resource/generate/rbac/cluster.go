@@ -28,6 +28,19 @@ import (
 	"kubevirt.io/api/migrations"
 )
 
+const (
+	clusterAPIVersionName           = "rbac.authorization.k8s.io"
+	clusterAPIVersionNamev1         = "rbac.authorization.k8s.io/v1"
+	clusterAPIGroupName             = "kubevirt.io"
+	clusterAPIGroupNameSubresources = "subresources.kubevirt.io"
+	clusterAPIGroupNameSnapshot     = "snapshot.kubevirt.io"
+	clusterAPIGroupNameFlavor       = "flavor.kubevirt.io"
+	clusterNameDefault              = "kubevirt.io:default"
+	clusterVMInstancesGuestOSInfo   = "virtualmachineinstances/guestosinfo"
+	clusterVMInstancesFileSysList   = "virtualmachineinstances/filesystemlist"
+	clusterVMInstancesUserList      = "virtualmachineinstances/userlist"
+)
+
 func GetAllCluster() []runtime.Object {
 	return []runtime.Object{
 		newDefaultClusterRole(),
@@ -41,11 +54,11 @@ func GetAllCluster() []runtime.Object {
 func newDefaultClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: clusterAPIVersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:default",
+			Name: clusterNameDefault,
 			Labels: map[string]string{
 				virtv1.AppLabel:               "",
 				"kubernetes.io/bootstrapping": "rbac-defaults",
@@ -57,7 +70,7 @@ func newDefaultClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"version",
@@ -73,11 +86,11 @@ func newDefaultClusterRole() *rbacv1.ClusterRole {
 func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: clusterAPIVersionNamev1,
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:default",
+			Name: clusterNameDefault,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -86,19 +99,19 @@ func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: clusterAPIVersionName,
 			Kind:     "ClusterRole",
-			Name:     "kubevirt.io:default",
+			Name:     clusterNameDefault,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:     "Group",
-				APIGroup: "rbac.authorization.k8s.io",
+				APIGroup: clusterAPIVersionName,
 				Name:     "system:authenticated",
 			},
 			{
 				Kind:     "Group",
-				APIGroup: "rbac.authorization.k8s.io",
+				APIGroup: clusterAPIVersionName,
 				Name:     "system:unauthenticated",
 			},
 		},
@@ -108,7 +121,7 @@ func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 func newAdminClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: clusterAPIVersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -121,14 +134,14 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
-					"virtualmachineinstances/guestosinfo",
-					"virtualmachineinstances/filesystemlist",
-					"virtualmachineinstances/userlist",
+					clusterVMInstancesGuestOSInfo,
+					clusterVMInstancesFileSysList,
+					clusterVMInstancesUserList,
 				},
 				Verbs: []string{
 					"get",
@@ -136,7 +149,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"virtualmachineinstances/pause",
@@ -153,7 +166,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"virtualmachines/start",
@@ -166,7 +179,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"kubevirt.io",
+					clusterAPIGroupName,
 				},
 				Resources: []string{
 					"virtualmachines",
@@ -181,7 +194,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"snapshot.kubevirt.io",
+					clusterAPIGroupNameSnapshot,
 				},
 				Resources: []string{
 					"virtualmachinesnapshots",
@@ -194,7 +207,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"flavor.kubevirt.io",
+					clusterAPIGroupNameFlavor,
 				},
 				Resources: []string{
 					"virtualmachineflavors",
@@ -233,7 +246,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 func newEditClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: clusterAPIVersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -246,14 +259,14 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
-					"virtualmachineinstances/guestosinfo",
-					"virtualmachineinstances/filesystemlist",
-					"virtualmachineinstances/userlist",
+					clusterVMInstancesGuestOSInfo,
+					clusterVMInstancesFileSysList,
+					clusterVMInstancesUserList,
 				},
 				Verbs: []string{
 					"get",
@@ -261,7 +274,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"virtualmachineinstances/pause",
@@ -278,7 +291,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
 					"virtualmachines/start",
@@ -291,7 +304,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"kubevirt.io",
+					clusterAPIGroupName,
 				},
 				Resources: []string{
 					"virtualmachines",
@@ -306,7 +319,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"snapshot.kubevirt.io",
+					clusterAPIGroupNameSnapshot,
 				},
 				Resources: []string{
 					"virtualmachinesnapshots",
@@ -319,7 +332,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"flavor.kubevirt.io",
+					clusterAPIGroupNameFlavor,
 				},
 				Resources: []string{
 					"virtualmachineflavors",
@@ -342,7 +355,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"kubevirt.io",
+					clusterAPIGroupName,
 				},
 				Resources: []string{
 					"kubevirts",
@@ -369,7 +382,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 func newViewClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: clusterAPIVersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -382,12 +395,12 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
-					"subresources.kubevirt.io",
+					clusterAPIGroupNameSubresources,
 				},
 				Resources: []string{
-					"virtualmachineinstances/guestosinfo",
-					"virtualmachineinstances/filesystemlist",
-					"virtualmachineinstances/userlist",
+					clusterVMInstancesGuestOSInfo,
+					clusterVMInstancesFileSysList,
+					clusterVMInstancesUserList,
 				},
 				Verbs: []string{
 					"get",
@@ -395,7 +408,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"kubevirt.io",
+					clusterAPIGroupName,
 				},
 				Resources: []string{
 					"virtualmachines",
@@ -410,7 +423,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"snapshot.kubevirt.io",
+					clusterAPIGroupNameSnapshot,
 				},
 				Resources: []string{
 					"virtualmachinesnapshots",
@@ -423,7 +436,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"flavor.kubevirt.io",
+					clusterAPIGroupNameFlavor,
 				},
 				Resources: []string{
 					"virtualmachineflavors",

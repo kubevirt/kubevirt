@@ -33,6 +33,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const cannotMarshalJSONErr = "Cannot Marshal to json: %s"
+
 const vmSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachines/%s/%s"
 
 func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
@@ -173,7 +175,7 @@ func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, er
 func (v *vm) Restart(name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return fmt.Errorf(cannotMarshalJSONErr, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
@@ -182,7 +184,7 @@ func (v *vm) Restart(name string, restartOptions *v1.RestartOptions) error {
 func (v *vm) ForceRestart(name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return fmt.Errorf(cannotMarshalJSONErr, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
@@ -210,7 +212,7 @@ func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
 func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
 	body, err := json.Marshal(stopOptions)
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return fmt.Errorf(cannotMarshalJSONErr, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()

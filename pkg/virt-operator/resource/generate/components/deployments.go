@@ -44,6 +44,8 @@ const (
 
 	kubevirtLabelKey              = "kubevirt.io"
 	kubernetesHostnameTopologyKey = "kubernetes.io/hostname"
+
+	portName = "--port"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -288,7 +290,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		VirtAPIName,
-		"--port",
+		portName,
 		"8443",
 		"--console-server-port",
 		"8186",
@@ -356,7 +358,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		VirtControllerName,
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
-		"--port",
+		portName,
 		"8443",
 		"-v",
 		verbosity,
@@ -463,7 +465,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								VirtOperatorName,
-								"--port",
+								portName,
 								"8443",
 								"-v",
 								verbosity,

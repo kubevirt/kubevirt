@@ -42,6 +42,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const requiredField = "%s is a required field"
+
 const (
 	arrayLenMax = 256
 	maxStrLen   = 256
@@ -2079,7 +2081,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ConfigMap.LocalObjectReference.Name == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Message: fmt.Sprintf(requiredField, field.Index(idx).Child("configMap", "name").String()),
 					Field:   field.Index(idx).Child("configMap", "name").String(),
 				})
 			}
@@ -2089,7 +2091,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.Secret.SecretName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Message: fmt.Sprintf(requiredField, field.Index(idx).Child("secret", "secretName").String()),
 					Field:   field.Index(idx).Child("secret", "secretName").String(),
 				})
 			}
@@ -2099,7 +2101,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ServiceAccount.ServiceAccountName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
+					Message: fmt.Sprintf(requiredField, field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
 					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
 				})
 			}
