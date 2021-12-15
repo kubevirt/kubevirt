@@ -59,6 +59,17 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
+const (
+	checkingVMInstanceConsoleExpectedOut = "Checking that the VirtualMachineInstance console has expected output"
+	deletingDataVolume 		     = "Deleting the DataVolume"
+	creatingVMInvalidDataVolume	     = "Creating a VM with an invalid DataVolume"
+	creatingVMDataVolumeTemplateEntry    = "Creating VM with DataVolumeTemplate entry with k8s client binary"
+	verifyingDataVolumeSuccess	     = "Verifying DataVolume succeeded and is created with VM owner reference"
+	verifyingPVCCreated		     = "Verifying PVC is created"
+	verifyingVMICreated		     = "Verifying VMI is created with VM owner reference"
+	syncName			     = "sync\n"
+)
+
 const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"
 
 var _ = SIGDescribe("DataVolume Integration", func() {
@@ -169,7 +180,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
@@ -210,7 +221,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
-						By("Checking that the VirtualMachineInstance console has expected output")
+						By(checkingVMInstanceConsoleExpectedOut)
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
@@ -242,7 +253,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				for idx := 0; idx < numVmis; idx++ {
 					tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmis[idx], 500)
-					By("Checking that the VirtualMachineInstance console has expected output")
+					By(checkingVMInstanceConsoleExpectedOut)
 					Expect(console.LoginToAlpine(vmis[idx])).To(Succeed())
 
 					err := virtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(vmis[idx].Name, &metav1.DeleteOptions{})
@@ -266,7 +277,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// import and start
 				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -308,7 +319,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 
 				defer func(dv *cdiv1.DataVolume) {
-					By("Deleting the DataVolume")
+					By(deletingDataVolume)
 					ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 				}(dv)
 
@@ -354,7 +365,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 
 				defer func(dv *cdiv1.DataVolume) {
-					By("Deleting the DataVolume")
+					By(deletingDataVolume)
 					ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 				}(dv)
 				Eventually(func() error {
@@ -402,7 +413,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with an invalid DataVolume", func() {
 		Context("using DataVolume with invalid URL", func() {
 			deleteDataVolume := func(dv *cdiv1.DataVolume) {
-				By("Deleting the DataVolume")
+				By(deletingDataVolume)
 				ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			}
 
@@ -416,7 +427,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					},
 				}
 
-				By("Creating a VM with an invalid DataVolume")
+				By(creatingVMInvalidDataVolume)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -435,7 +446,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Create a VM for this VMI
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 
-				By("Creating a VM with an invalid DataVolume")
+				By(creatingVMInvalidDataVolume)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -466,7 +477,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
-				By("Creating a VM with an invalid DataVolume")
+				By(creatingVMInvalidDataVolume)
 				//  Add the invalid DataVolume to a VMI
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
@@ -530,32 +541,32 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		})
 
 		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
-			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
+			By(creatingVMDataVolumeTemplateEntry)
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Verifying DataVolume succeeded and is created with VM owner reference")
+			By(verifyingDataVolumeSuccess)
 			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), BeOwned()))
 
-			By("Verifying PVC is created")
+			By(verifyingPVCCreated)
 			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
 
-			By("Verifying VMI is created with VM owner reference")
+			By(verifyingVMICreated)
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 		})
 
 		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
-			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
+			By(creatingVMDataVolumeTemplateEntry)
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Verifying DataVolume succeeded and is created with VM owner reference")
+			By(verifyingDataVolumeSuccess)
 			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), BeOwned()))
 
-			By("Verifying PVC is created")
+			By(verifyingPVCCreated)
 			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
 
-			By("Verifying VMI is created with VM owner reference")
+			By(verifyingVMICreated)
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=true")
@@ -576,17 +587,17 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		})
 
 		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
-			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
+			By(creatingVMDataVolumeTemplateEntry)
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Verifying DataVolume succeeded and is created with VM owner reference")
+			By(verifyingDataVolumeSuccess)
 			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), BeOwned()))
 
-			By("Verifying PVC is created")
+			By(verifyingPVCCreated)
 			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
 
-			By("Verifying VMI is created with VM owner reference")
+			By(verifyingVMICreated)
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=false")
@@ -645,7 +656,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
-						By("Checking that the VirtualMachineInstance console has expected output")
+						By(checkingVMInstanceConsoleExpectedOut)
 						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -930,7 +941,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "dd if=/dev/urandom of=largefile bs=1M count=100 2> /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "sync\n"},
+				&expect.BSnd{S: syncName},
 				&expect.BExp{R: console.PromptExpression},
 			}, 360)).To(Succeed(), "should write a large file")
 
@@ -950,7 +961,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Write a small file so that we'll have an increase in image size if trim is unsupported.
 				&expect.BSnd{S: "dd if=/dev/urandom of=smallfile bs=1M count=20 2> /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "sync\n"},
+				&expect.BSnd{S: syncName},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "rm -f largefile\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -961,7 +972,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo fstrim -v /\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: syncName},
 					&expect.BExp{R: console.PromptExpression},
 				}, 60)
 				Expect(err).ToNot(HaveOccurred())

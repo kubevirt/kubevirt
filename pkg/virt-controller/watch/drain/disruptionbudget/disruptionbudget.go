@@ -24,6 +24,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 )
 
+const deleteNotifFail = "Failed to process delete notification"
+
 const (
 	// FailedCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget failed.
 	FailedCreatePodDisruptionBudgetReason = "FailedCreate"
@@ -150,12 +152,12 @@ func (c *DisruptionBudgetController) enqueueVMI(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
 		}
 	}
@@ -245,12 +247,12 @@ func (c *DisruptionBudgetController) deletePodDisruptionBudget(obj interface{}) 
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
 		pdb, ok = tombstone.Obj.(*v1beta1.PodDisruptionBudget)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
 		}
 	}

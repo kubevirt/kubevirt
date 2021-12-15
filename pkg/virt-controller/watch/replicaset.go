@@ -41,6 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
+const failedRsKeyExtraction = "Failed to extract rsKey from replicaset."
+
 // Reasons for replicaset events
 const (
 	// FailedCreateVirtualMachineReason is added in an event and in a replica set condition
@@ -242,7 +244,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 
 	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
-		log.Log.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
+		log.Log.Object(rs).Reason(err).Error(failedRsKeyExtraction)
 		return nil
 	}
 
@@ -574,7 +576,7 @@ func (c *VMIReplicaSet) enqueueReplicaSet(obj interface{}) {
 	rs := obj.(*virtv1.VirtualMachineInstanceReplicaSet)
 	key, err := controller.KeyFunc(rs)
 	if err != nil {
-		logger.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
+		logger.Object(rs).Reason(err).Error(failedRsKeyExtraction)
 	}
 	c.Queue.Add(key)
 }
@@ -782,7 +784,7 @@ func (c *VMIReplicaSet) resolveControllerRef(namespace string, controllerRef *me
 func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
 	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
-		log.Log.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
+		log.Log.Object(rs).Reason(err).Error(failedRsKeyExtraction)
 		return nil
 	}
 

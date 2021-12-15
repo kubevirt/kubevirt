@@ -78,6 +78,12 @@ import (
 )
 
 const (
+	failedSyncGuestTime  = "failed to sync guest time"
+	failedGetDomain      = "Getting the domain failed."
+	failedGetDomainState = "Getting the domain state failed."
+)
+
+const (
 	PCI_RESOURCE_PREFIX  = "PCI_RESOURCE"
 	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
 )
@@ -220,7 +226,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+		log.Log.Object(vmi).Reason(err).Error(failedSyncGuestTime)
 		return err
 	}
 
@@ -234,7 +240,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 		for {
 			select {
 			case <-timeout:
-				log.Log.Object(vmi).Error("failed to sync guest time")
+				log.Log.Object(vmi).Error(failedSyncGuestTime)
 				return
 			case <-ctx.Done():
 				return
@@ -246,7 +252,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 				if err != nil {
 					libvirtError, ok := err.(libvirt.Error)
 					if !ok {
-						log.Log.Object(vmi).Reason(err).Warning("failed to sync guest time")
+						log.Log.Object(vmi).Reason(err).Warning(failedSyncGuestTime)
 						return
 					}
 
@@ -262,7 +268,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 						log.Log.Object(vmi).Reason(err).Warning("failed to set time: agent not configured")
 						return
 					default:
-						log.Log.Object(vmi).Reason(err).Warning("failed to sync guest time")
+						log.Log.Object(vmi).Reason(err).Warning(failedSyncGuestTime)
 					}
 				} else {
 					log.Log.Object(vmi).Info("guest VM time sync finished successfully")
@@ -806,14 +812,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			}
 			logger.Info("Domain defined.")
 		} else {
-			logger.Reason(err).Error("Getting the domain failed.")
+			logger.Reason(err).Error(failedGetDomain)
 			return nil, err
 		}
 	}
 	defer dom.Free()
 	domState, _, err := dom.GetState()
 	if err != nil {
-		logger.Reason(err).Error("Getting the domain state failed.")
+		logger.Reason(err).Error(failedGetDomainState)
 		return nil, err
 	}
 
@@ -1089,7 +1095,7 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 
 	domState, _, err := dom.GetState()
 	if err != nil {
-		logger.Reason(err).Error("Getting the domain state failed.")
+		logger.Reason(err).Error(failedGetDomainState)
 		return err
 	}
 
@@ -1129,7 +1135,7 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 
 	domState, _, err := dom.GetState()
 	if err != nil {
-		logger.Reason(err).Error("Getting the domain state failed.")
+		logger.Reason(err).Error(failedGetDomainState)
 		return err
 	}
 
@@ -1306,7 +1312,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 
 	domState, _, err := dom.GetState()
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
+		log.Log.Object(vmi).Reason(err).Error(failedGetDomainState)
 		return err
 	}
 
@@ -1347,7 +1353,7 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 		if domainerrors.IsNotFound(err) {
 			return nil
 		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed.")
+			log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
 			return err
 		}
 	}
@@ -1358,7 +1364,7 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 		if domainerrors.IsNotFound(err) {
 			return nil
 		}
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
+		log.Log.Object(vmi).Reason(err).Error(failedGetDomainState)
 		return err
 	}
 
@@ -1387,7 +1393,7 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 		if domainerrors.IsNotFound(err) {
 			return nil
 		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed.")
+			log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
 			return err
 		}
 	}

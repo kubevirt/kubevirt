@@ -30,6 +30,16 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
+const (
+	shouldExposeServiceViaVirtc = "should expose a service via `virtctl expose ...`"
+	gettingValidatingClusterIP  = "Getting and validating the cluster IP given for the service"
+	iteratingClusterIPs 	    = "Iterating over the ClusterIPs and run hello-world job"
+	overIPv6Family 		    = "over IPv6 IP family"
+	overDualStackIPv4 	    = "over dual stack, primary ipv4"
+	overDualStackIPv6 	    = "over dual stack, primary ipv6"
+	shouldStartVM 		    = "should have been able to start the VM"
+)
+
 func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {
 	ports := []v1.Port{{Name: "http", Port: 80},
 		{Name: "test-port-tcp", Port: 1500, Protocol: "TCP"},
@@ -194,21 +204,21 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(tcpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, tcpVM.Namespace, runHelloWorldJob)
 			},
 				table.Entry("[test_id:1531] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 
@@ -232,7 +242,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -259,9 +269,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}, isDualStack)
 			},
 				table.Entry("[test_id:1532] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 
@@ -282,7 +292,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -303,9 +313,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-4", Port: 1500, Protocol: "UDP"}))
 			},
 				table.Entry("[test_id:1533] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 
@@ -348,7 +358,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = append(vmiExposeArgs, "--ip-family-policy", string(ipFamiyPolicy))
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By("Getting the service")
 				svc, err := getService(tcpVM.Namespace, serviceName)
@@ -384,7 +394,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				By("Getting the service")
 				svc, err := getService(tcpVM.Namespace, serviceName)
@@ -425,9 +435,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			},
 				table.Entry("[test_id:1534] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 	})
@@ -460,21 +470,21 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(udpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, udpVM.Namespace, runHelloWorldJobUDP)
 			},
 				table.Entry("[test_id:1535] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 
@@ -500,9 +510,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(udpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
@@ -511,7 +521,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, udpVM.Namespace, runHelloWorldJobUDP)
 
 				By("Getting the node IP from all nodes")
@@ -548,9 +558,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			},
 				table.Entry("[test_id:1536] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 	})
@@ -609,21 +619,21 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmirsExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmirsExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmirsExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmirsExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(vmrs.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, vmrs.Namespace, runHelloWorldJob)
 			},
 				table.Entry("[test_id:1537] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 	})
@@ -699,26 +709,26 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				vmi := startVMWithServer(virtClient, "tcp", testPort)
-				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
+				Expect(vmi).NotTo(BeNil(), shouldStartVM)
 
 				// This TC also covers:
 				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(vm.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, vm.Namespace, runHelloWorldJob, runHelloWorldJobHttp)
 			},
 				table.Entry("[test_id:1538] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func(ipFamily ipFamily) {
@@ -726,20 +736,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				vmi := startVMWithServer(virtClient, "tcp", testPort)
-				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
+				Expect(vmi).NotTo(BeNil(), shouldStartVM)
 
 				vmObj := vm
 
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(vmObj.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, vmObj.Namespace, runHelloWorldJob)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
@@ -768,13 +778,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				tests.GenerateHelloWorldServer(vmi, testPort, "tcp")
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, vmObj.Namespace, runHelloWorldJob)
 			},
 				table.Entry("[test_id:345] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(svcIpFamily ipFamily) {
@@ -800,18 +810,18 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 
 				By("Exposing the service via virtctl command")
-				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
 				vmi := startVMWithServer(virtClient, "tcp", testPort)
-				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
+				Expect(vmi).NotTo(BeNil(), shouldStartVM)
 
-				By("Getting and validating the cluster IP given for the service")
+				By(gettingValidatingClusterIP)
 				svc, err := getService(vm.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 				err = validateClusterIp(svc.Spec.ClusterIP, svcIpFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs and run hello-world job")
+				By(iteratingClusterIPs)
 				runJobsAgainstService(svc, vm.Namespace, runHelloWorldJob, runHelloWorldJob)
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
@@ -868,9 +878,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(tests.WaitForJobToFail(job, 240*time.Second)).To(Succeed())
 			},
 				table.Entry("[test_id:343] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				table.Entry(overIPv6Family, ipv6),
+				table.Entry(overDualStackIPv4, dualIPv4Primary),
+				table.Entry(overDualStackIPv6, dualIPv6Primary),
 			)
 		})
 	})

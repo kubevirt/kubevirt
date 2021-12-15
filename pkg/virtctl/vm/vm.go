@@ -37,6 +37,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+const dryRunName = "dry-run"
+
 const (
 	COMMAND_START        = "start"
 	COMMAND_STOP         = "stop"
@@ -75,7 +77,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&startPaused, "paused", false, "--paused=false: If set to true, start virtual machine in paused state")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&dryRun, dryRunName, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -94,7 +96,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
 	cmd.Flags().Int64Var(&gracePeriod, "grace-period", notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&dryRun, dryRunName, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -112,7 +114,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
 	cmd.Flags().Int64Var(&gracePeriod, "grace-period", notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&dryRun, dryRunName, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -128,7 +130,7 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&dryRun, dryRunName, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }

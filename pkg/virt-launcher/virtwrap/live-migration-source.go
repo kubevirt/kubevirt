@@ -44,6 +44,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
+const liveMigrationFailed = "Live migration failed."
+
 type migrationDisks struct {
 	shared    map[string]bool
 	generated map[string]bool
@@ -251,7 +253,7 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 
 	err = l.asyncMigrate(vmi, options)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return err
 	}
@@ -631,7 +633,7 @@ func (m *migrationMonitor) startMonitor() {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		logger.Reason(err).Error("Live migration failed.")
+		logger.Reason(err).Error(liveMigrationFailed)
 		m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return
 	}
@@ -646,7 +648,7 @@ func (m *migrationMonitor) startMonitor() {
 			m.migrationFailedWithError = err
 		} else if m.migrationFailedWithError != nil {
 			logger.Info("Didn't manage to get a job status. Post the received error and finilize.")
-			logger.Reason(m.migrationFailedWithError).Error("Live migration failed")
+			logger.Reason(m.migrationFailedWithError).Error(liveMigrationFailed)
 			var abortStatus v1.MigrationAbortStatus
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
@@ -859,7 +861,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 
 		err := l.migrateHelper(vmi, options)
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 			migrationErrorChan <- err
 			return
 		}

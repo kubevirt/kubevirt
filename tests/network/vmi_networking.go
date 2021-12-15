@@ -57,6 +57,13 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
+const (
+	vmiNetworkingEchoCmd = "echo $?\n"
+	checkingEth0MACAddr  = "checking eth0 MAC address"
+	nechoHello 	     = "#!/bin/bash\necho 'hello'\n"
+	catResolvConf 	     = "cat /etc/resolv.conf\n"
+)
+
 var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
 
 	var err error
@@ -178,7 +185,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: addrShow},
 					&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: vmiNetworkingEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)).To(Succeed())
 
@@ -195,7 +202,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: vmiNetworkingEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
@@ -206,7 +213,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: vmiNetworkingEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
@@ -320,7 +327,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with custom MAC address", func() {
 		It("[test_id:1771]should configure custom MAC address", func() {
-			By("checking eth0 MAC address")
+			By(checkingEth0MACAddr)
 			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -332,7 +339,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
 		It("[test_id:1772]should configure custom MAC address", func() {
-			By("checking eth0 MAC address")
+			By(checkingEth0MACAddr)
 			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
 			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
@@ -357,8 +364,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		It("[test_id:1773]should configure custom MAC address", func() {
-			By("checking eth0 MAC address")
-			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+			By(checkingEth0MACAddr)
+			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), nechoHello, []v1.Port{})
 			deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -372,7 +379,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1774]should not configure any external interfaces", func() {
 			By("checking loopback is the only guest interface")
 			autoAttach := false
-			detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), nechoHello)
 			// Remove the masquerade interface to use the default bridge one
 			detachedVMI.Spec.Domain.Devices.Interfaces = nil
 			detachedVMI.Spec.Networks = nil
@@ -448,7 +455,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		It("[test_id:1776]should configure custom Pci address", func() {
 			By("checking eth0 Pci address")
-			testVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			testVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), nechoHello)
 			tests.AddExplicitPodNetworkInterface(testVMI)
 			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:00.1"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(testVMI)
@@ -462,7 +469,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
 		It("[test_id:1777]should disable learning on pod iface", func() {
 			By("checking learning flag")
-			learningDisabledVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho 'hello'\n")
+			learningDisabledVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), nechoHello)
 			// Remove the masquerade interface to use the default bridge one
 			learningDisabledVMI.Spec.Domain.Devices.Interfaces = nil
 			learningDisabledVMI.Spec.Networks = nil
@@ -529,15 +536,15 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "search example.com"},
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "nameserver 8.8.8.8"},
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -549,7 +556,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
 		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			userData := "#!/bin/bash\necho 'hello'\n"
+			userData := nechoHello
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 			net := v1.DefaultPodNetwork()
@@ -1043,7 +1050,7 @@ func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess boo
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: clientCommand},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: vmiNetworkingEchoCmd},
 		&expect.BExp{R: expectResult},
 	}
 }

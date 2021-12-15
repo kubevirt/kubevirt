@@ -80,6 +80,12 @@ import (
 )
 
 const (
+	failedDetectIsolation              = "failed to detect isolation for launcher pod: %v"
+	kubevirtPrivate                    = "kubevirt-private"
+	unableCreateVirtLauncherConnection = "unable to create virt-launcher client connection: %v"
+)
+
+const (
 	//VolumeReadyReason is the reason set when the volume is ready.
 	VolumeReadyReason = "VolumeReady"
 	//VolumeUnMountedFromPodReason is the reason set when the volume is unmounted from the virtlauncher pod
@@ -494,7 +500,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	// configure network
 	res, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		return fmt.Errorf(failedDetectIsolation, err)
 	}
 
 	// check to see if we've already completed phase1 for this vmi
@@ -1153,15 +1159,15 @@ func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (stri
 	} else if volume.CloudInitConfigDrive != nil {
 		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
 	} else if volume.ConfigMap != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
 	} else if volume.DownwardAPI != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
 	} else if volume.Secret != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.SecretDisksDir), volume.Name+".iso")
 	} else if volume.ServiceAccount != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
 	} else if volume.Sysprep != nil {
-		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.SysprepDisksDir), volume.Name+".iso")
 	} else {
 		return "", false
 	}
@@ -2449,7 +2455,7 @@ func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineI
 func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.VirtualMachineInstance) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
-		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
+		return fmt.Errorf(unableCreateVirtLauncherConnection, err)
 	}
 
 	vmi := origVMI.DeepCopy()
@@ -2496,7 +2502,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.VirtualMachineInstance) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
-		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
+		return fmt.Errorf(unableCreateVirtLauncherConnection, err)
 	}
 
 	vmi := origVMI.DeepCopy()
@@ -2555,7 +2561,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		return fmt.Errorf(failedDetectIsolation, err)
 	}
 	virtLauncherRootMount := isolationRes.MountRoot()
 
@@ -2595,7 +2601,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
-		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
+		return fmt.Errorf(unableCreateVirtLauncherConnection, err)
 	}
 
 	vmi := origVMI.DeepCopy()
@@ -2644,7 +2650,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		isolationRes, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
-			return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+			return fmt.Errorf(failedDetectIsolation, err)
 		}
 		virtLauncherRootMount := isolationRes.MountRoot()
 

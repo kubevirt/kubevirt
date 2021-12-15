@@ -55,6 +55,12 @@ import (
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 )
 
+const (
+	fetchingRunStrategyErr = "Error fetching RunStrategy: %v"
+	fetchingVMKeyErr       = "Error fetching vmKey: %v"
+	startingVMIFailure     = "Failure while starting VMI: %v"
+)
+
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 // Repeating info / error messages
@@ -599,11 +605,11 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) syncError {
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf("Error fetching RunStrategy: %v", err), FailedCreateReason}
+		return &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErr, err), FailedCreateReason}
 	}
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		log.Log.Object(vm).Errorf(fetchingVMKeyErr, err)
 		return &syncErrorImpl{err, FailedCreateReason}
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
@@ -646,7 +652,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
+			return &syncErrorImpl{fmt.Errorf(startingVMIFailure, err), FailedCreateReason}
 		}
 		return nil
 
@@ -685,7 +691,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
+			return &syncErrorImpl{fmt.Errorf(startingVMIFailure, err), FailedCreateReason}
 		}
 		return nil
 
@@ -710,7 +716,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 
 				err := c.startVMI(vm)
 				if err != nil {
-					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
+					return &syncErrorImpl{fmt.Errorf(startingVMIFailure, err), FailedCreateReason}
 				}
 			}
 		}
@@ -731,7 +737,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 					vmCopy.Spec.Running = &running
 				}
 				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
-				return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
+				return &syncErrorImpl{fmt.Errorf(startingVMIFailure, err), FailedCreateReason}
 			}
 			return nil
 		}
@@ -747,7 +753,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 func (c *VMController) isVMIStartExpected(vm *virtv1.VirtualMachine) bool {
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		log.Log.Object(vm).Errorf(fetchingVMKeyErr, err)
 		return false
 	}
 
@@ -764,7 +770,7 @@ func (c *VMController) isVMIStartExpected(vm *virtv1.VirtualMachine) bool {
 func (c *VMController) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		log.Log.Object(vm).Errorf(fetchingVMKeyErr, err)
 		return false
 	}
 
@@ -781,7 +787,7 @@ func (c *VMController) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
 func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		log.Log.Object(vm).Errorf(fetchingRunStrategyErr, err)
 		return false
 	}
 
@@ -917,7 +923,7 @@ func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		log.Log.Object(vm).Errorf(fetchingRunStrategyErr, err)
 		return false
 	}
 
@@ -1731,7 +1737,7 @@ func (c *VMController) isVirtualMachineStatusCrashLoopBackOff(vm *virtv1.Virtual
 
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		log.Log.Object(vm).Errorf(fetchingRunStrategyErr, err)
 		return false
 	}
 

@@ -41,6 +41,8 @@ import (
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const dialSockErr = "Failed to Dial hook socket: %s"
+
 type callBackClient struct {
 	SocketPath           string
 	Version              string
@@ -129,7 +131,7 @@ func (m *Manager) collectSideCarSockets(numberOfRequestedHookSidecars uint, time
 func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 	conn, err := grpcutil.DialSocketWithTimeout(socketPath, 1)
 	if err != nil {
-		log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", socketPath)
+		log.Log.Reason(err).Infof(dialSockErr, socketPath)
 		return nil, true, nil
 	}
 	defer conn.Close()
@@ -195,7 +197,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 
 				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 				if err != nil {
-					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
+					log.Log.Reason(err).Infof(dialSockErr, callback.SocketPath)
 					return "", err
 				}
 				defer conn.Close()
@@ -261,7 +263,7 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 
 				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 				if err != nil {
-					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
+					log.Log.Reason(err).Infof(dialSockErr, callback.SocketPath)
 					return cloudInitData, err
 				}
 				defer conn.Close()

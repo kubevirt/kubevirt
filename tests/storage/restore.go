@@ -32,6 +32,19 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
+const (
+	restoreNechoHello 	  = "#!/bin/bash\necho 'hello'\n"
+	restoreEchoCmd 		  = "echo $?\n"
+	makeTestDirectoryCmd 	  = "sudo mkdir -p /test\n"
+	mountTestDirectoryCmd     = "sudo mount %s /test \n"
+	makeTestDataDirectoryCmd  = "sudo mkdir -p /test/data\n"
+	chmodTestDataDirectoryCmd = "sudo chmod a+w /test/data\n"
+	catTestDataMessageCmd 	  = "cat /test/data/message\n"
+	restoreSyncName 	  = "sync\n"
+	stoppingVM 		  = "Stopping VM"
+	creatingSnapshot 	  = "creating snapshot"
+)
+
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 	var err error
@@ -188,7 +201,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 		BeforeEach(func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, restoreNechoHello)
 			vm = tests.NewRandomVirtualMachine(vmi, false)
 		})
 
@@ -434,46 +447,46 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
+						&expect.BSnd{S: restoreEchoCmd},
 						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: "sudo mkdir -p /test\n"},
+						&expect.BSnd{S: makeTestDirectoryCmd},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+						&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
+						&expect.BSnd{S: restoreEchoCmd},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
+					&expect.BSnd{S: makeTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
+					&expect.BSnd{S: chmodTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", vm.UID)},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(vm.UID)},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: restoreSyncName},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: restoreSyncName},
 					&expect.BExp{R: console.PromptExpression},
 				}...)
 
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
 				if !onlineSnapshot {
-					By("Stopping VM")
+					By(stoppingVM)
 					vm = tests.StopVirtualMachine(vm)
 				}
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				batch = nil
@@ -487,11 +500,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: "sudo mkdir -p /test\n"},
+							&expect.BSnd{S: makeTestDirectoryCmd},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+							&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: "echo $?\n"},
+							&expect.BSnd{S: restoreEchoCmd},
 							&expect.BExp{R: console.RetValue("0")},
 						}...)
 					}
@@ -500,31 +513,31 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("updating message")
 
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
+					&expect.BSnd{S: makeTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
+					&expect.BSnd{S: chmodTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(vm.UID)},
 					&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", snapshot.UID)},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(snapshot.UID)},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: restoreSyncName},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: restoreSyncName},
 					&expect.BExp{R: console.PromptExpression},
 				}...)
 
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
-				By("Stopping VM")
+				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
 
 				By("Restoring VM")
@@ -547,25 +560,25 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				if device != "" {
 					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "sudo mkdir -p /test\n"},
+						&expect.BSnd{S: makeTestDirectoryCmd},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+						&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
+						&expect.BSnd{S: restoreEchoCmd},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
+					&expect.BSnd{S: makeTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
+					&expect.BSnd{S: chmodTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: restoreEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(vm.UID)},
 				}...)
 
@@ -576,14 +589,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					restoreNechoHello,
 					snapshotStorageClass,
 				))
 
-				By("Stopping VM")
+				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				for i := 0; i < 2; i++ {
@@ -605,7 +618,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					restoreNechoHello,
 					snapshotStorageClass,
 				))
 
@@ -623,7 +636,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					restoreNechoHello,
 					snapshotStorageClass,
 				)
 
@@ -695,7 +708,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalPVCName := pvc.Name
 
-				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, "#!/bin/bash\necho 'hello'\n")
+				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, restoreNechoHello)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
@@ -724,7 +737,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					"#!/bin/bash\necho 'hello'\n",
+					restoreNechoHello,
 				)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
@@ -780,14 +793,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					restoreNechoHello,
 					snapshotStorageClass,
 				))
 
-				By("Stopping VM")
+				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				fp := admissionregistrationv1.Fail
@@ -875,7 +888,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					restoreNechoHello,
 					snapshotStorageClass,
 				))
 
@@ -979,7 +992,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				newVM = tests.StopVirtualMachine(updatedVM)
