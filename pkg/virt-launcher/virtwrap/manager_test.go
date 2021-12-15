@@ -25,9 +25,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -2163,6 +2166,138 @@ var _ = Describe("migratableDomXML", func() {
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
+})
+
+var _ = Describe("Manager helper functions", func() {
+
+	Context("getVMIEphemeralDisksTotalSize", func() {
+
+		var tmpDir string
+		var zeroQuantity resource.Quantity
+
+		BeforeEach(func() {
+			var err error
+			tmpDir, err = os.MkdirTemp("", "tempdir")
+			Expect(err).ToNot(HaveOccurred())
+
+			getEphemeralDiskBaseDir = func() string {
+				return tmpDir
+			}
+
+			zeroQuantity = *resource.NewScaledQuantity(0, 0)
+		})
+
+		AfterEach(func() {
+			_ = os.RemoveAll(tmpDir)
+		})
+
+		expectNonZeroQuantity := func() {
+			By("Expecting quantity larger than zero")
+			quantity := getVMIEphemeralDisksTotalSize()
+
+			Expect(quantity).ToNot(BeNil())
+			Expect(quantity).ToNot(Equal(zeroQuantity))
+			quantityValue := quantity.Value()
+			Expect(quantityValue).To(BeNumerically(">", 0))
+		}
+
+		expectZeroQuantity := func() {
+			By("Expecting zero quantity")
+			quantity := getVMIEphemeralDisksTotalSize()
+
+			Expect(quantity).ToNot(BeNil())
+			Expect(*quantity).To(Equal(zeroQuantity))
+			quantityValue := quantity.Value()
+			Expect(quantityValue).To(BeNumerically("==", 0))
+		}
+
+		It("successful run with non-zero size", func() {
+			By("Creating a file with non-zero size")
+			err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expectNonZeroQuantity()
+		})
+
+		It("successful run with zero size", func() {
+			By("Creating a file with non-zero size")
+			err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expectNonZeroQuantity()
+		})
+
+		It("expect zero quantity when path does not exist", func() {
+			By("Mocking base directory that doesn't exist")
+			getEphemeralDiskBaseDir = func() string {
+				return "path_that_doesnt_exist"
+			}
+
+			expectZeroQuantity()
+		})
+
+		It("expect zero quantity in an empty directory", func() {
+			expectZeroQuantity()
+		})
+
+	})
+
+	Context("possibleGuestSize", func() {
+
+		var properDisk api.Disk
+		var fakePercentFloat float64
+
+		BeforeEach(func() {
+			fakePercentFloat = 0.7648
+			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
+
+			properDisk = api.Disk{
+				FilesystemOverhead: &fakePercent,
+				Capacity:           resource.NewScaledQuantity(123, 4),
+			}
+		})
+
+		It("should return correct value", func() {
+			size, ok := possibleGuestSize(properDisk)
+			Expect(ok).To(BeTrue())
+			capacity, ok := properDisk.Capacity.AsInt64()
+			Expect(ok).To(BeTrue())
+
+			expectedSize := int64((1 - fakePercentFloat) * float64(capacity))
+
+			Expect(size).To(Equal(expectedSize))
+		})
+
+		table.DescribeTable("should return error when", func(createDisk func() api.Disk) {
+
+		},
+			table.Entry("disk capacity is nil", func() api.Disk {
+				disk := properDisk
+				disk.Capacity = nil
+				return disk
+			}),
+			table.Entry("disk capacity non-int", func() api.Disk {
+				disk := properDisk
+				nonIntQuantity, ok := resource.ParseQuantity("0.456546456")
+				Expect(ok).To(BeTrue())
+				disk.Capacity = &nonIntQuantity
+				return disk
+			}),
+			table.Entry("filesystem overhead is nil", func() api.Disk {
+				disk := properDisk
+				disk.FilesystemOverhead = nil
+				return disk
+			}),
+			table.Entry("filesystem is non-float", func() api.Disk {
+				disk := properDisk
+				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
+				disk.FilesystemOverhead = &fakePercent
+				return disk
+			}),
+		)
+
+	})
+
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

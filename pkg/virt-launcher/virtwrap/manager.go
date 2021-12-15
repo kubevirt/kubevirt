@@ -81,6 +81,14 @@ import (
 const (
 	PCI_RESOURCE_PREFIX  = "PCI_RESOURCE"
 	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
+
+	baseEphemeralDiskDir = "/var/run/kubevirt-ephemeral-disks/"
+)
+
+var (
+	getEphemeralDiskBaseDir = func() string {
+		return baseEphemeralDiskDir
+	}
 )
 
 type contextStore struct {
@@ -345,17 +353,20 @@ func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
-	var baseDir = "/var/run/kubevirt-ephemeral-disks/"
+	baseDir := getEphemeralDiskBaseDir()
 	totalSize := int64(0)
 	err := filepath.Walk(baseDir, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if !f.IsDir() {
 			totalSize += f.Size()
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		log.Log.Reason(err).Warning("failed to get VMI ephemeral disks size")
-		return &resource.Quantity{Format: resource.BinarySI}
+		return resource.NewScaledQuantity(0, 0)
 	}
 
 	return resource.NewScaledQuantity(totalSize, 0)
