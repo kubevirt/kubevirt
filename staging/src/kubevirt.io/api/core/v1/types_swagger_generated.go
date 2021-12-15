@@ -589,13 +589,15 @@ func (AddVolumeOptions) SwaggerDoc() map[string]string {
 		"name":         "Name represents the name that will be used to map the\ndisk to the corresponding volume. This overrides any name\nset inside the Disk struct itself.",
 		"disk":         "Disk represents the hotplug disk that will be plugged into the running VMI",
 		"volumeSource": "VolumeSource represents the source of the volume to map to the disk.",
+		"dryRun":       "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 
 func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
-		"name": "Name represents the name that maps to both the disk and volume that\nshould be removed",
+		"":       "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
+		"name":   "Name represents the name that maps to both the disk and volume that\nshould be removed",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 

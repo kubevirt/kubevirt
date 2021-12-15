@@ -51,6 +51,13 @@ const (
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
+
+	dryRunArg      = "dry-run"
+	pausedArg      = "paused"
+	forceArg       = "force"
+	gracePeriodArg = "grace-period"
+	serialArg      = "serial"
+	persistArg     = "persist"
 )
 
 var (
@@ -74,8 +81,8 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&startPaused, "paused", false, "--paused=false: If set to true, start virtual machine in paused state")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&startPaused, pausedArg, false, "--paused=false: If set to true, start virtual machine in paused state")
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -92,9 +99,9 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().Int64Var(&gracePeriod, "grace-period", notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&forceRestart, forceArg, false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().Int64Var(&gracePeriod, gracePeriodArg, notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -110,9 +117,9 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().Int64Var(&gracePeriod, "grace-period", notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&forceRestart, forceArg, false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().Int64Var(&gracePeriod, gracePeriodArg, notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -128,7 +135,7 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, dryRunCommandUsage)
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -192,8 +199,9 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
-	cmd.Flags().StringVar(&serial, "serial", "", "serial number you want to assign to the disk")
-	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().StringVar(&serial, serialArg, "", "serial number you want to assign to the disk")
+	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 
 	return cmd
 }
@@ -212,7 +220,8 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
-	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	return cmd
 }
 
@@ -283,7 +292,7 @@ func usageRemoveVolume() string {
 	return usage
 }
 
-func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
@@ -298,6 +307,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 			},
 		},
 		VolumeSource: volumeSource,
+		DryRun:       *dryRunOption,
 	}
 	if serial != "" {
 		hotplugRequest.Disk.Serial = serial
@@ -316,15 +326,17 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	return nil
 }
 
-func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	var err error
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
-			Name: volumeName,
+			Name:   volumeName,
+			DryRun: *dryRunOption,
 		})
 	} else {
 		err = virtClient.VirtualMachine(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
-			Name: volumeName,
+			Name:   volumeName,
+			DryRun: *dryRunOption,
 		})
 	}
 	if err != nil {
@@ -452,9 +464,9 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_ADDVOLUME:
-		return addVolume(args[0], volumeName, namespace, virtClient)
+		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_REMOVEVOLUME:
-		return removeVolume(args[0], volumeName, namespace, virtClient)
+		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
