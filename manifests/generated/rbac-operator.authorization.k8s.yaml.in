@@ -457,6 +457,7 @@ rules:
   - pool.kubevirt.io
   resources:
   - virtualmachinepools
+  - virtualmachinepools/finalizers
   verbs:
   - watch
   - list
