@@ -29,7 +29,7 @@ spec:
       nodeSelector:
         beta.kubernetes.io/arch: amd64
       tolerations:
-      - key: node-role.kubernetes.io/master
+      - key: node-role.kubernetes.io/control-plane
         operator: Exists
         effect: NoSchedule
       serviceAccountName: sriov-device-plugin
@@ -94,7 +94,7 @@ spec:
       nodeSelector:
         beta.kubernetes.io/arch: ppc64le
       tolerations:
-      - key: node-role.kubernetes.io/master
+      - key: node-role.kubernetes.io/control-plane
         operator: Exists
         effect: NoSchedule
       serviceAccountName: sriov-device-plugin
@@ -158,7 +158,7 @@ spec:
       nodeSelector:
         beta.kubernetes.io/arch: arm64
       tolerations:
-      - key: node-role.kubernetes.io/master
+      - key: node-role.kubernetes.io/control-plane
         operator: Exists
         effect: NoSchedule
       serviceAccountName: sriov-device-plugin
