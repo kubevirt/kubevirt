@@ -615,14 +615,14 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				vmiUnderTest := libvmi.NewTestToolingFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
-					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask), false))
 				vmiUnderTest = tests.CreateVmiOnNode(vmiUnderTest, nodes.Items[0].Name)
 
 				By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
 				targetVmi := libvmi.NewTestToolingFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
-					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask), false))
 				targetVmi = tests.CreateVmiOnNode(targetVmi, nodes.Items[0].Name)
 
@@ -770,7 +770,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			for _, name := range networks {
 				withVmiOptions = append(withVmiOptions,
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
-					libvmi.WithNetwork(libvmi.MultusNetwork(name)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 				)
 			}
 			return libvmi.NewSriovFedora(withVmiOptions...)
@@ -1236,7 +1236,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		return libvmi.NewCirros(
 			libvmi.WithInterface(
 				*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
 	newCirrosVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
@@ -1244,7 +1244,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			libvmi.WithInterface(
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
 	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
@@ -1254,7 +1254,7 @@ var _ = SIGDescribe("Macvtap", func() {
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
 	createCirrosVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
