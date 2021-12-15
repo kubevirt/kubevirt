@@ -15,6 +15,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
+const unknownObj = "Unknown object"
+
 // updater transparently switches for status updates between /status and the main entrypoint for resource,
 // allowing CRDs to enable or disable the status subresource support anytime.
 type updater struct {
@@ -140,7 +142,7 @@ func (u *updater) patchUnstructured(obj runtime.Object, patchType types.PatchTyp
 		}
 		return oldObj.ResourceVersion, newObj.ResourceVersion, nil
 	default:
-		panic("Unknown object")
+		panic(unknownObj)
 	}
 }
 
@@ -157,7 +159,7 @@ func (u *updater) patchStatusUnstructured(obj runtime.Object, patchType types.Pa
 		_, err = u.cli.KubeVirt(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
 		return err
 	default:
-		panic("Unknown object")
+		panic(unknownObj)
 	}
 }
 
@@ -196,7 +198,7 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 		}
 		return oldObj.Status, newObj.Status, nil
 	default:
-		panic("Unknown object")
+		panic(unknownObj)
 	}
 }
 
@@ -223,7 +225,7 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 		_, err = u.cli.KubeVirt(a.GetNamespace()).UpdateStatus(oldObj)
 		return err
 	default:
-		panic("Unknown object")
+		panic(unknownObj)
 	}
 }
 

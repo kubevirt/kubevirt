@@ -27,6 +27,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
+const failedCreateGenericHostDevices = "failed to create generic host-devices: %v"
+
 const (
 	AliasPrefix       = "hostdevice-"
 	DefaultDisplayOff = false
@@ -43,17 +45,17 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 	hostDevicesMetaData := createHostDevicesMetadata(vmiHostDevices)
 	pciHostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pciPool)
 	if err != nil {
-		return nil, fmt.Errorf("failed to creade generic host-devices: %v", err)
+		return nil, fmt.Errorf(failedCreateGenericHostDevices, err)
 	}
 	mdevHostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, mdevPool, DefaultDisplayOff)
 	if err != nil {
-		return nil, fmt.Errorf("failed to creade generic host-devices: %v", err)
+		return nil, fmt.Errorf(failedCreateGenericHostDevices, err)
 	}
 
 	hostDevices := append(pciHostDevices, mdevHostDevices...)
 
 	if err := validateCreationOfAllDevices(vmiHostDevices, hostDevices); err != nil {
-		return nil, fmt.Errorf("failed to creade generic host-devices: %v", err)
+		return nil, fmt.Errorf(failedCreateGenericHostDevices, err)
 	}
 
 	return hostDevices, nil

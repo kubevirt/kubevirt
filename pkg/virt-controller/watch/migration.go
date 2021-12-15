@@ -59,6 +59,7 @@ const (
 	failedToProcessDeleteNotificationErrMsg   = "Failed to process delete notification"
 	successfulUpdatePodDisruptionBudgetReason = "SuccessfulUpdate"
 	failedUpdatePodDisruptionBudgetReason     = "FailedUpdate"
+	failedGetAttractionPods                   = "failed to get attachment pods: %v"
 )
 
 // This is the timeout used when a target pod is stuck in
@@ -360,7 +361,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		pod = pods[0]
 
 		if attachmentPods, err := controller.AttachmentPods(pod, c.podInformer); err != nil {
-			return fmt.Errorf("failed to get attachment pods: %v", err)
+			return fmt.Errorf(failedGetAttractionPods, err)
 		} else {
 			attachmentPodExists = len(attachmentPods) > 0
 			if attachmentPodExists {
@@ -648,7 +649,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 	if controller.VMIHasHotplugVolumes(vmiCopy) {
 		attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
 		if err != nil {
-			return fmt.Errorf("failed to get attachment pods: %v", err)
+			return fmt.Errorf(failedGetAttractionPods, err)
 		}
 		if len(attachmentPods) > 0 {
 			log.Log.Object(migration).Infof("Target attachment pod for vmi %s/%s: %s", vmiCopy.Namespace, vmiCopy.Name, string(attachmentPods[0].UID))
@@ -990,7 +991,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			if controller.VMIHasHotplugVolumes(vmi) {
 				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
 				if err != nil {
-					return fmt.Errorf("failed to get attachment pods: %v", err)
+					return fmt.Errorf(failedGetAttractionPods, err)
 				}
 				if len(attachmentPods) == 0 {
 					log.Log.Object(migration).Infof("Creating attachment pod for vmi %s/%s on node %s", vmi.Namespace, vmi.Name, pod.Spec.NodeName)

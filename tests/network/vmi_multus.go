@@ -60,6 +60,12 @@ import (
 )
 
 const (
+	shouldCreateNetwork = "should successfully create the network"
+	ipLinkSetDev 	    = "ip link set dev "
+	echoCmd 	    = "echo $?\n"
+)
+
+const (
 	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	linuxBridgeConfNAD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\", \"vlan\": %d, \"ipam\": {%s}, \"macspoofchk\": %t, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
 	ptpConfNAD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
@@ -867,7 +873,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		Context("Connected to single SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).
-					To(Succeed(), "should successfully create the network")
+					To(Succeed(), shouldCreateNetwork)
 			})
 
 			It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
@@ -1098,8 +1104,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		Context("Connected to two SRIOV networks", func() {
 			BeforeEach(func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), "should successfully create the network")
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), "should successfully create the network")
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
 			})
 
 			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
@@ -1127,7 +1133,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		Context("Connected to link-enabled SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
-					To(Succeed(), "should successfully create the network")
+					To(Succeed(), shouldCreateNetwork)
 			})
 
 			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
@@ -1432,9 +1438,9 @@ func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName str
 	const maxCommandTimeout = 5 * time.Second
 
 	commands := []string{
-		"ip link set dev " + interfaceName + " down",
-		"ip link set dev " + interfaceName + " address " + newMACAddress,
-		"ip link set dev " + interfaceName + " up",
+		ipLinkSetDev + interfaceName + " down",
+		ipLinkSetDev + interfaceName + " address " + newMACAddress,
+		ipLinkSetDev + interfaceName + " up",
 	}
 
 	for _, cmd := range commands {
@@ -1497,7 +1503,7 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: echoCmd},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 
@@ -1525,7 +1531,7 @@ func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: command},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: echoCmd},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }
@@ -1649,7 +1655,7 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: echoCmd},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }

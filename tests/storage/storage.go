@@ -58,6 +58,18 @@ import (
 )
 
 const (
+	failedCreateVMI 		    = "Failed to create vmi"
+	failedDeleteVMI 		    = "Failed to delete VMI"
+	storageCheckingVMInstanceConsoleOut = "Checking that the VirtualMachineInstance console has expected output"
+	storageEchoCmd 			    = "echo $?\n"
+	storageCloudInitName 		    = "cloud-init"
+	storageUsrBinBash 		    = "/usr/bin/bash"
+	startingVMInstance 		    = "Starting VirtualMachineInstance"
+	storageHostDiskName		    = "host-disk"
+	storageDiskImgName		    = "disk.img"
+)
+
+const (
 	diskSerial = "FB-fb_18030C10002032"
 )
 
@@ -118,7 +130,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.AddPVCDisk(vmi, "pvc-disk", "virtio", pvc.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), "Failed to create vmi")
+				Expect(err).To(BeNil(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
@@ -165,7 +177,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Cleaning up")
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), "Failed to delete VMI")
+				Expect(err).To(BeNil(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 
@@ -199,7 +211,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), "Failed to create vmi")
+				Expect(err).To(BeNil(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
@@ -218,7 +230,7 @@ var _ = SIGDescribe("Storage", func() {
 						return false
 					}, 100*time.Second, time.Second).Should(BeTrue())
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), "Failed to delete VMI")
+				Expect(err).To(BeNil(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 		})
@@ -256,7 +268,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 180, ignoreWarnings)
 
-					By("Checking that the VirtualMachineInstance console has expected output")
+					By(storageCheckingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
 					table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil, true),
@@ -278,7 +290,7 @@ var _ = SIGDescribe("Storage", func() {
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
-						By("Checking that the VirtualMachineInstance console has expected output")
+						By(storageCheckingVMInstanceConsoleOut)
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
@@ -328,7 +340,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: storageEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 20)).To(Succeed())
 			})
@@ -401,14 +413,14 @@ var _ = SIGDescribe("Storage", func() {
                                    mount -t virtiofs %s %s
                                    touch %s
                            `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
-				tests.AddUserData(vmi, "cloud-init", mountVirtiofsCommands)
+				tests.AddUserData(vmi, storageCloudInitName, mountVirtiofsCommands)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 				// Wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By(storageCheckingVMInstanceConsoleOut)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
@@ -417,7 +429,7 @@ var _ = SIGDescribe("Storage", func() {
 					virtClient,
 					pod,
 					"compute",
-					[]string{"/usr/bin/bash", "-c", virtioFsFileTestCmd},
+					[]string{storageUsrBinBash, "-c", virtioFsFileTestCmd},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -459,7 +471,7 @@ var _ = SIGDescribe("Storage", func() {
                                        mount -t virtiofs %s %s
                                        touch %s
                                `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
-				tests.AddUserData(vmi, "cloud-init", mountVirtiofsCommands)
+				tests.AddUserData(vmi, storageCloudInitName, mountVirtiofsCommands)
 
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
@@ -468,7 +480,7 @@ var _ = SIGDescribe("Storage", func() {
 				// Wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By(storageCheckingVMInstanceConsoleOut)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				By("Checking that virtio-fs is mounted")
@@ -484,7 +496,7 @@ var _ = SIGDescribe("Storage", func() {
 					virtClient,
 					pod,
 					"compute",
-					[]string{"/usr/bin/bash", "-c", virtioFsFileTestCmd},
+					[]string{storageUsrBinBash, "-c", virtioFsFileTestCmd},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -544,7 +556,7 @@ var _ = SIGDescribe("Storage", func() {
 					vmi = newVMI(pvName)
 					vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
-					By("Checking that the VirtualMachineInstance console has expected output")
+					By(storageCheckingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
 					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
@@ -572,7 +584,7 @@ var _ = SIGDescribe("Storage", func() {
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: storageEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -600,11 +612,11 @@ var _ = SIGDescribe("Storage", func() {
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: storageEchoCmd},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: storageEchoCmd},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 200)).To(Succeed())
 			})
@@ -711,7 +723,7 @@ var _ = SIGDescribe("Storage", func() {
 					})
 
 					table.DescribeTable("Should create a disk image and start", func(driver string) {
-						By("Starting VirtualMachineInstance")
+						By(startingVMInstance)
 						// do not choose a specific node to run the test
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
@@ -725,17 +737,17 @@ var _ = SIGDescribe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-name", diskName, "-size", "1G", "-o", "-size", "+1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir(storageHostDiskName), "-name", diskName, "-size", "1G", "-o", "-size", "+1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
+						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath(storageHostDiskName, diskPath)))
 					},
 						table.Entry("[test_id:851]with virtio driver", "virtio"),
 						table.Entry("[test_id:3057]with sata driver", "sata"),
 					)
 
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
-						By("Starting VirtualMachineInstance")
+						By(startingVMInstance)
 						// do not choose a specific node to run the test
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
 						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), virtv1.HostDiskExistsOrCreate, "anotherdisk")
@@ -758,10 +770,10 @@ var _ = SIGDescribe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-size", "1G", "-o", "-size", "+1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir(storageHostDiskName), "-size", "1G", "-o", "-size", "+1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
+						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath(storageHostDiskName, diskPath)))
 					})
 
 				})
@@ -788,7 +800,7 @@ var _ = SIGDescribe("Storage", func() {
 					})
 
 					It("[test_id:2306]Should use existing disk image and start", func() {
-						By("Starting VirtualMachineInstance")
+						By(startingVMInstance)
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExists, nodeName)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -798,14 +810,14 @@ var _ = SIGDescribe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-name", diskName},
+							[]string{"find", hostdisk.GetMountedHostDiskDir(storageHostDiskName), "-name", diskName},
 						)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(diskName))
 					})
 
 					It("[test_id:847]Should fail with a capacity option", func() {
-						By("Starting VirtualMachineInstance")
+						By(startingVMInstance)
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExists, nodeName)
 						for i, volume := range vmi.Spec.Volumes {
 							if volume.HostDisk != nil {
@@ -820,7 +832,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				Context("With unknown hostDisk type", func() {
 					It("[test_id:852]Should fail to start VMI", func() {
-						By("Starting VirtualMachineInstance")
+						By(startingVMInstance)
 						vmi = tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
 						_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 						Expect(err).To(HaveOccurred())
@@ -864,7 +876,7 @@ var _ = SIGDescribe("Storage", func() {
 				// Not a candidate for NFS testing because multiple VMIs are started
 				It("[test_id:868] Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
-						By("starting VirtualMachineInstance")
+						By(startingVMInstance)
 						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))
 						vmi.Spec.NodeSelector = nodeSelector
 						tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -875,12 +887,12 @@ var _ = SIGDescribe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", "disk.img", "-size", "1G", "-o", "-size", "+1G"},
+							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", storageDiskImgName, "-size", "1G", "-o", "-size", "+1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Checking if a disk image for PVC has been created")
-						Expect(strings.Contains(output, "disk.img")).To(BeTrue())
+						Expect(strings.Contains(output, storageDiskImgName)).To(BeTrue())
 					}
 				})
 			})
@@ -896,15 +908,15 @@ var _ = SIGDescribe("Storage", func() {
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
 					tmpDir := tests.RandTmpDir()
 					mountDir = filepath.Join(tmpDir, "mount")
-					diskPath = filepath.Join(mountDir, "disk.img")
+					diskPath = filepath.Join(mountDir, storageDiskImgName)
 					srcDir := filepath.Join(tmpDir, "src")
 					cmd := "mkdir -p " + mountDir + " && mkdir -p " + srcDir + " && chcon -t container_file_t " + srcDir + " && mount --bind " + srcDir + " " + mountDir + " && while true; do sleep 1; done"
-					pod = tests.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{cmd})
+					pod = tests.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{storageUsrBinBash, "-c"}, []string{cmd})
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
 						PreStop: &k8sv1.Handler{
 							Exec: &k8sv1.ExecAction{
 								Command: []string{
-									"/usr/bin/bash", "-c",
+									storageUsrBinBash, "-c",
 									fmt.Sprintf("rm -f %s && umount %s", diskPath, mountDir),
 								},
 							},
@@ -928,7 +940,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Determining the size of the mounted directory")
-					diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{"/usr/bin/bash", "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+					diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{storageUsrBinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
 					Expect(err).ToNot(HaveOccurred())
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte
@@ -956,7 +968,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					configureToleration(10)
 
-					By("starting VirtualMachineInstance")
+					By(startingVMInstance)
 					vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMI(vmi, 30)
@@ -974,7 +986,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					configureToleration(30)
 
-					By("starting VirtualMachineInstance")
+					By(startingVMInstance)
 					vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1001,11 +1013,11 @@ var _ = SIGDescribe("Storage", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				tests.AddUserData(vmi, storageCloudInitName, "#!/bin/bash\necho 'hello'\n")
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By(storageCheckingVMInstanceConsoleOut)
 				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 			})
 		})
@@ -1019,7 +1031,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Launching a VMI with PVC ")
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By(storageCheckingVMInstanceConsoleOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
@@ -1207,13 +1219,13 @@ var _ = SIGDescribe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				addPVCLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), "Failed to create vmi")
+				Expect(err).To(BeNil(), failedCreateVMI)
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil(), "Failed to delete VMI")
+				Expect(err).To(BeNil(), failedDeleteVMI)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 

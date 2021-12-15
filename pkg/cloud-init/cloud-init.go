@@ -39,6 +39,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
+const isoStagingFmt = "%s.staging"
+
 type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
 
 var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
@@ -482,7 +484,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 	default:
 		return fmt.Errorf("invalid cloud-init data source: '%v'", data.DataSource)
 	}
-	isoStaging = fmt.Sprintf("%s.staging", iso)
+	isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 
 	err = diskutils.RemoveFilesIfExist(isoStaging)
 	if err != nil {
@@ -540,7 +542,7 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
 		iso = GetIsoFilePath(DataSourceNoCloud, vmiName, namespace)
-		isoStaging = fmt.Sprintf("%s.staging", iso)
+		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.NoCloudMetaData == nil {
 			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
 			data.NoCloudMetaData = &NoCloudMetadata{
@@ -557,7 +559,7 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmiName, namespace)
-		isoStaging = fmt.Sprintf("%s.staging", iso)
+		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.ConfigDriveMetaData == nil {
 			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
 			data.ConfigDriveMetaData = &ConfigDriveMetadata{
