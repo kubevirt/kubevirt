@@ -235,6 +235,58 @@ var _ = Describe("netstat", func() {
 		}), "the pod IP/s should be reported in the status")
 	})
 
+	// The reporting of the SR-IOV interface is based on a false source.
+	// See https://github.com/kubevirt/kubevirt/issues/7050 for more information.
+	It("should report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
+		const (
+			networkName = "sriov-network"
+			ifaceMAC    = "C0:01:BE:E7:15:G0:0D"
+		)
+
+		sriovIface := newVMISpecIfaceWithSRIOVBinding(networkName)
+		// The MAC is specified intentionally to illustrate that it is not reported if the GA is not present.
+		sriovIface.MacAddress = ifaceMAC
+		setup.addSRIOVNetworkInterface(
+			sriovIface,
+			newVMISpecMultusNetwork(networkName),
+		)
+
+		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(networkName, nil, "", "", ""),
+		}), "the SR-IOV interface should be reported in the status, associated to the network")
+	})
+
+	// The reporting of the SR-IOV interface when no guest-agent exists is missing.
+	// See https://github.com/kubevirt/kubevirt/issues/7050 for more information.
+	It("should not report SR-IOV interface when guest-agent is inactive and a regular interface exists", func() {
+		const (
+			networkName        = "sriov-network"
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+		)
+
+		setup.addNetworkInterface(
+			newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+			newVMISpecPodNetwork(primaryNetworkName),
+			newDomainSpecIface(primaryNetworkName, ""),
+			primaryPodIPv4,
+		)
+
+		sriovIface := newVMISpecIfaceWithSRIOVBinding(networkName)
+		setup.addSRIOVNetworkInterface(
+			sriovIface,
+			newVMISpecMultusNetwork(networkName),
+		)
+
+		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(primaryNetworkName, nil, "", "", netvmispec.InfoSourceDomain),
+		}), "the SR-IOV interface should not be reported in the status.")
+	})
+
 	It("should report SR-IOV interface with MAC and network name, based on VMI spec and guest-agent data", func() {
 		const (
 			networkName    = "sriov-network"
