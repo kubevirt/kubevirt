@@ -83,8 +83,9 @@ fi
 additional_test_args="${additional_test_args} --skipPackage test/performance"
 
 start_timestamp=$(date -u +%Y-%m-%dT%TZ)
-perftest ${additional_test_args} ${FUNC_TEST_ARGS}
 sleep 30
+perftest ${additional_test_args} ${FUNC_TEST_ARGS}
+sleep 60
 stop_timestamp=$(date -u +%Y-%m-%dT%TZ)
 cat <<EOF >${ARTIFACTS}/perfscale-audit-cfg.json
 {
