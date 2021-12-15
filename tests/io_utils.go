@@ -40,8 +40,8 @@ import (
 
 const (
 	ioUtilsUsrBinVirtChroot = "/usr/bin/virt-chroot"
-	ioUtilsMount 		= "--mount"
-	ioUtilsProc1NsMnt 	= "/proc/1/ns/mnt"
+	ioUtilsMount            = "--mount"
+	ioUtilsProc1NsMnt       = "/proc/1/ns/mnt"
 )
 
 func NodeNameWithHandler() string {

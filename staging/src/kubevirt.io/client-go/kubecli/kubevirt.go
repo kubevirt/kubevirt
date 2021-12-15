@@ -30,6 +30,8 @@ import (
 	"net"
 	"time"
 
+	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
+
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -47,6 +49,7 @@ import (
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
+	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
@@ -56,6 +59,7 @@ type KubevirtClient interface {
 	VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface
 	VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
+	VirtualMachinePool(namespace string) poolv1.VirtualMachinePoolInterface
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
@@ -64,6 +68,7 @@ type KubevirtClient interface {
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
 	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
+	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ServerVersion() *ServerVersion
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
@@ -77,6 +82,7 @@ type KubevirtClient interface {
 	PrometheusClient() promclient.Interface
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	DynamicClient() dynamic.Interface
+	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -95,6 +101,7 @@ type kubevirt struct {
 	prometheusClient        *promclient.Clientset
 	snapshotClient          *k8ssnapshotclient.Clientset
 	dynamicClient           dynamic.Interface
+	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
 	*kubernetes.Clientset
 }
 
@@ -134,6 +141,10 @@ func (k kubevirt) GeneratedKubeVirtClient() generatedclient.Interface {
 	return k.generatedKubeVirtClient
 }
 
+func (k kubevirt) VirtualMachinePool(namespace string) poolv1.VirtualMachinePoolInterface {
+	return k.generatedKubeVirtClient.PoolV1alpha1().VirtualMachinePools(namespace)
+}
+
 func (k kubevirt) VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshots(namespace)
 }
@@ -160,6 +171,14 @@ func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
 
 func (k kubevirt) DynamicClient() dynamic.Interface {
 	return k.dynamicClient
+}
+
+func (k kubevirt) MigrationPolicy() migrationsv1.MigrationPolicyInterface {
+	return k.generatedKubeVirtClient.MigrationsV1alpha1().MigrationPolicies()
+}
+
+func (k kubevirt) MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client {
+	return k.migrationsClient
 }
 
 type StreamOptions struct {

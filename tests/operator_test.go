@@ -54,6 +54,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/util/retry"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
 
@@ -1125,7 +1126,10 @@ spec:
 						},
 					}
 
-					vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+						return err
+					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
 				},
@@ -1156,7 +1160,10 @@ spec:
 
 					vmcrd.Spec.Names.ShortNames = append(vmcrd.Spec.Names.ShortNames, shortNameAdded)
 
-					vmcrd, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Update(context.Background(), vmcrd, metav1.UpdateOptions{})
+					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						vmcrd, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Update(context.Background(), vmcrd, metav1.UpdateOptions{})
+						return err
+					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmcrd.Spec.Names.ShortNames).To(ContainElement(shortNameAdded))
 				},
@@ -1188,7 +1195,10 @@ spec:
 						"kubevirt.io": "dne",
 					}
 
-					pdb, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
+					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						pdb, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
+						return err
+					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pdb.Spec.Selector.MatchLabels["kubevirt.io"]).To(Equal("dne"))
 				},
@@ -1217,15 +1227,25 @@ spec:
 						},
 					}
 
-					vc, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						vc, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+						return err
+					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
 				},
 
 				func() runtime.Object {
-					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vc
+					var ds *v12.DaemonSet
+
+					// wait for virt-handler readiness
+					Eventually(func() bool {
+						var err error
+						ds, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady && ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue() == 1
+					}, 60*time.Second, 1*time.Second).Should(BeTrue(), "waiting for daemonSet to be ready")
+					return ds
 				},
 
 				func() bool {

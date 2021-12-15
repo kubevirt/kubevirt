@@ -29,13 +29,13 @@ import (
 )
 
 const (
-	snapshotGrepCmd		 = "%s | grep \"%s\"\n"
-	snapshotQemuGa		 = ".*qemu-ga.*%s.*"
-	snapshotEchoCmd		 = "echo $?\n"
-	vmSnapshotContent 	 = "vmsnapshot-content"
+	snapshotGrepCmd          = "%s | grep \"%s\"\n"
+	snapshotQemuGa           = ".*qemu-ga.*%s.*"
+	snapshotEchoCmd          = "echo $?\n"
+	vmSnapshotContent        = "vmsnapshot-content"
 	snapshotDeadlineExceeded = "snapshot deadline exceeded"
-	notReady		 = "Not ready"
-	operationComplete	 = "Operation complete"
+	notReady                 = "Not ready"
+	operationComplete        = "Operation complete"
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {

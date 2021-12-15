@@ -3,6 +3,8 @@ package kubecli
 import (
 	"errors"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -70,4 +72,16 @@ func NewVirtualMachineInstancePresetList(rss ...v1.VirtualMachineInstancePreset)
 
 func NewMinimalVirtualMachineInstancePreset(name string) *v1.VirtualMachineInstancePreset {
 	return &v1.VirtualMachineInstancePreset{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstancePreset"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
+func NewMinimalMigrationPolicy(name string) *v1alpha1.MigrationPolicy {
+	return &v1alpha1.MigrationPolicy{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyKind.Kind},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: name,
+		},
+	}
+}
+
+func NewMinimalMigrationPolicyList(policies ...v1alpha1.MigrationPolicy) *v1alpha1.MigrationPolicyList {
+	return &v1alpha1.MigrationPolicyList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyListKind.Kind}, Items: policies}
 }

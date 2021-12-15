@@ -22,6 +22,10 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -30,6 +34,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
@@ -46,8 +51,10 @@ var (
 	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
 	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
+	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	PreserveUnknownFieldsFalse       = false
 )
 
@@ -358,6 +365,37 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 	return crd, nil
 }
 
+func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = VIRTUALMACHINEPOOL
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: poolv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    poolv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinepools",
+			Singular:   "virtualmachinepool",
+			Kind:       "VirtualMachinePool",
+			ShortNames: []string{"vmpool", "vmpools"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
 func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
@@ -529,6 +567,43 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = MIGRATIONPOLICY
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: migrationsv1.MigrationPolicyKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    migrationsv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.ClusterScoped,
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   migrations.ResourceMigrationPolicies,
+			Singular: "migrationpolicy",
+			Kind:     migrationsv1.MigrationPolicyKind.Kind,
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil

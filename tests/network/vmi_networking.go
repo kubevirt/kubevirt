@@ -60,8 +60,8 @@ import (
 const (
 	vmiNetworkingEchoCmd = "echo $?\n"
 	checkingEth0MACAddr  = "checking eth0 MAC address"
-	nechoHello 	     = "#!/bin/bash\necho 'hello'\n"
-	catResolvConf 	     = "cat /etc/resolv.conf\n"
+	nechoHello           = "#!/bin/bash\necho 'hello'\n"
+	catResolvConf        = "cat /etc/resolv.conf\n"
 )
 
 var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {

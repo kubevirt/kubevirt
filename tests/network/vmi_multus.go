@@ -61,8 +61,8 @@ import (
 
 const (
 	shouldCreateNetwork = "should successfully create the network"
-	ipLinkSetDev 	    = "ip link set dev "
-	echoCmd 	    = "echo $?\n"
+	ipLinkSetDev        = "ip link set dev "
+	echoCmd             = "echo $?\n"
 )
 
 const (

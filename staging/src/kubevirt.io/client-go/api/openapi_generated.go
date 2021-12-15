@@ -489,6 +489,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorList":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref),
+		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
+		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
+		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
+		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyStatus":                                  schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyStatus(ref),
+		"kubevirt.io/api/migrations/v1alpha1.Selectors":                                              schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePool":                                           schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition":                                  schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolList":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolSpec":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolStatus":                                     schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolStatus(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec":                                   schema_kubevirtio_api_pool_v1alpha1_VirtualMachineTemplateSpec(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.Condition":                                                schema_kubevirtio_api_snapshot_v1alpha1_Condition(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.Error":                                                    schema_kubevirtio_api_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.PersistentVolumeClaim":                                    schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref),
@@ -14042,6 +14053,25 @@ func schema_kubevirtio_api_core_v1_AddVolumeOptions(ref common.ReferenceCallback
 							Ref:         ref("kubevirt.io/api/core/v1.HotplugVolumeSource"),
 						},
 					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"name", "disk", "volumeSource"},
 			},
@@ -14361,7 +14391,7 @@ func schema_kubevirtio_api_core_v1_ClientPassthroughDevices(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
+				Description: "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
 				Type:        []string{"object"},
 			},
 		},
@@ -18267,7 +18297,7 @@ func schema_kubevirtio_api_core_v1_Port(ref common.ReferenceCallback) common.Ope
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
+				Description: "Port represents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -18566,6 +18596,25 @@ func schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref common.ReferenceCallb
 							Description: "Name represents the name that maps to both the disk and volume that should be removed",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -20201,11 +20250,24 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"migrationPolicyName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the migration policy. If string is empty, no policy is matched",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"migrationConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migration configurations to apply",
+							Ref:         ref("kubevirt.io/api/core/v1.MigrationConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration"},
 	}
 }
 
@@ -21958,6 +22020,437 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref commo
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.CPU"},
+	}
+}
+
+func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/migrations/v1alpha1.MigrationPolicyStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec", "kubevirt.io/api/migrations/v1alpha1.MigrationPolicyStatus"},
+	}
+}
+
+func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MigrationPolicyList is a list of MigrationPolicy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/migrations/v1alpha1.MigrationPolicy"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/migrations/v1alpha1.MigrationPolicy"},
+	}
+}
+
+func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selectors": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/migrations/v1alpha1.Selectors"),
+						},
+					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"disableTLS": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"selectors"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/migrations/v1alpha1.Selectors"},
+	}
+}
+
+func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namespaceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"virtualMachineInstanceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePool resource contains a VirtualMachine configuration that can be used to replicate multiple VirtualMachine resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolSpec", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolStatus"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolList is a list of VirtualMachinePool resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePool"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePool"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"virtualMachineTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template describes the VM that will be created.",
+							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"),
+						},
+					},
+					"paused": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates that the pool is paused.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"selector", "virtualMachineTemplate"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition"),
+									},
+								},
+							},
+						},
+					},
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachineTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineSpec contains the VirtualMachine specification.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/core/v1.VirtualMachineSpec"},
 	}
 }
 

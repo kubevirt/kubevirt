@@ -38,13 +38,13 @@ import (
 )
 
 const (
-	strFormat 		   = "%s/%s:%s"
-	kubevirtIoVM 		   = "kubevirt.io/vm"
-	vmName 			   = "vm-${NAME}"
-	kubevirtIoOS 		   = "kubevirt.io/os"
-	kubevirtVM 		   = "kubevirt-vm"
+	strFormat                  = "%s/%s:%s"
+	kubevirtIoVM               = "kubevirt.io/vm"
+	vmName                     = "vm-${NAME}"
+	kubevirtIoOS               = "kubevirt.io/os"
+	kubevirtVM                 = "kubevirt-vm"
 	githubKubevirtIsVMTemplate = "miq.github.io/kubevirt-is-vm-template"
-	rhel74 			   = "rhel-7.4"
+	rhel74                     = "rhel-7.4"
 )
 
 const (
@@ -747,7 +747,7 @@ func createFedoraTemplateFromVM(vm *v1.VirtualMachine) *Template {
 			"iconClass":   "icon-fedora",
 		},
 		Labels: map[string]string{
-			kubevirtIoOS:                        "fedora27",
+			kubevirtIoOS:               "fedora27",
 			githubKubevirtIsVMTemplate: "true",
 		},
 	}
@@ -805,7 +805,7 @@ func newTemplateForRHEL7VM(vm *v1.VirtualMachine) *Template {
 			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
 		},
 		Labels: map[string]string{
-			kubevirtIoOS:                        rhel74,
+			kubevirtIoOS:               rhel74,
 			githubKubevirtIsVMTemplate: "true",
 		},
 	}
@@ -830,7 +830,7 @@ func GetTemplateWindows() *Template {
 			"tags":        "kubevirt,ocp,template,windows,virtualmachine",
 		},
 		Labels: map[string]string{
-			kubevirtIoOS:                        "win2k12r2",
+			kubevirtIoOS:               "win2k12r2",
 			githubKubevirtIsVMTemplate: "true",
 		},
 	}

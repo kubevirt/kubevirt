@@ -47,6 +47,8 @@ import (
 	"sync"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -95,6 +97,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 
 	v1 "kubevirt.io/api/core/v1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -121,17 +124,17 @@ import (
 )
 
 const (
-	utilsKubevirtIoTest 		  = "kubevirt.io/test"
-	utilsKubernetesIoHostName 	  = "kubernetes.io/hostname"
-	utilsBinBash			  = "/bin/bash"
-	utilsStartingVMInstance 	  = "Starting a VirtualMachineInstance"
-	utilsWaitingVMInstanceStart 	  = "Waiting until the VirtualMachineInstance will start"
-	utilsTestDataVolumeName 	  = "test-datavolume-"
-	utilsKubevirtIoV1Alpha1 	  = "cdi.kubevirt.io/v1alpha1"
-	utilsServerName 		  = "--server"
+	utilsKubevirtIoTest               = "kubevirt.io/test"
+	utilsKubernetesIoHostName         = "kubernetes.io/hostname"
+	utilsBinBash                      = "/bin/bash"
+	utilsStartingVMInstance           = "Starting a VirtualMachineInstance"
+	utilsWaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
+	utilsTestDataVolumeName           = "test-datavolume-"
+	utilsKubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
+	utilsServerName                   = "--server"
 	utilsCouldNotFindComputeContainer = "could not find compute container for pod"
-	utilsCommandPipeFailed 		  = "command pipe failed"
-	utilsCommandPipeFailedErr 	  = "command pipe failed: %v"
+	utilsCommandPipeFailed            = "command pipe failed"
+	utilsCommandPipeFailedErr         = "command pipe failed: %v"
 )
 
 var Config *KubeVirtTestsConfiguration
@@ -1782,6 +1785,9 @@ func cleanNamespaces() {
 		//Remove all HPA
 		util2.PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error())
 
+		// Remove all VirtualMachinePools
+		util2.PanicOnError(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+
 		// Remove all VirtualMachines
 		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error())
 
@@ -1879,6 +1885,14 @@ func cleanNamespaces() {
 
 		// Remove all Istio PeerAuthentications
 		util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
+
+		// Remove migration policies
+		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
+		util2.PanicOnError(err)
+		for _, policy := range migrationPolicyList.Items {
+			util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
+		}
+
 	}
 }
 
@@ -3124,6 +3138,34 @@ func NewInt32(x int32) *int32 {
 	return &x
 }
 
+func NewRandomPoolFromVMI(vmi *v1.VirtualMachineInstance, replicas int32, running bool) *poolv1.VirtualMachinePool {
+	selector := "pool" + rand.String(5)
+	pool := &poolv1.VirtualMachinePool{
+		ObjectMeta: metav1.ObjectMeta{Name: "pool" + rand.String(5)},
+		Spec: poolv1.VirtualMachinePoolSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"select": selector},
+			},
+			VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"select": selector},
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"select": selector},
+						},
+						Spec: vmi.Spec,
+					},
+				},
+			},
+		},
+	}
+	return pool
+}
+
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -3803,6 +3845,15 @@ func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMac
 	return
 }
 
+func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vm)
+		}
+	}
+	return
+}
+
 func Running(vmis *v1.VirtualMachineInstanceList) (running []v1.VirtualMachineInstance) {
 	for _, vmi := range vmis.Items {
 		if vmi.DeletionTimestamp == nil && vmi.Status.Phase == v1.Running {
@@ -3872,7 +3923,7 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				utilsKubevirtIoTest:                       os,
+				utilsKubevirtIoTest:                      os,
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
@@ -3913,7 +3964,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					utilsKubevirtIoTest:                       os,
+					utilsKubevirtIoTest:                      os,
 					cleanup.TestLabelForNamespace(namespace): "",
 				},
 			},
@@ -5272,4 +5323,48 @@ func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource
 
 	return createdPvc
 
+}
+
+func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+	Expect(vmi).ToNot(BeNil())
+	Expect(namespace).ToNot(BeNil())
+	Expect(name).ToNot(BeEmpty())
+
+	policy := kubecli.NewMinimalMigrationPolicy(name)
+
+	if vmi.Labels == nil {
+		vmi.Labels = make(map[string]string)
+	}
+	if namespace.Labels == nil {
+		namespace.Labels = make(map[string]string)
+	}
+
+	if policy.Spec.Selectors == nil {
+		policy.Spec.Selectors = &migrationsv1.Selectors{
+			VirtualMachineInstanceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{}},
+			NamespaceSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{}},
+		}
+	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
+		policy.Spec.Selectors.VirtualMachineInstanceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	} else if policy.Spec.Selectors.NamespaceSelector == nil {
+		policy.Spec.Selectors.NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+	}
+
+	labelKeyPattern := "mp-key-%d"
+	labelValuePattern := "mp-value-%d"
+
+	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
+		for i := 0; i < labelCount; i++ {
+			labelKey := fmt.Sprintf(labelKeyPattern, i)
+			labelValue := fmt.Sprintf(labelValuePattern, i)
+
+			vmiOrNSLabels[labelKey] = labelValue
+			policyLabels[labelKey] = labelValue
+		}
+	}
+
+	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmi.Labels, matchingVmiLabels)
+	applyLabels(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespace.Labels, matchingNSLabels)
+
+	return policy
 }

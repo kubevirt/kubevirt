@@ -36,21 +36,21 @@ import (
 )
 
 const (
-	failedCreateDirectory 	  = "failed to create directory: %v\n"
-	failedOpenFile 	 	  = "failed to open the file: %v\n"
+	failedCreateDirectory     = "failed to create directory: %v\n"
+	failedOpenFile            = "failed to open the file: %v\n"
 	failedGetVirtHandlerPod   = "failed to get virt-handler pod on node %s: %v\n"
-	virtHandlerName 	  = "virt-handler"
-	virtLauncherName	  = "%s=virt-launcher"
+	virtHandlerName           = "virt-handler"
+	virtLauncherName          = "%s=virt-launcher"
 	failedCreateLogsDirectory = "failed to create directory %s: %v\n"
-	logFileName 		  = "%d_%s_%s.log"
-	ipAddrName 		  = "ip address"
-	ipLinkName 		  = "ip link"
-	ipRouteShowTableAll 	  = "ip route show table all"
-	ipNeighShow 		  = "ip neigh show"
-	bridgeJVlanShow 	  = "bridge -j vlan show"
-	bridgeFdb 		  = "bridge fdb"
-	failedExecuteCmd 	  = "failed to execute command %s on %s, stdout: %s, stderr: %s, error: %v\n"
-	failedExecuteCmdOnNode 	  = "failed to execute command %s on node %s, stdout: %s, error: %v\n"
+	logFileName               = "%d_%s_%s.log"
+	ipAddrName                = "ip address"
+	ipLinkName                = "ip link"
+	ipRouteShowTableAll       = "ip route show table all"
+	ipNeighShow               = "ip neigh show"
+	bridgeJVlanShow           = "bridge -j vlan show"
+	bridgeFdb                 = "bridge fdb"
+	failedExecuteCmd          = "failed to execute command %s on %s, stdout: %s, stderr: %s, error: %v\n"
+	failedExecuteCmdOnNode    = "failed to execute command %s on node %s, stdout: %s, error: %v\n"
 )
 
 const (

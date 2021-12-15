@@ -33,16 +33,16 @@ import (
 )
 
 const (
-	restoreNechoHello 	  = "#!/bin/bash\necho 'hello'\n"
-	restoreEchoCmd 		  = "echo $?\n"
-	makeTestDirectoryCmd 	  = "sudo mkdir -p /test\n"
+	restoreNechoHello         = "#!/bin/bash\necho 'hello'\n"
+	restoreEchoCmd            = "echo $?\n"
+	makeTestDirectoryCmd      = "sudo mkdir -p /test\n"
 	mountTestDirectoryCmd     = "sudo mount %s /test \n"
 	makeTestDataDirectoryCmd  = "sudo mkdir -p /test/data\n"
 	chmodTestDataDirectoryCmd = "sudo chmod a+w /test/data\n"
-	catTestDataMessageCmd 	  = "cat /test/data/message\n"
-	restoreSyncName 	  = "sync\n"
-	stoppingVM 		  = "Stopping VM"
-	creatingSnapshot 	  = "creating snapshot"
+	catTestDataMessageCmd     = "cat /test/data/message\n"
+	restoreSyncName           = "sync\n"
+	stoppingVM                = "Stopping VM"
+	creatingSnapshot          = "creating snapshot"
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {

@@ -128,6 +128,14 @@ func VirtualMachineInstanceKeys(vmis []*v1.VirtualMachineInstance) []string {
 	return keys
 }
 
+func VirtualMachineKeys(vms []*v1.VirtualMachine) []string {
+	keys := []string{}
+	for _, vm := range vms {
+		keys = append(keys, VirtualMachineKey(vm))
+	}
+	return keys
+}
+
 func HasFinalizer(object metav1.Object, finalizer string) bool {
 	for _, f := range object.GetFinalizers() {
 		if f == finalizer {

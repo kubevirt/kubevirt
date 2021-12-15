@@ -128,7 +128,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						For:   "5m",
 						Annotations: map[string]string{
 							"description": "Low number of nodes with KVM resource available.",
-							"summary":     "At least two nodes with kvm resource required for VM life migration.",
+							"summary":     "At least two nodes with kvm resource required for VM live migration.",
 							"runbook_url": runbookUrlBasePath + "LowKVMNodesCount",
 						},
 						Labels: map[string]string{

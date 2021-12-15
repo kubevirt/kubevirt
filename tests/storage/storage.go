@@ -58,15 +58,15 @@ import (
 )
 
 const (
-	failedCreateVMI 		    = "Failed to create vmi"
-	failedDeleteVMI 		    = "Failed to delete VMI"
+	failedCreateVMI                     = "Failed to create vmi"
+	failedDeleteVMI                     = "Failed to delete VMI"
 	storageCheckingVMInstanceConsoleOut = "Checking that the VirtualMachineInstance console has expected output"
-	storageEchoCmd 			    = "echo $?\n"
-	storageCloudInitName 		    = "cloud-init"
-	storageUsrBinBash 		    = "/usr/bin/bash"
-	startingVMInstance 		    = "Starting VirtualMachineInstance"
-	storageHostDiskName		    = "host-disk"
-	storageDiskImgName		    = "disk.img"
+	storageEchoCmd                      = "echo $?\n"
+	storageCloudInitName                = "cloud-init"
+	storageUsrBinBash                   = "/usr/bin/bash"
+	startingVMInstance                  = "Starting VirtualMachineInstance"
+	storageHostDiskName                 = "host-disk"
+	storageDiskImgName                  = "disk.img"
 )
 
 const (

@@ -417,6 +417,8 @@ const (
 	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses virtiofs
 	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses PCI host devices
+	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
 )
 
 const (
@@ -524,6 +526,12 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	ID string `json:"id,omitempty"`
 }
 
+// MigrationConfigSource indicates the source of migration configuration.
+//
+// +k8s:openapi-gen=true
+type MigrationConfigSource string
+
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
 	// +nullable
@@ -557,6 +565,10 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// Name of the migration policy. If string is empty, no policy is matched
+	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
+	// Migration configurations to apply
+	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -768,6 +780,12 @@ const (
 	// VirtualMachineUnpaused is a custom pod condition set for the virt-launcher pod.
 	// It's used as a readiness gate to prevent paused VMs from being marked as ready.
 	VirtualMachineUnpaused k8sv1.PodConditionType = "kubevirt.io/virtual-machine-unpaused"
+
+	// VirtualMahcineTemplateHash is used by the pool controller to determine when a VM needs to be updated
+	VirtualMachineTemplateHash string = "kubevirt.io/vm-template-hash"
+
+	// VirtualMahcineInstanceTemplateHash is used by the pool controller to determine when a VMI needs to be updated
+	VirtualMachineInstanceTemplateHash string = "kubevirt.io/vmi-template-hash"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -835,6 +853,18 @@ func NewVMIReferenceWithUUID(namespace string, name string, uuid types.UID) *Vir
 type VMISelector struct {
 	// Name of the VirtualMachineInstance to migrate
 	Name string `json:"name" valid:"required"`
+}
+
+func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine {
+	vm := &VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachines/%s", GroupVersion.String(), namespace, name),
+		},
+	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VirtualMachine", Version: GroupVersion.Version})
+	return vm
 }
 
 // Given a VirtualMachineInstance, update all NodeSelectorTerms with anti-affinity for that VirtualMachineInstance's node.
@@ -1903,6 +1933,14 @@ type AddVolumeOptions struct {
 	Disk *Disk `json:"disk"`
 	// VolumeSource represents the source of the volume to map to the disk.
 	VolumeSource *HotplugVolumeSource `json:"volumeSource"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty"`
 }
 
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
@@ -1910,6 +1948,14 @@ type RemoveVolumeOptions struct {
 	// Name represents the name that maps to both the disk and volume that
 	// should be removed
 	Name string `json:"name"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty"`
 }
 
 type TokenBucketRateLimiter struct {

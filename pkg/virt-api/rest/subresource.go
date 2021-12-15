@@ -1228,8 +1228,9 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
 	}
 
+	dryRunOption := app.getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).V(1).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1252,8 +1253,10 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
 	}
 
-	log.Log.Object(vm).V(4).Infof(patchingVM, patch)
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
+	dryRunOption := app.getDryRunOption(volumeRequest)
+	log.Log.Object(vm).V(4).Infof(patchingVMStatus, patch)
+	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+
 		log.Log.Object(vm).V(1).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1263,6 +1266,16 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
 	}
 	return nil
+}
+
+func (app *SubresourceAPIApp) getDryRunOption(volumeRequest *v1.VirtualMachineVolumeRequest) []string {
+	var dryRunOption []string
+	if options := volumeRequest.AddVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == k8smetav1.DryRunAll {
+		dryRunOption = volumeRequest.AddVolumeOptions.DryRun
+	} else if options := volumeRequest.RemoveVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == k8smetav1.DryRunAll {
+		dryRunOption = volumeRequest.RemoveVolumeOptions.DryRun
+	}
+	return dryRunOption
 }
 
 // VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
