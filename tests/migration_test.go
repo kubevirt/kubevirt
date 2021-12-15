@@ -714,7 +714,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			// Previously, we'd stop getting events after libvirt reconnect, which
 			// prevented things like migration. This test verifies we can migrate after
 			// resetting libvirt
-			It("[test_id:4746][QUARANTINE]should migrate even if libvirt has restarted at some point.", func() {
+			It("[test_id:4746]should migrate even if libvirt has restarted at some point.", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
@@ -1657,7 +1657,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[QUARANTINE][test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
+			It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
 				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
 			})
 
@@ -1785,7 +1785,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
 
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
+					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep -v \"defunct\" | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
 
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
@@ -2301,6 +2301,66 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
 			})
 		})
+
+		Context("with migration policies", func() {
+
+			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
+				By("Retrieving the VMI post migration")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VMI's configuration source")
+				if expectedName == nil {
+					Expect(vmi.Status.MigrationState.MigrationPolicyName).To(BeNil())
+				} else {
+					Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
+					Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(*expectedName))
+				}
+			}
+
+			getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
+				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(namespace).ShouldNot(BeNil())
+				return namespace
+			}
+
+			table.DescribeTable("migration policy", func(defineMigrationPolicy bool) {
+				By("Updating config to allow auto converge")
+				config := getCurrentKv()
+				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+				tests.UpdateKubeVirtConfigValueAndWait(config)
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+
+				var expectedPolicyName *string
+				if defineMigrationPolicy {
+					By("Creating a migration policy that overrides cluster policy")
+					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
+					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
+
+					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					expectedPolicyName = &policy.Name
+				}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				confirmMigrationPolicyName(vmi, expectedPolicyName)
+			},
+				table.Entry("should override cluster-wide policy if defined", true),
+				table.Entry("should not affect cluster-wide policy if not defined", false),
+			)
+
+		})
 	})
 
 	Context("with sata disks", func() {
@@ -2442,7 +2502,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			It("[sig-compute]should delete PDBs created by an old virt-controller", func() {
+			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
 				By("creating the VMI")
 				createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())

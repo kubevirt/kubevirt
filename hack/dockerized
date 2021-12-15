@@ -10,19 +10,7 @@ if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
     exit $?
 fi
 
-# Select an available container runtime
-if [ -z ${KUBEVIRT_CRI} ]; then
-    if podman ps >/dev/null; then
-        KUBEVIRT_CRI=podman
-        echo "selecting podman as container runtime"
-    elif docker ps >/dev/null; then
-        KUBEVIRT_CRI=docker
-        echo "selecting docker as container runtime"
-    else
-        echo "no working container runtime found. Neither docker nor podman seems to work."
-        exit 1
-    fi
-fi
+fail_if_cri_bin_missing
 
 KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2109081533-c2a4c43a6"
 
@@ -160,7 +148,8 @@ fi
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
+EXEC_ENV_VARS="--env KUBEVIRT_CRI=${KUBEVIRT_CRI}"
+if ! $KUBEVIRT_CRI exec $EXEC_ENV_VARS ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
     # Copy the build output out of the container, make sure that _out exactly matches the build result
     if [ "$SYNC_OUT" = "true" ]; then
         _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}

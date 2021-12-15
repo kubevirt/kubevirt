@@ -46,6 +46,10 @@ func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virt
 	validating_webhooks.Serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig})
 }
 
+func ServeVMPool(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	validating_webhooks.Serve(resp, req, &admitters.VMPoolAdmitter{ClusterConfig: clusterConfig})
+}
+
 func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.VMIPresetAdmitter{})
 }
@@ -88,4 +92,8 @@ func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, cl
 	validating_webhooks.Serve(resp, req, &admitters.PodEvictionAdmitter{
 		ClusterConfig: clusterConfig, VirtClient: virtCli,
 	})
+}
+
+func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter(virtCli))
 }

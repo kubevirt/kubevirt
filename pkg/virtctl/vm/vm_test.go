@@ -434,8 +434,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		table.DescribeTable("should fail with missing required or invalid parameters", func(commandName, errorString string, args ...string) {
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, commandName)
+			commandAndArgs := []string{commandName}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
@@ -449,15 +448,21 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("removevolume name, missing required volume-name", "removevolume", "required flag(s)", "testvmi"),
 			table.Entry("removevolume name, invalid extra parameter", "removevolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
 		)
-
-		It("addvolume should fail when no source is found", func() {
+		table.DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {
 			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-			cmd := tests.NewVirtctlCommand("addvolume", "testvmi", "--volume-name=testvolume")
-			res := cmd.Execute()
+			commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume"}
+			if isDryRun {
+				commandAndArgs = append(commandAndArgs, "--dry-run")
+			}
+			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
 			Expect(res).ToNot(BeNil())
 			Expect(res.Error()).To(ContainSubstring("Volume testvolume is not a DataVolume or PersistentVolumeClaim"))
-		})
+		},
+			table.Entry("with default", false),
+			table.Entry("with dry-run arg", true),
+		)
 
 		table.DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, useDv bool), args ...string) {
 			if commandName == "addvolume" {
@@ -470,31 +475,44 @@ var _ = Describe("VirtualMachine", func() {
 				}
 			}
 			expectFunc(vmiName, volumeName, useDv)
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, commandName)
-			commandAndArgs = append(commandAndArgs, vmiName)
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf("--volume-name=%s", volumeName))
+			commandAndArgs := []string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmd := tests.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(BeNil())
 		},
-			table.Entry("addvolume dv, no persist shoud call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
-			table.Entry("addvolume pvc, no persist shoud call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
-			table.Entry("addvolume dv, with persist shoud call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist"),
-			table.Entry("addvolume pvc, with persist shoud call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist"),
-			table.Entry("removevolume dv, no persist shoud call VMI endpoint", "removevolume", "testvmi", "testvolume", true, expectVMIEndpointRemoveVolume),
-			table.Entry("removevolume pvc, no persist shoud call VMI endpoint", "removevolume", "testvmi", "testvolume", false, expectVMIEndpointRemoveVolume),
-			table.Entry("removevolume dv, with persist shoud call VM endpoint", "removevolume", "testvmi", "testvolume", true, expectVMEndpointRemoveVolume, "--persist"),
-			table.Entry("removevolume pvc, with persist shoud call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist"),
+			table.Entry("addvolume dv, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
+			table.Entry("addvolume pvc, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
+			table.Entry("addvolume dv, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist"),
+			table.Entry("addvolume pvc, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist"),
+			table.Entry("removevolume dv, no persist should call VMI endpoint", "removevolume", "testvmi", "testvolume", true, expectVMIEndpointRemoveVolume),
+			table.Entry("removevolume pvc, no persist should call VMI endpoint", "removevolume", "testvmi", "testvolume", false, expectVMIEndpointRemoveVolume),
+			table.Entry("removevolume dv, with persist should call VM endpoint", "removevolume", "testvmi", "testvolume", true, expectVMEndpointRemoveVolume, "--persist"),
+			table.Entry("removevolume pvc, with persist should call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist"),
+
+			table.Entry("addvolume dv, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--dry-run"),
+			table.Entry("addvolume pvc, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume, "--dry-run"),
+			table.Entry("addvolume dv, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+			table.Entry("addvolume pvc, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+			table.Entry("removevolume dv, no persist with dry-run should call VMI endpoint", "removevolume", "testvmi", "testvolume", true, expectVMIEndpointRemoveVolume, "--dry-run"),
+			table.Entry("removevolume pvc, no persist with dry-run should call VMI endpoint", "removevolume", "testvmi", "testvolume", false, expectVMIEndpointRemoveVolume, "--dry-run"),
+			table.Entry("removevolume dv, with persist with dry-run should call VM endpoint", "removevolume", "testvmi", "testvolume", true, expectVMEndpointRemoveVolume, "--persist", "--dry-run"),
+			table.Entry("removevolume pvc, with persist with dry-run should call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist", "--dry-run"),
 		)
 
-		It("removevolume should report error if call returns error", func() {
+		table.DescribeTable("removevolume should report error if call returns error according to option", func(isDryRun bool) {
 			expectVMIEndpointRemoveVolumeError("testvmi", "testvolume")
-			cmd := tests.NewVirtctlCommand("removevolume", "testvmi", "--volume-name=testvolume")
-			res := cmd.Execute()
+			commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
+			if isDryRun {
+				commandAndArgs = append(commandAndArgs, "--dry-run")
+			}
+			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
 			Expect(res).ToNot(BeNil())
 			Expect(res.Error()).To(ContainSubstring("error removing"))
-		})
+		},
+			table.Entry("with default", false),
+			table.Entry("with dry-run arg", true),
+		)
 	})
 
 	AfterEach(func() {

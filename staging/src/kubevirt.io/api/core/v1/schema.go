@@ -454,7 +454,7 @@ type Devices struct {
 // moment only, USB devices using Usbredir's library and tooling. Another fit
 // would be a smartcard with libcacard.
 //
-// The struct is currently empty as there is no imediate request for
+// The struct is currently empty as there is no immediate request for
 // user-facing APIs. This structure simply turns on USB redirection of
 // UsbClientPassthroughMaxNumberOf devices.
 type ClientPassthroughDevices struct {
@@ -1168,7 +1168,7 @@ type InterfaceSRIOV struct{}
 
 type InterfaceMacvtap struct{}
 
-// Port repesents a port to expose from the virtual machine.
+// Port represents a port to expose from the virtual machine.
 // Default protocol TCP.
 // The port field is mandatory
 type Port struct {

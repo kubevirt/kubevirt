@@ -331,7 +331,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               description: "Low number of nodes with KVM resource available."
-              summary: "At least two nodes with kvm resource required for VM life migration."
+              summary: "At least two nodes with kvm resource required for VM live migration."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
@@ -350,7 +350,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               description: "Low number of nodes with KVM resource available."
-              summary: "At least two nodes with kvm resource required for VM life migration."
+              summary: "At least two nodes with kvm resource required for VM live migration."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"

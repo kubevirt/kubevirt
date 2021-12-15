@@ -857,7 +857,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			),
 		)
 
-		It("should report an error status when data volume error occurs", func() {
+		It("[test_id:7679]should report an error status when data volume error occurs", func() {
 			By("Verifying that required StorageClass is configured")
 			storageClassName := tests.Config.StorageClassLocal
 
@@ -868,7 +868,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VM with a DataVolume cloned from an invalid source")
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("no-such-image",
+			// Registry URL scheme validated in CDI
+			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
 				util.NamespaceTestDefault, storageClassName, k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
 			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
