@@ -39,6 +39,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
+//const failedRetrieveVMI = "Failed to retrieve VMI"
+
 type ConsoleHandler struct {
 	podIsolationDetector isolation.PodIsolationDetector
 	serialStopChans      map[types.UID](chan struct{})
