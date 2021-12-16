@@ -133,6 +133,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionregistrationv1.MutatingWebhookConfiguration {
 	vmPath := VMMutatePath
 	vmiPath := VMIMutatePath
+	vmPoolPath := VMPoolMutatePath
 	migrationPath := MigrationMutatePath
 	failurePolicy := admissionregistrationv1.Fail
 
@@ -174,6 +175,31 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmPath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachinepools-mutator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				SideEffects:             &sideEffectNone,
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{poolv1.SchemeGroupVersion.Group},
+						APIVersions: []string{poolv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinepools"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmPoolPath,
 					},
 				},
 			},
@@ -657,6 +683,8 @@ const VMValidatePath = "/virtualmachines-validate"
 const VMIRSValidatePath = "/virtualmachinereplicaset-validate"
 
 const VMPoolValidatePath = "/virtualmachinepool-validate"
+
+const VMPoolMutatePath = "/virtualmachinepool-mutate"
 
 const VMIPresetValidatePath = "/vmipreset-validate"
 

@@ -73,6 +73,10 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 	}
 }
 
+func ServeVMPools(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &mutators.VMPoolsMutator{ClusterConfig: clusterConfig})
+}
+
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
 	serve(resp, req, &mutators.VMsMutator{ClusterConfig: clusterConfig})
 }
