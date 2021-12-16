@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1876,6 +1875,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				originalVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				By("Getting current vm instance")
+				originalVM, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
 				var args = []string{vm.COMMAND_STOP, "--namespace", thisVm.Namespace, thisVm.Name, "--dry-run"}
 				if flags != nil {
 					args = append(args, flags...)
@@ -1890,11 +1893,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 
-				By("Checking no DeletionTimestamp was set")
-				newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				By("Checking VM Running spec does not change")
+				actualVm, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
-				Expect(reflect.DeepEqual(newVMI, originalVMI)).To(BeTrue())
+				Expect(actualVm.Spec.Running).To(BeEquivalentTo(originalVM.Spec.Running))
+				actualRunStrategy, err := actualVm.RunStrategy()
+				Expect(err).ToNot(HaveOccurred())
+				originalRunStrategy, err := originalVM.RunStrategy()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
+
+				By("Checking VMI TerminationGracePeriodSeconds does not change")
+				actualVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
+				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
 			},
 
 				table.Entry("[test_id:7529]with no other flags"),
