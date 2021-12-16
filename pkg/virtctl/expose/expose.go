@@ -139,7 +139,7 @@ func (o *Command) RunE(args []string) error {
 		return err
 	}
 
-	ipFamilyPolicy, err := convertIPFamilyPolicy(strIPFamilyPolicy)
+	ipFamilyPolicy, err := convertIPFamilyPolicy(strIPFamilyPolicy, ipFamilies)
 	if err != nil {
 		return err
 	}
@@ -291,9 +291,12 @@ func convertIPFamily(strIPFamily string) ([]v1.IPFamily, error) {
 	}
 }
 
-func convertIPFamilyPolicy(strIPFamilyPolicy string) (v1.IPFamilyPolicyType, error) {
+func convertIPFamilyPolicy(strIPFamilyPolicy string, ipFamilies []v1.IPFamily) (v1.IPFamilyPolicyType, error) {
 	switch strings.ToLower(strIPFamilyPolicy) {
 	case "":
+		if len(ipFamilies) > 1 {
+			return v1.IPFamilyPolicyPreferDualStack, nil
+		}
 		return "", nil
 	case "singlestack":
 		return v1.IPFamilyPolicySingleStack, nil
