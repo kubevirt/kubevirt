@@ -310,6 +310,59 @@ var _ = Describe("netstat", func() {
 			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName, netvmispec.InfoSourceGuestAgent),
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
 	})
+
+	Context("misc scenario", func() {
+		const (
+			networkName = "primary"
+			MAC         = "1C:CE:C0:01:BE:E7"
+		)
+
+		It("has interface in domain spec but not in VMI spec", func() {
+			setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces, newDomainSpecIface(networkName, MAC))
+
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(networkName, nil, MAC, "", netvmispec.InfoSourceDomain),
+			}))
+		})
+
+		It("has interface in VMI spec but not in domain spec", func() {
+			setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces, newVMISpecIfaceWithBridgeBinding(networkName))
+			setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecPodNetwork(networkName))
+
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(networkName, nil, "", "", ""),
+			}))
+		})
+
+		It("has interface in VMI and domain specs, but not in filesystem cache", func() {
+			setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces, newVMISpecIfaceWithBridgeBinding(networkName))
+			setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecPodNetwork(networkName))
+			setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces, newDomainSpecIface(networkName, MAC))
+
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(networkName, nil, MAC, "", netvmispec.InfoSourceDomain),
+			}))
+		})
+
+		It("has interface only in cache but not in any spec", func() {
+			const (
+				podIPv4 = "1.1.1.1"
+				podIPv6 = "fd10:244::8c4c"
+			)
+
+			setup.addFSCacheInterface(networkName, podIPv4, podIPv6)
+
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{}))
+		})
+	})
 })
 
 type interfaceCacheFactoryStatusStub struct {
