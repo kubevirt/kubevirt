@@ -32,7 +32,6 @@ const (
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
 	ContainerDiskFedoraTestTooling    ContainerDisk = "fedora-with-test-tooling"
-	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty                ContainerDisk = "empty"
 	ContainerDiskFedoraRealtime       ContainerDisk = "fedora-realtime"
@@ -55,7 +54,7 @@ func DataVolumeImportUrlFromRegistryForContainerDisk(registry string, name Conta
 
 func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskCirrosCustomLocation:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
 		return fmt.Sprintf("%s/virtio-container-disk:%s", registry, flags.KubeVirtUtilityVersionTag)
