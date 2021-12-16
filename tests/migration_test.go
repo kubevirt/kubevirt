@@ -88,6 +88,7 @@ import (
 
 const (
 	fedoraVMSize         = "256M"
+	fedoraVolumeSize     = "6Gi"
 	secretDiskSerial     = "D23YZ9W6WA5DJ487"
 	stressDefaultVMSize  = "100"
 	stressLargeVMSize    = "400"
@@ -1506,7 +1507,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			var wffcPod *k8sv1.Pod
 
 			BeforeEach(func() {
-				quantity, err := resource.ParseQuantity("5Gi")
+				quantity, err := resource.ParseQuantity(fedoraVolumeSize)
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -1554,7 +1555,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				os := string(cd.ContainerDiskFedoraTestTooling)
-				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
+				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, fedoraVolumeSize, nfsIP, os)
 			})
 
 			AfterEach(func() {
@@ -1924,7 +1925,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 				memoryRequestSize = resource.MustParse("1Gi")
 
-				quantity, err := resource.ParseQuantity("5Gi")
+				quantity, err := resource.ParseQuantity(fedoraVolumeSize)
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
