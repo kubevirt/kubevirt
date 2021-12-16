@@ -3585,6 +3585,16 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
 		})
+
+		It("should reject when there are bootable NICs", func() {
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			bootOrder := uint(1)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				v1.Interface{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
+		})
 	})
 })
 

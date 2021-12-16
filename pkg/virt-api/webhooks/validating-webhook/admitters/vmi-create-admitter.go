@@ -808,6 +808,16 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 				Field:   field.Child("launchSecurity").String(),
 			})
 		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
 	}
 	return causes
 }
