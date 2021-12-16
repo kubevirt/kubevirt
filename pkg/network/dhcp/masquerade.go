@@ -45,6 +45,7 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	}
 
 	dhcpConfig.Name = podNicLink.Attrs().Name
+	dhcpConfig.Subdomain = d.subdomain
 	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
 
 	ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv4)
@@ -68,7 +69,6 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 		}
 		dhcpConfig.IPv6 = *ipv6
 		dhcpConfig.AdvertisingIPv6Addr = ipv6Gateway.IP.To16()
-		dhcpConfig.Subdomain = d.subdomain
 	}
 
 	return dhcpConfig, nil
