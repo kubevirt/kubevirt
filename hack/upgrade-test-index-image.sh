@@ -309,7 +309,7 @@ else
 fi
 
 Msg "check golden images"
-KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_defaults.sh
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_golden_images.sh
 
 Msg "check virtio-win image is in configmap"
 VIRTIOWIN_IMAGE_CSV=$(${CMD} get ${CSV} -n ${HCO_NAMESPACE} \

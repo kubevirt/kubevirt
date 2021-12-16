@@ -102,8 +102,9 @@ var _ = Describe("Test general utilities", func() {
 				WithRuntimeObjects(pod).
 				Build()
 
-			err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true)
+			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true)
 			Expect(err).ShouldNot(HaveOccurred())
+			Expect(deleted).To(BeTrue())
 
 			podToSearch := &corev1.Pod{}
 			err = cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)
@@ -115,8 +116,9 @@ var _ = Describe("Test general utilities", func() {
 				WithScheme(testScheme).
 				Build()
 
-			err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true)
+			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true)
 			Expect(err).ShouldNot(HaveOccurred())
+			Expect(deleted).To(BeFalse())
 
 			podToSearch := &corev1.Pod{}
 			err = cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)

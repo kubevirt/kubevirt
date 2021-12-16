@@ -103,7 +103,20 @@ func (h *OperandHandler) addOperands(scheme *runtime.Scheme, hc *hcov1beta1.Hype
 		logger.Error(err, "can't create ConsoleQuickStarts objects")
 	} else if len(handlers) > 0 {
 		for _, handler := range handlers {
-			obj, err := handler.(*genericOperand).hooks.getFullCr(hc)
+			var (
+				obj client.Object
+				err error
+			)
+
+			switch h := handler.(type) {
+			case *genericOperand:
+				obj, err = h.hooks.getFullCr(hc)
+			case *imageStreamOperand:
+				obj, err = h.operand.hooks.getFullCr(hc)
+			default:
+				err = fmt.Errorf("unknown handler with type %v", h)
+			}
+
 			if err != nil {
 				logger.Error(err, "can't create object")
 				continue
@@ -140,6 +153,8 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
 				metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
 			}
+		} else if res.Deleted {
+			h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", res.Type, res.Name))
 		}
 
 		req.ComponentUpgradeInProgress = req.ComponentUpgradeInProgress && res.UpgradeDone
@@ -177,7 +192,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	for _, res := range resources {
 		go func(o client.Object, wgr *sync.WaitGroup) {
 			defer wgr.Done()
-			err := hcoutil.EnsureDeleted(tCtx, h.client, o, req.Instance.Name, req.Logger, false, true)
+			deleted, err := hcoutil.EnsureDeleted(tCtx, h.client, o, req.Instance.Name, req.Logger, false, true)
 			if err != nil {
 				req.Logger.Error(err, "Failed to manually delete objects")
 				errT := ErrHCOUninstall
@@ -193,7 +208,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 
 				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, errT, errMsg)
 				errorCh <- err
-			} else {
+			} else if deleted {
 				key := client.ObjectKeyFromObject(o)
 				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", o.GetObjectKind().GroupVersionKind().Kind, key.Name))
 			}

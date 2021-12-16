@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	imagev1 "github.com/openshift/api/image/v1"
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,8 +34,7 @@ var _ = Describe("imageStream tests", func() {
 	})
 
 	Context("test imageStreamHandler", func() {
-
-		It("should create the ImageStream resource if not exists", func() {
+		It("should not create the ImageStream resource if the FG is not set", func() {
 			getImageStreamFileLocation = func() string {
 				return testFilesLocation
 			}
@@ -50,18 +50,190 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
-			By("apply the ImageStream CRs", func() {
-				req := commonTestUtils.NewReq(hco)
-				res := handlers[0].ensure(req)
-				Expect(res.Err).ToNot(HaveOccurred())
-				Expect(res.Created).To(BeTrue())
+			req := commonTestUtils.NewReq(hco)
+			res := handlers[0].ensure(req)
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeFalse())
 
-				ImageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), ImageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-			})
+			imageStreamObjects := &imagev1.ImageStreamList{}
+			err = cli.List(context.TODO(), imageStreamObjects)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(imageStreamObjects.Items).To(BeEmpty())
+		})
+
+		It("should delete the ImageStream resource if the FG is not set", func() {
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			exists := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-image-stream",
+					Namespace: "test-image-stream-ns",
+				},
+
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							From: &corev1.ObjectReference{
+								Kind: "DockerImage",
+								Name: "test-registry.io/test/test-image",
+								UID:  types.UID("1234567890"),
+							},
+							ImportPolicy: imagev1.TagImportPolicy{Insecure: true, Scheduled: false},
+							Name:         "latest",
+						},
+					},
+				},
+			}
+			exists.Labels = getLabels(hco, util.AppComponentCompute)
+
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
+			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlers).To(HaveLen(1))
+			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
+
+			hco := commonTestUtils.NewHco()
+			req := commonTestUtils.NewReq(hco)
+			res := handlers[0].ensure(req)
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeFalse())
+
+			imageStreamObjects := &imagev1.ImageStreamList{}
+			err = cli.List(context.TODO(), imageStreamObjects)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(imageStreamObjects.Items).To(BeEmpty())
+		})
+
+		It("should delete the ImageStream resource if the FG is not set, and emit event", func() {
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			cli := commonTestUtils.InitClient([]runtime.Object{hco})
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+
+			req := commonTestUtils.NewReq(hco)
+			err := handler.Ensure(req)
+			Expect(err).ToNot(HaveOccurred())
+
+			ImageStreamObjects := &imagev1.ImageStreamList{}
+			err = cli.List(context.TODO(), ImageStreamObjects)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ImageStreamObjects.Items).To(HaveLen(1))
+			Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
+
+			objectRef, err := reference.GetReference(commonTestUtils.GetScheme(), &ImageStreamObjects.Items[0])
+			Expect(err).ToNot(HaveOccurred())
+			hco.Status.RelatedObjects = append(hco.Status.RelatedObjects, *objectRef)
+
+			By("check related object - the imageStream ref should be there")
+			existingRef, err := objectreferencesv1.FindObjectReference(hco.Status.RelatedObjects, *objectRef)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(existingRef).ToNot(BeNil())
+
+			By("Run again, this time when the FG is false")
+			eventEmitter.Reset()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+			req = commonTestUtils.NewReq(hco)
+			err = handler.Ensure(req)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("check that the image stream was removed")
+			ImageStreamObjects = &imagev1.ImageStreamList{}
+			err = cli.List(context.TODO(), ImageStreamObjects)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ImageStreamObjects.Items).To(HaveLen(0))
+
+			By("check that the delete event was emitted")
+			expectedEvents := []commonTestUtils.MockEvent{
+				{
+					EventType: corev1.EventTypeNormal,
+					Reason:    "Killing",
+					Msg:       "Removed ImageStream test-image-stream",
+				},
+			}
+			Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeTrue())
+
+			By("check that the related object was removed")
+			existingRef, err = objectreferencesv1.FindObjectReference(hco.Status.RelatedObjects, *objectRef)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(existingRef).To(BeNil())
+		})
+
+		It("should not emit event if the FG is not set and the image stream is not exist", func() {
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			hco := commonTestUtils.NewHco()
+			cli := commonTestUtils.InitClient([]runtime.Object{hco})
+
+			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+
+			req := commonTestUtils.NewReq(hco)
+			err := handler.Ensure(req)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedEvents := []commonTestUtils.MockEvent{
+				{
+					EventType: corev1.EventTypeNormal,
+					Reason:    "Killing",
+					Msg:       "Removed ImageStream test-image-stream",
+				},
+			}
+			Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeFalse())
+		})
+
+		It("should create the ImageStream resource if not exists", func() {
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			getImageStreamFileLocation = func() string {
+				return testFilesLocation
+			}
+
+			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+			cli := commonTestUtils.InitClient([]runtime.Object{hco})
+			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlers).To(HaveLen(1))
+			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
+
+			By("apply the ImageStream CRs")
+			req := commonTestUtils.NewReq(hco)
+			res := handlers[0].ensure(req)
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeTrue())
+
+			ImageStreamObjects := &imagev1.ImageStreamList{}
+			err = cli.List(context.TODO(), ImageStreamObjects)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ImageStreamObjects.Items).To(HaveLen(1))
+			Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
+
+			By("check that the reference is in the related object list")
 		})
 
 		It("should update the ImageStream resource if the docker image was changed", func() {
@@ -90,13 +262,14 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -154,13 +327,15 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -226,13 +401,15 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -294,13 +471,15 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -362,13 +541,15 @@ var _ = Describe("imageStream tests", func() {
 				},
 			}
 
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -438,6 +619,8 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -499,13 +682,15 @@ var _ = Describe("imageStream tests", func() {
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 			exists.ObjectMeta.Labels["to-be-removed"] = "test"
 
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, exists})
+			cli := commonTestUtils.InitClient([]runtime.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commonTestUtils.NewHco()
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
 			By("apply the ImageStream CRs", func() {
 				req := commonTestUtils.NewReq(hco)
 				res := handlers[0].ensure(req)

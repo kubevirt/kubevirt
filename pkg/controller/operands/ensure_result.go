@@ -12,6 +12,7 @@ type EnsureResult struct {
 	Overwritten bool
 	Created     bool
 	UpgradeDone bool
+	Deleted     bool
 	Err         error
 	Type        string
 	Name        string
@@ -50,5 +51,10 @@ func (r *EnsureResult) SetUpgradeDone(upgradeDone bool) *EnsureResult {
 
 func (r *EnsureResult) SetName(name string) *EnsureResult {
 	r.Name = name
+	return r
+}
+
+func (r *EnsureResult) SetDeleted() *EnsureResult {
+	r.Deleted = true
 	return r
 }

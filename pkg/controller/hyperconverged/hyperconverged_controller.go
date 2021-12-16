@@ -1119,7 +1119,7 @@ func removeOldQuickStartGuides(req *common.HcoRequest, cl client.Client, require
 		for name, existQs := range existingQSNames {
 			if !hcoutil.ContainsString(requiredQSList, name) {
 				req.Logger.Info("deleting ConsoleQuickStart", "name", name)
-				if err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false); err != nil {
+				if _, err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false); err != nil {
 					req.Logger.Error(err, "failed to delete ConsoleQuickStart", "name", name)
 				}
 			}

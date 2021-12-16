@@ -210,32 +210,32 @@ func GetRuntimeObject(ctx context.Context, c client.Client, obj client.Object, l
 
 // ComponentResourceRemoval removes the resource `obj` if it exists and belongs to the HCO
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
-func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool) error {
+func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool) (bool, error) {
 	resource, err := ToUnstructured(obj)
 	if err != nil {
 		logger.Error(err, "Failed to convert object to Unstructured")
-		return err
+		return false, err
 	}
 
 	logger.Info("Removing resource", "name", resource.GetName(), "namespace", resource.GetNamespace(), "GVK", resource.GetObjectKind().GroupVersionKind(), "dryRun", dryRun)
 
 	ok, err := getResourceForDeletion(ctx, c, resource, logger)
 	if !ok {
-		return err
+		return false, err
 	}
 
 	if !shouldDeleteResource(resource, hcoName, logger) {
-		return nil
+		return false, nil
 	}
 
 	opts := getDeletionOption(dryRun, wait)
 
 	if deleted, err := doDeleteResource(ctx, c, resource, opts); !deleted {
-		return err
+		return deleted, err
 	}
 
 	if !wait || dryRun { // no need to wait
-		return nil
+		return !dryRun, nil
 	}
 
 	return validateDeletion(ctx, c, resource)
@@ -288,17 +288,17 @@ func getResourceForDeletion(ctx context.Context, c client.Client, resource *unst
 	return true, nil
 }
 
-func validateDeletion(ctx context.Context, c client.Client, resource *unstructured.Unstructured) error {
+func validateDeletion(ctx context.Context, c client.Client, resource *unstructured.Unstructured) (bool, error) {
 	for {
 		err := c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
 		if apierrors.IsNotFound(err) {
 			// success!
-			return nil
+			return true, nil
 		}
 		select {
 		case <-ctx.Done():
 			// failed to delete in time
-			return fmt.Errorf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName())
+			return false, fmt.Errorf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName())
 		case <-time.After(100 * time.Millisecond):
 			// do nothing, try again
 		}
@@ -307,17 +307,17 @@ func validateDeletion(ctx context.Context, c client.Client, resource *unstructur
 
 // EnsureDeleted calls ComponentResourceRemoval if the runtime object exists
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
-func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool) error {
+func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool) (bool, error) {
 	err := GetRuntimeObject(ctx, c, obj, logger)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", obj.GetObjectKind())
-			return nil
+			return false, nil
 		}
 
 		logger.Error(err, "failed to get object from kubernetes", "Kind", obj.GetObjectKind())
-		return err
+		return false, err
 	}
 
 	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun, wait)

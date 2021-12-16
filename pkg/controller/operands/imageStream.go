@@ -7,6 +7,9 @@ import (
 	"reflect"
 	"strings"
 
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	"k8s.io/client-go/tools/reference"
+
 	log "github.com/go-logr/logr"
 	imagev1 "github.com/openshift/api/image/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,16 +35,56 @@ var (
 	}
 )
 
+type imageStreamOperand struct {
+	operand *genericOperand
+}
+
+func (iso imageStreamOperand) ensure(req *common.HcoRequest) *EnsureResult {
+	if req.Instance.Spec.FeatureGates.EnableCommonBootImageImport {
+		// if the FG is set, make sure the imageStream is in place and up-to-date
+		return iso.operand.ensure(req)
+	}
+
+	// if the FG is not set, make sure the imageStream is not exist
+	cr := iso.operand.hooks.getEmptyCr()
+	res := NewEnsureResult(cr)
+	res.SetName(cr.GetName())
+	deleted, err := util.EnsureDeleted(req.Ctx, iso.operand.Client, cr, req.Instance.Name, req.Logger, false, false)
+	if err != nil {
+		return res.Error(err)
+	}
+
+	if deleted {
+		res.SetDeleted()
+		objectRef, err := reference.GetReference(iso.operand.Scheme, cr)
+		if err != nil {
+			return res.Error(err)
+		}
+
+		if err = objectreferencesv1.RemoveObjectReference(&req.Instance.Status.RelatedObjects, *objectRef); err != nil {
+			return res.Error(err)
+		}
+	}
+
+	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+}
+
+func (iso imageStreamOperand) reset() {
+	iso.operand.reset()
+}
+
 func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, required *imagev1.ImageStream) Operand {
-	h := &genericOperand{
-		Client: Client,
-		Scheme: Scheme,
-		crType: "ImageStream",
-		// Previous versions used to have HCO-operator (scope namespace)
-		// as the owner of NetworkAddons (scope cluster).
-		// It's not legal, so remove that.
-		removeExistingOwner: false,
-		hooks:               &isHooks{required: required},
+	h := &imageStreamOperand{
+		operand: &genericOperand{
+			Client: Client,
+			Scheme: Scheme,
+			crType: "ImageStream",
+			// Previous versions used to have HCO-operator (scope namespace)
+			// as the owner of NetworkAddons (scope cluster).
+			// It's not legal, so remove that.
+			removeExistingOwner: false,
+			hooks:               &isHooks{required: required},
+		},
 	}
 
 	return h
