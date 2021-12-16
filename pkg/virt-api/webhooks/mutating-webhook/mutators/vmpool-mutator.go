@@ -21,10 +21,15 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
+	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	randutil "k8s.io/apimachinery/pkg/util/rand"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/log"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
@@ -35,6 +40,32 @@ import (
 
 type VMPoolsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
+}
+
+func hashFn(obj interface{}) string {
+	hasher := fnv.New32a()
+
+	// DeepHashObject writes specified object to hash using the spew library
+	// which follows pointers and prints actual values of the nested objects
+	// ensuring the hash does not change when a pointer changes.
+	printer := spew.ConfigState{
+		Indent:         " ",
+		SortKeys:       true,
+		DisableMethods: true,
+		SpewKeys:       true,
+	}
+	printer.Fprintf(hasher, "%#v", obj)
+
+	return randutil.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
+
+}
+
+func hashVMITemplate(pool *poolv1.VirtualMachinePool) string {
+	return hashFn(pool.Spec.VirtualMachineTemplate.Spec.Template)
+}
+
+func hashVMTemplate(pool *poolv1.VirtualMachinePool) string {
+	return hashFn(pool.Spec.VirtualMachineTemplate)
 }
 
 func (mutator *VMPoolsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -64,15 +95,57 @@ func (mutator *VMPoolsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissio
 	}
 
 	raw := ar.Request.Object.Raw
-	pool := poolv1.VirtualMachinePool{}
+	pool := &poolv1.VirtualMachinePool{}
 
-	err := json.Unmarshal(raw, &pool)
+	err := json.Unmarshal(raw, pool)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	// TODO Set VMPool VM and VMI Hash Annotations
-	log.Log.Object(&pool).V(4).Info("Apply vm/vmi hashes")
+	updatedVMHash := ""
+	updatedVMIHash := ""
+	if ar.Request.Operation == admissionv1.Create {
+		updatedVMHash = hashVMTemplate(pool)
+		updatedVMIHash = hashVMITemplate(pool)
+	} else {
+		raw := ar.Request.OldObject.Raw
+		oldPool := &poolv1.VirtualMachinePool{}
+
+		err = json.Unmarshal(raw, oldPool)
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+
+		_, vmHashExists := pool.Labels[virtv1.VirtualMachineTemplateHash]
+		_, vmiHashExists := pool.Labels[virtv1.VirtualMachineInstanceTemplateHash]
+
+		if !vmHashExists || !reflect.DeepEqual(oldPool.Spec.VirtualMachineTemplate, pool.Spec.VirtualMachineTemplate) {
+			updatedVMHash = hashVMTemplate(pool)
+		}
+		if !vmiHashExists || !reflect.DeepEqual(oldPool.Spec.VirtualMachineTemplate.Spec.Template, pool.Spec.VirtualMachineTemplate.Spec.Template) {
+			updatedVMIHash = hashVMITemplate(pool)
+		}
+	}
+
+	if updatedVMHash == "" && updatedVMIHash == "" {
+		// Nothing to do
+		reviewResponse := admissionv1.AdmissionResponse{}
+		reviewResponse.Allowed = true
+		return &reviewResponse
+	}
+
+	log.Log.Object(pool).V(4).Info("Apply vm/vmi hashes")
+
+	if pool.Labels == nil {
+		pool.Labels = make(map[string]string)
+	}
+	if updatedVMHash != "" {
+		pool.Labels[virtv1.VirtualMachineTemplateHash] = updatedVMHash
+	}
+
+	if updatedVMIHash != "" {
+		pool.Labels[virtv1.VirtualMachineInstanceTemplateHash] = updatedVMIHash
+	}
 
 	var patch []utiltypes.PatchOperation
 	var value interface{}
