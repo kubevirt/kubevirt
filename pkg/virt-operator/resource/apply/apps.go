@@ -80,7 +80,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	// there was no change to metadata, the generation matched
 	if !*modified &&
-		*deployment.Spec.Replicas == *origDeployment.Spec.Replicas &&
+		*existingCopy.Spec.Replicas == *deployment.Spec.Replicas &&
 		existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
 		return deployment, nil

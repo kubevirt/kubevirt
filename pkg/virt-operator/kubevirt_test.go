@@ -21,11 +21,14 @@ package virt_operator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -318,6 +321,39 @@ func (k *KubeVirtTestData) AfterTest() {
 	// Ensure that we add checks for expected events to every test
 	Expect(k.recorder.Events).To(BeEmpty())
 	k.ctrl.Finish()
+}
+
+type finalizerPatch struct {
+	Op    string   `json:"op"`
+	Path  string   `json:"path"`
+	Value []string `json:"value"`
+}
+
+func extractFinalizers(data []byte) []string {
+	patches := make([]finalizerPatch, 0)
+	err := json.Unmarshal(data, &patches)
+	Expect(len(patches)).To(Equal(1))
+	patch := patches[0]
+	Expect(err).ToNot(HaveOccurred())
+	Expect(patch.Op).To(Equal("replace"))
+	Expect(patch.Path).To(Equal("/metadata/finalizers"))
+	return patch.Value
+}
+
+func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
+	patch := k.kvInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	patch.DoAndReturn(func(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (*v1.KubeVirt, error) {
+		Expect(pt).To(Equal(types.JSONPatchType))
+		finalizers := extractFinalizers(data)
+		obj, exists, err := k.kvInformer.GetStore().GetByKey(NAMESPACE + "/" + name)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+		kv := obj.(*v1.KubeVirt)
+		kv.Finalizers = finalizers
+		err = k.kvInformer.GetStore().Update(kv)
+		Expect(err).ToNot(HaveOccurred())
+		return kv, nil
+	}).Times(times)
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
@@ -1577,7 +1613,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
-			kvTestData.shouldExpectKubeVirtUpdate(1)
+			kvTestData.shouldExpectKubeVirtFinalizersPatch(1)
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(0))
@@ -2107,7 +2143,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// is loaded
 			kvTestData.deleteFromCache = false
 			kvTestData.shouldExpectJobDeletion()
-			kvTestData.shouldExpectKubeVirtUpdate(1)
+			kvTestData.shouldExpectKubeVirtFinalizersPatch(1)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.shouldExpectCreations()
 

@@ -139,7 +139,7 @@ func (ins *Strategy) ControllerDeployments() []*appsv1.Deployment {
 	var deployments []*appsv1.Deployment
 
 	for _, deployment := range ins.deployments {
-		if strings.Contains(deployment.Name, "virt-api") {
+		if !strings.Contains(deployment.Name, "virt-controller") {
 			continue
 		}
 		deployments = append(deployments, deployment)
