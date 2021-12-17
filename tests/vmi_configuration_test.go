@@ -1929,6 +1929,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
 
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk5", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
+
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tmpHostDiskDir := tests.RandTmpDir()
@@ -1945,6 +1948,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			cacheNone := string(v1.CacheNone)
 			cacheWritethrough := string(v1.CacheWriteThrough)
+			cacheWriteback := string(v1.CacheWriteBack)
 
 			By("checking if requested cache 'none' has been set")
 			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
@@ -1954,17 +1958,22 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[1].Alias.GetName()).To(Equal("ephemeral-disk2"))
 			Expect(disks[1].Driver.Cache).To(Equal(cacheWritethrough))
 
-			By("checking if default cache 'none' has been set to ephemeral disk")
-			Expect(disks[2].Alias.GetName()).To(Equal("ephemeral-disk3"))
-			Expect(disks[2].Driver.Cache).To(Equal(cacheNone))
+			By("checking if requested cache 'writeback' has been set")
+			Expect(disks[2].Alias.GetName()).To(Equal("ephemeral-disk5"))
+			Expect(disks[2].Driver.Cache).To(Equal(cacheWriteback))
 
-			By("checking if default cache 'none' has been set to cloud-init disk")
-			Expect(disks[3].Alias.GetName()).To(Equal("cloud-init"))
+			By("checking if default cache 'none' has been set to ephemeral disk")
+			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk3"))
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
+			By("checking if default cache 'none' has been set to cloud-init disk")
+			Expect(disks[4].Alias.GetName()).To(Equal("cloud-init"))
+			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
+
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
-			Expect(disks[4].Alias.GetName()).To(Equal("hostdisk"))
-			Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
+			Expect(disks[5].Alias.GetName()).To(Equal("hostdisk"))
+			Expect(disks[5].Driver.Cache).To(Equal(cacheWritethrough))
+
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
