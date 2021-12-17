@@ -1318,7 +1318,7 @@ spec:
 
 	Describe("[test_id:4744]should apply component customization", func() {
 
-		It("test applying and removing a patch", func() {
+		It("[QUARANTINE]test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"
 			annotationPatchKey := "applied-patch"
 
