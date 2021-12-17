@@ -197,6 +197,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachinepools",
+					"virtualmachinepools/finalizers",
 				},
 
 				Verbs: []string{

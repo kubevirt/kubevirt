@@ -36,6 +36,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
@@ -47,6 +48,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		snapshotApiServiceDefinitions,
 		flavorApiServiceDefinitions,
 		migrationPoliciesApiServiceDefinitions,
+		poolApiServiceDefinitions,
 	} {
 		result = append(result, f()...)
 	}
@@ -176,6 +178,27 @@ func flavorApiServiceDefinitions() []*restful.WebService {
 	}
 
 	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	if err != nil {
+		panic(err)
+	}
+
+	return []*restful.WebService{ws, ws2}
+}
+
+func poolApiServiceDefinitions() []*restful.WebService {
+	poolGVR := poolv1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools")
+
+	ws, err := GroupVersionProxyBase(poolv1alpha1.SchemeGroupVersion)
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, poolGVR, &poolv1alpha1.VirtualMachinePool{}, "VirtualMachinePool", &poolv1alpha1.VirtualMachinePoolList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(poolGVR)
 	if err != nil {
 		panic(err)
 	}

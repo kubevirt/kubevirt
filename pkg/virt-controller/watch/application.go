@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -233,6 +234,7 @@ var _ service.Service = &VirtControllerApp{}
 func init() {
 	vsv1beta1.AddToScheme(scheme.Scheme)
 	snapshotv1.AddToScheme(scheme.Scheme)
+	poolv1.AddToScheme(scheme.Scheme)
 
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)
