@@ -8652,6 +8652,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 disableTLS:
                   type: boolean
+                network:
+                  type: string
                 nodeDrainTaintKey:
                   type: string
                 parallelMigrationsPerCluster:

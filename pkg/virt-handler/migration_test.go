@@ -17,7 +17,7 @@
  *
  */
 
-package main
+package virthandler
 
 import (
 	"io/ioutil"
@@ -54,7 +54,7 @@ const (
 var _ = Describe("virt-handler", func() {
 	Context("findMigrationIp", func() {
 		It("Should error on missing file", func() {
-			_, err := findMigrationIP("/not-a-real-file", originalIP)
+			_, err := FindMigrationIP("/not-a-real-file", originalIP)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to read network status from downwards API"))
 		})
@@ -62,7 +62,7 @@ var _ = Describe("virt-handler", func() {
 			file, err := ioutil.TempFile("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(file.Name())
-			newIP, err := findMigrationIP(file.Name(), originalIP)
+			newIP, err := FindMigrationIP(file.Name(), originalIP)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newIP).To(Equal(originalIP))
 		})
@@ -72,7 +72,7 @@ var _ = Describe("virt-handler", func() {
 			defer os.Remove(file.Name())
 			err = os.WriteFile(file.Name(), []byte(`[`+mainNetwork+`]`), 0644)
 			Expect(err).ToNot(HaveOccurred())
-			newIP, err := findMigrationIP(file.Name(), originalIP)
+			newIP, err := FindMigrationIP(file.Name(), originalIP)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newIP).To(Equal(originalIP))
 		})
@@ -82,7 +82,7 @@ var _ = Describe("virt-handler", func() {
 			defer os.Remove(file.Name())
 			err = os.WriteFile(file.Name(), []byte(`[`+mainNetwork+`,`+migrationNetwork+`]`), 0644)
 			Expect(err).ToNot(HaveOccurred())
-			newIP, err := findMigrationIP(file.Name(), originalIP)
+			newIP, err := FindMigrationIP(file.Name(), originalIP)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newIP).To(Equal(migrationIP))
 		})

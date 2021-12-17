@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -43,7 +43,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/gopkg.in/yaml.v2:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
@@ -189,18 +188,4 @@ container_image(
         "//cmd/virt-chroot",
     ],
     visibility = ["//visibility:public"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "virt-handler_suite_test.go",
-        "virt-handler_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-    ],
 )

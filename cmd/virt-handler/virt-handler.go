@@ -24,7 +24,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,8 +31,6 @@ import (
 	"runtime"
 	"syscall"
 	"time"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
@@ -180,27 +177,6 @@ func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	if err != nil {
 		logger.V(1).Level(log.ERROR).Log("Unable to mark node as unschedulable", err.Error())
 	}
-}
-
-// Using the downward API, look for dedicated migration network migration0 and, if found, set migration IP to its IP
-func findMigrationIP(networkStatusPath string, migrationIp string) (string, error) {
-	var networkStatus []virthandler.NetworkStatus
-
-	dat, err := ioutil.ReadFile(networkStatusPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read network status from downwards API")
-	}
-	err = yaml.Unmarshal(dat, &networkStatus)
-	if err != nil {
-		return "", fmt.Errorf("failed to un-marshall network status")
-	}
-	for _, ns := range networkStatus {
-		if ns.Interface == "migration0" && len(ns.Ips) > 0 {
-			migrationIp = ns.Ips[0]
-		}
-	}
-
-	return migrationIp, nil
 }
 
 func (app *virtHandlerApp) Run() {
@@ -351,7 +327,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	migrationIpAddress := app.PodIpAddress
-	migrationIpAddress, err = findMigrationIP(defaultNetworkStatusFilePath, migrationIpAddress)
+	migrationIpAddress, err = virthandler.FindMigrationIP(defaultNetworkStatusFilePath, migrationIpAddress)
 	if err != nil {
 		log.Log.Reason(err)
 		return

@@ -1217,6 +1217,7 @@ func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig,
 		"",
 		config.GetLauncherVersion(),
 		config.GetImagePullPolicy(),
+		nil,
 		config.GetVerbosity(),
 		config.GetExtraEnv())
 
