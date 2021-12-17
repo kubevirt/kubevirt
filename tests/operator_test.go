@@ -1370,7 +1370,6 @@ spec:
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
 				Patches: []v1.CustomizeComponentsPatch{
 					{
-
 						ResourceName: "virt-controller",
 						ResourceType: "Deployment",
 						Patch:        fmt.Sprintf(`{"spec":{"template": {"metadata": { "annotations": {"%s":"%s"}}}}}`, annotationPatchKey, annotationPatchValue),
