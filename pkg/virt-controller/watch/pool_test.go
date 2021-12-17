@@ -169,30 +169,6 @@ var _ = Describe("Pool", func() {
 			mockQueue.Wait()
 		}
 
-		It("should compute the same hash", func() {
-			pool, vm := DefaultPool(1)
-
-			vmHash := hashVMTemplate(pool)
-			vmiHash := hashVMITemplate(pool)
-			vm = injectHashIntoVM(vm, vmHash, vmiHash)
-
-			for i := int32(0); i < 100; i++ {
-
-				// modify something not related to VM or VMI template to make sure it
-				// doesn't impact hash
-				pool.Labels["some-label"] = fmt.Sprintf("%d", i)
-				pool.Spec.Replicas = &i
-				vmHash := hashVMTemplate(pool)
-				vmiHash := hashVMITemplate(pool)
-
-				oldVMHash, _ := vm.Labels[virtv1.VirtualMachineTemplateHash]
-				oldVMIHash, _ := vm.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineInstanceTemplateHash]
-
-				Expect(vmiHash).To(Equal(oldVMIHash))
-				Expect(vmHash).To(Equal(oldVMHash))
-			}
-		})
-
 		It("should create missing VMs", func() {
 			pool, vm := DefaultPool(3)
 
@@ -207,17 +183,14 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-		})
+		}, 5)
 
 		It("should update VM when VM template changes, but not VMI unless VMI template changes", func() {
 			pool, vm := DefaultPool(1)
 			pool.Status.Replicas = 1
 
+			vm = injectHashIntoVM(vm, "madeup", "some-vmi-hash")
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
-
-			vmHash := hashVMTemplate(pool)
-			vmiHash := hashVMITemplate(pool)
-			vm = injectHashIntoVM(vm, "madeup", vmiHash)
 
 			vmi := api.NewMinimalVMI(vm.Name)
 			vmi.Spec = vm.Spec.Template.Spec
@@ -242,24 +215,21 @@ var _ = Describe("Pool", func() {
 			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Do(func(arg interface{}) {
 				newVM := arg.(*v1.VirtualMachine)
 				hash := newVM.Labels[virtv1.VirtualMachineTemplateHash]
-				Expect(hash).To(Equal(vmHash))
+				Expect(hash).To(Equal("some-vm-hash"))
 
 				hash = newVM.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineInstanceTemplateHash]
-				Expect(hash).To(Equal(vmiHash))
+				Expect(hash).To(Equal("some-vmi-hash"))
 			}).Return(vm, nil)
 
 			controller.Execute()
-		})
+		}, 5)
 
-		It("should update VM and VMI with both VM and VMI template change", func() {
+		It("should update VMI when VM's VMI template doesn't match running VMI", func() {
 			pool, vm := DefaultPool(1)
 			pool.Status.Replicas = 1
 
+			vm = injectHashIntoVM(vm, "some-vm-hash", "some-vmi-hash")
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
-
-			vmHash := hashVMTemplate(pool)
-			vmiHash := hashVMITemplate(pool)
-			vm = injectHashIntoVM(vm, vmHash, vmiHash)
 
 			vmi := api.NewMinimalVMI(vm.Name)
 			vmi.Spec = vm.Spec.Template.Spec
@@ -281,29 +251,28 @@ var _ = Describe("Pool", func() {
 			addVM(vm)
 			addVMI(vmi, true)
 
+			// Expect the VMI to update
 			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			// Don't expect the VM to update
 			vmInterface.EXPECT().Update(gomock.Any()).Times(0).Do(func(arg interface{}) {}).Return(vm, nil)
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
-		})
+		}, 5)
 
 		It("should do nothing", func() {
 			pool, vm := DefaultPool(1)
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
 
-			vmHash := hashVMTemplate(pool)
-			vmiHash := hashVMITemplate(pool)
-
-			vm = injectHashIntoVM(vm, vmHash, vmiHash)
+			vm = injectHashIntoVM(vm, "some-vm-hash", "some-vmi-hash")
 
 			pool.Status.Replicas = 1
 			addPool(pool)
 			addVM(vm)
 
 			controller.Execute()
-		})
+		}, 5)
 
 		It("should not create missing VMs when it is paused and add paused condition", func() {
 			pool, _ := DefaultPool(3)
@@ -332,7 +301,7 @@ var _ = Describe("Pool", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulPausedPoolReason)
-		})
+		}, 5)
 
 		It("should set failed condition when reconcile error occurs", func() {
 			pool, _ := DefaultPool(3)
@@ -360,7 +329,7 @@ var _ = Describe("Pool", func() {
 
 			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
-		})
+		}, 5)
 
 		It("should remove failed condition when no reconcile error occurs", func() {
 
@@ -389,7 +358,7 @@ var _ = Describe("Pool", func() {
 			})
 
 			controller.Execute()
-		})
+		}, 5)
 
 		It("should create missing VMs when pool is resumed", func() {
 			pool, vm := DefaultPool(3)
@@ -427,7 +396,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulResumePoolReason)
-		})
+		}, 5)
 
 		It("should create missing VMs in batches of a maximum of burst replicas VMs at once", func() {
 			pool, vm := DefaultPool(15)
@@ -444,7 +413,7 @@ var _ = Describe("Pool", func() {
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			}
-		})
+		}, 5)
 
 		It("should delete VMs in batches of a maximum of burst replicas", func() {
 			pool, vm := DefaultPool(0)
@@ -474,7 +443,7 @@ var _ = Describe("Pool", func() {
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
-		})
+		}, 5)
 
 		It("should not delete vms which are already marked deleted", func() {
 
@@ -511,7 +480,7 @@ var _ = Describe("Pool", func() {
 			for x := 0; x < 5; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
-		})
+		}, 5)
 
 		It("should ignore and skip the name for non-matching VMs", func() {
 
@@ -538,7 +507,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-		})
+		}, 5)
 
 		It("should ignore orphaned VMs even when selector matches", func() {
 			pool, vm := DefaultPool(3)
@@ -567,7 +536,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 
-		})
+		}, 5)
 
 		It("should detect a VM is detached, then release and replace it", func() {
 			pool, vm := DefaultPool(3)
@@ -591,7 +560,7 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 
-		})
+		}, 5)
 	})
 })
 
@@ -628,6 +597,8 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 
 	pool := PoolFromVM("my-pool", vm, replicas)
 	pool.Labels = map[string]string{}
+	pool.Labels[virtv1.VirtualMachineInstanceTemplateHash] = "some-vmi-hash"
+	pool.Labels[virtv1.VirtualMachineTemplateHash] = "some-vm-hash"
 	vm.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 	virtcontroller.SetLatestApiVersionAnnotation(vm)
 	virtcontroller.SetLatestApiVersionAnnotation(pool)

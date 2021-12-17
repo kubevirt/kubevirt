@@ -3,7 +3,6 @@ package watch
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -11,11 +10,9 @@ import (
 	"sync"
 	"time"
 
-	randutil "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 	"k8s.io/utils/trace"
 
-	"github.com/davecgh/go-spew/spew"
 	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -337,30 +334,14 @@ func mapCopy(src map[string]string) map[string]string {
 	return dst
 }
 
-func hashFn(obj interface{}) string {
-	hasher := fnv.New32a()
-
-	// DeepHashObject writes specified object to hash using the spew library
-	// which follows pointers and prints actual values of the nested objects
-	// ensuring the hash does not change when a pointer changes.
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hasher, "%#v", obj)
-
-	return randutil.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
-
+func getHashVMITemplate(pool *poolv1.VirtualMachinePool) (string, bool) {
+	hash, exists := pool.Labels[virtv1.VirtualMachineInstanceTemplateHash]
+	return hash, exists
 }
 
-func hashVMITemplate(pool *poolv1.VirtualMachinePool) string {
-	return hashFn(pool.Spec.VirtualMachineTemplate.Spec.Template)
-}
-
-func hashVMTemplate(pool *poolv1.VirtualMachinePool) string {
-	return hashFn(pool.Spec.VirtualMachineTemplate)
+func getHashVMTemplate(pool *poolv1.VirtualMachinePool) (string, bool) {
+	hash, exists := pool.Labels[virtv1.VirtualMachineTemplateHash]
+	return hash, exists
 }
 
 // listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
@@ -627,8 +608,14 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	c.expectations.ExpectCreations(poolKey, len(newNames))
 	wg.Add(len(newNames))
 	errChan := make(chan error, len(newNames))
-	vmHash := hashVMTemplate(pool)
-	vmiHash := hashVMITemplate(pool)
+	vmHash, exists := getHashVMTemplate(pool)
+	if !exists {
+		return fmt.Errorf("unable to scale vmpool, no vm template hash label present on vmpool")
+	}
+	vmiHash, exists := getHashVMITemplate(pool)
+	if !exists {
+		return fmt.Errorf("unable to scale vmpool, no vmi template hash label present on vmpool")
+	}
 	for _, name := range newNames {
 		go func(name string) {
 			defer wg.Done()
@@ -793,8 +780,14 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 }
 
 func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
-	vmHash := hashVMTemplate(pool)
-	vmiHash := hashVMITemplate(pool)
+	vmHash, exists := getHashVMTemplate(pool)
+	if !exists {
+		return &syncErrorImpl{fmt.Errorf("unable to update vmpool, no vm template hash label present on vmpool"), FailedUpdateReason}
+	}
+	vmiHash, exists := getHashVMITemplate(pool)
+	if !exists {
+		return &syncErrorImpl{fmt.Errorf("unable to update vmpool, no vmi template hash label present on vmpool"), FailedUpdateReason}
+	}
 	// List of VMs that need to be updated
 	vmOutdatedList := []*virtv1.VirtualMachine{}
 	// List of VMs that are up-to-date that need to be checked to see if VMI is up-to-date
