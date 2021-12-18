@@ -63,7 +63,12 @@ import (
 )
 
 const (
-	OperatorLabel = kubev1.ManagedByLabel + "=" + kubev1.ManagedByLabelOperatorValue
+	/*
+		TODO: replace the assignment to expression that accepts only kubev1.ManagedByLabelOperatorValue after few releases (after 0.47)
+		The new assignment is to avoid error on update
+		(operator can't recognize components with the old managed-by label's value)
+	*/
+	OperatorLabel = kubev1.ManagedByLabel + " in (" + kubev1.ManagedByLabelOperatorValue + "," + kubev1.ManagedByLabelOperatorOldValue + " )"
 )
 
 var unexpectedObjectError = errors.New("unexpected object")
@@ -684,7 +689,7 @@ func (f *kubeInformerFactory) OperatorServiceAccount() cache.SharedIndexInformer
 func (f *kubeInformerFactory) OperatorConfigMap() cache.SharedIndexInformer {
 	// filter out install strategies
 	return f.getInformer("OperatorConfigMapInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(fmt.Sprintf("!%s, %s=%s", kubev1.InstallStrategyLabel, kubev1.ManagedByLabel, kubev1.ManagedByLabelOperatorValue))
+		labelSelector, err := labels.Parse(fmt.Sprintf("!%s, %s", kubev1.InstallStrategyLabel, OperatorLabel))
 		if err != nil {
 			panic(err)
 		}
