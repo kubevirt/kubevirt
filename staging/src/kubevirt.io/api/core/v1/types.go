@@ -2033,6 +2033,7 @@ type MigrationConfiguration struct {
 	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,omitempty"`
 	AllowPostCopy                     *bool              `json:"allowPostCopy,omitempty"`
 	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
+	Network                           *string            `json:"network,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

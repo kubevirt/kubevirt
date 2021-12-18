@@ -14203,6 +14203,9 @@
      "disableTLS": {
       "type": "boolean"
      },
+     "network": {
+      "type": "string"
+     },
      "nodeDrainTaintKey": {
       "type": "string"
      },

@@ -20,7 +20,7 @@ const (
 	VirtHandlerName = "virt-handler"
 )
 
-func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -28,6 +28,14 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, nil, env)
 	if err != nil {
 		return nil, err
+	}
+
+	if migrationNetwork != nil {
+		if podTemplateSpec.ObjectMeta.Annotations == nil {
+			podTemplateSpec.ObjectMeta.Annotations = make(map[string]string)
+		}
+		// Join the pod to the migration network and name the corresponding interface "migration0"
+		podTemplateSpec.ObjectMeta.Annotations["k8s.v1.cni.cncf.io/networks"] = *migrationNetwork + "@migration0"
 	}
 
 	daemonset := &appsv1.DaemonSet{
@@ -156,8 +164,6 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	container.Env = append(container.Env, containerEnv...)
 
-	container.VolumeMounts = []corev1.VolumeMount{}
-
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 3,
 		Handler: corev1.Handler{
@@ -189,8 +195,6 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		TimeoutSeconds:      10,
 		PeriodSeconds:       20,
 	}
-
-	pod.Volumes = []corev1.Volume{}
 
 	type volume struct {
 		name             string
@@ -233,6 +237,27 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			},
 		})
 	}
+
+	// Use the downward API to access the network status annotations
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "podinfo",
+		MountPath: "/etc/podinfo",
+	})
+	pod.Volumes = append(pod.Volumes, corev1.Volume{
+		Name: "podinfo",
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{
+					{
+						Path: "network-status",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: `metadata.annotations['k8s.v1.cni.cncf.io/network-status']`,
+						},
+					},
+				},
+			},
+		},
+	})
 
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{

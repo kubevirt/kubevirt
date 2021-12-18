@@ -121,6 +121,9 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+
+	// Default network-status downward API file path
+	defaultNetworkStatusFilePath = "/etc/podinfo/network-status"
 )
 
 type virtHandlerApp struct {
@@ -323,11 +326,18 @@ func (app *virtHandlerApp) Run() {
 		}
 	}
 
+	migrationIpAddress := app.PodIpAddress
+	migrationIpAddress, err = virthandler.FindMigrationIP(defaultNetworkStatusFilePath, migrationIpAddress)
+	if err != nil {
+		log.Log.Reason(err)
+		return
+	}
+
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
 		app.HostOverride,
-		app.PodIpAddress,
+		migrationIpAddress,
 		app.VirtShareDir,
 		app.VirtPrivateDir,
 		vmiSourceInformer,

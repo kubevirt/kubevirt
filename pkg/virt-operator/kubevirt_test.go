@@ -1166,7 +1166,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
 	controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), "", "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
 
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
@@ -1253,6 +1253,7 @@ func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig,
 		"",
 		config.GetLauncherVersion(),
 		config.GetImagePullPolicy(),
+		nil,
 		config.GetVerbosity(),
 		config.GetExtraEnv())
 
@@ -1501,7 +1502,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	injectMetadata(&pod.ObjectMeta, configController)
 	k.addPod(pod)
 
-	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", "", configController.GetLauncherVersion(), configHandler.GetImagePullPolicy(), configHandler.GetVerbosity(), configHandler.GetExtraEnv())
+	handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", "", configController.GetLauncherVersion(), configHandler.GetImagePullPolicy(), nil, configHandler.GetVerbosity(), configHandler.GetExtraEnv())
 	pod = &k8sv1.Pod{
 		ObjectMeta: handler.Spec.Template.ObjectMeta,
 		Spec:       handler.Spec.Template.Spec,
@@ -1994,7 +1995,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), nil, config.GetVerbosity(), config.GetExtraEnv())
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
