@@ -57,6 +57,9 @@ elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}
+elif [[ $TARGET =~ sig-monitoring ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -362,6 +365,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+  elif [[ $TARGET =~ sig-monitoring ]]; then
+      export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
