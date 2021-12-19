@@ -6,7 +6,7 @@
       spec:
         source:
           registry:
-            url: docker://quay.io/kubevirt/centos8-container-disk-images
+            url: docker://quay.io/containerdisks/centos:8.4
         storage:
           resources:
             requests:
@@ -21,7 +21,7 @@
       spec:
         source:
           registry:
-            url: docker://quay.io/kubevirt/fedora-container-disk-images
+            url: docker://quay.io/containerdisks/fedora:35
         storage:
           resources:
             requests:
