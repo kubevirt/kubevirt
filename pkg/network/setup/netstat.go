@@ -38,27 +38,32 @@ type NetStat struct {
 	// In memory cache, storing pod interface information.
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
-	podInterfaceVolatileCache PodInterfaceByVMIAndName
+	podInterfaceVolatileCache sync.Map
 }
 
 func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
 	return &NetStat{
 		ifaceCacheFactory:         ifaceCacheFactory,
-		podInterfaceVolatileCache: PodInterfaceByVMIAndName{},
+		podInterfaceVolatileCache: sync.Map{},
 	}
 }
 
 func (c *NetStat) Teardown(vmi *v1.VirtualMachineInstance) {
-	c.podInterfaceVolatileCache.DeleteAllForVMI(vmi.UID)
+	c.podInterfaceVolatileCache.Range(func(key, value interface{}) bool {
+		if strings.Contains(key.(string), string(vmi.UID)) {
+			c.podInterfaceVolatileCache.Delete(key)
+		}
+		return true
+	})
 }
 
 func (c *NetStat) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool {
-	_, exists := c.podInterfaceVolatileCache.Load(vmi.UID, ifaceName)
+	_, exists := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceName))
 	return exists
 }
 
 func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodCacheInterface) {
-	c.podInterfaceVolatileCache.Store(vmi.UID, ifaceName, data)
+	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), data)
 }
 
 func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -201,16 +206,15 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
-	podInterface, exists := c.podInterfaceVolatileCache.Load(vmi.UID, ifaceName)
-
+	cacheData, exists := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceName))
 	if exists {
-		return podInterface, nil
+		return cacheData.(*cache.PodCacheInterface), nil
 	}
 
 	//FIXME error handling?
-	podInterface, _ = c.ifaceCacheFactory.CacheForVMI(vmi).Read(ifaceName)
+	podInterface, _ := c.ifaceCacheFactory.CacheForVMI(vmi).Read(ifaceName)
 
-	c.podInterfaceVolatileCache.Store(vmi.UID, ifaceName, podInterface)
+	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
 
 	return podInterface, nil
 }
@@ -227,41 +231,6 @@ func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface
 	}
 }
 
-type PodInterfaceByVMIAndName struct {
-	syncMap sync.Map
-}
-
-func (p *PodInterfaceByVMIAndName) DeleteAllForVMI(vmiUID types.UID) {
-	// Clean Pod interface cache from map and files
-	p.syncMap.Range(func(key, value interface{}) bool {
-		if strings.Contains(key.(string), string(vmiUID)) {
-			p.syncMap.Delete(key)
-		}
-		return true
-	})
-}
-
-func (p *PodInterfaceByVMIAndName) Load(vmiUID types.UID, interfaceName string) (*cache.PodCacheInterface, bool) {
-	result, exists := p.syncMap.Load(p.key(vmiUID, interfaceName))
-
-	if !exists {
-		return nil, false
-	}
-	return p.cast(result), true
-}
-
-func (p *PodInterfaceByVMIAndName) Store(vmiUID types.UID, interfaceName string, podCacheInterface *cache.PodCacheInterface) {
-	p.syncMap.Store(p.key(vmiUID, interfaceName), podCacheInterface)
-}
-
-func (*PodInterfaceByVMIAndName) cast(result interface{}) *cache.PodCacheInterface {
-	podCacheInterface, ok := result.(*cache.PodCacheInterface)
-	if !ok {
-		panic(fmt.Sprintf("failed casting %+v to *PodCacheInterface", result))
-	}
-	return podCacheInterface
-}
-
-func (*PodInterfaceByVMIAndName) key(vmiUID types.UID, interfaceName string) string {
+func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
 	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
 }
