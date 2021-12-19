@@ -60,7 +60,7 @@ spec:
                 description: PlacementConfiguration defines node placement configuration
                 properties:
                   infra:
-                    description: Infra defines placement configuration for master nodes
+                    description: Infra defines placement configuration for control-plane nodes
                     properties:
                       affinity:
                         description: Affinity is a group of affinity scheduling rules.
@@ -925,7 +925,7 @@ spec:
                 description: PlacementConfiguration defines node placement configuration
                 properties:
                   infra:
-                    description: Infra defines placement configuration for master nodes
+                    description: Infra defines placement configuration for control-plane nodes
                     properties:
                       affinity:
                         description: Affinity is a group of affinity scheduling rules.

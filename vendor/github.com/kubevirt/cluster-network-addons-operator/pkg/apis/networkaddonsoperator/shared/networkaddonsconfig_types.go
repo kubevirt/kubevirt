@@ -36,7 +36,7 @@ type SelfSignConfiguration struct {
 // +k8s:openapi-gen=true
 // PlacementConfiguration defines node placement configuration
 type PlacementConfiguration struct {
-	// Infra defines placement configuration for master nodes
+	// Infra defines placement configuration for control-plane nodes
 	Infra *Placement `json:"infra,omitempty"`
 	// Workloads defines placement configuration for worker nodes
 	Workloads *Placement `json:"workloads,omitempty"`
