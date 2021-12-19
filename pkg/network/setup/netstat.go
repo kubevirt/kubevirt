@@ -254,10 +254,6 @@ func (p *PodInterfaceByVMIAndName) Store(vmiUID types.UID, interfaceName string,
 	p.syncMap.Store(p.key(vmiUID, interfaceName), podCacheInterface)
 }
 
-func (p *PodInterfaceByVMIAndName) Size() int {
-	return syncMapLen(&p.syncMap)
-}
-
 func (*PodInterfaceByVMIAndName) cast(result interface{}) *cache.PodCacheInterface {
 	podCacheInterface, ok := result.(*cache.PodCacheInterface)
 	if !ok {
@@ -268,13 +264,4 @@ func (*PodInterfaceByVMIAndName) cast(result interface{}) *cache.PodCacheInterfa
 
 func (*PodInterfaceByVMIAndName) key(vmiUID types.UID, interfaceName string) string {
 	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
-}
-
-func syncMapLen(m *sync.Map) int {
-	mapLen := 0
-	m.Range(func(k, v interface{}) bool {
-		mapLen += 1
-		return true
-	})
-	return mapLen
 }
