@@ -33,17 +33,17 @@ function main {
   echo INFO: Updating image digest list...
   ./automation/digester/update_images.sh
 
-  echo INFO: Executing "build-manifests.sh"...
-  ./hack/build-manifests.sh
-
   echo INFO: Updating go.mod...
   update_go_mod
+
+  echo INFO: Executing "go mod tidy"
+  go mod tidy -v
 
   echo INFO: Executing "go mod vendor"
   go mod vendor
 
-  echo INFO: Executing "go mod tidy"
-  go mod tidy -v
+  echo INFO: Executing "build-manifests.sh"...
+  ./hack/build-manifests.sh
 }
 
 function get_current_versions {
