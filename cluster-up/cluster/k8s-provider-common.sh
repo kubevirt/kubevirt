@@ -5,6 +5,38 @@ set -e
 # shellcheck source=cluster-up/cluster/ephemeral-provider-common.sh
 source "${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh"
 
+
+#if UNLIMITEDSWAP is set to true - Kubernetes workloads can use as much swap memory as they request, up to the system limit.
+#otherwise Kubernetes workloads can use as much swap memory as they request, up to the system limit by default
+function configure_swap_memory () {
+  if [ "$KUBEVIRT_SWAP_ON" == "true" ] && [[  ($KUBEVIRT_PROVIDER =~ k8s-1\.1.*) ||  ($KUBEVIRT_PROVIDER =~ k8s-1.20) ||  ($KUBEVIRT_PROVIDER =~ k8s-1.21) ]]; then
+      echo "ERROR: swap is not supported on kubevirtci version < 1.22"
+      exit 1
+
+  elif [ "$KUBEVIRT_SWAP_ON" == "true" ] ;then
+
+    for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
+        if [ ! -z $KUBEVIRT_SWAP_SIZE_IN_GB  ]; then
+          $ssh node${nodeNum} -- sudo dd if=/dev/zero of=/swapfile count=$KUBEVIRT_SWAP_SIZE_IN_GB bs=1G
+          $ssh node${nodeNum} -- sudo mkswap /swapfile
+        fi
+
+        $ssh node${nodeNum} -- sudo swapon -a
+
+        if [ ! -z $KUBEVIRT_SWAPPINESS ]; then
+          $ssh node${nodeNum} -- "sudo /bin/su -c \"echo vm.swappiness = $KUBEVIRT_SWAPPINESS >> /etc/sysctl.conf\""
+          $ssh node${nodeNum} -- sudo sysctl vm.swappiness=$KUBEVIRT_SWAPPINESS
+        fi
+
+        if [ $KUBEVIRT_UNLIMITEDSWAP == "true" ]; then
+          $ssh node${nodeNum} -- "sudo sed -i ':a;N;\$!ba;s/memorySwap: {}/memorySwap:\n  swapBehavior: UnlimitedSwap/g'  /var/lib/kubelet/config.yaml"
+          $ssh node${nodeNum} -- sudo systemctl restart kubelet
+        fi
+  done
+fi
+
+}
+
 function deploy_cnao() {
     if [ "$KUBEVIRT_WITH_CNAO" == "true" ] || [ "$KUBVIRT_WITH_CNAO_SKIP_CONFIG" == "true" ]; then
         $kubectl create -f /opt/cnao/namespace.yaml
@@ -101,8 +133,8 @@ function up() {
 
     # Make sure that local config is correct
     prepare_config
-
-    kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
+    ssh="${_cli} --prefix $provider_prefix ssh"
+    kubectl="$ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
 
     # For multinode cluster Label all the non control-plane nodes as workers,
     # for one node cluster label control-plane with 'control-plane,worker' roles
@@ -112,6 +144,8 @@ function up() {
         label="node-role.kubernetes.io/control-plane"
     fi
     $kubectl label node -l $label node-role.kubernetes.io/worker=''
+
+    configure_swap_memory
 
     deploy_cnao
     deploy_istio
