@@ -64,7 +64,7 @@ spec:
         - name: NMO_VERSION
           value: v0.10.0
         - name: HPPO_VERSION
-          value: v0.11.0
+          value: v0.12.0
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -667,8 +667,6 @@ spec:
           value: quay.io/kubevirt/hostpath-provisioner:latest
         - name: CSI_PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-csi-driver:latest
-        - name: EXTERNAL_HEALTH_MON_IMAGE
-          value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
         - name: NODE_DRIVER_REG_IMAGE
           value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
         - name: LIVENESS_PROBE_IMAGE
@@ -682,7 +680,7 @@ spec:
         - name: MONITORING_NAMESPACE
         - name: PRIORITY_CLASS
           value: kubevirt-cluster-critical
-        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:1c2d284c71a25b756a7b3b16470f6f26f6868da5650ca5d0d78afdd192c75455
+        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:cf85c4baf3fa1f9c5f209ef2cd53abd4393d7d49a00f412103f68345d7ac7091
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1

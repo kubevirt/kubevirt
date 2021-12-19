@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
-    createdAt: "2021-12-18 05:12:56"
+    createdAt: "2021-12-19 05:13:13"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1859,7 +1859,6 @@ spec:
           - hostpath-provisioner
           - hostpath-provisioner-admin
           - hostpath-provisioner-admin-csi
-          - hostpath-provisioner-health-check
           resources:
           - clusterrolebindings
           verbs:
@@ -1889,7 +1888,6 @@ spec:
           - hostpath-provisioner
           - hostpath-provisioner-admin
           - hostpath-provisioner-admin-csi
-          - hostpath-provisioner-health-check
           resources:
           - clusterroles
           verbs:
@@ -2092,7 +2090,7 @@ spec:
                 - name: NMO_VERSION
                   value: v0.10.0
                 - name: HPPO_VERSION
-                  value: v0.11.0
+                  value: v0.12.0
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -2635,8 +2633,6 @@ spec:
                   value: quay.io/kubevirt/hostpath-provisioner:latest
                 - name: CSI_PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-csi-driver:latest
-                - name: EXTERNAL_HEALTH_MON_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
                 - name: NODE_DRIVER_REG_IMAGE
                   value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
                 - name: LIVENESS_PROBE_IMAGE
@@ -2650,7 +2646,7 @@ spec:
                 - name: MONITORING_NAMESPACE
                 - name: PRIORITY_CLASS
                   value: kubevirt-cluster-critical
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:1c2d284c71a25b756a7b3b16470f6f26f6868da5650ca5d0d78afdd192c75455
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:cf85c4baf3fa1f9c5f209ef2cd53abd4393d7d49a00f412103f68345d7ac7091
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -2972,7 +2968,6 @@ spec:
           - hostpath-provisioner
           - hostpath-provisioner-admin
           - hostpath-provisioner-admin-csi
-          - hostpath-provisioner-health-check
           - hostpath-provisioner-monitoring
           resources:
           - rolebindings
@@ -2985,7 +2980,6 @@ spec:
           - hostpath-provisioner
           - hostpath-provisioner-admin
           - hostpath-provisioner-admin-csi
-          - hostpath-provisioner-health-check
           - hostpath-provisioner-monitoring
           resources:
           - roles
@@ -3055,7 +3049,7 @@ spec:
     name: cni-default-plugins
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:4cb822e4bf8f4a60fc93a6b86321bf4bb595408f5e6efb3ee8a00f2c5be126fe
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:1c2d284c71a25b756a7b3b16470f6f26f6868da5650ca5d0d78afdd192c75455
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:cf85c4baf3fa1f9c5f209ef2cd53abd4393d7d49a00f412103f68345d7ac7091
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
     name: hyperconverged-cluster-operator
