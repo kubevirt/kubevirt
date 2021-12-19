@@ -50,7 +50,7 @@ func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
 
 func (c *NetStat) Teardown(vmi *v1.VirtualMachineInstance) {
 	c.podInterfaceVolatileCache.Range(func(key, value interface{}) bool {
-		if strings.Contains(key.(string), string(vmi.UID)) {
+		if strings.HasPrefix(key.(string), string(vmi.UID)) {
 			c.podInterfaceVolatileCache.Delete(key)
 		}
 		return true
