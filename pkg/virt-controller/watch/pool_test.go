@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -84,6 +85,8 @@ var _ = Describe("Pool", func() {
 
 		var ctrl *gomock.Controller
 
+		var crInformer cache.SharedIndexInformer
+
 		var vmInterface *kubecli.MockVirtualMachineInterface
 		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 
@@ -103,6 +106,7 @@ var _ = Describe("Pool", func() {
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go poolInformer.Run(stop)
+			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced, poolInformer.HasSynced)).To(BeTrue())
 		}
 
@@ -137,10 +141,23 @@ var _ = Describe("Pool", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
+			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+				"vmpool": func(obj interface{}) ([]string, error) {
+					cr := obj.(*appsv1.ControllerRevision)
+					for _, ref := range cr.OwnerReferences {
+						if ref.Kind == "VirtualMachinePool" {
+							return []string{string(ref.UID)}, nil
+						}
+					}
+					return nil, nil
+				},
+			})
+
 			controller = NewPoolController(virtClient,
 				vmiInformer,
 				vmInformer,
 				poolInformer,
+				crInformer,
 				recorder,
 				uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates

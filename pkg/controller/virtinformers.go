@@ -728,6 +728,20 @@ func GetControllerRevisionInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		"vmpool": func(obj interface{}) ([]string, error) {
+			cr, ok := obj.(*appsv1.ControllerRevision)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			for _, ref := range cr.OwnerReferences {
+				if ref.Kind == "VirtualMachinePool" {
+					return []string{string(ref.UID)}, nil
+				}
+			}
+
+			return nil, nil
+		},
 	}
 }
 

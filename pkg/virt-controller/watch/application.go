@@ -544,6 +544,7 @@ func (vca *VirtControllerApp) initPool() {
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
+		vca.controllerRevisionInformer,
 		recorder,
 		controller.BurstReplicas)
 }

@@ -16,6 +16,7 @@ import (
 	"k8s.io/utils/trace"
 
 	"github.com/davecgh/go-spew/spew"
+	appsv1 "k8s.io/api/apps/v1"
 	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,14 +37,15 @@ import (
 
 // PoolController is the main PoolController struct.
 type PoolController struct {
-	clientset     kubecli.KubevirtClient
-	queue         workqueue.RateLimitingInterface
-	vmInformer    cache.SharedIndexInformer
-	vmiInformer   cache.SharedIndexInformer
-	poolInformer  cache.SharedIndexInformer
-	recorder      record.EventRecorder
-	expectations  *controller.UIDTrackingControllerExpectations
-	burstReplicas uint
+	clientset        kubecli.KubevirtClient
+	queue            workqueue.RateLimitingInterface
+	vmInformer       cache.SharedIndexInformer
+	vmiInformer      cache.SharedIndexInformer
+	poolInformer     cache.SharedIndexInformer
+	revisionInformer cache.SharedIndexInformer
+	recorder         record.EventRecorder
+	expectations     *controller.UIDTrackingControllerExpectations
+	burstReplicas    uint
 }
 
 const (
@@ -69,17 +71,19 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	poolInformer cache.SharedIndexInformer,
+	revisionInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	burstReplicas uint) *PoolController {
 	c := &PoolController{
-		clientset:     clientset,
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
-		poolInformer:  poolInformer,
-		vmiInformer:   vmiInformer,
-		vmInformer:    vmInformer,
-		recorder:      recorder,
-		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		burstReplicas: burstReplicas,
+		clientset:        clientset,
+		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
+		poolInformer:     poolInformer,
+		vmiInformer:      vmiInformer,
+		vmInformer:       vmInformer,
+		revisionInformer: revisionInformer,
+		recorder:         recorder,
+		expectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		burstReplicas:    burstReplicas,
 	}
 
 	c.poolInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -92,6 +96,11 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		AddFunc:    c.addVMHandler,
 		DeleteFunc: c.deleteVMHandler,
 		UpdateFunc: c.updateVMHandler,
+	})
+
+	c.revisionInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addRevisionHandler,
+		UpdateFunc: c.updateRevisionHandler,
 	})
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -170,6 +179,30 @@ func (c *PoolController) addVMIHandler(obj interface{}) {
 
 func (c *PoolController) updateVMIHandler(old, cur interface{}) {
 	c.addVMIHandler(cur)
+}
+
+// When a revision is created, enqueue the pool that manages it and update its expectations.
+func (c *PoolController) addRevisionHandler(obj interface{}) {
+	cr := obj.(*appsv1.ControllerRevision)
+
+	// If it has a ControllerRef, that's all that matters.
+	if controllerRef := metav1.GetControllerOf(cr); controllerRef != nil {
+		pool := c.resolveControllerRef(cr.Namespace, controllerRef)
+		if pool == nil {
+			return
+		}
+		poolKey, err := controller.KeyFunc(pool)
+		if err != nil {
+			return
+		}
+		c.expectations.CreationObserved(poolKey)
+		c.enqueuePool(pool)
+		return
+	}
+}
+
+func (c *PoolController) updateRevisionHandler(old, cur interface{}) {
+	c.addRevisionHandler(cur)
 }
 
 // When a vm is created, enqueue the pool that manages it and update its expectations.
@@ -408,7 +441,7 @@ func (c *PoolController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting pool controller.")
 
 	// Wait for cache sync before we start the pool controller
-	cache.WaitForCacheSync(stopCh, c.poolInformer.HasSynced, c.vmInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.poolInformer.HasSynced, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.revisionInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
