@@ -145,7 +145,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
 			sc, exists := tests.GetRWOBlockStorageClass()
 			if !exists {
-				Skip("Skip test when RWOBlock storage class in not present")
+				Skip("Skip test when RWOBlock storage class is not present")
 			}
 			defer deleteFunc(targetName)
 

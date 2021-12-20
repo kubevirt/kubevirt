@@ -5,7 +5,6 @@
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
     "manageStorageClasses":    false,
-    "storageRWOFileSystem":    "local",
-    "storageRWOBlock":         "block-volume"
+    "storageRWOFileSystem":    "local"
 }
 

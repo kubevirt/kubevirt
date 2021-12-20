@@ -1993,7 +1993,7 @@ func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 	return newRandomBlankDataVolume(namespace, storageClass, size, accessMode, volumeMode)
 }
 
-func newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -2001,7 +2001,11 @@ func newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	dv.Spec.PVC.VolumeMode = &volMode
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
+	if HasBindingModeWaitForFirstConsumer() {
+		Eventually(ThisDV(dv), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
+	} else {
+		Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
+	}
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
@@ -2017,7 +2021,7 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 		Skip("Skip test when Filesystem storage is not present")
 	}
 
-	return newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
+	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
 }
 
 func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
@@ -2032,7 +2036,7 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 		Skip("Skip test when Block storage is not present")
 	}
 
-	return newRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
+	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
 func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -4369,10 +4373,23 @@ func SkipIfARM64(message string) {
 	}
 }
 
+func VolumeExpansionAllowed(sc string) bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return storageClass.AllowVolumeExpansion != nil &&
+		*storageClass.AllowVolumeExpansion
+}
+
 func HasBindingModeWaitForFirstConsumer() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), Config.StorageClassLocal, metav1.GetOptions{})
+	sc, exists := GetRWOFileSystemStorageClass()
+	if !exists {
+		return false
+	}
+	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	if err != nil {
 		return false
@@ -5362,7 +5379,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 func CreateBlockPVC(virtClient kubecli.KubevirtClient, name string, size resource.Quantity) *k8sv1.PersistentVolumeClaim {
 	sc, exists := GetRWOBlockStorageClass()
 	if !exists {
-		Skip("Skip test when RWOBlock storage class in not present")
+		Skip("Skip test when RWOBlock storage class is not present")
 	}
 	mode := k8sv1.PersistentVolumeBlock
 	createdPvc, err := virtClient.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Create(context.Background(), &k8sv1.PersistentVolumeClaim{
