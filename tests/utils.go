@@ -20,6 +20,7 @@
 package tests
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	cryptorand "crypto/rand"
@@ -5320,7 +5321,36 @@ func CreateCephPVC(virtClient kubecli.KubevirtClient, name string, size resource
 	Expect(err).ToNot(HaveOccurred())
 
 	return createdPvc
+}
 
+func ArchiveFiles(targetFile, tgtDir string, sourceFilesNames ...string) string {
+	tgtPath := filepath.Join(tgtDir, filepath.Base(targetFile)+".tar")
+	tgtFile, err := os.Create(tgtPath)
+	Expect(err).ToNot(HaveOccurred())
+	defer tgtFile.Close()
+
+	w := tar.NewWriter(tgtFile)
+	defer w.Close()
+
+	for _, src := range sourceFilesNames {
+		srcFile, err := os.Open(src)
+		Expect(err).ToNot(HaveOccurred())
+		defer srcFile.Close()
+
+		srcFileInfo, err := srcFile.Stat()
+		Expect(err).ToNot(HaveOccurred())
+
+		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		err = w.WriteHeader(hdr)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = io.Copy(w, srcFile)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	return tgtPath
 }
 
 func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
