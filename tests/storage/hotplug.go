@@ -594,7 +594,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				exists := false
 				sc, exists = tests.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when RWXBlock storage class in not present")
+					Skip("Skip test when RWXBlock storage class is not present")
 				}
 
 				template := libvmi.NewCirros()
@@ -902,7 +902,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				exists := false
 				sc, exists = tests.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when RWXBlock storage class in not present")
+					Skip("Skip test when RWXBlock storage class is not present")
 				}
 
 				// Workaround for the issue with CPU manager and runc prior to version v1.0.0:

@@ -90,13 +90,27 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Context("[block-storage]PVC expansion", func() {
 		table.DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
-			var vmi *v1.VirtualMachineInstance
-			var dataVolume *cdiv1.DataVolume
-			if volumeMode == k8sv1.PersistentVolumeBlock {
-				vmi, dataVolume = tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-			} else {
-				vmi, dataVolume = tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			if !tests.HasCDI() {
+				Skip("Skip DataVolume tests when CDI is not present")
 			}
+			var sc string
+			exists := false
+			if volumeMode == k8sv1.PersistentVolumeBlock {
+				sc, exists = tests.GetRWOBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
+			} else {
+				sc, exists = tests.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+			}
+			volumeExpansionAllowed := tests.VolumeExpansionAllowed(sc)
+			if !volumeExpansionAllowed {
+				Skip("Skip when volume expansion storage class not available")
+			}
+			vmi, dataVolume := tests.NewRandomVirtualMachineInstanceWithDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, volumeMode)
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
 
@@ -710,7 +724,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				var exists bool
 				storageClass, exists = tests.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when RWOFileSystem storage class in not present")
+					Skip("Skip test when RWOFileSystem storage class is not present")
 				}
 				var err error
 				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)

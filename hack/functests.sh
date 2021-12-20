@@ -39,6 +39,8 @@ if [[ ${KUBEVIRT_STORAGE} == rook-ceph* ]]; then
     kubevirt_test_config="${KUBEVIRT_DIR}/tests/default-ceph-config.json"
 fi
 
+echo "Using $kubevirt_test_config as test configuration"
+
 if [[ ${KUBEVIRT_PROVIDER} == os-* ]] || [[ ${KUBEVIRT_PROVIDER} =~ (okd|ocp)-* ]]; then
     oc=${kubectl}
 fi
