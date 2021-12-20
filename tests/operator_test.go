@@ -663,8 +663,13 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
-		Expect(strings.HasPrefix(version, "@")).To(BeTrue())
-		originalOperatorVersion = strings.TrimPrefix(version, "@")
+		if !flags.SkipShasumCheck {
+			Expect(strings.HasPrefix(version, "@")).To(BeTrue())
+			originalOperatorVersion = strings.TrimPrefix(version, "@")
+		} else {
+			Expect(strings.HasPrefix(version, ":")).To(BeTrue())
+			originalOperatorVersion = strings.TrimPrefix(version, ":")
+		}
 
 		if tests.HasDataVolumeCRD() {
 			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
@@ -1394,7 +1399,9 @@ spec:
 
 			migratableVMIs := generateMigratableVMIs(2)
 			launcherSha := getVirtLauncherSha()
-			Expect(launcherSha).ToNot(Equal(""))
+			if !flags.SkipShasumCheck {
+				Expect(launcherSha).ToNot(Equal(""))
+			}
 
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
