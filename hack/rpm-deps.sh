@@ -127,6 +127,10 @@ libguestfstools_x86_64="
   edk2-ovmf-${EDK2_VERSION}
 "
 
+hookxml_base="
+  virt-install
+"
+
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
 
     bazel run \
@@ -206,6 +210,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
         --force-ignore-with-dependencies '^(man-db|mandoc)' \
         --force-ignore-with-dependencies '^dbus'
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree --public --name hookxmlbase_x86_64 \
+        --basesystem centos-stream-release \
+        ${bazeldnf_repos} \
+        $centos_base \
+        $hookxml_base
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
