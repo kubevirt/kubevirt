@@ -6,32 +6,6 @@ group_eval_order:
   - kubevirt.rules
 #information about this format can be found in: https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/
 tests:
-  # Pod is using more CPU than expected
-  - interval: 1m
-    input_series:
-      - series: 'node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="ci",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '2+0x10'
-      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="cpu",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '0+0x6'
-
-    alert_rule_test:
-      - eval_time: 5m
-        alertname: KubeVirtComponentExceedsRequestedCPU
-        exp_alerts:
-          - exp_annotations:
-              description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg cpu usage exceeds the CPU requested"
-              summary: "The container is using more CPU than what is defined in the containers resource requests"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedCPU"
-            exp_labels:
-              severity: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              pod: "virt-controller-8546c99968-x9jgg"
-              container: "virt-controller"
-              namespace: ci
-              node: node1
-              resource: cpu
-
   # Pod is using more memory than expected
   - interval: 1m
     input_series:
