@@ -3225,6 +3225,14 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
+		It("should set LaunchSecurity domain element with 'sev' type and 'NoDebug' policy", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev"))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal(SEVPolicyNoDebug))
+		})
+
 		It("should set IOMMU attribute of the RngDriver", func() {
 			rng := &api.Rng{}
 			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())

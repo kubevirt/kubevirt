@@ -4741,36 +4741,6 @@ var CRDsValidation map[string]string = map[string]string{
                       properties:
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
-                          properties:
-                            policy:
-                              description: 'Guest policy flags as defined in AMD SEV
-                                API specification. Note: due to security reasons it
-                                is not allowed to enable guest debugging. Therefore
-                                NoDebug flag is not exposed to users and is always
-                                true.'
-                              properties:
-                                domain:
-                                  description: The guest must not be transmitted to
-                                    another platform that is not in the domain. Defaults
-                                    to false.
-                                  type: boolean
-                                encryptedState:
-                                  description: SEV-ES is required. Defaults to false.
-                                  type: boolean
-                                noKeysSharing:
-                                  description: Sharing keys with other guests is disallowed.
-                                    Defaults to false.
-                                  type: boolean
-                                noSend:
-                                  description: Sending the guest to another platform
-                                    is disallowed. Defaults to false.
-                                  type: boolean
-                                sev:
-                                  description: The guest must not be transmitted to
-                                    another platform that is not SEV capable. Defaults
-                                    to false.
-                                  type: boolean
-                              type: object
                           type: object
                       type: object
                     machine:
@@ -7758,33 +7728,6 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
-                  properties:
-                    policy:
-                      description: 'Guest policy flags as defined in AMD SEV API specification.
-                        Note: due to security reasons it is not allowed to enable
-                        guest debugging. Therefore NoDebug flag is not exposed to
-                        users and is always true.'
-                      properties:
-                        domain:
-                          description: The guest must not be transmitted to another
-                            platform that is not in the domain. Defaults to false.
-                          type: boolean
-                        encryptedState:
-                          description: SEV-ES is required. Defaults to false.
-                          type: boolean
-                        noKeysSharing:
-                          description: Sharing keys with other guests is disallowed.
-                            Defaults to false.
-                          type: boolean
-                        noSend:
-                          description: Sending the guest to another platform is disallowed.
-                            Defaults to false.
-                          type: boolean
-                        sev:
-                          description: The guest must not be transmitted to another
-                            platform that is not SEV capable. Defaults to false.
-                          type: boolean
-                      type: object
                   type: object
               type: object
             machine:
@@ -9866,33 +9809,6 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
-                  properties:
-                    policy:
-                      description: 'Guest policy flags as defined in AMD SEV API specification.
-                        Note: due to security reasons it is not allowed to enable
-                        guest debugging. Therefore NoDebug flag is not exposed to
-                        users and is always true.'
-                      properties:
-                        domain:
-                          description: The guest must not be transmitted to another
-                            platform that is not in the domain. Defaults to false.
-                          type: boolean
-                        encryptedState:
-                          description: SEV-ES is required. Defaults to false.
-                          type: boolean
-                        noKeysSharing:
-                          description: Sharing keys with other guests is disallowed.
-                            Defaults to false.
-                          type: boolean
-                        noSend:
-                          description: Sending the guest to another platform is disallowed.
-                            Defaults to false.
-                          type: boolean
-                        sev:
-                          description: The guest must not be transmitted to another
-                            platform that is not SEV capable. Defaults to false.
-                          type: boolean
-                      type: object
                   type: object
               type: object
             machine:
@@ -11752,36 +11668,6 @@ var CRDsValidation map[string]string = map[string]string{
                       properties:
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
-                          properties:
-                            policy:
-                              description: 'Guest policy flags as defined in AMD SEV
-                                API specification. Note: due to security reasons it
-                                is not allowed to enable guest debugging. Therefore
-                                NoDebug flag is not exposed to users and is always
-                                true.'
-                              properties:
-                                domain:
-                                  description: The guest must not be transmitted to
-                                    another platform that is not in the domain. Defaults
-                                    to false.
-                                  type: boolean
-                                encryptedState:
-                                  description: SEV-ES is required. Defaults to false.
-                                  type: boolean
-                                noKeysSharing:
-                                  description: Sharing keys with other guests is disallowed.
-                                    Defaults to false.
-                                  type: boolean
-                                noSend:
-                                  description: Sending the guest to another platform
-                                    is disallowed. Defaults to false.
-                                  type: boolean
-                                sev:
-                                  description: The guest must not be transmitted to
-                                    another platform that is not SEV capable. Defaults
-                                    to false.
-                                  type: boolean
-                              type: object
                           type: object
                       type: object
                     machine:
@@ -15083,37 +14969,6 @@ var CRDsValidation map[string]string = map[string]string{
                                 sev:
                                   description: AMD Secure Encrypted Virtualization
                                     (SEV).
-                                  properties:
-                                    policy:
-                                      description: 'Guest policy flags as defined
-                                        in AMD SEV API specification. Note: due to
-                                        security reasons it is not allowed to enable
-                                        guest debugging. Therefore NoDebug flag is
-                                        not exposed to users and is always true.'
-                                      properties:
-                                        domain:
-                                          description: The guest must not be transmitted
-                                            to another platform that is not in the
-                                            domain. Defaults to false.
-                                          type: boolean
-                                        encryptedState:
-                                          description: SEV-ES is required. Defaults
-                                            to false.
-                                          type: boolean
-                                        noKeysSharing:
-                                          description: Sharing keys with other guests
-                                            is disallowed. Defaults to false.
-                                          type: boolean
-                                        noSend:
-                                          description: Sending the guest to another
-                                            platform is disallowed. Defaults to false.
-                                          type: boolean
-                                        sev:
-                                          description: The guest must not be transmitted
-                                            to another platform that is not SEV capable.
-                                            Defaults to false.
-                                          type: boolean
-                                      type: object
                                   type: object
                               type: object
                             machine:
@@ -18754,40 +18609,6 @@ var CRDsValidation map[string]string = map[string]string{
                                     sev:
                                       description: AMD Secure Encrypted Virtualization
                                         (SEV).
-                                      properties:
-                                        policy:
-                                          description: 'Guest policy flags as defined
-                                            in AMD SEV API specification. Note: due
-                                            to security reasons it is not allowed
-                                            to enable guest debugging. Therefore NoDebug
-                                            flag is not exposed to users and is always
-                                            true.'
-                                          properties:
-                                            domain:
-                                              description: The guest must not be transmitted
-                                                to another platform that is not in
-                                                the domain. Defaults to false.
-                                              type: boolean
-                                            encryptedState:
-                                              description: SEV-ES is required. Defaults
-                                                to false.
-                                              type: boolean
-                                            noKeysSharing:
-                                              description: Sharing keys with other
-                                                guests is disallowed. Defaults to
-                                                false.
-                                              type: boolean
-                                            noSend:
-                                              description: Sending the guest to another
-                                                platform is disallowed. Defaults to
-                                                false.
-                                              type: boolean
-                                            sev:
-                                              description: The guest must not be transmitted
-                                                to another platform that is not SEV
-                                                capable. Defaults to false.
-                                              type: boolean
-                                          type: object
                                       type: object
                                   type: object
                                 machine:

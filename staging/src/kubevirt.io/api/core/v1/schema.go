@@ -607,32 +607,6 @@ type LaunchSecurity struct {
 }
 
 type SEV struct {
-	// Guest policy flags as defined in AMD SEV API specification.
-	// Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
-	Policy *SEVPolicy `json:"policy,omitempty"`
-}
-
-type SEVPolicy struct {
-	// Sharing keys with other guests is disallowed.
-	// Defaults to false.
-	// +optional
-	NoKeysSharing *bool `json:"noKeysSharing,omitempty"`
-	// SEV-ES is required.
-	// Defaults to false.
-	// +optional
-	EncryptedState *bool `json:"encryptedState,omitempty"`
-	// Sending the guest to another platform is disallowed.
-	// Defaults to false.
-	// +optional
-	NoSend *bool `json:"noSend,omitempty"`
-	// The guest must not be transmitted to another platform that is not in the domain.
-	// Defaults to false.
-	// +optional
-	Domain *bool `json:"domain,omitempty"`
-	// The guest must not be transmitted to another platform that is not SEV capable.
-	// Defaults to false.
-	// +optional
-	SEV *bool `json:"sev,omitempty"`
 }
 
 type LunTarget struct {
