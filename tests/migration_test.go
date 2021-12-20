@@ -2414,7 +2414,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					By("Starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					_ = tests.RunMigration(virtClient, migration, tests.MigrationWaitTime)
+					_ = tests.RunMigration(virtClient, migration)
 
 					By("Expecting for an alert to be triggered")
 					Eventually(func() []k8sv1.Event {
@@ -3398,16 +3398,16 @@ var _ = Describe("[Serial][crit:high][vendor:cnv-qe@redhat.com][level:system][si
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
 
-			By("reserving the cores used by the VMI on the second node")
+			By("reserving the cores used by the VMI on the second node with a paused pod")
 			var pods []*k8sv1.Pod
-			var pausePodCurrent *k8sv1.Pod
+			var pausedPod *k8sv1.Pod
 			tests.AddLabelToNode(nodes[1].Name, testLabel2, "true")
-			for pausePodCurrent = tests.RunPod(pausePod); !hasCommonCores(vmi, pausePodCurrent); pausePodCurrent = tests.RunPod(pausePod) {
-				pods = append(pods, pausePodCurrent)
-				By("creating another pod since last didn't have common cores with the VMI")
+			for pausedPod = tests.RunPod(pausePod); !hasCommonCores(vmi, pausedPod); pausedPod = tests.RunPod(pausePod) {
+				pods = append(pods, pausedPod)
+				By("creating another paused pod since last didn't have common cores with the VMI")
 			}
 
-			By("deleting the pods that don't have cores in common with the VMI")
+			By("deleting the paused pods that don't have cores in common with the VMI")
 			for _, pod := range pods {
 				err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -3429,6 +3429,10 @@ var _ = Describe("[Serial][crit:high][vendor:cnv-qe@redhat.com][level:system][si
 			By("ensuring the libvirt domain cpuset is equal to the virt-launcher pod cpuset")
 			cpuSetTargetLibvirt := getLibvirtDomainCPUSet(vmi)
 			Expect(reflect.DeepEqual(cpuSetTargetLibvirt, cpuSetTarget)).To(BeTrue())
+
+			By("deleting the last paused pod")
+			err = virtClient.CoreV1().Pods(pausedPod.Namespace).Delete(context.Background(), pausedPod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

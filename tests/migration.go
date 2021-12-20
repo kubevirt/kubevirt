@@ -49,20 +49,16 @@ func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtCli
 }
 
 func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
-	By("Starting a Migration")
-	migration = RunMigration(virtClient, migration, timeout)
+	migration = RunMigration(virtClient, migration)
 
 	return ExpectMigrationSuccess(virtClient, migration, timeout)
 }
 
-func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
+func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
 	By("Starting a Migration")
-	var err error
-	var migrationCreated *v1.VirtualMachineInstanceMigration
-	Eventually(func() error {
-		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
-		return err
-	}, timeout, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+
+	migrationCreated, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	return migrationCreated
 }
