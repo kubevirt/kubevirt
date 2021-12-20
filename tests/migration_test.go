@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -2300,6 +2302,99 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(isModelSupportedOnNode(newNode, hostModel)).To(BeTrue(), "original host model should be supported on new node")
 				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
 			})
+
+			Context("[Serial]Should trigger event", func() {
+
+				var originalNodeLabels map[string]string
+				var originalNodeAnnotations map[string]string
+				var vmi *v1.VirtualMachineInstance
+				var node *k8sv1.Node
+
+				copyMap := func(originalMap map[string]string) map[string]string {
+					newMap := make(map[string]string, len(originalMap))
+
+					for key, value := range originalMap {
+						newMap[key] = value
+					}
+
+					return newMap
+				}
+
+				BeforeEach(func() {
+					By("Creating a VMI with default CPU mode")
+					vmi = cirrosVMIWithEvictionStrategy()
+					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+					By("Starting the VirtualMachineInstance")
+					vmi = runVMIAndExpectLaunch(vmi, 240)
+
+					By("Saving the original node's state")
+					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					originalNodeLabels = copyMap(node.Labels)
+					originalNodeAnnotations = copyMap(node.Annotations)
+
+					node = disableNodeLabeller(node, virtClient)
+				})
+
+				AfterEach(func() {
+					By("Restore node to its original state")
+					node.Labels = originalNodeLabels
+					node.Annotations = originalNodeAnnotations
+					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					Eventually(func() map[string]string {
+						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+
+						return node.Labels
+					}, 10*time.Second, 1*time.Second).Should(Equal(originalNodeLabels), "Node should have fake host model")
+					Expect(node.Annotations).To(Equal(originalNodeAnnotations))
+				})
+
+				It("[test_id:7505]when no node is suited for host model", func() {
+					By("Changing node labels to support fake host model")
+					// Remove all supported host models
+					for key, _ := range node.Labels {
+						if strings.HasPrefix(key, v1.HostModelCPULabel) {
+							delete(node.Labels, key)
+						}
+					}
+					node.Labels[v1.HostModelCPULabel+"fake-model"] = "true"
+
+					node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					Eventually(func() bool {
+						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+
+						labelValue, ok := node.Labels[v1.HostModelCPULabel+"fake-model"]
+						return ok && labelValue == "true"
+					}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Node should have fake host model")
+
+					By("Starting the migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					_ = tests.RunMigration(virtClient, migration, tests.MigrationWaitTime)
+
+					By("Expecting for an alert to be triggered")
+					Eventually(func() []k8sv1.Event {
+						events, err := virtClient.CoreV1().Events(vmi.Namespace).List(
+							context.Background(),
+							metav1.ListOptions{
+								FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
+							},
+						)
+						Expect(err).ToNot(HaveOccurred())
+
+						return events.Items
+					}, 30*time.Second, 1*time.Second).Should(HaveLen(1), "Exactly one alert is expected")
+				})
+
+			})
+
 		})
 
 		Context("with migration policies", func() {
@@ -3139,4 +3234,21 @@ func temporaryTLSConfig() *tls.Config {
 			return &cert, nil
 		},
 	}
+}
+
+func disableNodeLabeller(node *k8sv1.Node, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+	var err error
+
+	node.Annotations[v1.LabellerSkipNodeAnnotation] = "true"
+
+	node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+
+	Eventually(func() bool {
+		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+		value, ok := node.Annotations[v1.LabellerSkipNodeAnnotation]
+		return ok && value == "true"
+	}, 30*time.Second, time.Second).Should(BeTrue())
+
+	return node
 }

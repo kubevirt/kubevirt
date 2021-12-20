@@ -1393,6 +1393,54 @@ var _ = Describe("Migration watcher", func() {
 
 	})
 
+	Context("Migration of host-model VMI", func() {
+
+		It("should trigger alert when no node supports host-model", func() {
+			const nodeName = "testNode"
+
+			By("Defining node (that does not support host model)")
+			node := newNode(nodeName)
+
+			By("Defining VMI")
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.NodeName = nodeName
+			vmi.Spec.Domain.CPU = &virtv1.CPU{Model: virtv1.CPUModeHostModel}
+
+			By("Defining migration")
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduling)
+			migration.Annotations[virtv1.MigrationUnschedulablePodTimeoutSecondsAnnotation] = "1"
+
+			By("Defining target pod")
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			if targetPod.Spec.NodeSelector == nil {
+				targetPod.Spec.NodeSelector = make(map[string]string)
+			}
+			targetPod.Spec.NodeSelector[virtv1.HostModelCPULabel+"fake-model"] = "true"
+			if node.Labels == nil {
+				node.Labels = make(map[string]string)
+			}
+			node.Labels[virtv1.HostModelCPULabel+"other-fake-model"] = "true"
+			targetPod.CreationTimestamp = metav1.NewTime(now().Time.Add(time.Duration(-defaultUnschedulablePendingTimeoutSeconds) * time.Second))
+			targetPod.Status.Conditions = append(targetPod.Status.Conditions, k8sv1.PodCondition{
+				Type:   k8sv1.PodScheduled,
+				Status: k8sv1.ConditionFalse,
+				Reason: k8sv1.PodReasonUnschedulable,
+			})
+
+			By("Adding objects to mocked cluster")
+			addNode(node)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(targetPod)
+
+			By("Running controller and setting expectations")
+			shouldExpectPodDeletion()
+			controller.Execute()
+			testutils.ExpectEvent(recorder, NoSuitableNodesForHostModelMigration)
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+		})
+
+	})
 })
 
 func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *v1beta1.PodDisruptionBudget {
