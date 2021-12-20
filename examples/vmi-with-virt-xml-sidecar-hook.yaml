@@ -1,0 +1,36 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2", "--args",
+      "--disk=iotune.total_bytes_sec=52428800,iotune.total_iops_sec=1000|--edit=all"],
+      "image": "registry:5000/kubevirt/virt-xml-hook:devel"}]'
+  labels:
+    special: vmi-with-virt-xml-sidecar-hook
+  name: vmi-with-virt-xml-sidecar-hook
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+      rng: {}
+    resources:
+      requests:
+        memory: 1024M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+    name: cloudinitdisk

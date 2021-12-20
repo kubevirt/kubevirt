@@ -38,31 +38,32 @@ import (
 )
 
 const (
-	VmiEphemeral         = "vmi-ephemeral"
-	VmiMigratable        = "vmi-migratable"
-	VmiFlavorSmall       = "vmi-flavor-small"
-	VmiSata              = "vmi-sata"
-	VmiFedora            = "vmi-fedora"
-	VmiSecureBoot        = "vmi-secureboot"
-	VmiAlpineEFI         = "vmi-alpine-efi"
-	VmiNoCloud           = "vmi-nocloud"
-	VmiPVC               = "vmi-pvc"
-	VmiBlockPVC          = "vmi-block-pvc"
-	VmiWindows           = "vmi-windows"
-	VmiKernelBoot        = "vmi-kernel-boot"
-	VmiSlirp             = "vmi-slirp"
-	VmiMasquerade        = "vmi-masquerade"
-	VmiSRIOV             = "vmi-sriov"
-	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
-	VmiMultusPtp         = "vmi-multus-ptp"
-	VmiMultusMultipleNet = "vmi-multus-multiple-net"
-	VmiHostDisk          = "vmi-host-disk"
-	VmiGPU               = "vmi-gpu"
-	VmiARM               = "vmi-arm"
-	VmiMacvtap           = "vmi-macvtap"
-	VmTemplateFedora     = "vm-template-fedora"
-	VmTemplateRHEL7      = "vm-template-rhel7"
-	VmTemplateWindows    = "vm-template-windows2012r2"
+	VmiEphemeral              = "vmi-ephemeral"
+	VmiMigratable             = "vmi-migratable"
+	VmiFlavorSmall            = "vmi-flavor-small"
+	VmiSata                   = "vmi-sata"
+	VmiFedora                 = "vmi-fedora"
+	VmiSecureBoot             = "vmi-secureboot"
+	VmiAlpineEFI              = "vmi-alpine-efi"
+	VmiNoCloud                = "vmi-nocloud"
+	VmiPVC                    = "vmi-pvc"
+	VmiBlockPVC               = "vmi-block-pvc"
+	VmiWindows                = "vmi-windows"
+	VmiKernelBoot             = "vmi-kernel-boot"
+	VmiSlirp                  = "vmi-slirp"
+	VmiMasquerade             = "vmi-masquerade"
+	VmiSRIOV                  = "vmi-sriov"
+	VmiWithHookSidecar        = "vmi-with-sidecar-hook"
+	VmiWithVirtxmlHookSidecar = "vmi-with-virt-xml-sidecar-hook"
+	VmiMultusPtp              = "vmi-multus-ptp"
+	VmiMultusMultipleNet      = "vmi-multus-multiple-net"
+	VmiHostDisk               = "vmi-host-disk"
+	VmiGPU                    = "vmi-gpu"
+	VmiARM                    = "vmi-arm"
+	VmiMacvtap                = "vmi-macvtap"
+	VmTemplateFedora          = "vm-template-fedora"
+	VmTemplateRHEL7           = "vm-template-rhel7"
+	VmTemplateWindows         = "vm-template-windows2012r2"
 )
 
 const (
@@ -1044,6 +1045,19 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi.ObjectMeta.Annotations = map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+	}
+	return vmi
+}
+
+func GetVMIWithVirtxmlHookSidecar() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiWithVirtxmlHookSidecar)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
+
+	vmi.ObjectMeta.Annotations = map[string]string{
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\", \"--args\", \"--disk=iotune.total_bytes_sec=52428800,iotune.total_iops_sec=1000|--edit=all\"], \"image\": \"%s/virt-xml-hook:%s\"}]", DockerPrefix, DockerTag),
 	}
 	return vmi
 }
