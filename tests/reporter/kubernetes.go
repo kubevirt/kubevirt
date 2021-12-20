@@ -149,6 +149,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	pods := getPodList(virtCli)
 	virtHandlerPods := getVirtHandlerList(virtCli)
 	vmis := getVMIList(virtCli)
+	vmims := getVMIMList(virtCli)
 
 	r.logClusterOverview()
 	r.logEvents(virtCli, since)
@@ -177,6 +178,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 
 	r.logVMIs(virtCli, vmis)
 	r.logDomainXMLs(virtCli, vmis)
+
+	r.logVMIMs(virtCli, vmims)
 
 	r.logSRIOVInfo(virtCli)
 
@@ -233,6 +236,10 @@ func (r *KubernetesReporter) logVMs(virtCli kubecli.KubevirtClient) {
 
 func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, vmis *v12.VirtualMachineInstanceList) {
 	r.logObjects(virtCli, vmis, "vmis")
+}
+
+func (r *KubernetesReporter) logVMIMs(virtCli kubecli.KubevirtClient, vmims *v12.VirtualMachineInstanceMigrationList) {
+	r.logObjects(virtCli, vmims, "vmims")
 }
 
 func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, since time.Time) {
@@ -790,6 +797,17 @@ func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList 
 	}
 
 	return vmis
+}
+
+func getVMIMList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceMigrationList {
+
+	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(&metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vmims: %v\n", err)
+		return nil
+	}
+
+	return vmims
 }
 
 func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.VirtualMachineInstance {
