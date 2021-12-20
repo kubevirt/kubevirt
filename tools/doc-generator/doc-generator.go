@@ -50,6 +50,9 @@ const (
 
 	vmiEvictionBlockerName = "kubevirt_vmi_non_evictable"
 	vmiEvictionBlockerDesc = "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable."
+
+	vmiMemoryUsedBytes     = "kubevirt_vmi_memory_used_bytes"
+	vmiMemoryUsedBytesDesc = "Amount of `used` memory as seen by the domain."
 )
 
 func main() {
@@ -136,6 +139,10 @@ var (
 		{
 			name:        vmiEvictionBlockerName,
 			description: vmiEvictionBlockerDesc,
+		},
+		{
+			name:        vmiMemoryUsedBytes,
+			description: vmiMemoryUsedBytesDesc,
 		},
 	}
 )

@@ -490,6 +490,10 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits_memory_bytes{pod=~'virt-launcher-.*', container='compute'} - on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
 					},
 					{
+						Record: "kubevirt_vmi_memory_used_bytes",
+						Expr:   intstr.FromString("kubevirt_vmi_memory_available_bytes-kubevirt_vmi_memory_usable_bytes"),
+					},
+					{
 						Alert: "KubevirtVmHighMemoryUsage",
 						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes < 20971520"),
 						For:   "1m",
