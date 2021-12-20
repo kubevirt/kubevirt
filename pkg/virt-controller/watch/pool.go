@@ -2,6 +2,7 @@ package watch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/runtime"
 	randutil "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 	"k8s.io/utils/trace"
@@ -644,6 +646,66 @@ func injectHashIntoVM(vm *virtv1.VirtualMachine, vmHash string, vmiHash string) 
 	return vm
 }
 
+func getRevisionName(pool *poolv1.VirtualMachinePool) string {
+	return fmt.Sprintf("vmpool-%s-%d", pool.UID, pool.Generation)
+}
+
+func (c *PoolController) createControllerRevision(pool *poolv1.VirtualMachinePool) (string, error) {
+	poolKey, err := controller.KeyFunc(pool)
+	if err != nil {
+		return "", err
+	}
+	revisionName := getRevisionName(pool)
+
+	bytes, err := json.Marshal(&pool.Spec)
+	if err != nil {
+		return "", err
+	}
+
+	cr := &appsv1.ControllerRevision{
+		ObjectMeta: v1.ObjectMeta{
+			Name:            revisionName,
+			Namespace:       pool.Namespace,
+			OwnerReferences: []metav1.OwnerReference{poolOwnerRef(pool)},
+		},
+		Data:     runtime.RawExtension{Raw: bytes},
+		Revision: pool.ObjectMeta.Generation,
+	}
+
+	c.expectations.RaiseExpectations(poolKey, 1, 0)
+	_, err = c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
+	if err != nil {
+		c.expectations.CreationObserved(poolKey)
+		return "", err
+	}
+
+	return cr.Name, nil
+}
+
+func (c *PoolController) getControllerRevision(namespace, name string) (*poolv1.VirtualMachinePoolSpec, bool, error) {
+
+	key := controller.NamespacedKey(namespace, name)
+
+	storeObj, exists, err := c.revisionInformer.GetStore().GetByKey(key)
+	if !exists || err != nil {
+		return nil, false, err
+	}
+
+	cr, ok := storeObj.(*appsv1.ControllerRevision)
+	if !ok {
+		return nil, false, fmt.Errorf("unexpected resource %+v", storeObj)
+	}
+
+	spec := &poolv1.VirtualMachinePoolSpec{}
+
+	err = json.Unmarshal(cr.Data.Raw, spec)
+	if err != nil {
+		return nil, false, err
+	}
+	return spec, true, nil
+
+}
+
 func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) error {
 
 	var wg sync.WaitGroup
@@ -662,6 +724,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	errChan := make(chan error, len(newNames))
 	vmHash := hashVMTemplate(pool)
 	vmiHash := hashVMITemplate(pool)
+
 	for _, name := range newNames {
 		go func(name string) {
 			defer wg.Done()
