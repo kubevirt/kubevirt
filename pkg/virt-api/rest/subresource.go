@@ -50,18 +50,17 @@ import (
 )
 
 const (
-	unmarshalRequestErr = "Can not unmarshal Request body to struct, error: %s"
-	vmNotRunning        = "VM is not running"
-	patchingVM          = "Patching VM: %s"
-	jsonpatchTestErr    = "jsonpatch test operation does not apply"
-	patchingVMStatus    = "Patching VM status: %s"
-	vmiNotRunning       = "VMI is not running"
-	vmiGuestAgentErr    = "VMI does not have guest agent connected"
-	prepConnectionErr   = "Cannot prepare connection %s"
-	getRequestErr       = "Cannot GET request %s"
+	unmarshalRequestErr 	     = "Can not unmarshal Request body to struct, error: %s"
+	vmNotRunning   		     = "VM is not running"
+	patchingVM     		     = "Patching VM: %s"
+	jsonpatchTestErr	     = "jsonpatch test operation does not apply"
+	patchingVMStatus	     = "Patching VM status: %s"
+	vmiNotRunning  		     = "VMI is not running"
+	vmiGuestAgentErr	     = "VMI does not have guest agent connected"
+	prepConnectionErr	     = "Cannot prepare connection %s"
+	getRequestErr  		     = "Cannot GET request %s"
+	defaultProfilerComponentPort = 8443
 )
-
-const defaultProfilerComponentPort = 8443
 
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient

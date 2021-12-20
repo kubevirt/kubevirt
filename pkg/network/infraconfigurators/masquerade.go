@@ -21,14 +21,11 @@ import (
 )
 
 const (
-	ipVerifyFail = "failed to verify whether ipv6 is configured on %s"
-	toDest       = "--to-destination"
-	src          = "--source"
-	dport        = "--dport"
-	str          = "{ %s }"
-)
-
-const (
+	ipVerifyFail		   = "failed to verify whether ipv6 is configured on %s"
+	toDest    		   = "--to-destination"
+	src         		   = "--source"
+	dport        		   = "--dport"
+	str          		   = "{ %s }"
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
 )
