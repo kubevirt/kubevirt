@@ -44,7 +44,7 @@ const (
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRoot                    = "NonRootExperimental"
 	ClusterProfiler            = "ClusterProfiler"
-	LaunchSecurityGate         = "LaunchSecurity"
+	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -133,6 +133,6 @@ func (config *ClusterConfig) ClusterProfilerEnabled() bool {
 	return config.isFeatureGateEnabled(ClusterProfiler)
 }
 
-func (config *ClusterConfig) LaunchSecurityEnabled() bool {
-	return config.isFeatureGateEnabled(LaunchSecurityGate)
+func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
+	return config.isFeatureGateEnabled(WorkloadEncryptionSEV)
 }

@@ -3540,7 +3540,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			enableFeatureGate(virtconfig.LaunchSecurityGate)
+			enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
 		})
 
 		It("should accept when the feature gate is enabled and OVMF is configured", func() {
@@ -3552,7 +3552,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			disableFeatureGates()
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("LaunchSecurity feature gate is not enabled"))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.WorkloadEncryptionSEV)))
 		})
 
 		It("should reject when UEFI is not configured", func() {

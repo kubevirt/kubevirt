@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", func() {
 	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.LaunchSecurityGate)
+		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
 		checks.SkipTestIfNotSEVCapable()
 		tests.BeforeTestCleanup()
 	})

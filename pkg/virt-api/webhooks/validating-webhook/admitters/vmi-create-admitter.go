@@ -787,10 +787,10 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 
 func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	launchSecurity := spec.Domain.LaunchSecurity
-	if launchSecurity != nil && !config.LaunchSecurityEnabled() {
+	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("LaunchSecurity feature gate is not enabled in kubevirt-config"),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
 			Field:   field.Child("launchSecurity").String(),
 		})
 	} else if launchSecurity != nil && launchSecurity.SEV != nil {
