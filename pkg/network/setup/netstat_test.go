@@ -348,7 +348,7 @@ type interfaceCacheFactoryStatusStub struct {
 	podInterfaceCacheStore podInterfaceCacheStoreStatusStub
 }
 
-func (i interfaceCacheFactoryStatusStub) CacheForVMI(vmi *v1.VirtualMachineInstance) cache.PodInterfaceCacheStore {
+func (i interfaceCacheFactoryStatusStub) CacheForVMI(uid string) cache.PodInterfaceCacheStore {
 	return i.podInterfaceCacheStore
 }
 func (i interfaceCacheFactoryStatusStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {

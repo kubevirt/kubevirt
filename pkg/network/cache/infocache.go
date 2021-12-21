@@ -26,7 +26,6 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/os/fs"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -39,7 +38,7 @@ var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interfac
 var dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 
 type InterfaceCacheFactory interface {
-	CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore
+	CacheForVMI(uid string) PodInterfaceCacheStore
 	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
 	CacheDHCPConfigForPid(pid string) DHCPConfigStore
 }
@@ -60,8 +59,8 @@ type interfaceCacheFactory struct {
 	fs fs.Fs
 }
 
-func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
-	return podInterfaceCacheStore{vmi: vmi, fs: i.fs, pattern: virtHandlerCachePattern}
+func (i *interfaceCacheFactory) CacheForVMI(uid string) PodInterfaceCacheStore {
+	return podInterfaceCacheStore{uid: uid, fs: i.fs, pattern: virtHandlerCachePattern}
 }
 
 func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {
@@ -106,24 +105,24 @@ func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interf
 }
 
 type podInterfaceCacheStore struct {
-	vmi     *v1.VirtualMachineInstance
+	uid     string
 	pattern string
 	fs      fs.Fs
 }
 
 func (p podInterfaceCacheStore) Read(ifaceName string) (*PodCacheInterface, error) {
 	iface := &PodCacheInterface{}
-	err := readFromCachedFile(p.fs, iface, getInterfaceCacheFile(p.pattern, string(p.vmi.UID), ifaceName))
+	err := readFromCachedFile(p.fs, iface, getInterfaceCacheFile(p.pattern, p.uid, ifaceName))
 	return iface, err
 }
 
 func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
-	err = writeToCachedFile(p.fs, cacheInterface, getInterfaceCacheFile(p.pattern, string(p.vmi.UID), iface))
+	err = writeToCachedFile(p.fs, cacheInterface, getInterfaceCacheFile(p.pattern, p.uid, iface))
 	return
 }
 
 func (p podInterfaceCacheStore) Remove() error {
-	return p.fs.RemoveAll(filepath.Join(networkInfoDir, string(p.vmi.UID)))
+	return p.fs.RemoveAll(filepath.Join(networkInfoDir, p.uid))
 }
 
 type dhcpConfigCacheStore struct {

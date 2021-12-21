@@ -44,24 +44,24 @@ var _ = Describe("Infocache", func() {
 
 		It("should return os.ErrNotExist if no cache entry exists", func() {
 			vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: "123"}}
-			_, err := cacheFactory.CacheForVMI(vmi).Read("abc")
+			_, err := cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
 			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
 		It("should save and restore pod interface information", func() {
 			vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: "123"}}
 
-			Expect(cacheFactory.CacheForVMI(vmi).Write("abc", obj)).To(Succeed())
-			newObj, err := cacheFactory.CacheForVMI(vmi).Read("abc")
+			Expect(cacheFactory.CacheForVMI(string(vmi.UID)).Write("abc", obj)).To(Succeed())
+			newObj, err := cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newObj).To(Equal(obj))
 		})
 		It("should remove the cache file", func() {
 			vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: "123"}}
-			Expect(cacheFactory.CacheForVMI(vmi).Write("abc", obj)).To(Succeed())
-			_, err := cacheFactory.CacheForVMI(vmi).Read("abc")
+			Expect(cacheFactory.CacheForVMI(string(vmi.UID)).Write("abc", obj)).To(Succeed())
+			_, err := cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cacheFactory.CacheForVMI(vmi).Remove()).To(Succeed())
-			_, err = cacheFactory.CacheForVMI(vmi).Read("abc")
+			Expect(cacheFactory.CacheForVMI(string(vmi.UID)).Remove()).To(Succeed())
+			_, err = cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
 			Expect(err).To(HaveOccurred())
 		})
 	})

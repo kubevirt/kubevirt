@@ -85,7 +85,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.setupCompleted.Delete(vmi.UID)
-	if err := c.ifaceCacheFactory.CacheForVMI(vmi).Remove(); err != nil {
+	if err := c.ifaceCacheFactory.CacheForVMI(string(vmi.UID)).Remove(); err != nil {
 		return fmt.Errorf("teardown failed, err: %w", err)
 	}
 
