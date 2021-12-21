@@ -61,15 +61,15 @@ type interfaceCacheFactory struct {
 }
 
 func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
-	return newPodInterfaceCacheStore(vmi, i.fs, virtHandlerCachePattern)
+	return podInterfaceCacheStore{vmi: vmi, fs: i.fs, pattern: virtHandlerCachePattern}
 }
 
 func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {
-	return newDomainInterfaceStore(pid, i.fs, virtLauncherCachedPattern)
+	return domainInterfaceStore{pid: pid, fs: i.fs, pattern: virtLauncherCachedPattern}
 }
 
 func (i *interfaceCacheFactory) CacheDHCPConfigForPid(pid string) DHCPConfigStore {
-	return newDHCPConfigCacheStore(pid, i.fs, dhcpConfigCachedPattern)
+	return dhcpConfigCacheStore{pid: pid, fs: i.fs, pattern: dhcpConfigCachedPattern}
 }
 
 type DomainInterfaceStore interface {
@@ -105,10 +105,6 @@ func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interf
 	return
 }
 
-func newDomainInterfaceStore(pid string, fs fs.Fs, pattern string) DomainInterfaceStore {
-	return domainInterfaceStore{pid: pid, fs: fs, pattern: pattern}
-}
-
 type podInterfaceCacheStore struct {
 	vmi     *v1.VirtualMachineInstance
 	pattern string
@@ -130,10 +126,6 @@ func (p podInterfaceCacheStore) Remove() error {
 	return p.fs.RemoveAll(filepath.Join(networkInfoDir, string(p.vmi.UID)))
 }
 
-func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, fs fs.Fs, pattern string) PodInterfaceCacheStore {
-	return podInterfaceCacheStore{vmi: vmi, fs: fs, pattern: pattern}
-}
-
 type dhcpConfigCacheStore struct {
 	pid     string
 	pattern string
@@ -152,10 +144,6 @@ func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DHCPConfig) 
 
 func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
 	return getInterfaceCacheFile(d.pattern, d.pid, ifaceName)
-}
-
-func newDHCPConfigCacheStore(pid string, fs fs.Fs, pattern string) dhcpConfigCacheStore {
-	return dhcpConfigCacheStore{pid: pid, fs: fs, pattern: pattern}
 }
 
 func writeToCachedFile(fs fs.Fs, obj interface{}, fileName string) error {
