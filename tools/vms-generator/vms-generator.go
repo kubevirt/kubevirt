@@ -27,11 +27,14 @@ import (
 
 	"kubevirt.io/kubevirt/tools/util"
 
+	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -103,6 +106,10 @@ func main() {
 		utils.VmiReplicaSetCirros: utils.GetVMIReplicaSetCirros(),
 	}
 
+	var vmpools = map[string]*poolv1.VirtualMachinePool{
+		utils.VmPoolCirros: utils.GetVMPoolCirros(),
+	}
+
 	var vmipresets = map[string]*v1.VirtualMachineInstancePreset{
 		utils.VmiPresetSmall: utils.GetVMIPresetSmall(),
 	}
@@ -166,6 +173,21 @@ func main() {
 	for name, obj := range vmireplicasets {
 		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
 		handleCauses(causes, name, "vmi replica set")
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range vmpools {
+		ar := &admissionv1.AdmissionReview{
+
+			Request: &admissionv1.AdmissionRequest{
+				UserInfo: authenticationv1.UserInfo{
+					Username: "user-account",
+				},
+				Operation: admissionv1.Create,
+			},
+		}
+		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config)
+		handleCauses(causes, name, "vm pool")
 		handleError(dumpObject(name, *obj))
 	}
 

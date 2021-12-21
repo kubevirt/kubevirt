@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -87,6 +88,8 @@ const (
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
+
+const VmPoolCirros = "vm-pool-cirros"
 
 const VmiPresetSmall = "vmi-preset-small"
 
@@ -956,6 +959,42 @@ func GetVMMultiPvc() *v1.VirtualMachine {
 	return vm
 }
 
+func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) *poolv1.VirtualMachinePool {
+	baseVMISpec := getBaseVMISpec()
+	replicasInt32 := int32(replicas)
+	running := true
+
+	return &poolv1.VirtualMachinePool{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: poolv1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachinePool",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: poolv1.VirtualMachinePoolSpec{
+			Replicas: &replicasInt32,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: selectorLabels,
+			},
+			VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: selectorLabels,
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: selectorLabels,
+						},
+						Spec: *baseVMISpec,
+					},
+				},
+			},
+		},
+	}
+}
+
 func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]string) *v1.VirtualMachineInstanceReplicaSet {
 	baseVMISpec := getBaseVMISpec()
 	replicasInt32 := int32(replicas)
@@ -981,6 +1020,16 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 			},
 		},
 	}
+}
+
+func GetVMPoolCirros() *poolv1.VirtualMachinePool {
+
+	vmPool := getBaseVMPool(VmPoolCirros, 3, map[string]string{
+		"kubevirt.io/vmpool": VmPoolCirros,
+	})
+
+	addContainerDisk(&vmPool.Spec.VirtualMachineTemplate.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	return vmPool
 }
 
 func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
