@@ -933,6 +933,12 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 
 	if isPodPendingUnschedulable(pod) {
 		c.alertIfHostModelIsUnschedulable(vmi, pod)
+		c.recorder.Eventf(
+			migration,
+			k8sv1.EventTypeWarning,
+			MigrationTargetPodUnschedulable,
+			"Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
+		log.Log.Object(migration).Warningf("Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		if secondsSpentPending >= unschedulableTimeout {
 			return c.deleteTimedOutTargetPod(migration, vmi, pod, "unschedulable pod timeout period exceeded")
 		} else {
