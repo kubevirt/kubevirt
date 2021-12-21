@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -13,11 +12,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
-	randutil "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"k8s.io/utils/trace"
 
-	"github.com/davecgh/go-spew/spew"
 	appsv1 "k8s.io/api/apps/v1"
 	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,9 +56,10 @@ const (
 )
 
 const (
-	FailedScaleOutReason = "FailedScaleOut"
-	FailedScaleInReason  = "FailedScaleIn"
-	FailedUpdateReason   = "FailedUpdate"
+	FailedScaleOutReason        = "FailedScaleOut"
+	FailedScaleInReason         = "FailedScaleIn"
+	FailedUpdateReason          = "FailedUpdate"
+	FailedRevisionPruningReason = "FailedRevisionPruning"
 
 	SuccessfulPausedPoolReason = "SuccessfulPaused"
 	SuccessfulResumePoolReason = "SuccessfulResume"
@@ -159,17 +158,15 @@ func (c *PoolController) addVMIHandler(obj interface{}) {
 		return
 	}
 
-	// If we make it here, the VMI needs to trigger an update because
-	// the VMI is a different hash than the pool, so enqueue the pool
 	pool := c.resolveControllerRef(vm.Namespace, vmControllerRef)
 	if pool == nil {
 		// VM is not controlled by a pool
 		return
 	}
 
-	vmHash, vmOk := vm.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineInstanceTemplateHash]
-	vmiHash, vmiOk := vmi.Labels[virtv1.VirtualMachineInstanceTemplateHash]
-	if vmOk && vmiOk && vmHash == vmiHash {
+	vmRevisionName, vmOk := vm.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachinePoolRevisionName]
+	vmiRevisionName, vmiOk := vmi.Labels[virtv1.VirtualMachinePoolRevisionName]
+	if vmOk && vmiOk && vmRevisionName == vmiRevisionName {
 		// nothing to do here, VMI is up-to-date with VM's Template
 		return
 	}
@@ -204,7 +201,18 @@ func (c *PoolController) addRevisionHandler(obj interface{}) {
 }
 
 func (c *PoolController) updateRevisionHandler(old, cur interface{}) {
-	c.addRevisionHandler(cur)
+	cr := cur.(*appsv1.ControllerRevision)
+
+	// If it has a ControllerRef, that's all that matters.
+	if controllerRef := metav1.GetControllerOf(cr); controllerRef != nil {
+		pool := c.resolveControllerRef(cr.Namespace, controllerRef)
+		if pool == nil {
+			return
+		}
+
+		c.enqueuePool(pool)
+		return
+	}
 }
 
 // When a vm is created, enqueue the pool that manages it and update its expectations.
@@ -367,35 +375,8 @@ func mapCopy(src map[string]string) map[string]string {
 	dst := map[string]string{}
 	for k, v := range src {
 		dst[k] = v
-
 	}
 	return dst
-}
-
-func hashFn(obj interface{}) string {
-	hasher := fnv.New32a()
-
-	// DeepHashObject writes specified object to hash using the spew library
-	// which follows pointers and prints actual values of the nested objects
-	// ensuring the hash does not change when a pointer changes.
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hasher, "%#v", obj)
-
-	return randutil.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
-
-}
-
-func hashVMITemplate(pool *poolv1.VirtualMachinePool) string {
-	return hashFn(pool.Spec.VirtualMachineTemplate.Spec.Template)
-}
-
-func hashVMTemplate(pool *poolv1.VirtualMachinePool) string {
-	return hashFn(pool.Spec.VirtualMachineTemplate)
 }
 
 // listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
@@ -631,7 +612,7 @@ func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachin
 	return spec
 }
 
-func injectHashIntoVM(vm *virtv1.VirtualMachine, vmHash string, vmiHash string) *virtv1.VirtualMachine {
+func injectPoolRevisionLabelsIntoVM(vm *virtv1.VirtualMachine, revisionName string) *virtv1.VirtualMachine {
 
 	if vm.Labels == nil {
 		vm.Labels = map[string]string{}
@@ -640,22 +621,30 @@ func injectHashIntoVM(vm *virtv1.VirtualMachine, vmHash string, vmiHash string) 
 		vm.Spec.Template.ObjectMeta.Labels = map[string]string{}
 	}
 
-	vm.Labels[virtv1.VirtualMachineTemplateHash] = vmHash
-	vm.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineInstanceTemplateHash] = vmiHash
+	vm.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
+	vm.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
 
 	return vm
 }
 
 func getRevisionName(pool *poolv1.VirtualMachinePool) string {
-	return fmt.Sprintf("vmpool-%s-%d", pool.UID, pool.Generation)
+	return fmt.Sprintf("%s-%d", pool.Name, pool.Generation)
 }
 
-func (c *PoolController) createControllerRevision(pool *poolv1.VirtualMachinePool) (string, error) {
+func (c *PoolController) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (string, error) {
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
 		return "", err
 	}
 	revisionName := getRevisionName(pool)
+
+	_, alreadyExists, err := c.getControllerRevision(pool.Namespace, revisionName)
+	if err != nil {
+		return "", err
+	} else if alreadyExists {
+		// already created
+		return revisionName, nil
+	}
 
 	bytes, err := json.Marshal(&pool.Spec)
 	if err != nil {
@@ -712,6 +701,11 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 
 	newNames := calculateNewVMNames(count, pool.Name, pool.Namespace, c.vmInformer.GetStore())
 
+	revisionName, err := c.ensureControllerRevision(pool)
+	if err != nil {
+		return err
+	}
+
 	log.Log.Object(pool).Infof("Adding %d VMs to pool", len(newNames))
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
@@ -719,11 +713,9 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	}
 
 	// We have to create VMs
-	c.expectations.ExpectCreations(poolKey, len(newNames))
+	c.expectations.RaiseExpectations(poolKey, len(newNames), 0)
 	wg.Add(len(newNames))
 	errChan := make(chan error, len(newNames))
-	vmHash := hashVMTemplate(pool)
-	vmiHash := hashVMITemplate(pool)
 
 	for _, name := range newNames {
 		go func(name string) {
@@ -740,7 +732,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 			vm.Labels = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vm.Annotations = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vm.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
-			vm = injectHashIntoVM(vm, vmHash, vmiHash)
+			vm = injectPoolRevisionLabelsIntoVM(vm, revisionName)
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
@@ -769,32 +761,41 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	return nil
 }
 
-func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
-
+func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (syncError, bool) {
 	diff := c.calcDiff(pool, vms)
 	if diff == 0 {
 		// nothing to do
-		return nil
+		return nil, true
 	}
 
 	diff = limit(diff, c.burstReplicas)
 	if diff < 0 {
 		err := c.scaleOut(pool, abs(diff))
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason}
+			return &syncErrorImpl{fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason}, false
 		}
 	} else if diff > 0 {
 		err := c.scaleIn(pool, vms, diff)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason}
+			return &syncErrorImpl{fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason}, false
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
-func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine, vmHash string, vmiHash string) error {
+func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
+
+	if len(vmOutdatedList) == 0 {
+		return nil
+	}
+
+	revisionName, err := c.ensureControllerRevision(pool)
+	if err != nil {
+		return err
+	}
+
 	wg.Add(len(vmOutdatedList))
 	errChan := make(chan error, len(vmOutdatedList))
 	for i := 0; i < len(vmOutdatedList); i++ {
@@ -813,7 +814,7 @@ func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vm
 			vmCopy.Labels = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vmCopy.Annotations = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vmCopy.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
-			vmCopy = injectHashIntoVM(vmCopy, vmHash, vmiHash)
+			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
 			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 			if err != nil {
@@ -859,21 +860,62 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 				return
 			}
 
-			templateHash, templateOk := vm.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineInstanceTemplateHash]
-			vmiHash, vmiOk := vmi.Labels[virtv1.VirtualMachineInstanceTemplateHash]
-			// compare the VMI's hash with the VM's hash
-			if templateOk && vmiOk && templateHash == vmiHash {
-				// nothing to do here, VMI is up-to-date with VM
-				return
-			}
-
-			// VMI and VM hash do not match, and we know the VM is up-to-date, so kill the VMI
-			err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(vmi.ObjectMeta.Name, &v1.DeleteOptions{})
+			updateType, err := c.isOutdatedVMI(vm, vmi)
 			if err != nil {
-				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting outdated VMI: %v", vm.Namespace, vm.Name, err)
 				errChan <- err
+				return
+
 			}
-			c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+			switch updateType {
+			case proactiveUpdateTypeRestart:
+				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(vmi.ObjectMeta.Name, &v1.DeleteOptions{})
+				if err != nil {
+					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting outdated VMI: %v", vm.Namespace, vm.Name, err)
+					errChan <- err
+					return
+				}
+				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
+				c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+			case proactiveUpdateTypePatchRevisionLabel:
+				var patchOps []string
+				vmiCopy := vmi.DeepCopy()
+				if vmiCopy.Labels == nil {
+					vmiCopy.Labels = make(map[string]string)
+				}
+				revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
+				if !exists {
+					// nothing to do
+					return
+				}
+				vmiCopy.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
+
+				newLabelBytes, err := json.Marshal(vmiCopy.Labels)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				oldLabelBytes, err := json.Marshal(vmi.Labels)
+				if err != nil {
+					errChan <- err
+					return
+				}
+
+				if vmi.Labels == nil {
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+				} else {
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabelBytes)))
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+				}
+
+				patchBytes := controller.GeneratePatchBytes(patchOps)
+
+				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patchBytes, &v1.PatchOptions{})
+				if err != nil {
+					errChan <- fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
+					return
+				}
+				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via label patch", vm.Namespace, vm.Name)
+			}
 		}(i)
 	}
 	wg.Wait()
@@ -888,23 +930,187 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 	return nil
 }
 
-func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
-	vmHash := hashVMTemplate(pool)
-	vmiHash := hashVMITemplate(pool)
+type proactiveUpdateType string
+
+const (
+	// VMI spec has changed within vmi pool and requires restart
+	proactiveUpdateTypeRestart proactiveUpdateType = "restart"
+	// VMI spec is identify in current vmi pool, just needs revision label updated
+	proactiveUpdateTypePatchRevisionLabel proactiveUpdateType = "label-patch"
+	// VMI does not need an update
+	proactiveUpdateTypeNone proactiveUpdateType = "no-update"
+)
+
+func (c *PoolController) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (proactiveUpdateType, error) {
+	// This function compares the pool revision (pool spec at a specific point in time) synced
+	// to the VM vs the one used to create the VMI. By comparing the pool spec revisions between
+	// the VM and VMI we can determine if the VM has mutated in a way that should result
+	// in the VMI being updated. If the VMITemplate in these two pool revisions are not identical,
+	// the VMI needs to be updated via forced restart when proactive updates are in use.
+	//
+	// Rules for determining if a VMI is out of date or not
+	//
+	// 1. If the VM revision name doesn't exist, it's going to get set by the reconcile loop.
+	//    The (opportunist update) logic handles ensuring the VM revision name will get set again
+	//    on a future reconcile loop.
+	// 2. If the VMI revision name doesn't exist, the VMI has to be proactively restarted
+	//    because we have no history of what revision was used to originate the VMI. The
+	//    VM is an offline config we're comparing to, but the VMI is the active config.
+	// 3. Compare the VMI template in the pool revision associated with the VM to the one
+	//    associated with the VMI. If they are identical in name or DeepEquals, then no
+	//    proactive restart is required.
+	// 4. If the expected VMI template specs from the revisions are not identical in name, but
+	//    are identical in DeepEquals, patch the VMI with the new revision name used on the vm.
+
+	vmRevisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
+	if !exists {
+		// If we can't detect the VM revision then consider the outdated
+		// status as not being required. The VM revision will get set again
+		// by this controller on a future reconcile loop
+		return proactiveUpdateTypeNone, nil
+	}
+
+	vmiRevisionName, exists := vmi.Labels[virtv1.VirtualMachinePoolRevisionName]
+	if !exists {
+		// If the VMI doesn't have the revision label, then it is outdated
+		log.Log.Infof("Marking vmi %s/%s for update due to missing revision label", vm.Namespace, vm.Name)
+		return proactiveUpdateTypeRestart, nil
+	}
+
+	if vmRevisionName == vmiRevisionName {
+		// no update required because revisions match
+		return proactiveUpdateTypeNone, nil
+	}
+
+	// Get the pool revision used to create the VM
+	poolSpecRevisionForVM, exists, err := c.getControllerRevision(vm.Namespace, vmRevisionName)
+	if err != nil {
+		return proactiveUpdateTypeNone, err
+	} else if !exists {
+		// if the revision associated with the pool can't be found, then
+		// no update is required at this time. The revision will eventually
+		// get created in a future reconcile loop and we'll be able to process the VMI.
+		return proactiveUpdateTypeNone, nil
+	}
+	expectedVMITemplate := poolSpecRevisionForVM.VirtualMachineTemplate.Spec.Template
+
+	// Get the pool revision used to create the VMI
+	poolSpecRevisionForVMI, exists, err := c.getControllerRevision(vm.Namespace, vmiRevisionName)
+	if err != nil {
+		return proactiveUpdateTypeRestart, err
+	} else if !exists {
+		// if the VMI does not have an associated revision, then we have to force
+		// an update
+		log.Log.Infof("Marking vmi %s/%s for update due to missing revision", vm.Namespace, vm.Name)
+		return proactiveUpdateTypeRestart, nil
+	}
+	currentVMITemplate := poolSpecRevisionForVMI.VirtualMachineTemplate.Spec.Template
+
+	// If the VMI templates differ between the revision used to create
+	// the VM and the revision used to create the VMI, then the VMI
+	// must be updated.
+	if !equality.Semantic.DeepEqual(currentVMITemplate, expectedVMITemplate) {
+		log.Log.Infof("Marking vmi %s/%s for update due out of sync spec", vm.Namespace, vm.Name)
+		return proactiveUpdateTypeRestart, nil
+	}
+
+	// If we get here, the vmi templates are identical, but the revision
+	// names are different, so patch the VMI with a new revision name.
+	return proactiveUpdateTypePatchRevisionLabel, nil
+}
+
+func (c *PoolController) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv1.VirtualMachine) (bool, error) {
+
+	if vm.Labels == nil {
+		log.Log.Object(pool).Infof("Marking vm %s/%s for update due to missing labels ", vm.Namespace, vm.Name)
+		return true, nil
+	}
+
+	revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
+	if !exists {
+		log.Log.Object(pool).Infof("Marking vm %s/%s for update due to missing revision labels ", vm.Namespace, vm.Name)
+		return true, nil
+	}
+
+	oldPoolSpec, exists, err := c.getControllerRevision(pool.Namespace, revisionName)
+	if err != nil {
+		return true, err
+	} else if !exists {
+		log.Log.Object(pool).Infof("Marking vm %s/%s for update due to missing revision", vm.Namespace, vm.Name)
+		return true, nil
+	}
+
+	if !equality.Semantic.DeepEqual(oldPoolSpec.VirtualMachineTemplate, pool.Spec.VirtualMachineTemplate) {
+		log.Log.Object(pool).Infof("Marking vm %s/%s for update due out of date spec", vm.Namespace, vm.Name)
+		return true, nil
+	}
+
+	return false, nil
+
+}
+
+func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
+
+	keys, err := c.revisionInformer.GetIndexer().IndexKeys("vmpool", string(pool.UID))
+	if err != nil {
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}
+		}
+	}
+
+	deletionMap := make(map[string]interface{})
+	for _, key := range keys {
+		strs := strings.Split(key, "/")
+		if len(strs) != 2 {
+			continue
+		}
+		deletionMap[strs[1]] = nil
+	}
+
+	for _, vm := range vms {
+
+		// Check to see what revision is used by the VM, and remove
+		// that from the revision prune list
+		revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
+		if exists {
+			// remove from deletionMap since we found a VM that references this revision
+			delete(deletionMap, revisionName)
+		}
+
+		// Check to see what revision is used by the VMI, and remove
+		// that from the revision prune list
+		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
+		obj, exists, _ := c.vmiInformer.GetStore().GetByKey(vmiKey)
+		if exists {
+			vmi := obj.(*virtv1.VirtualMachineInstance)
+			revisionName, exists = vmi.Labels[virtv1.VirtualMachinePoolRevisionName]
+			if exists {
+				// remove from deletionMap since we found a VMI that references this revision
+				delete(deletionMap, revisionName)
+			}
+		}
+	}
+
+	for revisionName, _ := range deletionMap {
+		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}
+		}
+	}
+
+	return nil
+}
+
+func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (syncError, bool) {
 	// List of VMs that need to be updated
 	vmOutdatedList := []*virtv1.VirtualMachine{}
 	// List of VMs that are up-to-date that need to be checked to see if VMI is up-to-date
 	vmUpdatedList := []*virtv1.VirtualMachine{}
 
 	for _, vm := range vms {
-		outdated := false
-		if vm.Labels == nil {
-			outdated = true
-		} else {
-			oldHash, ok := vm.Labels[virtv1.VirtualMachineTemplateHash]
-			if !ok || oldHash != vmHash {
-				outdated = true
-			}
+		outdated, err := c.isOutdatedVM(pool, vm)
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("Error while detected outdated VMs: %v", err), FailedUpdateReason}, false
 		}
 
 		if outdated {
@@ -914,17 +1120,22 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 		}
 	}
 
-	err := c.opportunisticUpdate(pool, vmOutdatedList, vmHash, vmiHash)
+	err := c.opportunisticUpdate(pool, vmOutdatedList)
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf("Error during VM update: %v", err), FailedUpdateReason}
+		return &syncErrorImpl{fmt.Errorf("Error during VM update: %v", err), FailedUpdateReason}, false
 	}
 
 	err = c.proactiveUpdate(pool, vmUpdatedList)
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf("Error during VMI update: %v", err), FailedUpdateReason}
+		return &syncErrorImpl{fmt.Errorf("Error during VMI update: %v", err), FailedUpdateReason}, false
 	}
 
-	return nil
+	vmUpdateStable := false
+	if len(vmOutdatedList) == 0 {
+		vmUpdateStable = true
+	}
+
+	return nil, vmUpdateStable
 }
 
 // Execute runs commands from the controller queue, if there is
@@ -1069,19 +1280,28 @@ func (c *PoolController) execute(key string) error {
 
 	needsSync := c.expectations.SatisfiedExpectations(key)
 	if needsSync && !pool.Spec.Paused && pool.DeletionTimestamp == nil {
+		scaleIsStable := false
+		updateIsStable := false
 
-		syncErr = c.scale(pool, vms)
+		syncErr, scaleIsStable = c.scale(pool, vms)
 		if syncErr != nil {
 			logger.Reason(err).Error("Scaling the pool failed.")
 		}
 
 		needsSync = c.expectations.SatisfiedExpectations(key)
-		if needsSync && syncErr == nil {
+		if needsSync && scaleIsStable && syncErr == nil {
 			// Handle updates after scale operations are satisfied.
-			syncErr = c.update(pool, vms)
+			syncErr, updateIsStable = c.update(pool, vms)
 		}
 
+		needsSync = c.expectations.SatisfiedExpectations(key)
+		if needsSync && syncErr == nil && scaleIsStable && updateIsStable {
+			// handle pruning revisions after scale and update operations are satisfied
+			syncErr = c.pruneUnusedRevisions(pool, vms)
+		}
 		virtControllerPoolWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMPool Name", Value: pool.Name})
+	} else if pool.DeletionTimestamp != nil {
+		syncErr = c.pruneUnusedRevisions(pool, vms)
 	}
 
 	err = c.updateStatus(pool, vms, syncErr)
