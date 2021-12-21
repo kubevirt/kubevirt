@@ -485,10 +485,16 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
 			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+
+			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
+			// The leading zero is intentional.
+			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+			const NTPServerWithLeadingZeros = "0127.0.0.3"
+
 			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
-				NTPServers:     []string{"127.0.0.1", "127.0.0.2"},
+				NTPServers:     []string{"127.0.0.1", "127.0.0.2", NTPServerWithLeadingZeros},
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
@@ -508,7 +514,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2' /dhcp-env; echo $?\n"},
+				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2 127.0.0.3' /dhcp-env; echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
