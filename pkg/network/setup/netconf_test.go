@@ -82,7 +82,7 @@ var _ = Describe("netconf", func() {
 
 type interfaceCacheFactoryStub struct{ podInterfaceCacheStore podInterfaceCacheStoreStub }
 
-func (i interfaceCacheFactoryStub) CacheForVMI(vmi *v1.VirtualMachineInstance) cache.PodInterfaceCacheStore {
+func (i interfaceCacheFactoryStub) CacheForVMI(uid string) cache.PodInterfaceCacheStore {
 	return i.podInterfaceCacheStore
 }
 func (i interfaceCacheFactoryStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {

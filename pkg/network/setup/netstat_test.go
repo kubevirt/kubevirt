@@ -477,7 +477,7 @@ func newInterfaceCacheFactoryStub() *interfaceCacheFactoryStatusStub {
 	}
 }
 
-func (i interfaceCacheFactoryStatusStub) CacheForVMI(vmi *v1.VirtualMachineInstance) cache.PodInterfaceCacheStore {
+func (i interfaceCacheFactoryStatusStub) CacheForVMI(uid string) cache.PodInterfaceCacheStore {
 	return i.podInterfaceCacheStore
 }
 func (i interfaceCacheFactoryStatusStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
@@ -590,7 +590,7 @@ func (t *testSetup) addGuestAgentInterfaces(interfaces ...api.InterfaceStatus) {
 }
 
 func (t *testSetup) addFSCacheInterface(name string, podIPs ...string) {
-	t.ifaceFSCacheFactory.CacheForVMI(nil).Write(name, makePodCacheInterface(name, podIPs...))
+	t.ifaceFSCacheFactory.CacheForVMI("").Write(name, makePodCacheInterface(name, podIPs...))
 }
 
 func makePodCacheInterface(networkName string, podIPs ...string) *cache.PodCacheInterface {
