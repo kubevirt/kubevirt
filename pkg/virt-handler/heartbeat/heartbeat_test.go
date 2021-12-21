@@ -150,6 +150,10 @@ func (f *fakeDeviceController) Initialized() bool {
 	return f.initialized
 }
 
+func (f *fakeDeviceController) RefreshMediatedDevicesTypes() {
+	return
+}
+
 func config(featuregates ...string) *virtconfig.ClusterConfig {
 	cfg := &virtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
@@ -175,6 +179,10 @@ func (f *probeCountingDeviceController) Initialized() bool {
 	defer f.lock.Unlock()
 	f.probed++
 	return f.probes[f.probed-1]
+}
+
+func (f *probeCountingDeviceController) RefreshMediatedDevicesTypes() {
+	return
 }
 
 func newProbeCountingDeviceController(probes ...probe) device_manager.DeviceControllerInterface {

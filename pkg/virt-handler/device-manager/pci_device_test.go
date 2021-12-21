@@ -10,6 +10,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/kubernetes/fake"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -32,8 +34,10 @@ var _ = Describe("PCI Device", func() {
 	var fakePermittedHostDevicesConfig string
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var ctrl *gomock.Controller
+	var clientTest *fake.Clientset
 
 	BeforeEach(func() {
+		clientTest = fake.NewSimpleClientset()
 		By("making sure the environment has a PCI device at " + fakeAddress)
 		_, err := os.Stat("/sys/bus/pci/devices/" + fakeAddress)
 		if os.IsNotExist(err) {
@@ -128,7 +132,7 @@ pciHostDevices:
 		fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		By("creating an empty device controller")
-		deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig)
+		deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig, clientTest.CoreV1())
 		deviceController.devicePlugins = make(map[string]ControlledDevice)
 
 		By("adding a host device to the cluster config")

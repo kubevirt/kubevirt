@@ -112,6 +112,12 @@ func (h *HeartBeat) do() {
 		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
 		return
 	}
+
+	// A configuration of mediated devices types on this node depends on the existing node labels
+	// and a MediatedDevicesConfiguration in KubeVirt CR.
+	// When labels change we should initialize a refresh to create/remove mdev types and start/stop
+	// relevant device plugins. This operation should be async.
+	h.deviceManagerController.RefreshMediatedDevicesTypes()
 	log.DefaultLogger().V(4).Infof("Heartbeat sent")
 }
 
