@@ -43,6 +43,24 @@ var _ = Describe("netstat", func() {
 		Expect(setup.NetStat.UpdateStatus(setup.Vmi, nil)).To(Succeed())
 	})
 
+	It("volatile cache is updated based on non-volotile cache", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+		)
+
+		setup.addNetworkInterface(
+			newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+			newVMISpecPodNetwork(primaryNetworkName),
+			newDomainSpecIface(primaryNetworkName, ""),
+			primaryPodIPv4,
+		)
+
+		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+		Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
+	})
+
 	Context("with volatile cache", func() {
 		const (
 			primaryNetworkName = "primary"
