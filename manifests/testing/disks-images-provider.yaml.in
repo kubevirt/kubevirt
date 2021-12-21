@@ -32,6 +32,8 @@ spec:
         kubevirt.io: cdi-http-import-server
     spec:
       serviceAccountName: kubevirt-testing
+      securityContext:
+        runAsUser: 0
       containers:
         - name: cdi-http-import-server
           image: {{.DockerPrefix}}/cdi-http-import-server:{{.DockerTag}}
