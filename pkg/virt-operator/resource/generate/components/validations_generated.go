@@ -2427,8 +2427,6 @@ var CRDsValidation map[string]string = map[string]string{
         completionTimeoutPerGiB:
           format: int64
           type: integer
-        disableTLS:
-          type: boolean
         selectors:
           properties:
             namespaceSelector:

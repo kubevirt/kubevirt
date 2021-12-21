@@ -52,8 +52,6 @@ type MigrationPolicySpec struct {
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	//+optional
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
-	//+optional
-	DisableTLS *bool `json:"disableTLS,omitempty"`
 }
 
 type Selectors struct {
@@ -99,10 +97,6 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 	if policySpec.AllowPostCopy != nil {
 		changed = true
 		*clusterMigrationConfigurations.AllowPostCopy = *policySpec.AllowPostCopy
-	}
-	if policySpec.DisableTLS != nil {
-		changed = true
-		*clusterMigrationConfigurations.DisableTLS = *policySpec.DisableTLS
 	}
 
 	return changed, nil
