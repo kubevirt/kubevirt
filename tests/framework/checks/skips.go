@@ -236,3 +236,18 @@ func SkipIfARM64(arch string, message string) {
 		ginkgo.Skip("Skip test on arm64: " + message)
 	}
 }
+
+func SkipTestIfNotEnoughSchedulableNode(nodeCount int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := util.GetAllSchedulableNodes(virtClient)
+	schedulableNodesNum := len(nodes.Items)
+	if schedulableNodesNum < nodeCount {
+		msg := fmt.Sprintf(
+			"skipping due to not enough Schedulable nodes: tes requires %v nodes, but got %v",
+			nodeCount,
+			schedulableNodesNum,
+		)
+		ginkgo.Skip(msg, 1)
+	}
+}
