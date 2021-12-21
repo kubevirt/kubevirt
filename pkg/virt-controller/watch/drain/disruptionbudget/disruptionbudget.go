@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 )
@@ -50,6 +51,7 @@ type DisruptionBudgetController struct {
 	migrationInformer               cache.SharedIndexInformer
 	recorder                        record.EventRecorder
 	podDisruptionBudgetExpectations *controller.UIDTrackingControllerExpectations
+	onOpenShift                     bool
 }
 
 func NewDisruptionBudgetController(
@@ -305,9 +307,16 @@ func (c *DisruptionBudgetController) resolveControllerRef(namespace string, cont
 
 // Run runs the passed in NodeController.
 func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}) {
+	var err error
+
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting disruption budget controller.")
+
+	c.onOpenShift, err = clusterutil.IsOnOpenShift(c.clientset)
+	if err != nil {
+		log.Log.Errorf("Error determining cluster type: %v, assuming Kubernetes", err)
+	}
 
 	// Wait for cache sync before we start the node controller
 	cache.WaitForCacheSync(stopCh, c.pdbInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced)
@@ -461,8 +470,7 @@ func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstanc
 func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMachineInstance) error {
 	minAvailable := intstr.FromInt(1)
 
-	c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
-	createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &v1beta1.PodDisruptionBudget{
+	pdb := &v1beta1.PodDisruptionBudget{
 		ObjectMeta: v1.ObjectMeta{
 			OwnerReferences: []v1.OwnerReference{
 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
@@ -477,7 +485,16 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
 				},
 			},
 		},
-	}, v1.CreateOptions{})
+	}
+
+	if c.onOpenShift {
+		pdb.Labels = map[string]string{
+			pdbs.OpenShiftPDBAtLimitAlert: "disabled",
+		}
+	}
+
+	c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
+	createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), pdb, v1.CreateOptions{})
 	if err != nil {
 		c.podDisruptionBudgetExpectations.CreationObserved(key)
 		c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedCreatePodDisruptionBudgetReason, "Error creating a PodDisruptionBudget: %v", err)

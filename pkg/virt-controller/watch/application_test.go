@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -42,6 +43,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	discoveryFake "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/tools/record"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -178,6 +180,11 @@ var _ = Describe("Application", func() {
 		app.nodeInformer = nodeInformer
 
 		app.readyChan = make(chan bool)
+
+		discoveryClient := &discoveryFake.FakeDiscovery{
+			Fake: &fake.NewSimpleClientset().Fake,
+		}
+		virtClient.EXPECT().DiscoveryClient().Return(discoveryClient).AnyTimes()
 
 		By("Invoking callback")
 		go app.onStartedLeading()(ctx)

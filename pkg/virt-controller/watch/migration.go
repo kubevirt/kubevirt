@@ -601,7 +601,17 @@ func (c *MigrationController) expandPDB(pdb *v1beta1.PodDisruptionBudget, vmi *v
 		return nil
 	}
 
-	patch := []byte(fmt.Sprintf(`{"spec":{"minAvailable": %d},"metadata":{"labels":{"%s": "%s"}}}`, minAvailable, virtv1.MigrationNameLabel, vmim.Name))
+	openShiftDisableAlertLabel := ""
+	if c.onOpenShift {
+		openShiftDisableAlertLabel = fmt.Sprintf(`, "%s": "disabled"`, pdbs.OpenShiftPDBAtLimitAlert)
+	}
+
+	labels := fmt.Sprintf(`"labels":{"%s": "%s" %s}`,
+		virtv1.MigrationNameLabel,
+		vmim.Name,
+		openShiftDisableAlertLabel)
+
+	patch := []byte(fmt.Sprintf(`{"spec":{"minAvailable": %d},"metadata":{%s}}`, minAvailable, labels))
 
 	_, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.StrategicMergePatchType, patch, v1.PatchOptions{})
 	if err != nil {

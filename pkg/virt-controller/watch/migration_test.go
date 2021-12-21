@@ -149,8 +149,9 @@ var _ = Describe("Migration watcher", func() {
 			Expect(ok).To(BeTrue())
 			Expect(patch.GetPatchType()).To(Equal(types.StrategicMergePatchType))
 
-			expectedPatch := fmt.Sprintf(`{"spec":{"minAvailable": 2},"metadata":{"labels":{"%s": "%s"}}}`, virtv1.MigrationNameLabel, vmim.Name)
-			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
+			expectedPatch := fmt.Sprintf(`{"spec":{"minAvailable": 2},"metadata":{"labels":{"%s": "%s"`, virtv1.MigrationNameLabel, vmim.Name)
+			hasPrefix := strings.HasPrefix(string(patch.GetPatch()), expectedPatch)
+			Expect(hasPrefix).To(BeTrue())
 
 			pdb := newPDB(patch.GetName(), vmi, 2)
 			pdb.Labels = map[string]string{

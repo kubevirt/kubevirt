@@ -10,6 +10,10 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	OpenShiftPDBAtLimitAlert = "alerts.openshift.io/PodDisruptionBudgetAtLimit"
+)
+
 func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbInformer cache.SharedIndexInformer) ([]*v1beta1.PodDisruptionBudget, error) {
 	pbds, err := pdbInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {

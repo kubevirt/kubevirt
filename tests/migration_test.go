@@ -3537,6 +3537,37 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	Context("On OpenShift", func() {
+		BeforeEach(func() {
+			if !tests.IsOpenShift() {
+				Skip("Skip if not running on openshift")
+			}
+		})
+
+		It("[sig-compute]Created PDBs should silence the PodDisruptionBudgetAtLimit alert", func() {
+			By("creating the VMI")
+			vmi := cirrosVMIWithEvictionStrategy()
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking that PDB has correct label to silence the PodDisruptionBudgetAtLimit alert")
+			Eventually(func() bool {
+				pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(pdbs.Items) < 1 {
+					return false
+				}
+				for _, pdb := range pdbs.Items {
+					alert := pdb.Labels["alerts.openshift.io/PodDisruptionBudgetAtLimit"]
+					if alert != "disabled" {
+						return false
+					}
+				}
+				return true
+			}, 3*time.Second, 500*time.Millisecond).Should(BeTrue())
+		})
+	})
 })
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
