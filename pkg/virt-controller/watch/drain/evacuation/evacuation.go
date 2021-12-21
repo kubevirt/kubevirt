@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	deleteNotifFail    = "Failed to process delete notification"
-	getObjectErr       = "couldn't get object from tombstone %+v"
-	objectNotMigration = "tombstone contained object that is not a migration %#v"
+	deleteNotifFail       = "Failed to process delete notification"
+	getObjectErrFmt       = "couldn't get object from tombstone %+v"
+	objectNotMigrationFmt = "tombstone contained object that is not a migration %#v"
 )
 
 const (
@@ -135,12 +135,12 @@ func (c *EvacuationController) enqueueVMI(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(getObjectErr, obj)).Error(deleteNotifFail)
+			log.Log.Reason(fmt.Errorf(getObjectErrFmt, obj)).Error(deleteNotifFail)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(objectNotMigration, obj)).Error(deleteNotifFail)
+			log.Log.Reason(fmt.Errorf(objectNotMigrationFmt, obj)).Error(deleteNotifFail)
 			return
 		}
 	}
@@ -160,12 +160,12 @@ func (c *EvacuationController) nodeFromVMI(obj interface{}) string {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(getObjectErr, obj)).Error(deleteNotifFail)
+			log.Log.Reason(fmt.Errorf(getObjectErrFmt, obj)).Error(deleteNotifFail)
 			return ""
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(objectNotMigration, obj)).Error(deleteNotifFail)
+			log.Log.Reason(fmt.Errorf(objectNotMigrationFmt, obj)).Error(deleteNotifFail)
 			return ""
 		}
 	}
@@ -215,12 +215,12 @@ func (c *EvacuationController) enqueueMigration(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(getObjectErr, obj)).Error(deleteNotifFail)
+			log.Log.Reason(fmt.Errorf(getObjectErrFmt, obj)).Error(deleteNotifFail)
 			return
 		}
 		migration, ok = tombstone.Obj.(*virtv1.VirtualMachineInstanceMigration)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(objectNotMigration, obj)).Error(deleteNotifFail)
+			log.Log.Reason(fmt.Errorf(objectNotMigrationFmt, obj)).Error(deleteNotifFail)
 			return
 		}
 	}

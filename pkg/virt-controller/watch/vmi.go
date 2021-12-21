@@ -52,8 +52,8 @@ import (
 )
 
 const (
-	deleteNotifFailed     = "Failed to process delete notification"
-	tombstoneGetObjectErr = "couldn't get object from tombstone %+v"
+	deleteNotifFailed        = "Failed to process delete notification"
+	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
 // Reasons for vmi events
@@ -1206,7 +1206,7 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErr, obj)).Error(deleteNotifFailed)
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
@@ -1304,7 +1304,7 @@ func (c *VMIController) deletePod(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErr, obj)).Error(deleteNotifFailed)
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		pod, ok = tombstone.Obj.(*k8sv1.Pod)
@@ -1341,7 +1341,7 @@ func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErr, obj)).Error(deleteNotifFailed)
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)

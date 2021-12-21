@@ -21,7 +21,7 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
-const failedSetCPUManagerLabel = "failed to set a cpu manager label on host %s"
+const failedSetCPUManagerLabelFmt = "failed to set a cpu manager label on host %s"
 
 type HeartBeat struct {
 	clientset                 k8scli.CoreV1Interface
@@ -127,19 +127,19 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 	var cpuManagerOptions map[string]interface{}
 	cpuManagerPath, err := detectCPUManagerFile(cpuManagerPaths)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabel, h.host)
+		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
 	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
 	content, err := ioutil.ReadFile(cpuManagerPath)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabel, h.host)
+		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
 
 	err = json.Unmarshal(content, &cpuManagerOptions)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabel, h.host)
+		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
 

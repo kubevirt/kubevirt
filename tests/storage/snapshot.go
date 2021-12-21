@@ -29,10 +29,9 @@ import (
 )
 
 const (
-	snapshotGrepCmd		 = "%s | grep \"%s\"\n"
-	snapshotQemuGa		 = ".*qemu-ga.*%s.*"
-	snapshotEchoCmd		 = "echo $?\n"
-	vmSnapshotContent 	 = "vmsnapshot-content"
+	grepCmd                  = "%s | grep \"%s\"\n"
+	qemuGa                   = ".*qemu-ga.*%s.*"
+	vmSnapshotContent        = "vmsnapshot-content"
 	snapshotDeadlineExceeded = "snapshot deadline exceeded"
 	notReady		 = "Not ready"
 	operationComplete	 = "Operation complete"
@@ -311,20 +310,20 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				if hasGuestAgent {
 					if shouldFreeze {
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf(snapshotGrepCmd, journalctlCheck, expectedFreezeOutput)},
-							&expect.BExp{R: fmt.Sprintf(snapshotQemuGa, expectedFreezeOutput)},
-							&expect.BSnd{S: snapshotEchoCmd},
+							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
+							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
+							&expect.BSnd{S: EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
-							&expect.BSnd{S: fmt.Sprintf(snapshotGrepCmd, journalctlCheck, expectedThawOutput)},
-							&expect.BExp{R: fmt.Sprintf(snapshotQemuGa, expectedThawOutput)},
-							&expect.BSnd{S: snapshotEchoCmd},
+							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
+							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
+							&expect.BSnd{S: EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}, 30)).To(Succeed())
 					} else {
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf(snapshotGrepCmd, journalctlCheck, expectedFreezeOutput)},
+							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: snapshotEchoCmd},
+							&expect.BSnd{S: EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("1")},
 						}, 30)).To(Succeed())
 					}
@@ -673,9 +672,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
 				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf(snapshotGrepCmd, journalctlCheck, expectedFreezeOutput)},
-					&expect.BExp{R: fmt.Sprintf(snapshotQemuGa, expectedFreezeOutput)},
-					&expect.BSnd{S: snapshotEchoCmd},
+					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
+					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
+					&expect.BSnd{S: EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 				Eventually(func() bool {
@@ -691,9 +690,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				By("Veryfing the VM was thawed")
 				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf(snapshotGrepCmd, journalctlCheck, expectedThawOutput)},
-					&expect.BExp{R: fmt.Sprintf(snapshotQemuGa, expectedThawOutput)},
-					&expect.BSnd{S: snapshotEchoCmd},
+					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
+					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
+					&expect.BSnd{S: EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 				Eventually(func() bool {

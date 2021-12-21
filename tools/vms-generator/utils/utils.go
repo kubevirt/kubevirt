@@ -38,11 +38,11 @@ import (
 )
 
 const (
-	strFormat 		   = "%s/%s:%s"
-	kubevirtIoVM 		   = "kubevirt.io/vm"
-	vmName 			   = "vm-${NAME}"
-	kubevirtIoOS 		   = "kubevirt.io/os"
-	kubevirtVM 		   = "kubevirt-vm"
+	strFmt                     = "%s/%s:%s"
+	kubevirtIoVM               = "kubevirt.io/vm"
+	vmName                     = "vm-${NAME}"
+	kubevirtIoOS               = "kubevirt.io/os"
+	kubevirtVM                 = "kubevirt-vm"
 	githubKubevirtIsVMTemplate = "miq.github.io/kubevirt-is-vm-template"
 	rhel74 			   = "rhel-7.4"
 )
@@ -169,7 +169,7 @@ func initFedoraWithDisk(spec *v1.VirtualMachineInstanceSpec, containerDisk strin
 }
 
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFormat, DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
@@ -399,21 +399,21 @@ func GetVMIMigratable() *v1.VirtualMachineInstance {
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), busVirtio)
 	return vmi
 }
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiEphemeral)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmi
 }
 
 func GetVMISata() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiSata)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busSata)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busSata)
 	return vmi
 }
 
@@ -428,7 +428,7 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 func GetVMISecureBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiSecureBoot)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageMicroLiveCD, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageMicroLiveCD, DockerTag), busVirtio)
 
 	_true := true
 	vmi.Spec.Domain.Features = &v1.Features{
@@ -452,7 +452,7 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiAlpineEFI)
 
 	_false := false
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), busVirtio)
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
 			EFI: &v1.EFI{
@@ -541,7 +541,7 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 func GetVMINoCloud() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiNoCloud)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
 	return vmi
@@ -553,7 +553,7 @@ func GetVMIFlavorSmall() *v1.VirtualMachineInstance {
 		"kubevirt.io/flavor": "small",
 	}
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmi
 }
 
@@ -629,7 +629,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiKernelBoot)
 
-	image := fmt.Sprintf(strFormat, DockerPrefix, imageKernelBoot, DockerTag)
+	image := fmt.Sprintf(strFmt, DockerPrefix, imageKernelBoot, DockerTag)
 	KernelArgs := "console=ttyS0"
 	kernelPath := "/boot/vmlinuz-virt"
 	initrdPath := "/boot/initramfs-virt"
@@ -709,7 +709,7 @@ func GetVMCirros() *v1.VirtualMachine {
 		kubevirtIoVM: VmCirros,
 	})
 
-	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vm.Spec.Template.Spec)
 	return vm
 }
@@ -993,7 +993,7 @@ func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
 		"kubevirt.io/vmReplicaSet": VmiReplicaSetCirros,
 	})
 
-	addContainerDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmReplicaSet
 }
 
@@ -1090,7 +1090,7 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 func GetVMIARM() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiARM)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFormat, DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
 	return vmi

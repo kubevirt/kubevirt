@@ -21,8 +21,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-const realtimeUsrBinBash = "/usr/bin/bash"
-
 const tuneAdminRealtimeCloudInitData = `#cloud-config
 password: fedora
 chpasswd: { expire: False }
@@ -91,7 +89,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{realtimeUsrBinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+			[]string{usrBinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -104,7 +102,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{realtimeUsrBinBash, "-c", "grep 'locked memory' /proc/$(ps -u qemu -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
+			[]string{usrBinBash, "-c", "grep 'locked memory' /proc/$(ps -u qemu -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		limits := strings.Split(strings.TrimSpace(psOutput), " ")
@@ -133,7 +131,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{realtimeUsrBinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+			[]string{usrBinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -145,7 +143,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{realtimeUsrBinBash, "-c", "ps -cT -u qemu  |grep -i cpu |awk '{print $3\" \" $8}'"},
+			[]string{usrBinBash, "-c", "ps -cT -u qemu  |grep -i cpu |awk '{print $3\" \" $8}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice = strings.Split(strings.TrimSpace(psOutput), "\n")

@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-const errorClusterProfiler = "Error cluster profiler %s: %v"
+const errorClusterProfilerFmt = "Error cluster profiler %s: %v"
 
 const (
 	PROFILER_START = "start"
@@ -131,19 +131,19 @@ func main() {
 	case PROFILER_START:
 		err := virtClient.ClusterProfiler().Start()
 		if err != nil {
-			log.Fatalf(errorClusterProfiler, cmd, err)
+			log.Fatalf(errorClusterProfilerFmt, cmd, err)
 		}
 		log.Print("SUCCESS: started cpu profiling KubeVirt control plane")
 	case PROFILER_STOP:
 		err := virtClient.ClusterProfiler().Stop()
 		if err != nil {
-			log.Fatalf(errorClusterProfiler, cmd, err)
+			log.Fatalf(errorClusterProfilerFmt, cmd, err)
 		}
 		log.Print("SUCCESS: stopped cpu profiling KubeVirt control plane")
 	case PROFILER_DUMP:
 		err := fetchAndSaveClusterProfilerResults(virtClient, pageSize, labelSelector, outputDir, continueToken, reuseOutputDir)
 		if err != nil {
-			log.Fatalf(errorClusterProfiler, cmd, err)
+			log.Fatalf(errorClusterProfilerFmt, cmd, err)
 		}
 	default:
 		if cmd == "" {

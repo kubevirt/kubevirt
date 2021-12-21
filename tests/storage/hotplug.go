@@ -51,15 +51,12 @@ import (
 )
 
 const (
-	dataMessage 		= "data/message"
-	hotplugSyncName 	= "sync\n"
+	dataMessage             = "data/message"
 	addingVolumeRunningVM   = "Adding volume to running VM"
 	verifyingVolumeDiskInVM = "Verifying the volume and disk are in the VM and VMI"
 	removingVolumeFromVM    = "removing volume from VM"
 	verifyingVolumeNotExist = "Verifying the volume no longer exists in VM"
-)
 
-const (
 	virtCtlNamespace       = "--namespace"
 	virtCtlVolumeName      = "--volume-name=%s"
 	verifyCannotAccessDisk = "ls: %s: No such file or directory"
@@ -323,9 +320,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", filepath.Join("/test", filepath.Base(device), dataMessage))},
 			&expect.BExp{R: string(vmi.UID)},
-			&expect.BSnd{S: hotplugSyncName},
+			&expect.BSnd{S: syncName},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: hotplugSyncName},
+			&expect.BSnd{S: syncName},
 			&expect.BExp{R: console.PromptExpression},
 		}
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
@@ -340,9 +337,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", dataFile)},
 			&expect.BExp{R: string(vmi.UID)},
-			&expect.BSnd{S: hotplugSyncName},
+			&expect.BSnd{S: syncName},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: hotplugSyncName},
+			&expect.BSnd{S: syncName},
 			&expect.BExp{R: console.PromptExpression},
 		}
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())

@@ -125,17 +125,20 @@ import (
 )
 
 const (
-	utilsKubevirtIoTest 		  = "kubevirt.io/test"
-	utilsKubernetesIoHostName 	  = "kubernetes.io/hostname"
-	utilsBinBash			  = "/bin/bash"
-	utilsStartingVMInstance 	  = "Starting a VirtualMachineInstance"
-	utilsWaitingVMInstanceStart 	  = "Waiting until the VirtualMachineInstance will start"
-	utilsTestDataVolumeName 	  = "test-datavolume-"
-	utilsKubevirtIoV1Alpha1 	  = "cdi.kubevirt.io/v1alpha1"
-	utilsServerName 		  = "--server"
-	utilsCouldNotFindComputeContainer = "could not find compute container for pod"
-	utilsCommandPipeFailed 		  = "command pipe failed"
-	utilsCommandPipeFailedErr 	  = "command pipe failed: %v"
+	KubevirtIoTest               = "kubevirt.io/test"
+	KubernetesIoHostName         = "kubernetes.io/hostname"
+	BinBash                      = "/bin/bash"
+	StartingVMInstance           = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
+	TestDataVolumeName           = "test-datavolume-"
+	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
+	ServerName                   = "--server"
+	CouldNotFindComputeContainer = "could not find compute container for pod"
+	CommandPipeFailed            = "command pipe failed"
+	CommandPipeFailedFmt         = "command pipe failed: %v"
+	EchoLastReturnValue          = "echo $?\n"
+	bashHelloScript              = "#!/bin/bash\necho 'hello'\n"
+	usrBinBash                   = "/usr/bin/bash"
 )
 
 var Config *KubeVirtTestsConfiguration
@@ -830,7 +833,7 @@ func createStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				utilsKubevirtIoTest: name,
+				KubevirtIoTest: name,
 			},
 		},
 		Provisioner:       "kubernetes.io/no-provisioner",
@@ -1037,7 +1040,7 @@ func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVol
 	name := fmt.Sprintf("disk-%s", os)
 
 	selector := map[string]string{
-		utilsKubevirtIoTest: os,
+		KubevirtIoTest: os,
 	}
 
 	// If the PV is not recycled, it will have a namespace related test label which  we should match
@@ -1098,7 +1101,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
 			Labels: map[string]string{
-				utilsKubevirtIoTest: osName,
+				KubevirtIoTest: osName,
 				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
 			},
 		},
@@ -1120,7 +1123,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      utilsKubernetesIoHostName,
+									Key:      KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{nodeName},
 								},
@@ -1156,7 +1159,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) strin
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
 			Labels: map[string]string{
-				utilsKubevirtIoTest: osName,
+				KubevirtIoTest: osName,
 				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
 			},
 		},
@@ -1179,7 +1182,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) strin
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      utilsKubernetesIoHostName,
+									Key:      KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{schedulableNode},
 								},
@@ -1396,7 +1399,7 @@ func createServiceAccount(saName string, clusterRole string) {
 			Name:      saName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				utilsKubevirtIoTest: saName,
+				KubevirtIoTest: saName,
 			},
 		},
 	}
@@ -1411,7 +1414,7 @@ func createServiceAccount(saName string, clusterRole string) {
 			Name:      saName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				utilsKubevirtIoTest: saName,
+				KubevirtIoTest: saName,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -1456,7 +1459,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				utilsKubevirtIoTest: "sa",
+				KubevirtIoTest: "sa",
 			},
 		},
 	}
@@ -1472,7 +1475,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				utilsKubevirtIoTest: "sa",
+				KubevirtIoTest: "sa",
 			},
 		},
 	}
@@ -1492,7 +1495,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				utilsKubevirtIoTest: "sa",
+				KubevirtIoTest: "sa",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -1572,17 +1575,17 @@ func DeletePV(os string) {
 }
 
 func VerifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
-	output := RunCommandOnVmiPod(vmi, []string{utilsBinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
+	output := RunCommandOnVmiPod(vmi, []string{BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 
-	output = RunCommandOnVmiPod(vmi, []string{utilsBinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
+	output = RunCommandOnVmiPod(vmi, []string{BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 
 	return
 }
 
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	By(utilsStartingVMInstance)
+	By(StartingVMInstance)
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -1596,7 +1599,7 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
-	By(utilsWaitingVMInstanceStart)
+	By(WaitingVMInstanceStart)
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 	return obj
 }
@@ -1605,7 +1608,7 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
 	Eventually(ThisDV(dv), timeout).Should(HaveSucceeded())
-	By(utilsWaitingVMInstanceStart)
+	By(WaitingVMInstanceStart)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	warningsIgnoreList := []string{"didn't find PVC"}
@@ -1616,13 +1619,13 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
-	By(utilsWaitingVMInstanceStart)
+	By(WaitingVMInstanceStart)
 	WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
 	return obj
 }
 
 func RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
-	By(utilsStartingVMInstance)
+	By(StartingVMInstance)
 	var obj *v1.VirtualMachineInstance
 	var err error
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -2003,7 +2006,7 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 }
 
 func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	name := utilsTestDataVolumeName + rand.String(12)
+	name := TestDataVolumeName + rand.String(12)
 	quantity, err := resource.ParseQuantity("1Gi")
 	util2.PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -2030,7 +2033,7 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 	}
 
 	dataVolume.TypeMeta = metav1.TypeMeta{
-		APIVersion: utilsKubevirtIoV1Alpha1,
+		APIVersion: KubevirtIoV1Alpha1,
 		Kind:       "DataVolume",
 	}
 
@@ -2038,7 +2041,7 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 }
 
 func newRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
-	name := utilsTestDataVolumeName + rand.String(12)
+	name := TestDataVolumeName + rand.String(12)
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -2064,7 +2067,7 @@ func newRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 	}
 
 	dataVolume.TypeMeta = metav1.TypeMeta{
-		APIVersion: utilsKubevirtIoV1Alpha1,
+		APIVersion: KubevirtIoV1Alpha1,
 		Kind:       "DataVolume",
 	}
 
@@ -2076,7 +2079,7 @@ func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespa
 }
 
 func NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	name := utilsTestDataVolumeName + rand.String(12)
+	name := TestDataVolumeName + rand.String(12)
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -2104,7 +2107,7 @@ func NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceNam
 	}
 
 	dataVolume.TypeMeta = metav1.TypeMeta{
-		APIVersion: utilsKubevirtIoV1Alpha1,
+		APIVersion: KubevirtIoV1Alpha1,
 		Kind:       "DataVolume",
 	}
 
@@ -2636,7 +2639,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      utilsKubernetesIoHostName,
+									Key:      KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{schedulableNode},
 								},
@@ -2778,7 +2781,7 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      utilsKubernetesIoHostName,
+									Key:      KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{nodeName},
 								},
@@ -3265,7 +3268,7 @@ func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, HostPathAlpine)}
 
 	By("creating an image with without qemu permissions")
-	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{utilsBinBash, "-c"}, args)
+	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
 	return
@@ -3275,7 +3278,7 @@ func DeleteAlpineWithNonQEMUPermissions() {
 	nonQemuAlpinePath := HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
 
-	pod := RenderHostPathPod("remove-tmp-image-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{utilsBinBash, "-c"}, args)
+	pod := RenderHostPathPod("remove-tmp-image-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	RunPodAndExpectCompletion(pod)
 }
@@ -3306,7 +3309,7 @@ func NewVirtctlCommand(args ...string) *cobra.Command {
 	commandline := []string{}
 	master := flag.Lookup("master").Value
 	if master != nil && master.String() != "" {
-		commandline = append(commandline, utilsServerName, master.String())
+		commandline = append(commandline, ServerName, master.String())
 	}
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig != nil && kubeconfig.String() != "" {
@@ -3434,7 +3437,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		}
 	}
 	if !found {
-		return "", fmt.Errorf(utilsCouldNotFindComputeContainer)
+		return "", fmt.Errorf(CouldNotFindComputeContainer)
 	}
 
 	// get current vmi
@@ -3477,7 +3480,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		}
 	}
 	if !found {
-		return false, fmt.Errorf(utilsCouldNotFindComputeContainer)
+		return false, fmt.Errorf(CouldNotFindComputeContainer)
 	}
 
 	stdout, stderr, err := ExecuteCommandOnPodV2(
@@ -3507,7 +3510,7 @@ func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		}
 	}
 	if !found {
-		return false, fmt.Errorf(utilsCouldNotFindComputeContainer)
+		return false, fmt.Errorf(CouldNotFindComputeContainer)
 	}
 
 	stdout, stderr, err := ExecuteCommandOnPodV2(
@@ -3695,7 +3698,7 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 
 	master := flag.Lookup("master").Value
 	if master != nil && master.String() != "" {
-		args = append(args, utilsServerName, master.String())
+		args = append(args, ServerName, master.String())
 	}
 	if namespace != "" {
 		args = append([]string{"-n", namespace}, args...)
@@ -3723,8 +3726,8 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 
 	if len(commands) < 2 {
 		err := goerrors.New("requires at least two commands")
-		log.Log.Reason(err).With("command", commandPipeString()).Error(utilsCommandPipeFailed)
-		return "", "", fmt.Errorf(utilsCommandPipeFailedErr, err)
+		log.Log.Reason(err).With("command", commandPipeString()).Error(CommandPipeFailed)
+		return "", "", fmt.Errorf(CommandPipeFailedFmt, err)
 	}
 
 	for i, command := range commands {
@@ -3740,8 +3743,8 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 		}
 		if cmdPath == "" {
 			err := fmt.Errorf("no %s binary specified", cmdName)
-			log.Log.Reason(err).With("command", commandPipeString()).Error(utilsCommandPipeFailed)
-			return "", "", fmt.Errorf(utilsCommandPipeFailedErr, err)
+			log.Log.Reason(err).With("command", commandPipeString()).Error(CommandPipeFailed)
+			return "", "", fmt.Errorf(CommandPipeFailedFmt, err)
 		}
 		commands[i][0] = cmdPath
 	}
@@ -3749,8 +3752,8 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
 		err := goerrors.New("cannot find kubeconfig")
-		log.Log.Reason(err).With("command", commandPipeString()).Error(utilsCommandPipeFailed)
-		return "", "", fmt.Errorf(utilsCommandPipeFailedErr, err)
+		log.Log.Reason(err).With("command", commandPipeString()).Error(CommandPipeFailed)
+		return "", "", fmt.Errorf(CommandPipeFailedFmt, err)
 	}
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 
@@ -3758,7 +3761,7 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 	cmds := make([]*exec.Cmd, len(commands))
 	for i := range cmds {
 		if master != nil && master.String() != "" {
-			commands[i] = append(commands[i], utilsServerName, master.String())
+			commands[i] = append(commands[i], ServerName, master.String())
 		}
 		if namespace != "" {
 			commands[i] = append(commands[i], "-n", namespace)
@@ -3937,7 +3940,11 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
+<<<<<<< HEAD
 				utilsKubevirtIoTest:                       os,
+=======
+				KubevirtIoTest:                           os,
+>>>>>>> 4d2425cbc (Renaming strings with fmt specifiers to include Fmt, removing module name prefix from const names, moving redundant constants to tests/utils.io)
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
@@ -3978,7 +3985,11 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
+<<<<<<< HEAD
 					utilsKubevirtIoTest:                       os,
+=======
+					KubevirtIoTest:                           os,
+>>>>>>> 4d2425cbc (Renaming strings with fmt specifiers to include Fmt, removing module name prefix from const names, moving redundant constants to tests/utils.io)
 					cleanup.TestLabelForNamespace(namespace): "",
 				},
 			},
@@ -3998,7 +4009,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	}
 
 	args := []string{command}
-	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{utilsBinBash, "-c"}, args)
+	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	return pod
 }
@@ -4098,7 +4109,7 @@ func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.Virtua
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 					{
 						MatchExpressions: []k8sv1.NodeSelectorRequirement{
-							{Key: utilsKubernetesIoHostName, Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+							{Key: KubernetesIoHostName, Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
 						},
 					},
 				},
@@ -5118,7 +5129,7 @@ func IsLauncherCapabilityDropped(capability k8sv1.Capability) bool {
 // VMILauncherIgnoreWarnings waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent
 func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		By(utilsStartingVMInstance)
+		By(StartingVMInstance)
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util2.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 		Expect(err).To(BeNil())
 

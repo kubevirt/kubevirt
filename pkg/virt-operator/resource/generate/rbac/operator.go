@@ -29,10 +29,8 @@ import (
 )
 
 const (
-	operatorAPIVersionNamev1     = "rbac.authorization.k8s.io/v1"
-	operatorAPIVersionName       = "rbac.authorization.k8s.io"
-	operatorAPIGroupNameSecurity = "security.openshift.io"
-	serviceAccountFmt            = "%s:%s:%s"
+	GroupNameSecurity = "security.openshift.io"
+	serviceAccountFmt = "%s:%s:%s"
 )
 const OperatorServiceAccountName = "kubevirt-operator"
 
@@ -71,7 +69,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 	// (you can't create rules with permissions you don't have yourself)
 	operatorRole := &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: operatorAPIVersionNamev1,
+			APIVersion: VersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -181,7 +179,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					operatorAPIVersionName,
+					VersionName,
 				},
 				Resources: []string{
 					"clusterroles",
@@ -217,7 +215,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					operatorAPIGroupNameSecurity,
+					GroupNameSecurity,
 				},
 				Resources: []string{
 					"securitycontextconstraints",
@@ -231,7 +229,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					operatorAPIGroupNameSecurity,
+					GroupNameSecurity,
 				},
 				Resources: []string{
 					"securitycontextconstraints",
@@ -247,7 +245,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					operatorAPIGroupNameSecurity,
+					GroupNameSecurity,
 				},
 				Resources: []string{
 					"securitycontextconstraints",
@@ -397,7 +395,7 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: operatorAPIVersionNamev1,
+			APIVersion: VersionNamev1,
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -407,7 +405,7 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: operatorAPIVersionName,
+			APIGroup: VersionName,
 			Kind:     "ClusterRole",
 			Name:     OperatorServiceAccountName,
 		},
@@ -424,7 +422,7 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: operatorAPIVersionNamev1,
+			APIVersion: VersionNamev1,
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -435,7 +433,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: operatorAPIVersionName,
+			APIGroup: VersionName,
 			Kind:     "Role",
 			Name:     OperatorServiceAccountName,
 		},
@@ -453,7 +451,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 func NewOperatorRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: operatorAPIVersionNamev1,
+			APIVersion: VersionNamev1,
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{

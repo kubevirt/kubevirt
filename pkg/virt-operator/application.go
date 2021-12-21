@@ -64,7 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-const applicationVirtOperator = "virt-operator"
+const VirtOperator = "virt-operator"
 
 const (
 	controllerThreads = 3
@@ -132,7 +132,7 @@ func Execute() {
 
 	service.Setup(&app)
 
-	log.InitializeLogging(applicationVirtOperator)
+	log.InitializeLogging(VirtOperator)
 
 	err = util.VerifyEnv()
 	if err != nil {
@@ -271,7 +271,7 @@ func Execute() {
 
 	app.prepareCertManagers()
 
-	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, applicationVirtOperator)
+	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
 	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
 
 	image := os.Getenv(util.OperatorImageEnvName)
@@ -320,7 +320,7 @@ func (app *VirtOperatorApp) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	endpointName := applicationVirtOperator
+	endpointName := VirtOperator
 
 	recorder := app.getNewRecorder(k8sv1.NamespaceAll, endpointName)
 

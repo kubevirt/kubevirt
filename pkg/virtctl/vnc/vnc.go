@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-const loopbackIPAddress = "127.0.0.1:%d"
+const loopbackIPAddressFmt = "127.0.0.1:%d"
 
 const (
 	LISTEN_TIMEOUT = 60 * time.Second
@@ -105,7 +105,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
 	}
 
-	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(loopbackIPAddress, customPort))
+	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(loopbackIPAddressFmt, customPort))
 	if err != nil {
 		return fmt.Errorf("Can't resolve the address: %s", err.Error())
 	}
@@ -288,7 +288,7 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 }
 
 func tigerVncArgs(port int) (args []string) {
-	args = append(args, fmt.Sprintf(loopbackIPAddress, port))
+	args = append(args, fmt.Sprintf(loopbackIPAddressFmt, port))
 	if glog.V(4) {
 		args = append(args, "Log=*:stderr:100")
 	}
@@ -296,12 +296,12 @@ func tigerVncArgs(port int) (args []string) {
 }
 
 func chickenVncArgs(port int) (args []string) {
-	args = append(args, fmt.Sprintf(loopbackIPAddress, port))
+	args = append(args, fmt.Sprintf(loopbackIPAddressFmt, port))
 	return
 }
 
 func realVncArgs(port int) (args []string) {
-	args = append(args, fmt.Sprintf(loopbackIPAddress, port))
+	args = append(args, fmt.Sprintf(loopbackIPAddressFmt, port))
 	args = append(args, "-WarnUnencrypted=0")
 	args = append(args, "-Shared=0")
 	args = append(args, "-ShareFiles=0")

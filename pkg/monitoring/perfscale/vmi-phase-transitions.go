@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	transTimeErr  = "Error encountered during vmi transition time histogram calculation: %v"
-	transTimeFail = "Failed to get a histogram for a vmi lifecycle transition times"
+	transTimeErrFmt = "Error encountered during vmi transition time histogram calculation: %v"
+	transTimeFail   = "Failed to get a histogram for a vmi lifecycle transition times"
 )
 
 func getTransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
@@ -104,7 +104,7 @@ func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.Histogram
 
 	diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErr, err)
+		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -147,7 +147,7 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 
 	diffSeconds, err := getTransitionTimeSeconds(true, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErr, err)
+		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -172,7 +172,7 @@ func updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec *prom
 
 	diffSeconds, err := getTransitionTimeSeconds(false, true, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErr, err)
+		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
 	}
 

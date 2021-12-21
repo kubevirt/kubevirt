@@ -52,8 +52,6 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-const kubevirtVirtOperator = "virt-operator"
-
 const (
 	virtOperatorJobAppLabel    = "virt-operator-strategy-dumper"
 	installStrategyKeyTemplate = "%s-%d"
@@ -96,7 +94,7 @@ func NewKubeVirtController(
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewNamedRateLimitingQueue(rl, kubevirtVirtOperator),
+		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
 		kubeVirtInformer: informer,
 		recorder:         recorder,
 		stores:           stores,
@@ -692,7 +690,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
 
-	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), kubevirtVirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
+	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
 	deploymentConfigJson, err := config.GetJson()
 	if err != nil {
 		return nil, err
@@ -736,7 +734,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 							Image:           operatorImage,
 							ImagePullPolicy: config.GetImagePullPolicy(),
 							Command: []string{
-								kubevirtVirtOperator,
+								VirtOperator,
 								"--dump-install-strategy",
 							},
 							Env: []k8sv1.EnvVar{

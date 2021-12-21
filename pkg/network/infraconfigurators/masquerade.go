@@ -21,11 +21,11 @@ import (
 )
 
 const (
-	ipVerifyFail		   = "failed to verify whether ipv6 is configured on %s"
-	toDest    		   = "--to-destination"
-	src         		   = "--source"
-	dport        		   = "--dport"
-	str          		   = "{ %s }"
+	ipVerifyFailFmt            = "failed to verify whether ipv6 is configured on %s"
+	toDest                     = "--to-destination"
+	src                        = "--source"
+	dport                      = "--dport"
+	strFmt                     = "{ %s }"
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
 )
@@ -69,7 +69,7 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 
 	ipv6Enabled, err := b.handler.IsIpv6Enabled(podIfaceName)
 	if err != nil {
-		log.Log.Reason(err).Errorf(ipVerifyFail, podIfaceName)
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, podIfaceName)
 		return err
 	}
 	if ipv6Enabled {
@@ -130,7 +130,7 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 
 	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podNicLink.Attrs().Name)
 	if err != nil {
-		log.Log.Reason(err).Errorf(ipVerifyFail, b.podNicLink.Attrs().Name)
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, b.podNicLink.Attrs().Name)
 		return err
 	}
 	if ipv6Enabled {
@@ -178,7 +178,7 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 	}
 	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podNicLink.Attrs().Name)
 	if err != nil {
-		log.Log.Reason(err).Errorf(ipVerifyFail, b.podNicLink.Attrs().Name)
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, b.podNicLink.Attrs().Name)
 		return err
 	}
 	if ipv6Enabled {
@@ -462,7 +462,7 @@ func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(p
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
 		err := b.handler.NftablesAppendRule(proto, "nat", chain,
-			"tcp", "dport", fmt.Sprintf(str, strings.Join(ports, ", ")),
+			"tcp", "dport", fmt.Sprintf(strFmt, strings.Join(ports, ", ")),
 			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
 			"counter", "return")
 		if err != nil {
@@ -493,7 +493,7 @@ func (b *MasqueradePodNetworkConfigurator) getSrcAddressesToSnat(proto iptables.
 	if istio.ProxyInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
 		addresses = append(addresses, istio.GetLoopbackAddress())
 	}
-	return fmt.Sprintf(str, strings.Join(addresses, ", "))
+	return fmt.Sprintf(strFmt, strings.Join(addresses, ", "))
 }
 
 func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.Protocol) (string, error) {
@@ -505,7 +505,7 @@ func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.
 		}
 		addresses = append(addresses, ipv4)
 	}
-	return fmt.Sprintf(str, strings.Join(addresses, ", ")), nil
+	return fmt.Sprintf(strFmt, strings.Join(addresses, ", ")), nil
 }
 
 func getLoopbackAdrress(proto iptables.Protocol) string {

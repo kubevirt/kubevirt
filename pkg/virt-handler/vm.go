@@ -94,9 +94,9 @@ type netstat interface {
 }
 
 const (
-	failedDetectIsolation              = "failed to detect isolation for launcher pod: %v"
-	kubevirtPrivate                    = "kubevirt-private"
-	unableCreateVirtLauncherConnection = "unable to create virt-launcher client connection: %v"
+	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
+	kubevirtPrivate                       = "kubevirt-private"
+	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
 )
 
 const (
@@ -496,7 +496,7 @@ func (d *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstanc
 func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) error {
 	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return fmt.Errorf(failedDetectIsolation, err)
+		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 	rootMount := isolationRes.MountRoot()
 	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
@@ -2268,7 +2268,7 @@ func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineI
 func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.VirtualMachineInstance) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
-		return fmt.Errorf(unableCreateVirtLauncherConnection, err)
+		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
 	vmi := origVMI.DeepCopy()
@@ -2318,7 +2318,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.VirtualMachineInstance) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
-		return fmt.Errorf(unableCreateVirtLauncherConnection, err)
+		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
 	vmi := origVMI.DeepCopy()
@@ -2377,7 +2377,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return fmt.Errorf(failedDetectIsolation, err)
+		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 	virtLauncherRootMount := isolationRes.MountRoot()
 
@@ -2417,7 +2417,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
-		return fmt.Errorf(unableCreateVirtLauncherConnection, err)
+		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
 	vmi := origVMI.DeepCopy()
@@ -2466,7 +2466,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		isolationRes, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
-			return fmt.Errorf(failedDetectIsolation, err)
+			return fmt.Errorf(failedDetectIsolationFmt, err)
 		}
 		virtLauncherRootMount := isolationRes.MountRoot()
 

@@ -29,7 +29,7 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
-const errFormat = "%s: %v"
+const errFmt = "%s: %v"
 
 type FilteredConn struct {
 	ifIndex    int
@@ -80,19 +80,19 @@ func NewConnection(serverIface *net.Interface) (*FilteredConn, error) {
 	}
 	udpConn, err := server6.NewIPv6UDPConn("", addr)
 	if err != nil {
-		return nil, fmt.Errorf(errFormat, errorString, err)
+		return nil, fmt.Errorf(errFmt, errorString, err)
 	}
 
 	packetConn := ipv6.NewPacketConn(udpConn)
 	if err := packetConn.SetControlMessage(ipv6.FlagInterface, true); err != nil {
-		return nil, fmt.Errorf(errFormat, errorString, err)
+		return nil, fmt.Errorf(errFmt, errorString, err)
 	}
 
 	group := net.UDPAddr{
 		IP:   dhcpv6.AllDHCPRelayAgentsAndServers,
 		Port: dhcpv6.DefaultServerPort}
 	if err := packetConn.JoinGroup(serverIface, &group); err != nil {
-		return nil, fmt.Errorf(errFormat, errorString, err)
+		return nil, fmt.Errorf(errFmt, errorString, err)
 	}
 
 	return &FilteredConn{packetConn: packetConn, ifIndex: serverIface.Index}, nil
