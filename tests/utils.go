@@ -248,6 +248,10 @@ const (
 	waitVolumeRequestProcessError = "waiting on all VolumeRequests to be processed"
 )
 
+const StorageClassHostPathSeparateDevice = "host-path-sd"
+
+var wffc = storagev1.VolumeBindingWaitForFirstConsumer
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -485,9 +489,6 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
-	if Config.ManageStorageClasses {
-		DeleteStorageClass(Config.StorageClassHostPathSeparateDevice)
-	}
 	CleanNodes()
 }
 
@@ -667,11 +668,6 @@ func SynchronizedBeforeTestSetup() []byte {
 	if flags.DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
 		DeployTestingInfrastructure()
-	}
-
-	if Config.ManageStorageClasses {
-		wffc := storagev1.VolumeBindingWaitForFirstConsumer
-		CreateStorageClass(Config.StorageClassHostPathSeparateDevice, &wffc)
 	}
 
 	EnsureKVMPresent()
@@ -1060,14 +1056,17 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	util2.PanicOnError(err)
 	for _, pv := range pvList.Items {
-		if pv.Spec.StorageClassName == Config.StorageClassHostPathSeparateDevice {
+		if pv.Spec.StorageClassName == StorageClassHostPathSeparateDevice {
 			// ignore error we want to attempt to delete them all.
 			virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		}
 	}
+
+	DeleteStorageClass(StorageClassHostPathSeparateDevice)
 }
 
 func CreateAllSeparateDeviceHostPathPvs(osName string) {
+	CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
@@ -1104,7 +1103,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 					Path: "/tmp/hostImages/mount_hp/test",
 				},
 			},
-			StorageClassName: Config.StorageClassHostPathSeparateDevice,
+			StorageClassName: StorageClassHostPathSeparateDevice,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -4312,7 +4311,7 @@ func HasBindingModeWaitForFirstConsumer() bool {
 		return false
 	}
 	return storageClass.VolumeBindingMode != nil &&
-		*storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
+		*storageClass.VolumeBindingMode == wffc
 }
 
 func GetSnapshotStorageClass() (string, bool) {

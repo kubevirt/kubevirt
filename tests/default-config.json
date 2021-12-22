@@ -1,9 +1,7 @@
 {
     "storageClassLocal":       "local",
-    "storageClassHostPathSeparateDevice":    "host-path-sd",
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
-    "manageStorageClasses":    true,
     "storageRWOFileSystem":    "local"
 }
 
