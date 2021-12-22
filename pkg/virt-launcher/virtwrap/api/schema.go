@@ -181,26 +181,27 @@ type DomainList struct {
 // tagged, and they must correspond to the libvirt domain as described in
 // https://libvirt.org/formatdomain.html.
 type DomainSpec struct {
-	XMLName       xml.Name       `xml:"domain"`
-	Type          string         `xml:"type,attr"`
-	XmlNS         string         `xml:"xmlns:qemu,attr,omitempty"`
-	Name          string         `xml:"name"`
-	UUID          string         `xml:"uuid,omitempty"`
-	Memory        Memory         `xml:"memory"`
-	MemoryBacking *MemoryBacking `xml:"memoryBacking,omitempty"`
-	OS            OS             `xml:"os"`
-	SysInfo       *SysInfo       `xml:"sysinfo,omitempty"`
-	Devices       Devices        `xml:"devices"`
-	Clock         *Clock         `xml:"clock,omitempty"`
-	Resource      *Resource      `xml:"resource,omitempty"`
-	QEMUCmd       *Commandline   `xml:"qemu:commandline,omitempty"`
-	Metadata      Metadata       `xml:"metadata,omitempty"`
-	Features      *Features      `xml:"features,omitempty"`
-	CPU           CPU            `xml:"cpu"`
-	VCPU          *VCPU          `xml:"vcpu"`
-	CPUTune       *CPUTune       `xml:"cputune"`
-	NUMATune      *NUMATune      `xml:"numatune"`
-	IOThreads     *IOThreads     `xml:"iothreads,omitempty"`
+	XMLName        xml.Name        `xml:"domain"`
+	Type           string          `xml:"type,attr"`
+	XmlNS          string          `xml:"xmlns:qemu,attr,omitempty"`
+	Name           string          `xml:"name"`
+	UUID           string          `xml:"uuid,omitempty"`
+	Memory         Memory          `xml:"memory"`
+	MemoryBacking  *MemoryBacking  `xml:"memoryBacking,omitempty"`
+	OS             OS              `xml:"os"`
+	SysInfo        *SysInfo        `xml:"sysinfo,omitempty"`
+	Devices        Devices         `xml:"devices"`
+	Clock          *Clock          `xml:"clock,omitempty"`
+	Resource       *Resource       `xml:"resource,omitempty"`
+	QEMUCmd        *Commandline    `xml:"qemu:commandline,omitempty"`
+	Metadata       Metadata        `xml:"metadata,omitempty"`
+	Features       *Features       `xml:"features,omitempty"`
+	CPU            CPU             `xml:"cpu"`
+	VCPU           *VCPU           `xml:"vcpu"`
+	CPUTune        *CPUTune        `xml:"cputune"`
+	NUMATune       *NUMATune       `xml:"numatune"`
+	IOThreads      *IOThreads      `xml:"iothreads,omitempty"`
+	LaunchSecurity *LaunchSecurity `xml:"launchSecurity,omitempty"`
 }
 
 type CPUTune struct {
@@ -557,8 +558,9 @@ type Controller struct {
 
 // BEGIN ControllerDriver
 type ControllerDriver struct {
-	IOThread *uint `xml:"iothread,attr,omitempty"`
-	Queues   *uint `xml:"queues,attr,omitempty"`
+	IOThread *uint  `xml:"iothread,attr,omitempty"`
+	Queues   *uint  `xml:"queues,attr,omitempty"`
+	IOMMU    string `xml:"iommu,attr,omitempty"`
 }
 
 // END ControllerDriver
@@ -623,6 +625,7 @@ type DiskDriver struct {
 	IOThread    *uint       `xml:"iothread,attr,omitempty"`
 	Queues      *uint       `xml:"queues,attr,omitempty"`
 	Discard     string      `xml:"discard,attr,omitempty"`
+	IOMMU       string      `xml:"iommu,attr,omitempty"`
 }
 
 type DiskSourceHost struct {
@@ -711,6 +714,7 @@ type Interface struct {
 type InterfaceDriver struct {
 	Name   string `xml:"name,attr"`
 	Queues *uint  `xml:"queues,attr,omitempty"`
+	IOMMU  string `xml:"iommu,attr,omitempty"`
 }
 
 type LinkState struct {
@@ -882,7 +886,16 @@ type Entry struct {
 }
 
 //END OS --------------------
+//BEGIN LaunchSecurity --------------------
 
+type LaunchSecurity struct {
+	Type            string `xml:"type,attr"`
+	Cbitpos         string `xml:"cbitpos,omitempty"`
+	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
+	Policy          string `xml:"policy,omitempty"`
+}
+
+//END LaunchSecurity --------------------
 //BEGIN Clock --------------------
 
 type Clock struct {
@@ -984,9 +997,14 @@ type Stats struct {
 }
 
 type MemBalloon struct {
-	Model   string   `xml:"model,attr"`
-	Stats   *Stats   `xml:"stats,omitempty"`
-	Address *Address `xml:"address,emitempty"`
+	Model   string            `xml:"model,attr"`
+	Stats   *Stats            `xml:"stats,omitempty"`
+	Address *Address          `xml:"address,emitempty"`
+	Driver  *MemBalloonDriver `xml:"driver,emitempty"`
+}
+
+type MemBalloonDriver struct {
+	IOMMU string `xml:"iommu,attr,omitempty"`
 }
 
 type Watchdog struct {
@@ -1003,6 +1021,11 @@ type Rng struct {
 	// Backend specifies the source of entropy to be used
 	Backend *RngBackend `xml:"backend,omitempty"`
 	Address *Address    `xml:"address,emitempty"`
+	Driver  *RngDriver  `xml:"driver,emitempty"`
+}
+
+type RngDriver struct {
+	IOMMU string `xml:"iommu,attr,omitempty"`
 }
 
 // RngRate sets the limiting factor how to read from entropy source

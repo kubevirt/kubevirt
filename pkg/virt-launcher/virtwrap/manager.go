@@ -66,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -700,15 +701,16 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	var efiConf *converter.EFIConfiguration
 	if vmi.IsBootloaderEFI() {
 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
+		sev := kutil.IsSEVVMI(vmi)
 
-		if !l.efiEnvironment.Bootable(secureBoot) {
-			log.Log.Reason(err).Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v", secureBoot)
-			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v", secureBoot)
+		if !l.efiEnvironment.Bootable(secureBoot, sev) {
+			log.Log.Reason(err).Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
+			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
 		}
 
 		efiConf = &converter.EFIConfiguration{
-			EFICode:      l.efiEnvironment.EFICode(secureBoot),
-			EFIVars:      l.efiEnvironment.EFIVars(secureBoot),
+			EFICode:      l.efiEnvironment.EFICode(secureBoot, sev),
+			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, sev),
 			SecureLoader: secureBoot,
 		}
 	}
@@ -725,6 +727,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
+		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
 	}
 
 	if options != nil {

@@ -68,10 +68,11 @@ type HostDeviceType string
 
 // The location of uefi boot loader on ARM64 is different from that on x86
 const (
-	defaultIOThread                = uint(1)
-	HostDevicePCI   HostDeviceType = "pci"
-	HostDeviceMDEV  HostDeviceType = "mdev"
-	resolvConf                     = "/etc/resolv.conf"
+	defaultIOThread                 = uint(1)
+	HostDevicePCI    HostDeviceType = "pci"
+	HostDeviceMDEV   HostDeviceType = "mdev"
+	resolvConf                      = "/etc/resolv.conf"
+	SEVPolicyNoDebug                = "0x1"
 )
 
 const (
@@ -119,6 +120,7 @@ type ConverterContext struct {
 	Topology              *cmdv1.Topology
 	CpuScheduler          *api.VCPUScheduler
 	ExpandDisksEnabled    bool
+	UseLaunchSecurity     bool
 }
 
 func contains(volumes []string, name string) bool {
@@ -233,6 +235,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
+	}
+	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
+		disk.Driver.IOMMU = "on"
 	}
 
 	return nil
@@ -882,6 +887,12 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	// the default source for rng is dev urandom
 	rng.Backend.Source = "/dev/urandom"
 
+	if c.UseLaunchSecurity {
+		rng.Driver = &api.RngDriver{
+			IOMMU: "on",
+		}
+	}
+
 	return nil
 }
 
@@ -1106,7 +1117,11 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
-
+		if c.UseLaunchSecurity {
+			ballooning.Driver = &api.MemBalloonDriver{
+				IOMMU: "on",
+			}
+		}
 	}
 }
 
@@ -1121,6 +1136,8 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 }
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
+	var controllerDriver *api.ControllerDriver
+
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
@@ -1240,6 +1257,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.OS.KernelArgs = f.KernelBoot.KernelArgs
 		}
 
+	}
+	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
+	if c.UseLaunchSecurity {
+		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
+		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
+			Type:   "sev",
+			Policy: SEVPolicyNoDebug, // Always set SEV NoDebug policy
+		}
+		controllerDriver = &api.ControllerDriver{
+			IOMMU: "on",
+		}
 	}
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
@@ -1582,15 +1610,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if needsSCSIControler(vmi) {
 		scsiController := api.Controller{
-			Type:  "scsi",
-			Index: "0",
-			Model: translateModel(c, "virtio"),
+			Type:   "scsi",
+			Index:  "0",
+			Model:  translateModel(c, "virtio"),
+			Driver: controllerDriver,
 		}
 		if useIOThreads {
-			scsiController.Driver = &api.ControllerDriver{
-				IOThread: &currentAutoThread,
-				Queues:   &vcpus,
+			if scsiController.Driver == nil {
+				scsiController.Driver = &api.ControllerDriver{}
 			}
+			scsiController.Driver.IOThread = &currentAutoThread
+			scsiController.Driver.Queues = &vcpus
 		}
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
@@ -1725,9 +1755,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole == true {
 		// Add mandatory console device
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "virtio-serial",
-			Index: "0",
-			Model: translateModel(c, "virtio"),
+			Type:   "virtio-serial",
+			Index:  "0",
+			Model:  translateModel(c, "virtio"),
+			Driver: controllerDriver,
 		})
 
 		var serialPort uint = 0

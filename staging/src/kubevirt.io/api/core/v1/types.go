@@ -419,6 +419,8 @@ const (
 	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses PCI host devices
 	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses Secure Encrypted Virtualization (SEV)
+	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 )
 
 const (
@@ -787,6 +789,9 @@ const (
 
 	// VirtualMahcineInstanceTemplateHash is used by the pool controller to determine when a VMI needs to be updated
 	VirtualMachineInstanceTemplateHash string = "kubevirt.io/vmi-template-hash"
+
+	// SEVLabel marks the node as capable of running workloads with SEV
+	SEVLabel string = "kubevirt.io/sev"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

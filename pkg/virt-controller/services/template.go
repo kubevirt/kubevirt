@@ -60,6 +60,7 @@ import (
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
+const SevDevice = "devices.kubevirt.io/sev"
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -1111,6 +1112,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
+	if util.IsSEVVMI(vmi) {
+		requestResource(&resources, SevDevice)
+	}
+
 	// VirtualMachineInstance target container
 	compute := k8sv1.Container{
 		Name:            "compute",
@@ -1902,6 +1907,12 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	}
 
 	addProbeOverheads(vmi, overhead)
+
+	// Consider memory overhead for SEV guests.
+	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
+	if util.IsSEVVMI(vmi) {
+		overhead.Add(resource.MustParse("256Mi"))
+	}
 
 	return overhead
 }

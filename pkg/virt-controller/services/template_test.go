@@ -3254,6 +3254,34 @@ var _ = Describe("Template", func() {
 		})
 
 	})
+
+	Context("AMD SEV LaunchSecurity", func() {
+		It("should not run privileged with SEV device resource", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						LaunchSecurity: &v1.LaunchSecurity{
+							SEV: &v1.SEV{},
+						},
+					},
+				},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(pod.Spec.Containers)).To(Equal(1))
+			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
+
+			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
+			Expect(ok).To(BeTrue())
+			Expect(int(sev.Value())).To(Equal(1))
+		})
+	})
 })
 
 var _ = Describe("getResourceNameForNetwork", func() {

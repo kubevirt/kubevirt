@@ -13051,6 +13051,10 @@
       "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
       "type": "string"
      },
+     "launchSecurity": {
+      "description": "Launch Security setting of the vmi.",
+      "$ref": "#/definitions/v1.LaunchSecurity"
+     },
      "machine": {
       "description": "Machine type.",
       "$ref": "#/definitions/v1.Machine"
@@ -14059,6 +14063,15 @@
      }
     }
    },
+   "v1.LaunchSecurity": {
+    "type": "object",
+    "properties": {
+     "sev": {
+      "description": "AMD Secure Encrypted Virtualization (SEV).",
+      "$ref": "#/definitions/v1.SEV"
+     }
+    }
+   },
    "v1.LogVerbosity": {
     "description": "LogVerbosity sets log verbosity level of  various components",
     "type": "object",
@@ -14700,6 +14713,9 @@
    },
    "v1.Rng": {
     "description": "Rng represents the random device passed from host",
+    "type": "object"
+   },
+   "v1.SEV": {
     "type": "object"
    },
    "v1.SMBiosConfiguration": {

@@ -119,7 +119,7 @@ func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolati
 
 func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vm) && !vm.IsRealtimeEnabled() {
+	if !util.IsVFIOVMI(vm) && !vm.IsRealtimeEnabled() && !util.IsSEVVMI(vm) {
 		return nil
 	}
 
@@ -164,9 +164,9 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 
 // AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
 // virt-launcher pod on the given VMI according to its spec.
-// Only VMI's with VFIO devices (e.g: SRIOV, GPU) or RealTime workloads require QEMU process MEMLOCK adjustment.
+// Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
 func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
 		return nil
 	}
 

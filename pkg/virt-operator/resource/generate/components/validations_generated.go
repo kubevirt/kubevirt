@@ -4759,6 +4759,13 @@ var CRDsValidation map[string]string = map[string]string{
                         Omitting IOThreadsPolicy disables use of IOThreads. One of:
                         shared, auto'
                       type: string
+                    launchSecurity:
+                      description: Launch Security setting of the vmi.
+                      properties:
+                        sev:
+                          description: AMD Secure Encrypted Virtualization (SEV).
+                          type: object
+                      type: object
                     machine:
                       description: Machine type.
                       properties:
@@ -7739,6 +7746,13 @@ var CRDsValidation map[string]string = map[string]string{
               description: 'Controls whether or not disks will share IOThreads. Omitting
                 IOThreadsPolicy disables use of IOThreads. One of: shared, auto'
               type: string
+            launchSecurity:
+              description: Launch Security setting of the vmi.
+              properties:
+                sev:
+                  description: AMD Secure Encrypted Virtualization (SEV).
+                  type: object
+              type: object
             machine:
               description: Machine type.
               properties:
@@ -9813,6 +9827,13 @@ var CRDsValidation map[string]string = map[string]string{
               description: 'Controls whether or not disks will share IOThreads. Omitting
                 IOThreadsPolicy disables use of IOThreads. One of: shared, auto'
               type: string
+            launchSecurity:
+              description: Launch Security setting of the vmi.
+              properties:
+                sev:
+                  description: AMD Secure Encrypted Virtualization (SEV).
+                  type: object
+              type: object
             machine:
               description: Machine type.
               properties:
@@ -11665,6 +11686,13 @@ var CRDsValidation map[string]string = map[string]string{
                         Omitting IOThreadsPolicy disables use of IOThreads. One of:
                         shared, auto'
                       type: string
+                    launchSecurity:
+                      description: Launch Security setting of the vmi.
+                      properties:
+                        sev:
+                          description: AMD Secure Encrypted Virtualization (SEV).
+                          type: object
+                      type: object
                     machine:
                       description: Machine type.
                       properties:
@@ -14958,6 +14986,14 @@ var CRDsValidation map[string]string = map[string]string{
                                 IOThreads. Omitting IOThreadsPolicy disables use of
                                 IOThreads. One of: shared, auto'
                               type: string
+                            launchSecurity:
+                              description: Launch Security setting of the vmi.
+                              properties:
+                                sev:
+                                  description: AMD Secure Encrypted Virtualization
+                                    (SEV).
+                                  type: object
+                              type: object
                             machine:
                               description: Machine type.
                               properties:
@@ -18590,6 +18626,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     share IOThreads. Omitting IOThreadsPolicy disables
                                     use of IOThreads. One of: shared, auto'
                                   type: string
+                                launchSecurity:
+                                  description: Launch Security setting of the vmi.
+                                  properties:
+                                    sev:
+                                      description: AMD Secure Encrypted Virtualization
+                                        (SEV).
+                                      type: object
+                                  type: object
                                 machine:
                                   description: Machine type.
                                   properties:

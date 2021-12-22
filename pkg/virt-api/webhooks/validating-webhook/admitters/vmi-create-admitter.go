@@ -202,6 +202,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
+	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 
 	return causes
 }
@@ -779,6 +780,43 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 				Message: fmt.Sprintf("Sound device requires a name field."),
 				Field:   field.Child("Sound").String(),
 			})
+		}
+	}
+	return causes
+}
+
+func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	launchSecurity := spec.Domain.LaunchSecurity
+	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV requires OVMF (UEFI)"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV does not work along with SecureBoot"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
 		}
 	}
 	return causes

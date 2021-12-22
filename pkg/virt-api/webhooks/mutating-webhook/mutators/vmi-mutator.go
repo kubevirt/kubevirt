@@ -119,7 +119,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		}
 		if newVMI.IsRealtimeEnabled() {
 			log.Log.V(4).Info("Add realtime node label selector")
-			addRealtimeNodeSelector(newVMI)
+			addNodeSelector(newVMI, v1.RealtimeLabel)
+		}
+		if util.IsSEVVMI(newVMI) {
+			log.Log.V(4).Info("Add SEV node label selector")
+			addNodeSelector(newVMI, v1.SEVLabel)
 		}
 
 		// Add foreground finalizer
@@ -366,10 +370,9 @@ func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-// AddRealtimeNodeSelector adds the realtime node selector
-func addRealtimeNodeSelector(vmi *v1.VirtualMachineInstance) {
+func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
 	if vmi.Spec.NodeSelector == nil {
 		vmi.Spec.NodeSelector = map[string]string{}
 	}
-	vmi.Spec.NodeSelector[v1.RealtimeLabel] = ""
+	vmi.Spec.NodeSelector[label] = ""
 }

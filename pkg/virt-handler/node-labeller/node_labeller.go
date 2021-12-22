@@ -60,6 +60,7 @@ type NodeLabeller struct {
 	domCapabilitiesFileName string
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
+	SEV                     SEVConfiguration
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
@@ -275,6 +276,10 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 		newLabels[kubevirtv1.RealtimeLabel] = ""
 	}
 
+	if n.SEV.Supported == "yes" {
+		newLabels[kubevirtv1.SEVLabel] = ""
+	}
+
 	return newLabels
 }
 
@@ -300,7 +305,8 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 			strings.Contains(label, kubevirtv1.CPUModelLabel) ||
 			strings.Contains(label, kubevirtv1.CPUTimerLabel) ||
 			strings.Contains(label, kubevirtv1.HypervLabel) ||
-			strings.Contains(label, kubevirtv1.RealtimeLabel) {
+			strings.Contains(label, kubevirtv1.RealtimeLabel) ||
+			strings.Contains(label, kubevirtv1.SEVLabel) {
 			delete(node.Labels, label)
 		}
 	}

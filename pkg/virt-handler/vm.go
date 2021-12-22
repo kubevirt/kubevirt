@@ -1419,6 +1419,10 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
+	if util.IsSEVVMI(vmi) {
+		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+	}
+
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
@@ -2648,6 +2652,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		err = hostDiskCreator.Create(vmi)
 		if err != nil {
 			return fmt.Errorf("preparing host-disks failed: %v", err)
+		}
+
+		if virtutil.IsSEVVMI(vmi) {
+			sevDevice := path.Join(virtLauncherRootMount, "dev", "sev")
+			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
+				return fmt.Errorf("failed to set SEV device owner: %v", err)
+			}
 		}
 
 		if virtutil.IsNonRootVMI(vmi) {

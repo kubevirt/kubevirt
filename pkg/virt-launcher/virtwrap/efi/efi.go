@@ -31,6 +31,8 @@ const (
 	EFIVarsAARCH64    = "AAVMF_VARS.fd"
 	EFICodeSecureBoot = "OVMF_CODE.secboot.fd"
 	EFIVarsSecureBoot = "OVMF_VARS.secboot.fd"
+	EFICodeSEV        = "OVMF_CODE.cc.fd"
+	EFIVarsSEV        = EFIVars
 )
 
 type EFIEnvironment struct {
@@ -38,27 +40,35 @@ type EFIEnvironment struct {
 	vars           string
 	codeSecureBoot string
 	varsSecureBoot string
+	codeSEV        string
+	varsSEV        string
 }
 
-func (e *EFIEnvironment) Bootable(secureBoot bool) bool {
+func (e *EFIEnvironment) Bootable(secureBoot, sev bool) bool {
 	if secureBoot {
 		return e.varsSecureBoot != "" && e.codeSecureBoot != ""
+	} else if sev {
+		return e.varsSEV != "" && e.codeSEV != ""
 	} else {
 		return e.vars != "" && e.code != ""
 	}
 }
 
-func (e *EFIEnvironment) EFICode(secureBoot bool) string {
+func (e *EFIEnvironment) EFICode(secureBoot, sev bool) string {
 	if secureBoot {
 		return e.codeSecureBoot
+	} else if sev {
+		return e.codeSEV
 	} else {
 		return e.code
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot bool) string {
+func (e *EFIEnvironment) EFIVars(secureBoot, sev bool) string {
 	if secureBoot {
 		return e.varsSecureBoot
+	} else if sev {
+		return e.varsSEV
 	} else {
 		return e.vars
 	}
@@ -66,16 +76,8 @@ func (e *EFIEnvironment) EFIVars(secureBoot bool) string {
 
 func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	if arch == "arm64" {
-		var codeArm64, varsArm64 string
-
-		_, err := os.Stat(filepath.Join(ovmfPath, EFICodeAARCH64))
-		if err == nil {
-			codeArm64 = filepath.Join(ovmfPath, EFICodeAARCH64)
-		}
-		_, err = os.Stat(filepath.Join(ovmfPath, EFIVarsAARCH64))
-		if err == nil {
-			varsArm64 = filepath.Join(ovmfPath, EFIVarsAARCH64)
-		}
+		codeArm64 := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64)
+		varsArm64 := getEFIBinaryIfExists(ovmfPath, EFIVarsAARCH64)
 
 		return &EFIEnvironment{
 			code: codeArm64,
@@ -84,35 +86,36 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	}
 
 	// detect EFI with SecureBoot
-	var codeWithSB, varsWithSB string
-	_, err := os.Stat(filepath.Join(ovmfPath, EFICodeSecureBoot))
-	if err == nil {
-		codeWithSB = filepath.Join(ovmfPath, EFICodeSecureBoot)
-	}
-	_, err = os.Stat(filepath.Join(ovmfPath, EFIVarsSecureBoot))
-	if err == nil {
-		varsWithSB = filepath.Join(ovmfPath, EFIVarsSecureBoot)
-	}
+	codeWithSB := getEFIBinaryIfExists(ovmfPath, EFICodeSecureBoot)
+	varsWithSB := getEFIBinaryIfExists(ovmfPath, EFIVarsSecureBoot)
 
 	// detect EFI without SecureBoot
-	var code, vars string
-	_, err = os.Stat(filepath.Join(ovmfPath, EFICode))
-	if err == nil {
-		code = filepath.Join(ovmfPath, EFICode)
-	} else {
+	code := getEFIBinaryIfExists(ovmfPath, EFICode)
+	vars := getEFIBinaryIfExists(ovmfPath, EFIVars)
+	if code == "" {
 		// The combination (EFICodeSecureBoot + EFIVars) is valid
 		// for booting in EFI mode with SecureBoot disabled
 		code = codeWithSB
 	}
-	_, err = os.Stat(filepath.Join(ovmfPath, EFIVars))
-	if err == nil {
-		vars = filepath.Join(ovmfPath, EFIVars)
-	}
+
+	// detect EFI with SEV
+	codeWithSEV := getEFIBinaryIfExists(ovmfPath, EFICodeSEV)
+	varsWithSEV := getEFIBinaryIfExists(ovmfPath, EFIVarsSEV)
 
 	return &EFIEnvironment{
 		codeSecureBoot: codeWithSB,
 		varsSecureBoot: varsWithSB,
 		code:           code,
 		vars:           vars,
+		codeSEV:        codeWithSEV,
+		varsSEV:        varsWithSEV,
 	}
+}
+
+func getEFIBinaryIfExists(path, binary string) string {
+	fullPath := filepath.Join(path, binary)
+	if _, err := os.Stat(fullPath); err == nil {
+		return fullPath
+	}
+	return ""
 }

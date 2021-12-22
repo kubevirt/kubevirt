@@ -194,6 +194,9 @@ type DomainSpec struct {
 	// Chassis specifies the chassis info passed to the domain.
 	// +optional
 	Chassis *Chassis `json:"chassis,omitempty"`
+	// Launch Security setting of the vmi.
+	// +optional
+	LaunchSecurity *LaunchSecurity `json:"launchSecurity,omitempty"`
 }
 
 // Chassis specifies the chassis info passed to the domain.
@@ -596,6 +599,14 @@ type DiskTarget struct {
 	// If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
+}
+
+type LaunchSecurity struct {
+	// AMD Secure Encrypted Virtualization (SEV).
+	SEV *SEV `json:"sev,omitempty"`
+}
+
+type SEV struct {
 }
 
 type LunTarget struct {

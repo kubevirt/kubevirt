@@ -3524,6 +3524,78 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Field: "fake.domain.cpu.numa.guestMappingPassthrough", Message: "fake.domain.cpu.numa.guestMappingPassthrough must be defined when fake.domain.cpu.realtime is used"}))
 		})
 	})
+
+	Context("with AMD SEV LaunchSecurity", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				SEV: &v1.SEV{},
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.BoolPtr(false),
+					},
+				},
+			}
+			enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+		})
+
+		It("should accept when the feature gate is enabled and OVMF is configured", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(0))
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.WorkloadEncryptionSEV)))
+		})
+
+		It("should reject when UEFI is not configured", func() {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV requires OVMF"))
+			vmi.Spec.Domain.Firmware.Bootloader = nil
+			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV requires OVMF"))
+			vmi.Spec.Domain.Firmware = nil
+			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV requires OVMF"))
+		})
+
+		It("should reject when SecureBoot is enabled", func() {
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{
+					Enabled: pointer.BoolPtr(true),
+				},
+			}
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.BoolPtr(true)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = nil
+			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
+		})
+
+		It("should reject when there are bootable NICs", func() {
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			bootOrder := uint(1)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				v1.Interface{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
+		})
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
