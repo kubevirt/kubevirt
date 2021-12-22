@@ -137,8 +137,8 @@ const (
 	CommandPipeFailed            = "command pipe failed"
 	CommandPipeFailedFmt         = "command pipe failed: %v"
 	EchoLastReturnValue          = "echo $?\n"
-	bashHelloScript              = "#!/bin/bash\necho 'hello'\n"
-	usrBinBash                   = "/usr/bin/bash"
+	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
+	UsrBinBash                   = "/usr/bin/bash"
 )
 
 var Config *KubeVirtTestsConfiguration
@@ -3940,11 +3940,7 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-<<<<<<< HEAD
-				utilsKubevirtIoTest:                       os,
-=======
 				KubevirtIoTest:                           os,
->>>>>>> 4d2425cbc (Renaming strings with fmt specifiers to include Fmt, removing module name prefix from const names, moving redundant constants to tests/utils.io)
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
@@ -3985,11 +3981,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-<<<<<<< HEAD
-					utilsKubevirtIoTest:                       os,
-=======
 					KubevirtIoTest:                           os,
->>>>>>> 4d2425cbc (Renaming strings with fmt specifiers to include Fmt, removing module name prefix from const names, moving redundant constants to tests/utils.io)
 					cleanup.TestLabelForNamespace(namespace): "",
 				},
 			},

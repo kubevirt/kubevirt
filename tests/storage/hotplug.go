@@ -63,8 +63,6 @@ const (
 
 	waitVolumeRequestProcessError = "waiting on all VolumeRequests to be processed"
 
-	expectReturn = "echo $?\n"
-
 	testNewVolume1 = "some-new-volume1"
 	testNewVolume2 = "some-new-volume2"
 )
@@ -298,25 +296,25 @@ var _ = SIGDescribe("Hotplug", func() {
 		batch := []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: expectReturn},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p %s\n", filepath.Join("/test", filepath.Base(device)))},
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: fmt.Sprintf("sudo mount %s %s\n", device, filepath.Join("/test", filepath.Base(device)))},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: expectReturn},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p %s\n", filepath.Join("/test", filepath.Base(device), "data"))},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: expectReturn},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("sudo chmod a+w %s\n", filepath.Join("/test", filepath.Base(device), "data"))},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: expectReturn},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, filepath.Join("/test", filepath.Base(device), dataMessage))},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: expectReturn},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", filepath.Join("/test", filepath.Base(device), dataMessage))},
 			&expect.BExp{R: string(vmi.UID)},
@@ -333,7 +331,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		batch := []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, dataFile)},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: expectReturn},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", dataFile)},
 			&expect.BExp{R: string(vmi.UID)},
@@ -350,7 +348,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", volumeName)},
 				&expect.BExp{R: volumeName},
-				&expect.BSnd{S: expectReturn},
+				&expect.BSnd{S: tests.EchoLastReturnValue},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 10)
 		}, 40*time.Second, 2*time.Second).Should(Succeed())

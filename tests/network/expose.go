@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	shouldExposeServiceViaVirtc = "should expose a service via `virtctl expose ...`"
+	shouldExposeServiceViaVirtctl = "should expose a service via `virtctl expose ...`"
 	gettingValidatingClusterIP  = "Getting and validating the cluster IP given for the service"
 	iteratingClusterIPs 	    = "Iterating over the ClusterIPs and run hello-world job"
 	overIPv6Family 		    = "over IPv6 IP family"
