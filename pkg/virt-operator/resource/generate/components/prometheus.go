@@ -9,10 +9,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
-const prometheusLabelKey = "prometheus.kubevirt.io"
-const prometheusLabelValue = "true"
-const runbookUrlBasePath = "https://kubevirt.io/monitoring/runbooks/"
+const (
+	KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
+	prometheusLabelKey            = "prometheus.kubevirt.io"
+	prometheusLabelValue          = "true"
+	runbookUrlBasePath            = "https://kubevirt.io/monitoring/runbooks/"
+	severityAlertLabelKey         = "severity"
+	partOfAlertLabelKey           = "kubernetes_operator_part_of"
+	partOfAlertLabelValue         = "kubevirt"
+	componentAlertLabelKey        = "kubernetes_operator_component"
+	componentAlertLabelValue      = "kubevirt"
+)
 
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *v1.ServiceMonitor {
 	return &v1.ServiceMonitor{
@@ -98,7 +105,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtAPIDown",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -114,7 +121,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowVirtAPICount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -131,7 +138,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowKVMNodesCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -155,7 +162,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowReadyVirtControllersCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -167,7 +174,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "NoReadyVirtController",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -179,7 +186,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtControllerDown",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -191,7 +198,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowVirtControllersCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -227,7 +234,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -239,7 +246,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -257,7 +264,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtOperatorDown",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -269,7 +276,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowVirtOperatorCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -305,7 +312,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsHigh",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -317,7 +324,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsBurst",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -341,7 +348,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowReadyVirtOperatorsCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -353,7 +360,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "NoReadyVirtOperator",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -365,7 +372,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "NoLeadingVirtOperator",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -384,7 +391,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtHandlerDaemonSetRolloutFailing",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -420,7 +427,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -432,7 +439,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -467,7 +474,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -478,7 +485,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"summary": getRestCallsFailedWarning(80, "virt-api", "5 minutes"),
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -495,7 +502,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "KubevirtVmHighMemoryUsage",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -511,7 +518,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineImages",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -524,7 +531,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VMCannotBeEvicted",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -537,7 +544,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "KubeVirtComponentExceedsRequestedMemory",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -552,7 +559,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "KubeVirtComponentExceedsRequestedCPU",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 				},
@@ -571,9 +578,19 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				"runbook_url": runbookUrlBasePath + "OutdatedVirtualMachineInstanceWorkloads",
 			},
 			Labels: map[string]string{
-				"severity": "warning",
+				severityAlertLabelKey: "warning",
 			},
 		})
+	}
+
+	for _, group := range ruleSpec.Groups {
+		for _, rule := range group.Rules {
+			if rule.Alert == "" {
+				continue
+			}
+			rule.Labels[partOfAlertLabelKey] = partOfAlertLabelValue
+			rule.Labels[componentAlertLabelKey] = componentAlertLabelValue
+		}
 	}
 
 	return ruleSpec
