@@ -43,7 +43,7 @@ import (
 
 const (
 	libvirtTimestampFormat = "2006-01-02 15:04:05.999-0700"
-	logTimestampFormat = "2006-01-02T15:04:05.000000Z"
+	logTimestampFormat     = "2006-01-02T15:04:05.000000Z"
 )
 
 type LogLevel int32

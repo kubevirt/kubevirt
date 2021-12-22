@@ -32,12 +32,12 @@ import (
 
 const (
 	shouldExposeServiceViaVirtctl = "should expose a service via `virtctl expose ...`"
-	gettingValidatingClusterIP  = "Getting and validating the cluster IP given for the service"
-	iteratingClusterIPs 	    = "Iterating over the ClusterIPs and run hello-world job"
-	overIPv6Family 		    = "over IPv6 IP family"
-	overDualStackIPv4 	    = "over dual stack, primary ipv4"
-	overDualStackIPv6 	    = "over dual stack, primary ipv6"
-	shouldStartVM 		    = "should have been able to start the VM"
+	gettingValidatingClusterIP    = "Getting and validating the cluster IP given for the service"
+	iteratingClusterIPs           = "Iterating over the ClusterIPs and run hello-world job"
+	overIPv6Family                = "over IPv6 IP family"
+	overDualStackIPv4             = "over dual stack, primary ipv4"
+	overDualStackIPv6             = "over dual stack, primary ipv6"
+	shouldStartVM                 = "should have been able to start the VM"
 )
 
 func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {

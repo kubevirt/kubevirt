@@ -61,13 +61,13 @@ import (
 
 const (
 	checkingVMInstanceConsoleExpectedOut = "Checking that the VirtualMachineInstance console has expected output"
-	deletingDataVolume 		     = "Deleting the DataVolume"
-	creatingVMInvalidDataVolume	     = "Creating a VM with an invalid DataVolume"
+	deletingDataVolume                   = "Deleting the DataVolume"
+	creatingVMInvalidDataVolume          = "Creating a VM with an invalid DataVolume"
 	creatingVMDataVolumeTemplateEntry    = "Creating VM with DataVolumeTemplate entry with k8s client binary"
-	verifyingDataVolumeSuccess	     = "Verifying DataVolume succeeded and is created with VM owner reference"
-	verifyingPVCCreated		     = "Verifying PVC is created"
-	verifyingVMICreated		     = "Verifying VMI is created with VM owner reference"
-	syncName			     = "sync\n"
+	verifyingDataVolumeSuccess           = "Verifying DataVolume succeeded and is created with VM owner reference"
+	verifyingPVCCreated                  = "Verifying PVC is created"
+	verifyingVMICreated                  = "Verifying VMI is created with VM owner reference"
+	syncName                             = "sync\n"
 )
 
 const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"

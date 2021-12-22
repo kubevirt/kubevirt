@@ -33,8 +33,8 @@ const (
 	qemuGa                   = ".*qemu-ga.*%s.*"
 	vmSnapshotContent        = "vmsnapshot-content"
 	snapshotDeadlineExceeded = "snapshot deadline exceeded"
-	notReady		 = "Not ready"
-	operationComplete	 = "Operation complete"
+	notReady                 = "Not ready"
+	operationComplete        = "Operation complete"
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
