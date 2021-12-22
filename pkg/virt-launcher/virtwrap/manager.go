@@ -94,6 +94,8 @@ const (
 	baseEphemeralDiskDir = "/var/run/kubevirt-ephemeral-disks/"
 )
 
+const maxConcurrentHotplugHostDevices = 1
+
 var (
 	getEphemeralDiskBaseDir = func() string {
 		return baseEphemeralDiskDir
@@ -141,6 +143,8 @@ type LibvirtDomainManager struct {
 	setGuestTimeLock sync.Mutex
 
 	credManager *accesscredentials.AccessCredentialManager
+
+	hotplugHostDevicesInProgress chan struct{}
 
 	virtShareDir             string
 	paused                   pausedVMIs
@@ -199,6 +203,8 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 	}
+
+	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
 	return &manager, nil
@@ -322,31 +328,50 @@ func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMa
 	return l.finalizeMigrationTarget(vmi)
 }
 
-// HotplugHostDevices attach host-devices to running domain
-// Currently only SRIOV host-devices are supported
+// HotplugHostDevices attach host-devices to running domain, currently only SRIOV host-devices are supported.
+// This operation runs in the background, only one hotplug operation can occur at a time.
 func (l *LibvirtDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	select {
+	case l.hotplugHostDevicesInProgress <- struct{}{}:
+	default:
+		return fmt.Errorf("hot-plug host-devices is in progress")
+	}
+
+	go func() {
+		defer func() { <-l.hotplugHostDevicesInProgress }()
+
+		if err := l.hotPlugHostDevices(vmi); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
+	}()
+	return nil
+}
+
+func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
+
+	const errMsgPrefix = "failed to hot-plug host-devices"
 
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	domain, err := l.virConn.LookupDomainByName(domainName)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 	defer domain.Free()
 
 	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
 	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
 	if err := hostdevice.AttachHostDevices(domain, sriovHostDevices); err != nil {
-		return err
+		return fmt.Errorf("%s: %v", errMsgPrefix, hostdevice.AttachHostDevices(domain, sriovHostDevices))
 	}
 
 	return nil
