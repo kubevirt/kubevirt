@@ -1224,7 +1224,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})
 
-				It("should not migrate a running vm if dry-run option is passed", func() {
+				It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
 					nodes := util.GetAllSchedulableNodes(virtClient)
 					if len(nodes.Items) < 2 {
 						Skip("Migration tests require at least 2 nodes")
