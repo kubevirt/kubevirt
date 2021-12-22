@@ -174,6 +174,7 @@ prom-rules-verify: build-prom-spec-dumper
 	./hack/prom-rule-ci/verify-rules.sh \
 		"${current-dir}/${rule-spec-dumper-executable}" \
 		"${current-dir}/hack/prom-rule-ci/prom-rules-tests.yaml"
+	rm ${rule-spec-dumper-executable}
 
 olm-push:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} \
