@@ -3047,6 +3047,14 @@ spec:
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:5d9442c26f8750d44f97175f36dbd74bef503f782b9adefcfd08215d065c437a
     name: cni-default-plugins
+  - image: k8s.gcr.io/sig-storage/csi-node-driver-registrar@sha256:2dee3fe5fe861bb66c3a4ac51114f3447a4cd35870e0f2e2b558c7a400d89589
+    name: csi-node-driver-registrar
+  - image: k8s.gcr.io/sig-storage/csi-provisioner@sha256:4e74c0492bceddc598de1c90cc5bc14dcda94cb49fa9c5bad9d117c4834b5e08
+    name: csi-provisioner
+  - image: k8s.gcr.io/sig-storage/csi-snapshotter@sha256:818f35653f2e214db81d655063e81995de9073328a3430498624c140881026a3
+    name: csi-snapshotter
+  - image: quay.io/kubevirt/hostpath-csi-driver@sha256:c4c57725f677e0413e5b2c1b1e8e2dd473dd7f1d88cdaf76106708056ef3a78d
+    name: hostpath-csi-driver
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:4cb822e4bf8f4a60fc93a6b86321bf4bb595408f5e6efb3ee8a00f2c5be126fe
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:cf85c4baf3fa1f9c5f209ef2cd53abd4393d7d49a00f412103f68345d7ac7091
@@ -3061,6 +3069,8 @@ spec:
     name: kubernetes-nmstate-handler
   - image: quay.io/kubevirt/libguestfs-tools@sha256:22362892890c5a06cff4f0bd735b3e7c61c29dd8f15454a557c163b5f2e5b24e
     name: libguestfs-tools
+  - image: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
+    name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:961f1d1079840fa657f2e115835afdf5d0c7520623bbc302e46f2b67e36f8349
     name: macvtap-cni
   - image: quay.io/kubevirt/node-maintenance-operator@sha256:c4636d17a446b0491362d4c5ef9d91c5059f5c5f6305fc7750afc1780c384c0c

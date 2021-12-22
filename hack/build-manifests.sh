@@ -200,6 +200,11 @@ function create_hpp_csv() {
     --csv-version=${CSV_VERSION} \
     --operator-image-name=${HPPO_IMAGE} \
     --provisioner-image-name=${HPP_IMAGE} \
+    --csi-driver-image-name=${HPP_CSI_IMAGE} \
+    --csi-node-driver-image-name=${NODE_DRIVER_REG_IMAGE} \
+    --csi-liveness-probe-image-name=${LIVENESS_PROBE_IMAGE} \
+    --csi-external-provisioner-image-name=${CSI_SIG_STORAGE_PROVISIONER_IMAGE} \
+    --csi-snapshotter-image-name=${CSI_SNAPSHOT_IMAGE} \
     --namespace=${OPERATOR_NAMESPACE} \
     --pull-policy=IfNotPresent \
   "
