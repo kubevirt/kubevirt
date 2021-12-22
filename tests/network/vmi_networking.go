@@ -530,8 +530,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
 			dnsVMI.Spec.DNSPolicy = "None"
+
+			// This IPv4 address tests backwards compatibility of the "DNSConfig.Nameservers" field.
+			// The leading zero is intentional.
+			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+			const DNSNameserverWithLeadingZeros = "01.1.1.1"
 			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
-				Nameservers: []string{"8.8.8.8", "4.2.2.1"},
+				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
 				Searches:    []string{"example.com"},
 			}
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(dnsVMI)
@@ -550,6 +555,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 1.1.1.1"},
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
 			}, 15)
