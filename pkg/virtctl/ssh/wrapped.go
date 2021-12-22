@@ -8,7 +8,12 @@ import (
 	"strings"
 )
 
+var runCommand = func(cmd *exec.Cmd) error {
+	return cmd.Run()
+}
+
 func (o *SSH) runLocalCommandClient(kind, namespace, name string) error {
+
 	args := []string{}
 	args = append(args, o.buildProxyCommandOption(kind, namespace, name))
 	args = append(args, o.buildSSHTarget(kind, namespace, name))
@@ -19,7 +24,7 @@ func (o *SSH) runLocalCommandClient(kind, namespace, name string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	return cmd.Run()
+	return runCommand(cmd)
 }
 
 func (o *SSH) buildProxyCommandOption(kind, namespace, name string) string {
