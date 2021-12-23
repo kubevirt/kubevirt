@@ -1184,7 +1184,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 		},
 			table.Entry("with default", false),
-			table.Entry("with dry-run", true),
+			table.Entry("[test_id:7803]with dry-run", true),
 		)
 
 		table.DescribeTable("should remove volume according to options", func(dryRun bool) {
@@ -1225,7 +1225,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 		},
 			table.Entry("with default", false),
-			table.Entry("with dry-run", true),
+			table.Entry("[test_id:7829]with dry-run", true),
 		)
 	})
 })
