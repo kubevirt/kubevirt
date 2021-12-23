@@ -169,11 +169,11 @@ tests:
 
     alert_rule_test:
       - eval_time: 60m
-        alertname: OrphanedVirtualMachineImages
+        alertname: OrphanedVirtualMachineInstances
         exp_alerts:
           - exp_annotations:
               summary: "No virt-handler pod detected on node node01 with running vmis for more than an hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/OrphanedVirtualMachineImages"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/OrphanedVirtualMachineInstances"
             exp_labels:
               node: "node01"
               pod: "virt-handler-asdf"
