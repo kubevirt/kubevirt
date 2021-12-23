@@ -3234,24 +3234,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Expect(imageIDs).To(HaveKeyWithValue(container.Name, digest), "expected image:%s for container %s to be the same like on the source pod but got %s", container.Image, container.Name, imageIDs[container.Name])
 		}
 	})
-})
-
-var _ = Describe("[Serial][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute][Migration] Live Migration of VMs requiring multiple nodes with CPUManager", func() {
-	var virtClient kubecli.KubevirtClient
-	var err error
-
-	BeforeEach(func() {
-		// We will get focused to run on migration test lanes because we contain the word "Migration".
-		// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
-		// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
-		checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
-		tests.BeforeTestCleanup()
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-	})
 
 	Context("with dedicated CPUs", func() {
 		var (
+			virtClient    kubecli.KubevirtClient
+			err           error
 			nodes         []k8sv1.Node
 			migratableVMI *v1.VirtualMachineInstance
 			pausePod      *k8sv1.Pod
@@ -3329,6 +3316,14 @@ var _ = Describe("[Serial][crit:high][vendor:cnv-qe@redhat.com][level:system][si
 		}
 
 		BeforeEach(func() {
+			// We will get focused to run on migration test lanes because we contain the word "Migration".
+			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
+			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
+			checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
+			tests.BeforeTestCleanup()
+			virtClient, err = kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+
 			By("getting the list of worker nodes that have cpumanager enabled")
 			nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),

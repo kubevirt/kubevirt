@@ -29,6 +29,9 @@ import (
 	"strings"
 	"time"
 
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,11 +40,10 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
@@ -122,7 +124,7 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	return nil
 }
 
-func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
+func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
 	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
@@ -138,6 +140,7 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance) (*
 		}
 	}
 	domain := api.NewMinimalDomain(vmi.Name)
+	domain.Spec = *domSpec
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 	domain.Spec.CPU.Topology = cpuTopology
@@ -150,7 +153,7 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance) (*
 		return nil, err
 	}
 
-	return domain, nil
+	return domain, err
 }
 
 func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string, logger *log.FilteredLogger) error {
@@ -240,7 +243,7 @@ func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
 
 // This returns domain xml without the migration metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
-func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
+func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
 	const (
 		exactLocation = true
 		insideBlock   = false
@@ -261,7 +264,7 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 		if err != nil {
 			return "", err
 		}
-		domain, err = generateDomainForTargetCPUSetAndTopology(vmi)
+		domain, err = generateDomainForTargetCPUSetAndTopology(vmi, domSpec)
 		if err != nil {
 			return "", err
 		}
@@ -880,13 +883,13 @@ func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Status.MigrationMethod == v1.BlockMigration)
 }
 
-func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string) (*libvirt.DomainMigrateParameters, error) {
+func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec) (*libvirt.DomainMigrateParameters, error) {
 	bandwidth, err := vcpu.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
 		return nil, err
 	}
 
-	xmlstr, err := migratableDomXML(dom, vmi)
+	xmlstr, err := migratableDomXML(dom, vmi, domSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -946,8 +949,11 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		if err := prepareDomainForMigration(l.virConn, dom); err != nil {
 			return fmt.Errorf("error encountered during preparing domain for migration: %v", err)
 		}
-
-		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir)
+		domSpec, err := l.getDomainSpec(dom)
+		if err != nil {
+			return fmt.Errorf("failed to get domain spec: %v", err)
+		}
+		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir, domSpec)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
