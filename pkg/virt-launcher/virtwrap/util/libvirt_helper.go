@@ -485,7 +485,7 @@ func copyFile(from, to string) error {
 	return err
 }
 
-func (l LibvirtWrapper) SetupLibvirt() (err error) {
+func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	runtimeQemuConfPath := qemuConfPath
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
@@ -512,7 +512,16 @@ func (l LibvirtWrapper) SetupLibvirt() (err error) {
 		defer util.CloseIOAndCheckErr(libvirdDConf, &err)
 
 		// see https://libvirt.org/kbase/debuglogs.html for details
-		_, err = libvirdDConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*\"\n")
+		const defaultLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
+
+		var actualLogFilters string
+		if customLogFilters != nil && *customLogFilters != "" {
+			actualLogFilters = *customLogFilters
+		} else {
+			actualLogFilters = defaultLogFilters
+		}
+
+		_, err = libvirdDConf.WriteString(fmt.Sprintf("log_filters=\"%s\"\n", actualLogFilters))
 		if err != nil {
 			return err
 		}

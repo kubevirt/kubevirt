@@ -1058,6 +1058,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
 		}
+		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
+			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
+			command = append(command, "--log-filters", customDebugFilters)
+		}
 	}
 
 	allowEmulation := t.clusterConfig.AllowEmulation()
