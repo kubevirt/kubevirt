@@ -70,6 +70,7 @@ var restoreAnnotationsToDelete = []string{
 	"pv.kubernetes.io",
 	"volume.beta.kubernetes.io",
 	"cdi.kubevirt.io",
+	"volume.kubernetes.io",
 }
 
 func restorePVCName(vmRestore *snapshotv1.VirtualMachineRestore, name string) string {
