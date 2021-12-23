@@ -541,6 +541,17 @@ spec:
       managedDataSource: custom2
 ```
 
+## Workloads protection on uninstall
+
+`UninstallStrategy` defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist:
+- `BlockUninstallIfWorkloadsExist` will prevent the CR from being removed when workloads still exist. 
+BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised.
+- `RemoveWorkloads` will cause all the workloads to be cascading deleted on uninstall.
+**WARNING**: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted.
+Please correctly consider the implications of this option before setting it.
+
+`BlockUninstallIfWorkloadsExist` is the default behaviour.
+
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

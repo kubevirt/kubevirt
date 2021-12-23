@@ -240,8 +240,13 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 
 	infrastructureHighlyAvailable := hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable()
 
+	uninstallStrategy := kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
+	if hc.Spec.UninstallStrategy != nil && *hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
+		uninstallStrategy = kubevirtcorev1.KubeVirtUninstallStrategyRemoveWorkloads
+	}
+
 	spec := kubevirtcorev1.KubeVirtSpec{
-		UninstallStrategy:           kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
+		UninstallStrategy:           uninstallStrategy,
 		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra, infrastructureHighlyAvailable),
 		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads, true),
 		Configuration:               *config,

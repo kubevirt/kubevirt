@@ -27,6 +27,7 @@ LMDEFAULTS='{"completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"par
 PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}'
 PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
 WORKLOAD_UPDATE_STRATEGY_DEFAULT='{"batchEvictionInterval":"1m0s","batchEvictionSize":10,"workloadUpdateMethods":["LiveMigrate"]}'
+UNINSTALL_STRATEGY_DEFAULT='BlockUninstallIfWorkloadsExist'
 
 CERTCONFIGPATHS=(
     "/spec/certConfig/ca/duration"
@@ -62,6 +63,11 @@ WORKLOAD_UPDATE_STRATEGY_PATHS=(
     "/spec/workloadUpdateStrategy/batchEvictionSize"
     "/spec/workloadUpdateStrategy/batchEvictionInterval"
     "/spec/workloadUpdateStrategy"
+    "/spec"
+)
+
+UNINSTALL_STRATEGY_PATHS=(
+    "/spec/uninstallStrategy"
     "/spec"
 )
 
@@ -112,6 +118,19 @@ for JPATH in "${WORKLOAD_UPDATE_STRATEGY_PATHS[@]}"; do
     WORKLOAD_UPDATE_STRATEGY=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.workloadUpdateStrategy}')
     if [[ "${WORKLOAD_UPDATE_STRATEGY_DEFAULT}" != "${WORKLOAD_UPDATE_STRATEGY}" ]]; then
         echo "Failed checking CR defaults for workloadUpdateStrategy"
+        exit 1
+    fi
+    sleep 2
+done
+
+echo "Check that uninstallStrategy default is behaving as expected"
+
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
+for JPATH in "${UNINSTALL_STRATEGY_PATHS[@]}"; do
+    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
+    UNINSTALL_STRATEGY=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.uninstallStrategy}')
+    if [[ "${UNINSTALL_STRATEGY_DEFAULT}" != "${UNINSTALL_STRATEGY}" ]]; then
+        echo "Failed checking CR defaults for uninstallStrategy"
         exit 1
     fi
     sleep 2

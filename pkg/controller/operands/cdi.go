@@ -104,6 +104,9 @@ func getDefaultFeatureGates() []string {
 
 func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, error) {
 	uninstallStrategy := cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
+	if hc.Spec.UninstallStrategy != nil && *hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
+		uninstallStrategy = cdiv1beta1.CDIUninstallStrategyRemoveWorkloads
+	}
 
 	spec := cdiv1beta1.CDISpec{
 		UninstallStrategy: &uninstallStrategy,

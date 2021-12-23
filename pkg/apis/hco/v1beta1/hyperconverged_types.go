@@ -15,6 +15,13 @@ import (
 // HyperConvergedName is the name of the HyperConverged resource that will be reconciled
 const HyperConvergedName = "kubevirt-hyperconverged"
 
+type HyperConvergedUninstallStrategy string
+
+const (
+	HyperConvergedUninstallStrategyRemoveWorkloads                HyperConvergedUninstallStrategy = "RemoveWorkloads"
+	HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist HyperConvergedUninstallStrategy = "BlockUninstallIfWorkloadsExist"
+)
+
 // HyperConvergedSpec defines the desired state of HyperConverged
 // +k8s:openapi-gen=true
 type HyperConvergedSpec struct {
@@ -100,6 +107,18 @@ type HyperConvergedSpec struct {
 	// +optional
 	// +listType=atomic
 	DataImportCronTemplates []sspv1beta1.DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
+
+	// UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist.
+	// BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist.
+	// BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised.
+	// RemoveWorkloads will cause all the workloads to be cascading deleted on uninstall.
+	// WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted.
+	// Please correctly consider the implications of this option before setting it.
+	// BlockUninstallIfWorkloadsExist is the default behaviour.
+	// +kubebuilder:default=BlockUninstallIfWorkloadsExist
+	// +kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist
+	// +optional
+	UninstallStrategy *HyperConvergedUninstallStrategy `json:"uninstallStrategy,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -447,7 +466,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

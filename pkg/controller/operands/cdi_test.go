@@ -594,6 +594,75 @@ var _ = Describe("CDI Operand", func() {
 			})
 		})
 
+		Context("Test UninstallStrategy", func() {
+
+			It("should set BlockUninstallIfWorkloadsExist if missing HCO CR", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				hco.Spec.UninstallStrategy = nil
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(BeNil())
+
+				foundCdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundCdi),
+				).To(BeNil())
+
+				Expect(foundCdi.Spec.UninstallStrategy).ToNot(BeNil())
+				Expect(*foundCdi.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
+			})
+
+			It("should set BlockUninstallIfWorkloadsExist if set on HCO CR", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist
+				hco.Spec.UninstallStrategy = &uninstallStrategy
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(BeNil())
+
+				foundCdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundCdi),
+				).To(BeNil())
+
+				Expect(foundCdi.Spec.UninstallStrategy).ToNot(BeNil())
+				Expect(*foundCdi.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
+			})
+
+			It("should set BlockUninstallIfRemoveWorkloads if set on HCO CR", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads
+				hco.Spec.UninstallStrategy = &uninstallStrategy
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(BeNil())
+
+				foundCdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundCdi),
+				).To(BeNil())
+
+				Expect(foundCdi.Spec.UninstallStrategy).ToNot(BeNil())
+				Expect(*foundCdi.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyRemoveWorkloads))
+			})
+
+		})
+
 		It("should override CDI config field", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())

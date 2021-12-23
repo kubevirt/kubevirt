@@ -431,6 +431,75 @@ Version: 1.2.3`)
 			Expect(foundResource.Spec.UninstallStrategy).To(Equal(expectedResource.Spec.UninstallStrategy))
 		})
 
+		Context("Test UninstallStrategy", func() {
+
+			It("should set BlockUninstallIfWorkloadsExist if missing HCO CR", func() {
+				expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+				hco.Spec.UninstallStrategy = nil
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.UninstallStrategy).ToNot(BeNil())
+				Expect(foundResource.Spec.UninstallStrategy).To(Equal(kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
+			})
+
+			It("should set BlockUninstallIfWorkloadsExist if set on HCO CR", func() {
+				expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist
+				hco.Spec.UninstallStrategy = &uninstallStrategy
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.UninstallStrategy).ToNot(BeNil())
+				Expect(foundResource.Spec.UninstallStrategy).To(Equal(kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
+			})
+
+			It("should set BlockUninstallIfRemoveWorkloads if set on HCO CR", func() {
+				expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads
+				hco.Spec.UninstallStrategy = &uninstallStrategy
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.UninstallStrategy).ToNot(BeNil())
+				Expect(foundResource.Spec.UninstallStrategy).To(Equal(kubevirtcorev1.KubeVirtUninstallStrategyRemoveWorkloads))
+			})
+
+		})
+
 		It("should propagate the live migration configuration from the HC", func() {
 			existKv, err := NewKubeVirt(hco)
 			Expect(err).ToNot(HaveOccurred())
