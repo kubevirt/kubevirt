@@ -80,6 +80,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+type netconf interface {
+	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, doNetNS func(func() error) error, preSetup func() error) error
+	Teardown(vmi *v1.VirtualMachineInstance) error
+	SetupCompleted(vmi *v1.VirtualMachineInstance) bool
+}
+
+type netstat interface {
+	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
+	Teardown(vmi *v1.VirtualMachineInstance)
+	PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool
+	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodCacheInterface)
+}
+
 const (
 	//VolumeReadyReason is the reason set when the volume is ready.
 	VolumeReadyReason = "VolumeReady"
@@ -176,7 +189,6 @@ func NewController(
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state", clusterConfig),
 		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
 		clusterConfig:               clusterConfig,
-		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -207,8 +219,10 @@ func NewController(
 	})
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
-	c.phase1NetworkSetupCache = virtcache.LauncherPIDByVMI{}
-	c.podInterfaceCache = virtcache.PodInterfaceByVMIAndName{}
+
+	ifaceCacheFactory := netcache.NewInterfaceCacheFactory()
+	c.netConf = netsetup.NewNetConf(ifaceCacheFactory)
+	c.netStat = netsetup.NewNetStat(ifaceCacheFactory)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -252,18 +266,10 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 
-	// records if pod network phase1 has completed
-	// phase1 involves cycling an entire posix thread
-	// so for performance, knowing phase1 is complete
-	// prevents cycling an unncessary posix thread.
-	phase1NetworkSetupCache virtcache.LauncherPIDByVMI
-
-	// key is the file path, value is the contents.
-	// if key exists, then don't read directly from file.
-	podInterfaceCache virtcache.PodInterfaceByVMIAndName
+	netConf netconf
+	netStat netstat
 
 	domainNotifyPipes           map[string]string
-	networkCacheStoreFactory    netcache.InterfaceCacheFactory
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
 	capabilities                *nodelabellerapi.Capabilities
@@ -470,59 +476,33 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 	return false, timeLeft
 }
 
-func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineInstance) {
-	// no need to cleanup with empty uid
+// teardownNetwork performs network cache cleanup for a specific VMI.
+func (d *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstance) {
 	if string(vmi.UID) == "" {
 		return
 	}
-	d.phase1NetworkSetupCache.Delete(vmi.UID)
-
-	// Clean Pod interface cache from map and files
-	d.podInterfaceCache.DeleteAllForVMI(vmi.UID)
-
-	err := d.networkCacheStoreFactory.CacheForVMI(vmi).Remove()
-	if err != nil {
+	if err := d.netConf.Teardown(vmi); err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
+	d.netStat.Teardown(vmi)
 }
 
-// Reaching into the network namespace of the VMI's pod is expensive because
-// it results in killing/spawning a posix thread. Only do this if it
-// is absolutely necessary. The cache informs us if this action has
-// already taken place or not for a VMI
-func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) error {
-
-	// configure network
-	res, err := d.podIsolationDetector.Detect(vmi)
+func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) error {
+	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 	}
+	rootMount := isolationRes.MountRoot()
+	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
 
-	// check to see if we've already completed phase1 for this vmi
-	if _, exists := d.phase1NetworkSetupCache.Load(vmi.UID); exists {
-		return nil
-	}
-
-	if virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi) {
-		rootMount := res.MountRoot()
-		err := d.claimDeviceOwnership(rootMount, "vhost-net")
-		if err != nil {
-			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+	return d.netConf.Setup(vmi, isolationRes.Pid(), isolationRes.DoNetNS, func() error {
+		if requiresDeviceClaim {
+			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
+				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+			}
 		}
-	}
-
-	pid := res.Pid()
-	err = res.DoNetNS(func() error {
-		return netsetup.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
+		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	// cache that phase 1 has completed for this vmi.
-	d.phase1NetworkSetupCache.Store(vmi.UID, 0)
-
-	return nil
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -530,23 +510,6 @@ func domainMigrated(domain *api.Domain) bool {
 		return true
 	}
 	return false
-}
-
-func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*netcache.PodCacheInterface, error) {
-	// Once the Interface files are set on the handler, they don't change
-	// If already present in the map, don't read again
-	podInterface, exists := d.podInterfaceCache.Load(vmi.UID, ifaceName)
-
-	if exists {
-		return podInterface, nil
-	}
-
-	//FIXME error handling?
-	podInterface, _ = d.networkCacheStoreFactory.CacheForVMI(vmi).Read(ifaceName)
-
-	d.podInterfaceCache.Store(vmi.UID, ifaceName, podInterface)
-
-	return podInterface, nil
 }
 
 func canUpdateToMounted(currentPhase v1.VolumePhase) bool {
@@ -852,144 +815,6 @@ func (d *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMach
 	}
 }
 
-func (d *VirtualMachineController) updateInterfacesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-
-	if domain == nil {
-		return nil
-	}
-
-	// This is needed to be backwards compatible with vmi's which have status interfaces
-	// with the name not being set
-	if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
-		for _, network := range vmi.Spec.Networks {
-			if network.NetworkSource.Pod != nil {
-				vmi.Status.Interfaces[0].Name = network.Name
-			}
-		}
-	}
-
-	if len(vmi.Status.Interfaces) == 0 {
-		// Set Pod Interface
-		interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-		for _, network := range vmi.Spec.Networks {
-			podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
-			if err != nil {
-				return err
-			}
-
-			if podIface != nil {
-				ifc := v1.VirtualMachineInstanceNetworkInterface{
-					Name: network.Name,
-					IP:   podIface.PodIP,
-					IPs:  podIface.PodIPs,
-				}
-				interfaces = append(interfaces, ifc)
-			}
-		}
-		vmi.Status.Interfaces = interfaces
-	}
-
-	if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
-		// This calculates the vmi.Status.Interfaces based on the following data sets:
-		// - vmi.Status.Interfaces - previously calculated interfaces, this can contain data (pod IP)
-		//   set in the previous loops (when there are no interfaces), which can not be deleted,
-		//   unless overridden by Qemu agent
-		// - domain.Spec - interfaces form the Spec
-		// - domain.Status.Interfaces - interfaces reported by guest agent (empty if Qemu agent not running)
-		newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
-
-		existingInterfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
-		for _, existingInterfaceStatus := range vmi.Status.Interfaces {
-			if existingInterfaceStatus.Name != "" {
-				existingInterfaceStatusByName[existingInterfaceStatus.Name] = existingInterfaceStatus
-			}
-		}
-
-		domainInterfaceStatusByMac := map[string]api.InterfaceStatus{}
-		for _, domainInterfaceStatus := range domain.Status.Interfaces {
-			domainInterfaceStatusByMac[domainInterfaceStatus.Mac] = domainInterfaceStatus
-		}
-
-		existingInterfacesSpecByName := map[string]v1.Interface{}
-		for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
-			existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
-		}
-		existingNetworksByName := map[string]v1.Network{}
-		for _, existingNetwork := range vmi.Spec.Networks {
-			existingNetworksByName[existingNetwork.Name] = existingNetwork
-		}
-
-		// Iterate through all domain.Spec interfaces
-		for _, domainInterface := range domain.Spec.Devices.Interfaces {
-			interfaceMAC := domainInterface.MAC.MAC
-			var newInterface v1.VirtualMachineInstanceNetworkInterface
-			var isForwardingBindingInterface = false
-
-			if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.GetName()].Slirp != nil {
-				isForwardingBindingInterface = true
-			}
-
-			if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.GetName()]; exists {
-				// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
-				// Only interfaces defined in domain.Spec are handled here
-				newInterface = existingInterface
-				newInterface.MAC = interfaceMAC
-
-				// If it is a Combination of Masquerade+Pod network, check IP from file cache
-				if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
-					iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
-					if err != nil {
-						return err
-					}
-
-					if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
-						newInterface.Name = domainInterface.Alias.GetName()
-						newInterface.IP = iface.PodIP
-						newInterface.IPs = iface.PodIPs
-					}
-				}
-			} else {
-				// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
-				newInterface = v1.VirtualMachineInstanceNetworkInterface{
-					MAC:  interfaceMAC,
-					Name: domainInterface.Alias.GetName(),
-				}
-			}
-
-			// Update IP info based on information from domain.Status.Interfaces (Qemu guest)
-			// Remove the interface from domainInterfaceStatusByMac to mark it as handled
-			if interfaceStatus, exists := domainInterfaceStatusByMac[interfaceMAC]; exists {
-				newInterface.InterfaceName = interfaceStatus.InterfaceName
-				// Do not update if interface has Masquerede binding
-				// virt-controller should update VMI status interface with Pod IP instead
-				if !isForwardingBindingInterface {
-					newInterface.IP = interfaceStatus.Ip
-					newInterface.IPs = interfaceStatus.IPs
-				}
-				delete(domainInterfaceStatusByMac, interfaceMAC)
-			}
-			newInterfaces = append(newInterfaces, newInterface)
-		}
-
-		// If any of domain.Status.Interfaces were not handled above, it means that the vm contains additional
-		// interfaces not defined in domain.Spec.Devices.Interfaces (most likely added by user on VM or a SRIOV interface)
-		// Add them to vmi.Status.Interfaces
-		setMissingSRIOVInterfacesNames(existingInterfacesSpecByName, domainInterfaceStatusByMac)
-		for interfaceMAC, domainInterfaceStatus := range domainInterfaceStatusByMac {
-			newInterface := v1.VirtualMachineInstanceNetworkInterface{
-				Name:          domainInterfaceStatus.Name,
-				MAC:           interfaceMAC,
-				IP:            domainInterfaceStatus.Ip,
-				IPs:           domainInterfaceStatus.IPs,
-				InterfaceName: domainInterfaceStatus.InterfaceName,
-			}
-			newInterfaces = append(newInterfaces, newInterface)
-		}
-		vmi.Status.Interfaces = newInterfaces
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
 
 	if domain == nil || domain.Spec.Metadata.KubeVirt.AccessCredential == nil {
@@ -1240,7 +1065,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	d.updateGuestInfoFromDomain(vmi, domain)
 	d.updateVolumeStatusesFromDomain(vmi, domain)
 	d.updateFSFreezeStatus(vmi, domain)
-	err = d.updateInterfacesFromDomain(vmi, domain)
+	err = d.netStat.UpdateStatus(vmi, domain)
 	if err != nil {
 		return err
 	}
@@ -1968,7 +1793,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	d.clearPodNetworkPhase1(vmi)
+	d.teardownNetwork(vmi)
 
 	// Watch dog file and command client must be the last things removed here
 	err = d.closeLauncherClient(vmi)
@@ -2540,7 +2365,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	if err := d.setPodNetworkPhase1(vmi); err != nil {
+	if err := d.setupNetwork(vmi); err != nil {
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
@@ -2629,7 +2454,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.setPodNetworkPhase1(vmi); err != nil {
+		if err := d.setupNetwork(vmi); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 
@@ -2894,18 +2719,6 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 		domain != nil &&
 		domain.Spec.Features != nil &&
 		domain.Spec.Features.ACPI != nil
-}
-
-func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface, interfacesStatusByMac map[string]api.InterfaceStatus) {
-	for name, ifaceSpec := range interfacesSpecByName {
-		if ifaceSpec.SRIOV == nil || ifaceSpec.MacAddress == "" {
-			continue
-		}
-		if domainIfaceStatus, exists := interfacesStatusByMac[ifaceSpec.MacAddress]; exists {
-			domainIfaceStatus.Name = name
-			interfacesStatusByMac[ifaceSpec.MacAddress] = domainIfaceStatus
-		}
-	}
 }
 
 func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineInstance) error {

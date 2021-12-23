@@ -10,7 +10,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
-        "//pkg/network/cache:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",

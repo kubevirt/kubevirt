@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "netconf.go",
+        "netstat.go",
         "network.go",
         "podnic.go",
     ],
@@ -19,12 +21,15 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
+        "netconf_test.go",
+        "netstat_test.go",
         "network_suite_test.go",
         "network_test.go",
         "podnic_test.go",
@@ -45,5 +50,6 @@ go_test(
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
