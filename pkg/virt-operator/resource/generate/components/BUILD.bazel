@@ -10,6 +10,7 @@ go_library(
         "prometheus.go",
         "scc.go",
         "secrets.go",
+        "util.go",
         "validations_generated.go",
         "webhooks.go",
     ],

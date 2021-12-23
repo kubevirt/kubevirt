@@ -204,25 +204,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
@@ -282,25 +282,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
@@ -397,25 +397,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
@@ -445,25 +445,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns , "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns , "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
