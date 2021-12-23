@@ -2163,7 +2163,10 @@ var _ = Describe("migratableDomXML", func() {
 </domain>`
 		vmi := newVMI("testns", "kubevirt")
 		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
-		newXML, err := migratableDomXML(mockDomain, vmi)
+		domain := &api.Domain{}
+		err := xml.Unmarshal([]byte(domXML), domain)
+		Expect(err).NotTo(HaveOccurred())
+		newXML, err := migratableDomXML(mockDomain, vmi, &domain.Spec)
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
@@ -2239,7 +2242,10 @@ var _ = Describe("migratableDomXML", func() {
 
 		By("generated the domain XML for a migration to that target")
 		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
-		newXML, err := migratableDomXML(mockDomain, vmi)
+		domain := &api.Domain{}
+		err = xml.Unmarshal([]byte(domXML), domain)
+		Expect(err).NotTo(HaveOccurred())
+		newXML, err := migratableDomXML(mockDomain, vmi, &domain.Spec)
 		Expect(err).To(BeNil(), "failed to generate target domain XML")
 
 		By("ensuring the generated XML is accurate")
