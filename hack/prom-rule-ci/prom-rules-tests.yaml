@@ -4,15 +4,15 @@ rule_files:
 
 group_eval_order:
   - kubevirt.rules
-
+#information about this format can be found in: https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/
 tests:
   # Pod is using more CPU than expected
   - interval: 1m
     input_series:
       - series: 'node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="ci",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "2 2 2 2 2 2 2 2 2 2"
+        values: '2+0x10'
       - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="cpu",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "0 0 0 0 0 0"
+        values: '0+0x6'
 
     alert_rule_test:
       - eval_time: 5m
@@ -157,15 +157,15 @@ tests:
   - interval: 1m
     input_series:
       - series: 'node_namespace_pod:kube_pod_info:{pod="virt-launcher-vmi", node="node01"}'
-        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+        values: '1+0x100'
       - series: 'kube_pod_container_status_ready{pod="virt-handler-asdf", node="node01"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+        values: '0+0x100'
       - series: 'node_namespace_pod:kube_pod_info:{pod="virt-handler-asdf", node="node01"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+        values: '0+0x100'
       - series: 'kube_pod_container_status_ready{pod="virt-handler-asdfg", node="node02"}'
-        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+        values: '1+0x100'
       - series: 'node_namespace_pod:kube_pod_info:{pod="virt-handler-asdfg", node="node02"}'
-        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+        values: '1+0x100'
 
     alert_rule_test:
       - eval_time: 60m
@@ -185,13 +185,13 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
-        values: "1 1 1 1 1 1 1 1 1 1 1"
+        values: '1+0x11'
       - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-2"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0"
+        values: '0+0x11'
       - series: 'up{namespace="ci", pod="virt-controller-1"}'
-        values: "1 1 1 1 1 1 1 1 1 1 1"
+        values: '1+0x11'
       - series: 'up{namespace="ci", pod="virt-controller-2"}'
-        values: "1 1 1 1 1 1 1 1 1 1 1"
+        values: '1+0x11'
 
     alert_rule_test:
       - eval_time: 10m
@@ -249,111 +249,136 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
-  # High REST errors
+  # Burst REST errors
+  # values: '0+10x20' == values: "0 10 20 30 40 ... 190"
+  # values: '0+100x20' == values :"0 100 200 .... 1900"
+  # so now for EACH POD the total requests should be 10+20+30+..+190+100+200+300+...+1900
+  # and the number of requests with error code should be 190+100+200+300+...+1900 which is more than 80% of the total requests
+  # in each 5 minutes interval of the test and the error condition(more than 80% of the requests has error code) is true for
+  # more than 5 minutes(because each test run for 20 minutes) which should fire an alert for EACH POD
   - interval: 1m
     input_series:
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
-        values: "2 2 2 2 2 2 2 2 2 2"
+        values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
-        values: "10 10 10 10 10 10 10 10 10 10"
+        values: '0+100x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
-        values: "2 2 2 2 2 2 2 2 2 2"
+        values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
-        values: "10 10 10 10 10 10 10 10 10 20"
+        values: '0+100x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
-        values: "2 2 2 2 2 2 2 2 2 2"
+        values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
-        values: "10 10 10 10 10 10 10 10 10 20"
+        values: '0+100x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
-        values: "2 2 2 2 2 2 2 2 2 2"
+        values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
-        values: "10 10 10 10 10 10 10 10 10 20"
+        values: '0+100x20'
 
     alert_rule_test:
-      - eval_time: 5m
-        alertname: VirtControllerRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-controller for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsHigh"
-            exp_labels:
-              pod: "virt-controller-1"
-              severity: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
+      - eval_time: 20m
         alertname: VirtControllerRESTErrorsBurst
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-controller for the last 5 minutes"
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsBurst"
             exp_labels:
-              pod: "virt-controller-1"
               severity: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
-        alertname: VirtOperatorRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-operator for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsHigh"
-            exp_labels:
-              pod: "virt-operator-1"
-              severity: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
+      - eval_time: 20m
         alertname: VirtOperatorRESTErrorsBurst
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-operator for the last 5 minutes"
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsBurst"
             exp_labels:
-              pod: "virt-operator-1"
               severity: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
-        alertname: VirtHandlerRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-handler for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsHigh"
-            exp_labels:
-              pod: "virt-handler-1"
-              severity: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
+      - eval_time: 20m
         alertname: VirtHandlerRESTErrorsBurst
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-handler for the last 5 minutes"
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsBurst"
             exp_labels:
-              pod: "virt-handler-1"
               severity: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
-        alertname: VirtApiRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-api for the last hour"
-            exp_labels:
-              pod: "virt-api-1"
-              severity: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 5m
+      - eval_time: 20m
         alertname: VirtApiRESTErrorsBurst
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-api for the last 5 minutes"
             exp_labels:
-              pod: "virt-api-1"
               severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # values: '0+10x100' == values: "0 10 20 30 40 ... 990"
+  # values: '0+5x100' == values :"0 5 10 .... 495"
+  # so now for EACH POD the total requests should be 10+20+30+..+990+5+10+15+...+495
+  # and the number of requests with error code should be 5+10+15+...+495 which is more than 5% of the total requests
+  # the error condition(more than 5% of the requests has error code) is true which should fire an alert for EACH POD
+  # High REST errors
+  - interval: 1m
+    input_series:
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+        values: '0+10x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+        values: '0+5x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+        values: '0+10x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+        values: '0+5x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+        values: '0+10x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+        values: '0+5x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+        values: '0+10x100'
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+        values: '0+5x100'
+
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: VirtControllerRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-controller for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsHigh"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+      - eval_time: 100m
+        alertname: VirtOperatorRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-operator for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsHigh"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+      - eval_time: 100m
+        alertname: VirtHandlerRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-handler for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsHigh"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+      - eval_time: 100m
+        alertname: VirtApiRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-api for the last hour"
+            exp_labels:
+              severity: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
