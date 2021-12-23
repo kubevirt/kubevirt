@@ -4500,7 +4500,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 60)).To(Succeed())
 }
@@ -5156,7 +5156,7 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: cmdCheck},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "echo $?\n"},
+			&expect.BSnd{S: EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
