@@ -1916,6 +1916,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - secrets
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims
   verbs:
   - get
