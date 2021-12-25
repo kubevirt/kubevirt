@@ -2638,14 +2638,14 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 func (d *VirtualMachineController) addFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
-		d.vmiExpectations.LowerExpectations(key, 1, 0)
+		d.vmiExpectations.CreationObserved(key)
 		d.Queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) deleteFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
-		d.vmiExpectations.LowerExpectations(key, 1, 0)
+		d.vmiExpectations.ControllerExpectationsInterface.DeletionObserved(key)
 		d.Queue.Add(key)
 	}
 }
@@ -2660,10 +2660,7 @@ func (d *VirtualMachineController) updateFunc(_, new interface{}) {
 func (d *VirtualMachineController) addDomainFunc(obj interface{}) {
 	domain := obj.(*api.Domain)
 	log.Log.Object(domain).Infof("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		d.Queue.Add(key)
-	}
+	d.addFunc(obj)
 }
 func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 	domain, ok := obj.(*api.Domain)
@@ -2680,10 +2677,7 @@ func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 		}
 	}
 	log.Log.Object(domain).Info("Domain deleted")
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		d.Queue.Add(key)
-	}
+	d.deleteFunc(obj)
 }
 func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	newDomain := new.(*api.Domain)
@@ -2696,10 +2690,7 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 		log.Log.Object(newDomain).Info("Domain is marked for deletion")
 	}
 
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		d.Queue.Add(key)
-	}
+	d.updateFunc(old, new)
 }
 
 func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {
