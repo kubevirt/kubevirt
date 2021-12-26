@@ -355,7 +355,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	now := metav1.Now()
 	if abortStatus != "" {
 		metaAbortStatus := domainSpec.Metadata.KubeVirt.Migration.AbortStatus
-		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
+		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) || metaAbortStatus == string(v1.MigrationAbortSucceeded) {
 			return domainerrors.MigrationAbortInProgressError
 		}
 		domainSpec.Metadata.KubeVirt.Migration.AbortStatus = string(abortStatus)
