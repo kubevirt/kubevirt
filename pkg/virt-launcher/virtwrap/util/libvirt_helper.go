@@ -512,7 +512,8 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 		defer util.CloseIOAndCheckErr(libvirdDConf, &err)
 
 		// see https://libvirt.org/kbase/debuglogs.html for details
-		const defaultLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
+		const defaultLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device " +
+			"3:rpc 3:access 3:qemu.qemu_monitor_json 3:conf.domain_addr 3:util.threadjob 3:cpu.cpu 3:qemu.qemu_monitor 1:*"
 
 		var actualLogFilters string
 		if customLogFilters != nil && *customLogFilters != "" {
