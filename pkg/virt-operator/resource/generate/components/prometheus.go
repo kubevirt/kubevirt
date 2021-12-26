@@ -228,7 +228,6 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "VirtControllerRESTErrorsHigh",
 						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-controller", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsHigh",
@@ -306,7 +305,6 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "VirtOperatorRESTErrorsHigh",
 						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_hour / vec_by_virt_operators_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-operator", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsHigh",
@@ -421,7 +419,6 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "VirtHandlerRESTErrorsHigh",
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-handler", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsHigh",
@@ -469,7 +466,6 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "VirtApiRESTErrorsHigh",
 						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_hour / vec_by_virt_apis_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
 						Annotations: map[string]string{
 							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
 						},
