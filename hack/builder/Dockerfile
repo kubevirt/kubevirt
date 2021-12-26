@@ -55,7 +55,7 @@ RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
 ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
 
-ENV GIMME_GO_VERSION=1.16.6
+ENV GIMME_GO_VERSION=1.17.5
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
