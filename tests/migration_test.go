@@ -870,12 +870,20 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "130"}
 
-				By("Starting a Migration")
 				var err error
 				Eventually(func() error {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
 				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+
+				By("Should receive warning event that target pod is currently unschedulable")
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				tests.
+					NewObjectEventWatcher(migration).
+					Timeout(60*time.Second).
+					SinceWatchedObjectResourceVersion().
+					WaitFor(ctx, tests.WarningEvent, "migrationTargetPodUnschedulable")
 
 				By("Migration should observe a timeout period before canceling unschedulable target pod")
 				Consistently(func() error {

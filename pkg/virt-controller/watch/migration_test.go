@@ -671,6 +671,10 @@ var _ = Describe("Migration watcher", func() {
 			}
 			controller.Execute()
 
+			if phase != virtv1.MigrationScheduled {
+				testutils.ExpectEvent(recorder, MigrationTargetPodUnschedulable)
+			}
+
 			if shouldTimeout {
 				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			}
@@ -1437,6 +1441,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectPodDeletion()
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NoSuitableNodesForHostModelMigration)
+			testutils.ExpectEvent(recorder, MigrationTargetPodUnschedulable)
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		})
 

@@ -110,6 +110,8 @@ const (
 	FailedMigrationReason = "FailedMigration"
 	// SuccessfulAbortMigrationReason is added when an attempt to abort migration completes successfully
 	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
+	// MigrationTargetPodUnschedulable is added a migration target pod enters Unschedulable phase
+	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
 	// FailedAbortMigrationReason is added when an attempt to abort migration fails
 	FailedAbortMigrationReason = "FailedAbortMigration"
 	// MissingAttachmentPodReason is set when we have a hotplugged volume, but the attachment pod is missing
