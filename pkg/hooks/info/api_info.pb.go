@@ -2,7 +2,7 @@
 // source: api_info.proto
 
 /*
-Package kubevirt_hooks_info is a generated protocol buffer package.
+Package info is a generated protocol buffer package.
 
 It is generated from these files:
 	api_info.proto
@@ -12,7 +12,7 @@ It has these top-level messages:
 	InfoResult
 	HookPoint
 */
-package kubevirt_hooks_info
+package info
 
 import (
 	fmt "fmt"
