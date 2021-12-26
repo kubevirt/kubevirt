@@ -12,7 +12,7 @@ go_tool_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign",
     importpath = "github.com/gordonklaus/ineffassign/pkg/ineffassign",
     visibility = ["//visibility:public"],
-    deps = ["@org_golang_x_tools//go/analysis:go_tool_library"],
+    deps = ["@org_golang_x_tools//go/analysis:go_default_library"],
 )
 EOT
 
