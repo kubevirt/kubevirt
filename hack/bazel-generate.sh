@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 
 # first ensure this file, so that sandbox bootstrapping has a working nogo setup
-# without this sourcin hack/bootstraph.sh will fail
+# without this sourcing hack/bootstraph.sh will fail
 cat >vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign/BUILD.bazel <<EOT
 # gazelle:ignore
-load("@io_bazel_rules_go//go:def.bzl", "go_tool_library")
-
-go_tool_library(
-    name = "go_tool_library",
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+go_library(
+    name = "go_default_library",
     srcs = ["ineffassign.go"],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign",
     importpath = "github.com/gordonklaus/ineffassign/pkg/ineffassign",
     visibility = ["//visibility:public"],
-    deps = ["@org_golang_x_tools//go/analysis:go_tool_library"],
+    deps = ["@org_golang_x_tools//go/analysis:go_default_library"],
 )
 EOT
 
