@@ -588,14 +588,16 @@ Subsequent upgrades to newer versions will preserve the state from previous vers
 HCO enables users to modify the operand CRs directly using jsonpatch annotations in HyperConverged CR.  
 Modifications done to CRs using jsonpatch annotations won't be reconciled back by HCO to the opinionated defaults.  
 The following annotations are supported in the HyperConverged CR:
-* `kubevirt.kubevirt.io/jsonpatch` - for KubeVirt configurations
-* `containerizeddataimporter.kubevirt.io/jsonpatch` - for CDI configurations
-* `networkaddonsconfig.kubevirt.io/jsonpatch` - for CNAO configurations
+* `kubevirt.kubevirt.io/jsonpatch` - for [KubeVirt configurations](https://github.com/kubevirt/api)
+* `containerizeddataimporter.kubevirt.io/jsonpatch` - for [CDI configurations](https://github.com/kubevirt/containerized-data-importer-api)
+* `networkaddonsconfigs.kubevirt.io/jsonpatch` - for [CNAO](https://github.com/kubevirt/cluster-network-addons-operator) configurations
 
 The content of the annotation will be a json array of patch objects, as defined in [RFC6902](https://tools.ietf.org/html/rfc6902).
 
 #### Examples
-* The user wants to set the KubeVirt CR’s `spec.configuration.migrations.allowPostCopy` field to `true`. In order to do that, the following annotation should be added to the HyperConverged CR:
+
+##### Allow Post-Copy Migrations
+The user wants to set the KubeVirt CR’s `spec.configuration.migrations.allowPostCopy` field to `true`. In order to do that, the following annotation should be added to the HyperConverged CR:
 ```yaml
 metadata:
   annotations:
@@ -639,7 +641,8 @@ $ kubectl get hco -n kubevirt-hyperconverged  kubevirt-hyperconverged -o json \
 }
 ```
 
-* The user wants to configure kubevirt pods to log more verbosely
+##### Higher Log Verbosity
+The user wants to configure kubevirt pods to log more verbosely
 ```yaml
 metadata:
   annotations:
@@ -664,7 +667,8 @@ From CLI it will be:
 $ patch hco kubevirt-hyperconverged --type=merge -p='{"metadata":{"annotations":{"kubevirt.kubevirt.io/jsonpatch":"[{\"op\":\"add\",\"path\":\"/spec/configuration/developerConfiguration/logVerbosity\",\"value\":{\"virtAPI\":4,\"virtController\":4,\"virtHandler\":4,\"virtLauncher\":4,\"virtOperator\":4}}]"}}}'
 ```
 
-* The user wants to forcefully customize virt-handler configuration by setting custom values under `/spec/customizeComponents/patches` or the KV CR. In order to do that, the following annotation should be added to the HyperConverged CR:
+##### Virt-handler Customization
+The user wants to forcefully customize virt-handler configuration by setting custom values under `/spec/customizeComponents/patches` or the KV CR. In order to do that, the following annotation should be added to the HyperConverged CR:
 ```yaml
 metadata:
   annotations:
@@ -683,7 +687,8 @@ metadata:
       ]
 ```
 
-* The user wants to override the default URL used when uploading to a DataVolume, by setting the CDI CR's `spec.config.uploadProxyURLOverride` to `myproxy.example.com`. In order to do that, the following annotation should be added to the HyperConverged CR:
+##### Modify DataVolume Upload URL
+The user wants to override the default URL used when uploading to a DataVolume, by setting the CDI CR's `spec.config.uploadProxyURLOverride` to `myproxy.example.com`. In order to do that, the following annotation should be added to the HyperConverged CR:
 ```yaml
 metadata:
   annotations:
@@ -695,6 +700,12 @@ metadata:
           "value": "myproxy.example.com"
         }
       ]
+```
+
+##### Disable KubeMacPool
+If KubeMacPool is buggy on your cluster and you do not immediately need it you can ask CNAO not to deploy it
+```bash
+kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged 'networkaddonsconfigs.kubevirt.io/jsonpatch=[{"op": "replace","path": "/spec/kubeMacPool","value": null}]'
 ```
 
 **_Note:_** The full configurations options for Kubevirt, CDI and CNAO which are available on the cluster, can be explored by using `kubectl explain <resource name>.spec`. For example:  
