@@ -550,6 +550,33 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 			})
 
+			It("should migrate vmi and use Live Migration method with read-only disks", func() {
+				By("Defining a VMI with PVC disk and read-only CDRoms")
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				vmi.Spec.Hostname = string(cd.ContainerDiskCirros)
+
+				tests.AddEphemeralCdrom(vmi, "cdrom-0", "sata", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddEphemeralCdrom(vmi, "cdrom-1", "scsi", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// execute a migration, wait for finalized state
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Ensuring migration is using Live Migration method")
+				Eventually(func() v1.VirtualMachineInstanceMigrationMethod {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					return vmi.Status.MigrationMethod
+				}, 20*time.Second, 1*time.Second).Should(Equal(v1.LiveMigration), "migration method is expected to be Live Migration")
+			})
+
 			It("[test_id:6971]should migrate with a downwardMetrics disk", func() {
 				vmi := libvmi.NewTestToolingFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
