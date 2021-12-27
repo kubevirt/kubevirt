@@ -35,14 +35,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/network/dns"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -253,6 +254,55 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					cli,
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+expectedSearchDomain+`[\n\r\t ]+`)
+			}, 360)
+		})
+
+		Context("with bridge binding", func() {
+			BeforeEach(func() {
+				By("Starting Windows VirtualMachineInstance with bridge binding")
+				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)}
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 420)
+
+				cli = winrnLoginCommand(virtClient, windowsVMI)
+			})
+
+			It("should be recognized by other pods in cluster", func() {
+
+				By("Pinging virt-handler Pod from Windows VMI")
+
+				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(windowsVMI.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
+					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
+					nodeName := winVmiPod.Spec.NodeName
+
+					pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+					if err != nil {
+						return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", nodeName, err)
+					}
+					return pod, nil
+				}
+
+				virtHandlerPod, err := getVirtHandlerPod()
+				Expect(err).ToNot(HaveOccurred())
+
+				virtHandlerPodIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
+
+				command := append(cli, fmt.Sprintf("ping %s", virtHandlerPodIP))
+
+				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+				Eventually(func() error {
+					_, err = tests.ExecuteCommandOnPod(
+						virtClient,
+						winrmcliPod,
+						winrmcliPod.Spec.Containers[0].Name,
+						command,
+					)
+					return err
+				}, time.Minute*1, time.Second*15).Should(Succeed())
 			}, 360)
 		})
 	})
