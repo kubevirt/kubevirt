@@ -2166,6 +2166,19 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 				return true, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
 			}
 		} else {
+			isVolumeUsedByReadOnlyDisk := false
+			for _, disk := range vmi.Spec.Domain.Devices.Disks {
+				if virtutil.IsReadOnlyDisk(&disk) && disk.Name == volume.Name {
+					isVolumeUsedByReadOnlyDisk = true
+					break
+				}
+			}
+
+			if isVolumeUsedByReadOnlyDisk {
+				continue
+			}
+
+			log.Log.Object(vmi).Infof("migration is block migration because of %s volume", volume.Name)
 			blockMigrate = true
 		}
 	}
