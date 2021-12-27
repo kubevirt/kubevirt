@@ -20,6 +20,7 @@ import (
 const (
 	ifaceName   = "eth0"
 	launcherPID = "self"
+	subdomain   = "subdomain"
 )
 
 var _ = Describe("Bridge DHCP configurator", func() {
@@ -67,6 +68,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 				vmiSpecIfaces:    []v1.Interface{iface},
 				vmiSpecIface:     &iface,
 				handler:          mockHandler,
+				subdomain:        subdomain,
 			}
 
 			mtu := 1410
@@ -82,6 +84,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			advertisingIPAddr, _ := netlink.ParseAddr(fakeBridgeIP)
 			expectedConfig.AdvertisingIPAddr = advertisingIPAddr.IP
 			expectedConfig.Mtu = 1410
+			expectedConfig.Subdomain = subdomain
 			Expect(*config).To(Equal(expectedConfig))
 		})
 		It("Should succeed with no ipam", func() {
@@ -91,6 +94,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 				cacheFactory:     cacheFactory,
 				launcherPID:      launcherPID,
 				podInterfaceName: ifaceName,
+				subdomain:        subdomain,
 			}
 			config, err := generator.Generate()
 			Expect(err).ToNot(HaveOccurred())

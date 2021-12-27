@@ -51,6 +51,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 	Context("Generate", func() {
 		var (
 			ifaceName      string
+			subdomain      string
 			iface          *netlink.GenericLink
 			mtu            int
 			vmiSpecNetwork *v1.Network
@@ -64,7 +65,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 			expectedIpv6        = "fd10:0:2::2/120"
 		)
 
-		generateExpectedConfigIPv6Disabled := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string) cache.DHCPConfig {
+		generateExpectedConfigIPv6Disabled := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string, subdomain string) cache.DHCPConfig {
 			ipv4, _ := netlink.ParseAddr(expectedIpv4)
 			ipv4Gateway, _ := netlink.ParseAddr(expectedIpv4Gateway)
 
@@ -73,6 +74,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 				Mtu:               uint16(mtu),
 				AdvertisingIPAddr: ipv4Gateway.IP.To4(),
 				Gateway:           ipv4Gateway.IP.To4(),
+				Subdomain:         subdomain,
 			}
 
 			if macString != nil {
@@ -83,8 +85,8 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 			return expectedConfig
 		}
 
-		generateExpectedConfigIPv6Enabled := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string) cache.DHCPConfig {
-			expectedConfig := generateExpectedConfigIPv6Disabled(vmiSpecNetwork, macString, mtu, ifaceName)
+		generateExpectedConfigIPv6Enabled := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string, subdomain string) cache.DHCPConfig {
+			expectedConfig := generateExpectedConfigIPv6Disabled(vmiSpecNetwork, macString, mtu, ifaceName, subdomain)
 			ipv6, _ := netlink.ParseAddr(expectedIpv6)
 			ipv6Gateway, _ := netlink.ParseAddr(expectedIpv6Gateway)
 
@@ -98,12 +100,14 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 			vmiSpecNetwork = v1.DefaultPodNetwork()
 			vmiSpecIface = &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			ifaceName = "eth0"
+			subdomain = "subdomain"
 
 			generator = MasqueradeConfigGenerator{
 				handler:          mockHandler,
 				vmiSpecIface:     vmiSpecIface,
 				vmiSpecNetwork:   vmiSpecNetwork,
 				podInterfaceName: ifaceName,
+				subdomain:        subdomain,
 			}
 
 			mtu = 1410
@@ -120,7 +124,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 			It("Should return the dhcp configuration", func() {
 				config, err := generator.Generate()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*config).To(Equal(generateExpectedConfigIPv6Enabled(vmiSpecNetwork, nil, mtu, ifaceName)))
+				Expect(*config).To(Equal(generateExpectedConfigIPv6Enabled(vmiSpecNetwork, nil, mtu, ifaceName, subdomain)))
 			})
 		})
 
@@ -131,7 +135,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 			It("Should return the dhcp configuration without IPv6", func() {
 				config, err := generator.Generate()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*config).To(Equal(generateExpectedConfigIPv6Disabled(vmiSpecNetwork, nil, mtu, ifaceName)))
+				Expect(*config).To(Equal(generateExpectedConfigIPv6Disabled(vmiSpecNetwork, nil, mtu, ifaceName, subdomain)))
 			})
 		})
 
