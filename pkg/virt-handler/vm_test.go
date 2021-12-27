@@ -3031,7 +3031,7 @@ type netConfStub struct {
 	SetupError error
 }
 
-func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, doNetNS func(func() error) error, preSetup func() error) error {
+func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error) error {
 	if nc.SetupError != nil {
 		return nc.SetupError
 	}
