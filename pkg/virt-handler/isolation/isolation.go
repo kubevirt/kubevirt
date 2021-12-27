@@ -52,8 +52,6 @@ type IsolationResult interface {
 	MountRoot() string
 	// full path to the mount namespace
 	MountNamespace() string
-	// full path to the network namespace
-	NetNamespace() string
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 }
@@ -120,10 +118,6 @@ func (r *RealIsolationResult) IsBlockDevice(path string) (bool, error) {
 		return false, fmt.Errorf("found %v, but it's not a block device", path)
 	}
 	return true, nil
-}
-
-func (r *RealIsolationResult) NetNamespace() string {
-	return fmt.Sprintf("/proc/%d/ns/net", r.pid)
 }
 
 func (r *RealIsolationResult) MountRoot() string {

@@ -89,16 +89,6 @@ func (_mr *_MockIsolationResultRecorder) MountNamespace() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountNamespace")
 }
 
-func (_m *MockIsolationResult) NetNamespace() string {
-	ret := _m.ctrl.Call(_m, "NetNamespace")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockIsolationResultRecorder) NetNamespace() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "NetNamespace")
-}
-
 func (_m *MockIsolationResult) Mounts(_param0 mountinfo.FilterFunc) ([]*mountinfo.Info, error) {
 	ret := _m.ctrl.Call(_m, "Mounts", _param0)
 	ret0, _ := ret[0].([]*mountinfo.Info)

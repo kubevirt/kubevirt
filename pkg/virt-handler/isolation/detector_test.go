@@ -141,12 +141,6 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.MountRoot()).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
-
-		It("Should detect the Network namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.NetNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/net", os.Getpid())))
-		})
 	})
 })
 
