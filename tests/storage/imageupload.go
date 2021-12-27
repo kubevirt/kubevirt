@@ -274,6 +274,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 				namespace, util.NamespaceTestDefault,
 				"--archive-path", archivePath,
 				size, pvcSize,
+				"--force-bind",
 				insecure)
 
 			Expect(virtctlCmd()).To(Succeed())
