@@ -145,7 +145,7 @@ func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
 	return getInterfaceCacheFile(d.pattern, d.pid, ifaceName)
 }
 
-func writeToCachedFile(fs fs.Fs, obj interface{}, fileName string) error {
+func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 	if err := fs.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func writeToCachedFile(fs fs.Fs, obj interface{}, fileName string) error {
 	return dutils.DefaultOwnershipManager.SetFileOwnership(fileName)
 }
 
-func readFromCachedFile(fs fs.Fs, obj interface{}, fileName string) error {
+func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 	buf, err := fs.ReadFile(fileName)
 	if err != nil {
 		return err
