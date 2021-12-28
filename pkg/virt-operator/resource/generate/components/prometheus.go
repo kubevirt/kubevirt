@@ -204,25 +204,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns , "")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns , "")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
@@ -281,25 +281,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns , "")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns , "")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
@@ -395,25 +395,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns , "")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns , "")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
@@ -442,25 +442,25 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns , "")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns , "")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns, "")),
 						),
 					},
 					{
 						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
 						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns , "(4|5)[0-9][0-9]")),
+							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns, "(4|5)[0-9][0-9]")),
 						),
 					},
 					{
