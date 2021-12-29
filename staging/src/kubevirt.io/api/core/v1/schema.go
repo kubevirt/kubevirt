@@ -20,6 +20,8 @@
 package v1
 
 import (
+	"encoding/json"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -1147,6 +1149,24 @@ type DHCPOptions struct {
 	// If specified will pass extra DHCP options for private use, range: 224-254
 	// +optional
 	PrivateOptions []DHCPPrivateOptions `json:"privateOptions,omitempty"`
+}
+
+func (d *DHCPOptions) UnmarshalJSON(data []byte) error {
+	type DHCPOptionsAlias DHCPOptions
+	var dhcpOptionsAlias DHCPOptionsAlias
+
+	if err := json.Unmarshal(data, &dhcpOptionsAlias); err != nil {
+		return err
+	}
+
+	for i, ntpServer := range dhcpOptionsAlias.NTPServers {
+		if sanitizedIP, err := sanitizeIP(ntpServer); err == nil {
+			dhcpOptionsAlias.NTPServers[i] = sanitizedIP
+		}
+	}
+
+	*d = DHCPOptions(dhcpOptionsAlias)
+	return nil
 }
 
 // DHCPExtraOptions defines Extra DHCP options for a VM.
