@@ -1226,13 +1226,19 @@ rpm(
 rpm(
     name = "edk2-aarch64-0__20210527gite1999b264f1f-1.el8.aarch64",
     sha256 = "774b59c8042bbb4abb948c6a2eaeb07ef81ca3d4c18260599186dc39913ffa48",
-    urls = ["http://mirror.centos.org/centos/8-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20210527gite1999b264f1f-1.el8.noarch.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20210527gite1999b264f1f-1.el8.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/774b59c8042bbb4abb948c6a2eaeb07ef81ca3d4c18260599186dc39913ffa48",
+    ],
 )
 
 rpm(
     name = "edk2-ovmf-0__20210527gite1999b264f1f-1.el8.x86_64",
     sha256 = "a03af8838431f72ae3301144ae90fd01a58a52e6bd94d5f2ac869471a4e0362d",
-    urls = ["http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20210527gite1999b264f1f-1.el8.noarch.rpm"],
+    urls = [
+        "http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20210527gite1999b264f1f-1.el8.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/a03af8838431f72ae3301144ae90fd01a58a52e6bd94d5f2ac869471a4e0362d",
+    ],
 )
 
 rpm(
