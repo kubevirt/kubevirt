@@ -4,6 +4,12 @@ set -ex
 
 IMAGES_NS=${IMAGES_NS:-kubevirt-os-images}
 
+function count_data_import_crons() {
+  echo $(${KUBECTL_BINARY} get DataImportCron -A --no-headers | wc -l);
+}
+
+export -f count_data_import_crons
+
 if [[ $(${KUBECTL_BINARY} get ssp -n ${INSTALLED_NAMESPACE}) ]]; then
   [[ $(${KUBECTL_BINARY} get imageStream centos8  -n ${IMAGES_NS} --no-headers | wc -l) -eq 0 ]]
 
@@ -27,7 +33,7 @@ if [[ $(${KUBECTL_BINARY} get ssp -n ${INSTALLED_NAMESPACE}) ]]; then
   ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="fedora-image-cron")'
   ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="centos8-image-cron-is")'
 
-  ./hack/retry.sh 12 5 "[[ $(${KUBECTL_BINARY} get DataImportCron -A --no-headers | wc -l) -eq 3 ]]"
+  ./hack/retry.sh 10 30 "[[ \$(count_data_import_crons) -eq 3 ]]" "${KUBECTL_BINARY} get DataImportCron -A"
 
   ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} centos8-image-cron
   ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} fedora-image-cron

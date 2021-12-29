@@ -267,7 +267,7 @@ if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
 elif [[ "${UPDATE_METHODS}" == "" || "${UPDATE_METHODS}" == "[]" ]]; then
   echo "Skipping while workloadUpdateMethods methods are empty "
 else
-  ./hack/retry.sh 5 30 "[[ \$(${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A --no-headers | wc -l) -eq 0 ]]" "${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A"
+  ./hack/retry.sh 10 30 "[[ \$(${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A --no-headers | wc -l) -eq 0 ]]" "${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A"
   echo "All the running VMs got upgraded"
 fi
 
