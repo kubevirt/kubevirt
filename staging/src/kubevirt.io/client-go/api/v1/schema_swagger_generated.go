@@ -170,7 +170,8 @@ func (CPU) SwaggerDoc() map[string]string {
 
 func (NUMAGuestMappingPassthrough) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest.\nThis will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory\nnever cross boundaries coming from the node numa mapping.\n+k8s:openapi-gen=true",
+		"":     "NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest.\nThis will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory\nnever cross boundaries coming from the node numa mapping.\n+k8s:openapi-gen=true",
+		"mode": "Mode define how memory is allocated from the nodes in a system\nStrict mode means that the allocation will fail if the memory cannot be allocated on the target node.\nSpecifying a NUMA nodeset list without defining a memory mode attribute defaults to strict mode.\nInterleave mode\nMemory pages are allocated across nodes specified by a nodeset, but are allocated in a round-robin fashion.\nPreferred mode\nMemory is allocated from a single preferred memory node. If sufficient memory is not available, memory can be allocated from other nodes.\nDefaults to Strict\n+optional",
 	}
 }
 

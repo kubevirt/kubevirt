@@ -22353,6 +22353,15 @@ func schema_kubevirtio_client_go_api_v1_NUMAGuestMappingPassthrough(ref common.R
 			SchemaProps: spec.SchemaProps{
 				Description: "NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest. This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory never cross boundaries coming from the node numa mapping.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "\n Mode define how memory is allocated from the nodes in a system\nStrict mode means that the allocation will fail if the memory cannot be allocated on the target node. Specifying a NUMA nodeset list without defining a memory mode attribute defaults to strict mode. Interleave mode Memory pages are allocated across nodes specified by a nodeset, but are allocated in a round-robin fashion. Preferred mode Memory is allocated from a single preferred memory node. If sufficient memory is not available, memory can be allocated from other nodes. Defaults to Strict",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

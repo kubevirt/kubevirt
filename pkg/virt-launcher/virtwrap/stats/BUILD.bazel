@@ -2,7 +2,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["types.go","filesystem.go"],
+    srcs = [
+        "filesystem.go",
+        "types.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats",
     visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
 )

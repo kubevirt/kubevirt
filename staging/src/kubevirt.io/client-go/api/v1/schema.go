@@ -270,7 +270,7 @@ type KernelBootContainer struct {
 	// Image that container initrd / kernel files.
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
-	//+optional
+	// +optional
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// Image pull policy.
 	// One of Always, Never, IfNotPresent.
@@ -280,10 +280,10 @@ type KernelBootContainer struct {
 	// +optional
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	// The fully-qualified path to the kernel image in the host OS
-	//+optional
+	// +optional
 	KernelPath string `json:"kernelPath,omitempty"`
 	// the fully-qualified path to the ramdisk image in the host OS
-	//+optional
+	// +optional
 	InitrdPath string `json:"initrdPath,omitempty"`
 }
 
@@ -358,6 +358,16 @@ type CPU struct {
 // never cross boundaries coming from the node numa mapping.
 // +k8s:openapi-gen=true
 type NUMAGuestMappingPassthrough struct {
+	//  Mode define how memory is allocated from the nodes in a system
+	// Strict mode means that the allocation will fail if the memory cannot be allocated on the target node.
+	// Specifying a NUMA nodeset list without defining a memory mode attribute defaults to strict mode.
+	// Interleave mode
+	// Memory pages are allocated across nodes specified by a nodeset, but are allocated in a round-robin fashion.
+	// Preferred mode
+	// Memory is allocated from a single preferred memory node. If sufficient memory is not available, memory can be allocated from other nodes.
+	// Defaults to Strict
+	// +optional
+	Mode string `json:"mode,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -471,7 +481,7 @@ type Devices struct {
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
-	//Whether to attach a GPU device to the vmi.
+	// Whether to attach a GPU device to the vmi.
 	// +optional
 	// +listType=atomic
 	GPUs []GPU `json:"gpus,omitempty"`
@@ -479,7 +489,7 @@ type Devices struct {
 	// +optional
 	// +listType=atomic
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
-	//Whether to attach a host device to the vmi.
+	// Whether to attach a host device to the vmi.
 	// +optional
 	// +listType=atomic
 	HostDevices []HostDevice `json:"hostDevices,omitempty"`
