@@ -75,7 +75,7 @@ git checkout -b $HEAD_BRANCH fork/$HEAD_BRANCH
 ./hack/build-manifests.sh
 git status
 git add .
-git commit -s -m "build-manifests"
+git commit -s -m "build-manifests" || true
 
 # do the rebase
 git rebase origin/$BASE_BRANCH
