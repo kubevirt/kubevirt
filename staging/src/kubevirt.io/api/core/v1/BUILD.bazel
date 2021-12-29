@@ -8,6 +8,7 @@ go_library(
         "defaults.go",
         "doc.go",
         "register.go",
+        "sanitizers.go",
         "schema.go",
         "schema_swagger_generated.go",
         "types.go",
@@ -26,6 +27,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
