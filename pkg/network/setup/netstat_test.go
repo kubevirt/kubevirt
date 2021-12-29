@@ -490,17 +490,23 @@ func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache
 type podInterfaceCacheStoreStatusStub struct {
 	data       map[string]*cache.PodCacheInterface
 	failRemove bool
+	ifaceName  string
 }
 
-func (p podInterfaceCacheStoreStatusStub) Read(iface string) (*cache.PodCacheInterface, error) {
-	if d, exists := p.data[iface]; exists {
+func (p podInterfaceCacheStoreStatusStub) IfaceEntry(ifaceName string) (cache.PodInterfaceCacheStore, error) {
+	p.ifaceName = ifaceName
+	return p, nil
+}
+
+func (p podInterfaceCacheStoreStatusStub) Read() (*cache.PodCacheInterface, error) {
+	if d, exists := p.data[p.ifaceName]; exists {
 		return d, nil
 	}
 	return &cache.PodCacheInterface{}, nil
 }
 
-func (p podInterfaceCacheStoreStatusStub) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
-	p.data[iface] = cacheInterface
+func (p podInterfaceCacheStoreStatusStub) Write(cacheInterface *cache.PodCacheInterface) error {
+	p.data[p.ifaceName] = cacheInterface
 	return nil
 }
 
@@ -590,7 +596,8 @@ func (t *testSetup) addGuestAgentInterfaces(interfaces ...api.InterfaceStatus) {
 }
 
 func (t *testSetup) addFSCacheInterface(name string, podIPs ...string) {
-	t.ifaceFSCacheFactory.CacheForVMI("").Write(name, makePodCacheInterface(name, podIPs...))
+	c, _ := t.ifaceFSCacheFactory.CacheForVMI("").IfaceEntry(name)
+	c.Write(makePodCacheInterface(name, podIPs...))
 }
 
 func makePodCacheInterface(networkName string, podIPs ...string) *cache.PodCacheInterface {

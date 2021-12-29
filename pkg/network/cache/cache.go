@@ -80,3 +80,7 @@ func (c Cache) Write(data interface{}) error {
 func (c Cache) Delete() error {
 	return c.fs.RemoveAll(c.path)
 }
+
+type cacheCreator interface {
+	New(filePath string) *Cache
+}

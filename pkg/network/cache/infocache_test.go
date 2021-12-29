@@ -4,9 +4,10 @@ import (
 	"io/ioutil"
 	"os"
 
+	"kubevirt.io/kubevirt/pkg/os/fs"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -17,6 +18,7 @@ var _ = Describe("Infocache", func() {
 
 	var tmpDir string
 	var cacheFactory *interfaceCacheFactory
+	var cacheCreator tempCacheCreator
 
 	BeforeEach(func() {
 		var err error
@@ -28,41 +30,46 @@ var _ = Describe("Infocache", func() {
 
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
+		cacheCreator.New("").Delete()
 	})
 
 	Context("PodInfoCache", func() {
+		const UID = "123"
+		var podIfaceCache PodInterfaceCacheStore
+		var cacheData PodCacheInterface
 
-		obj := &PodCacheInterface{
-			Iface: &v1.Interface{
-				Model: "nice model",
-			},
-			PodIP: "random ip",
-			PodIPs: []string{
-				"ip1", "ip2",
-			},
-		}
+		BeforeEach(func() {
+			podCache := NewPodInterfaceCache(cacheCreator, UID)
+
+			var err error
+			podIfaceCache, err = podCache.IfaceEntry("net0")
+			Expect(err).NotTo(HaveOccurred())
+
+			cacheData = PodCacheInterface{
+				Iface: &v1.Interface{
+					Model: "nice model",
+				},
+				PodIP: "random ip",
+				PodIPs: []string{
+					"ip1", "ip2",
+				},
+			}
+		})
 
 		It("should return os.ErrNotExist if no cache entry exists", func() {
-			vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: "123"}}
-			_, err := cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			_, err := podIfaceCache.Read()
+			Expect(err).To(MatchError(os.ErrNotExist))
 		})
 		It("should save and restore pod interface information", func() {
-			vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: "123"}}
-
-			Expect(cacheFactory.CacheForVMI(string(vmi.UID)).Write("abc", obj)).To(Succeed())
-			newObj, err := cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newObj).To(Equal(obj))
+			Expect(podIfaceCache.Write(&cacheData)).To(Succeed())
+			Expect(podIfaceCache.Read()).To(Equal(&cacheData))
 		})
 		It("should remove the cache file", func() {
-			vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: "123"}}
-			Expect(cacheFactory.CacheForVMI(string(vmi.UID)).Write("abc", obj)).To(Succeed())
-			_, err := cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(cacheFactory.CacheForVMI(string(vmi.UID)).Remove()).To(Succeed())
-			_, err = cacheFactory.CacheForVMI(string(vmi.UID)).Read("abc")
-			Expect(err).To(HaveOccurred())
+			Expect(podIfaceCache.Write(&cacheData)).To(Succeed())
+			Expect(podIfaceCache.Remove()).To(Succeed())
+
+			_, err := podIfaceCache.Read()
+			Expect(err).To(MatchError(os.ErrNotExist))
 		})
 	})
 	Context("DomainInfoCache", func() {
@@ -81,3 +88,13 @@ var _ = Describe("Infocache", func() {
 		})
 	})
 })
+
+type tempCacheCreator struct{}
+
+func (_ tempCacheCreator) New(filePath string) *Cache {
+	tmpDir, err := ioutil.TempDir("", "temp-cache")
+	if err != nil {
+		panic("Unable to create temp cache directory")
+	}
+	return NewCustomCache(filePath, fs.NewWithRootPath(tmpDir))
+}
