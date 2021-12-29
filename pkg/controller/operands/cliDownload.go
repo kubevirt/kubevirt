@@ -117,7 +117,7 @@ func newCliDownloadsServiceHandler(Client client.Client, Scheme *runtime.Scheme)
 		Scheme:                 Scheme,
 		crType:                 "Service",
 		removeExistingOwner:    false,
-		setControllerReference: false,
+		setControllerReference: true,
 		hooks:                  &cliDownloadsServiceHooks{},
 	}
 }
@@ -203,7 +203,7 @@ func newCliDownloadsRouteHandler(Client client.Client, Scheme *runtime.Scheme) *
 		Scheme:                 Scheme,
 		crType:                 "Route",
 		removeExistingOwner:    false,
-		setControllerReference: false,
+		setControllerReference: true,
 		hooks:                  &cliDownloadsRouteHooks{},
 	}
 }
