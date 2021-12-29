@@ -360,11 +360,15 @@ func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache
 
 type podInterfaceCacheStoreStatusStub struct{ failRemove bool }
 
-func (p podInterfaceCacheStoreStatusStub) Read(iface string) (*cache.PodCacheInterface, error) {
+func (p podInterfaceCacheStoreStatusStub) IfaceEntry(ifaceName string) (cache.PodInterfaceCacheStore, error) {
+	return p, nil
+}
+
+func (p podInterfaceCacheStoreStatusStub) Read() (*cache.PodCacheInterface, error) {
 	return &cache.PodCacheInterface{Iface: &v1.Interface{Name: "net-name"}}, nil
 }
 
-func (p podInterfaceCacheStoreStatusStub) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
+func (p podInterfaceCacheStoreStatusStub) Write(cacheInterface *cache.PodCacheInterface) error {
 	return nil
 }
 

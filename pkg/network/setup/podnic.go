@@ -141,13 +141,15 @@ func (l *podNIC) setPodInterfaceCache() error {
 	}
 
 	ifCache.PodIP = ifCache.PodIPs[0]
-	err = l.cacheFactory.CacheForVMI(string(l.vmi.UID)).Write(l.vmiSpecIface.Name, ifCache)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
-		return err
+	podIfaceCache, err := l.cacheFactory.CacheForVMI(string(l.vmi.UID)).IfaceEntry(l.vmiSpecIface.Name)
+	if err == nil {
+		err = podIfaceCache.Write(ifCache)
+		if err == nil {
+			return nil
+		}
 	}
-
-	return nil
+	log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
+	return err
 }
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
@@ -326,17 +328,20 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 }
 
 func (l *podNIC) setState(state cache.PodIfaceState) error {
-	podIfaceCaches := l.cacheFactory.CacheForVMI(string(l.vmi.UID))
-	podIfaceCache, err := podIfaceCaches.Read(l.vmiSpecIface.Name)
+	var podIfaceCacheData *cache.PodCacheInterface
+	podIfaceCache, err := l.cacheFactory.CacheForVMI(string(l.vmi.UID)).IfaceEntry(l.vmiSpecIface.Name)
+	if err == nil {
+		podIfaceCacheData, err = podIfaceCache.Read()
+	}
 	if err != nil && !os.IsNotExist(err) {
 		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache, %s", err.Error())
 		return err
 	}
 	if os.IsNotExist(err) {
-		podIfaceCache = &cache.PodCacheInterface{}
+		podIfaceCacheData = &cache.PodCacheInterface{}
 	}
-	podIfaceCache.State = state
-	err = podIfaceCaches.Write(l.vmiSpecIface.Name, podIfaceCache)
+	podIfaceCacheData.State = state
+	err = podIfaceCache.Write(podIfaceCacheData)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod interface network state to cache, %s", err.Error())
 		return err
@@ -345,8 +350,11 @@ func (l *podNIC) setState(state cache.PodIfaceState) error {
 }
 
 func (l *podNIC) state() (cache.PodIfaceState, error) {
-	podIfaceCaches := l.cacheFactory.CacheForVMI(string(l.vmi.UID))
-	podIfaceCache, err := podIfaceCaches.Read(l.vmiSpecIface.Name)
+	var podIfaceCacheData *cache.PodCacheInterface
+	podIfaceCache, err := l.cacheFactory.CacheForVMI(string(l.vmi.UID)).IfaceEntry(l.vmiSpecIface.Name)
+	if err == nil {
+		podIfaceCacheData, err = podIfaceCache.Read()
+	}
 	if err != nil {
 		if os.IsNotExist(err) {
 			return defaultState, nil
@@ -354,7 +362,7 @@ func (l *podNIC) state() (cache.PodIfaceState, error) {
 		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache %s", err.Error())
 		return defaultState, err
 	}
-	return podIfaceCache.State, nil
+	return podIfaceCacheData.State, nil
 }
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {

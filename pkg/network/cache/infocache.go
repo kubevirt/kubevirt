@@ -31,8 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const networkInfoDir = util.VirtPrivateDir + "/network-info-cache"
-const virtHandlerCachePattern = networkInfoDir + "/%s/%s"
+const virtHandlerCachePattern = util.VirtPrivateDir + "/network-info-cache/%s/%s"
 
 var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 var dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
@@ -60,7 +59,11 @@ type interfaceCacheFactory struct {
 }
 
 func (i *interfaceCacheFactory) CacheForVMI(uid string) PodInterfaceCacheStore {
-	return podInterfaceCacheStore{uid: uid, fs: i.fs, pattern: virtHandlerCachePattern}
+	var cache CacheCreator
+	baseCache := cache.New(PodInterfaceCachePath(uid))
+	// TODO: Remove this hack when the usage of the all-in-one `interfaceCacheFactory` is removed.
+	baseCache.fs = i.fs
+	return NewPodInterfaceCache(baseCache)
 }
 
 func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {
@@ -77,8 +80,9 @@ type DomainInterfaceStore interface {
 }
 
 type PodInterfaceCacheStore interface {
-	Read(ifaceName string) (*PodCacheInterface, error)
-	Write(ifaceName string, cacheInterface *PodCacheInterface) error
+	IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error)
+	Read() (*PodCacheInterface, error)
+	Write(cacheInterface *PodCacheInterface) error
 	Remove() error
 }
 
@@ -104,25 +108,39 @@ func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interf
 	return
 }
 
-type podInterfaceCacheStore struct {
-	uid     string
-	pattern string
-	fs      fs.Fs
+type PodInterfaceCache struct {
+	cache *Cache
 }
 
-func (p podInterfaceCacheStore) Read(ifaceName string) (*PodCacheInterface, error) {
+func PodInterfaceCachePath(uid string) string {
+	return getInterfaceCacheFile(virtHandlerCachePattern, uid, "")
+}
+
+func NewPodInterfaceCache(cache *Cache) PodInterfaceCache {
+	return PodInterfaceCache{cache: cache}
+}
+
+func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error) {
+	cache, err := p.cache.Entry(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPodInterfaceCache(&cache), nil
+}
+
+func (p PodInterfaceCache) Read() (*PodCacheInterface, error) {
 	iface := &PodCacheInterface{}
-	err := readFromCachedFile(p.fs, iface, getInterfaceCacheFile(p.pattern, p.uid, ifaceName))
+	_, err := p.cache.Read(iface)
 	return iface, err
 }
 
-func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
-	err = writeToCachedFile(p.fs, cacheInterface, getInterfaceCacheFile(p.pattern, p.uid, iface))
-	return
+func (p PodInterfaceCache) Write(cacheInterface *PodCacheInterface) error {
+	return p.cache.Write(cacheInterface)
 }
 
-func (p podInterfaceCacheStore) Remove() error {
-	return p.fs.RemoveAll(filepath.Join(networkInfoDir, p.uid))
+func (p PodInterfaceCache) Remove() error {
+	return p.cache.Delete()
 }
 
 type dhcpConfigCacheStore struct {

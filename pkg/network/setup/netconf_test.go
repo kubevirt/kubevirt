@@ -85,6 +85,7 @@ type interfaceCacheFactoryStub struct{ podInterfaceCacheStore podInterfaceCacheS
 func (i interfaceCacheFactoryStub) CacheForVMI(uid string) cache.PodInterfaceCacheStore {
 	return i.podInterfaceCacheStore
 }
+
 func (i interfaceCacheFactoryStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
 	return nil
 }
@@ -94,11 +95,15 @@ func (i interfaceCacheFactoryStub) CacheDHCPConfigForPid(pid string) cache.DHCPC
 
 type podInterfaceCacheStoreStub struct{ failRemove bool }
 
-func (p podInterfaceCacheStoreStub) Read(iface string) (*cache.PodCacheInterface, error) {
+func (p podInterfaceCacheStoreStub) IfaceEntry(ifaceName string) (cache.PodInterfaceCacheStore, error) {
+	return p, nil
+}
+
+func (p podInterfaceCacheStoreStub) Read() (*cache.PodCacheInterface, error) {
 	return nil, nil
 }
 
-func (p podInterfaceCacheStoreStub) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
+func (p podInterfaceCacheStoreStub) Write(cacheInterface *cache.PodCacheInterface) error {
 	return nil
 }
 

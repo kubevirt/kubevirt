@@ -201,8 +201,11 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 		return cacheData.(*cache.PodCacheInterface), nil
 	}
 
-	//FIXME error handling?
-	podInterface, _ := c.ifaceCacheFactory.CacheForVMI(string(vmi.UID)).Read(ifaceName)
+	podInterface := &cache.PodCacheInterface{}
+	if podIfaceCache, err := c.ifaceCacheFactory.CacheForVMI(string(vmi.UID)).IfaceEntry(ifaceName); err == nil {
+		//FIXME error handling?
+		podInterface, _ = podIfaceCache.Read()
+	}
 
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
 
