@@ -145,12 +145,6 @@ HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name)
 OLD_INSTALL_PLAN=$(oc -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}')
 ${CMD} patch ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
 
-# TEMP HACK TO UNLOCK UPGRADE
-sleep 15
-for OLM_APP_LABEL in olm-operator catalog-operator
-do
-  ${CMD} delete -n openshift-operator-lifecycle-manager "$(${CMD} get pod -n openshift-operator-lifecycle-manager -l app=${OLM_APP_LABEL} -o name)"
-done
 Msg "Wait up to 5 minutes for the new installPlan to appear, and approve it to begin upgrade"
 INSTALL_PLAN_APPROVED=false
 for _ in $(seq 1 60); do
