@@ -200,7 +200,7 @@ func (o *Command) RunE(args []string) error {
 	}
 
 	if len(serviceSelector) == 0 {
-		return fmt.Errorf("missing label information for %s: %s", vmType, vmName)
+		return fmt.Errorf("cannot expose %s without any label: %s", vmType, vmName)
 	}
 
 	if port == 0 && len(ports) == 0 {
