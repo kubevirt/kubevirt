@@ -71,14 +71,14 @@ git fetch fork $HEAD_BRANCH
 # checkout the PR branch
 git checkout -b $HEAD_BRANCH fork/$HEAD_BRANCH
 
-# perform build-manifests and commit the changes
-./hack/build-manifests.sh
-git status
-git add .
-git commit -s -m "build-manifests" || true
-
 # do the rebase
 git rebase origin/$BASE_BRANCH
+
+# perform build-manifests and commit the changes
+./hack/build-manifests.sh
+if [[ $(git diff --name-only | wc -l) -gt 0 ]]; then
+  git commit -sam "build-manifests"
+fi
 
 # push back
 git push --force-with-lease fork $HEAD_BRANCH
