@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
 
@@ -2425,6 +2427,41 @@ var _ = Describe("VirtualMachineInstance", func() {
 				err := controller.checkNetworkInterfacesForMigration(vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
+		})
+
+		Context("check right migration mode is used when using container disk volume with", func() {
+			const volumeAndDiskName = "volume-disk-name"
+
+			getCDRomDisk := func(isReadOnly *bool) v1.Disk {
+				return v1.Disk{Name: volumeAndDiskName, DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{ReadOnly: isReadOnly}}}
+			}
+
+			getContainerDiskVolume := func() v1.Volume {
+				return v1.Volume{Name: volumeAndDiskName, VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}}
+			}
+
+			table.DescribeTable("using", func(disk v1.Disk, volume v1.Volume, migrationMethod v1.VirtualMachineInstanceMigrationMethod) {
+				migrationMethodExpected := fmt.Sprintf("Migration method is expected to be %s", migrationMethod)
+
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{disk}
+				vmi.Spec.Volumes = []v1.Volume{volume}
+
+				isBlockMigration, err := controller.checkVolumesForMigration(vmi)
+				Expect(err).ShouldNot(HaveOccurred())
+				switch migrationMethod {
+				case v1.BlockMigration:
+					Expect(isBlockMigration).To(BeTrue(), migrationMethodExpected)
+				case v1.LiveMigration:
+					Expect(isBlockMigration).To(BeFalse(), migrationMethodExpected)
+				default:
+					Expect(true).To(BeFalse(), "Shouldn't reach here - BlockMigration and LiveMigration are the only migration methods supported")
+				}
+			},
+				table.Entry("CDROM", getCDRomDisk(nil), getContainerDiskVolume(), v1.LiveMigration),
+				table.Entry("CDROM with read-only=true", getCDRomDisk(pointer.BoolPtr(true)), getContainerDiskVolume(), v1.LiveMigration),
+				table.Entry("CDROM with read-only=false", getCDRomDisk(pointer.BoolPtr(false)), getContainerDiskVolume(), v1.BlockMigration),
+			)
 		})
 
 	})
