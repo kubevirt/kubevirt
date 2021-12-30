@@ -633,6 +633,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		}
 
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
+			// This CIDR tests backwards compatibility of the "vmNetworkCIDR" field.
+			// The leading zero is intentional.
+			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+			const cidrWithLeadingZeros = "10.10.010.0/24"
 
 			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 				serverIP := libnet.GetVmiPrimaryIpByFamily(serverVMI, ipFamily)
@@ -691,6 +695,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				table.Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
+				table.Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
@@ -1115,7 +1120,9 @@ func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess boo
 
 // gatewayIpFromCIDR returns the first address of a network.
 func gatewayIPFromCIDR(cidr string) string {
-	ip, ipnet, _ := net.ParseCIDR(cidr)
+	// ParseCIDRSloppy is intentionally used to test backwards compatibility of the "vmNetworkCIDR" field with leading zeros.
+	// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+	ip, ipnet, _ := netutils.ParseCIDRSloppy(cidr)
 	ip = ip.Mask(ipnet.Mask)
 	oct := len(ip) - 1
 	ip[oct]++
