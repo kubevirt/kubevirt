@@ -78,6 +78,7 @@ var _ = Describe("NumaPlacement", func() {
 		givenVMI = &v1.VirtualMachineInstance{}
 		memory := resource.MustParse("64Mi")
 		givenVMI.Spec.Domain.Memory = &v1.Memory{Guest: &memory}
+		givenVMI.Spec.Domain.CPU = &v1.CPU{}
 	})
 
 	It("should not map the numa topology without hugepages requested", func() {
@@ -106,6 +107,7 @@ var _ = Describe("NumaPlacement", func() {
 	Context("with hugepages", func() {
 		var expectedMemoryBacking *api.MemoryBacking
 		BeforeEach(func() {
+			givenVMI.Spec.Domain.CPU = &v1.CPU{}
 			givenVMI.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
 				PageSize: "2Mi",
 			}
@@ -135,6 +137,7 @@ var _ = Describe("NumaPlacement", func() {
 			givenSpec.Memory, err = QuantityToByte(memory)
 			Expect(err).ToNot(HaveOccurred())
 			givenVMI.Spec.Domain.Memory.Guest = &memory
+			givenVMI.Spec.Domain.CPU = &v1.CPU{}
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
 		})
