@@ -37,7 +37,7 @@ function dump_kubevirt() {
 function _deploy_infra_for_tests() {
     if [[ "$KUBEVIRT_DEPLOY_CDI" == "false" ]]; then
         rm -f ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
-            ${MANIFESTS_OUT_DIR}/testing/local-block-storage.yaml ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
+            ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
     fi
 
     # Deploy infra for testing first

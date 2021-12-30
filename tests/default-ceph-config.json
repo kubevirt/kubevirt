@@ -2,7 +2,6 @@
     "storageClassLocal":       "rook-ceph-block",
     "storageClassHostPath":    "host-path",
     "storageClassHostPathSeparateDevice":    "host-path-sd",
-    "storageClassBlockVolume": "block-volume",
     "storageClassRhel":        "rook-ceph-block",
     "storageClassWindows":     "rook-ceph-block",
     "manageStorageClasses":    true,

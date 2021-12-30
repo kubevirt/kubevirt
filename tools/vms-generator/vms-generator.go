@@ -85,7 +85,6 @@ func main() {
 		utils.VmiAlpineEFI:         utils.GetVMIAlpineEFI(),
 		utils.VmiNoCloud:           utils.GetVMINoCloud(),
 		utils.VmiPVC:               utils.GetVMIPvc(),
-		utils.VmiBlockPVC:          utils.GetVMIBlockPvc(),
 		utils.VmiWindows:           utils.GetVMIWindows(),
 		utils.VmiSlirp:             utils.GetVMISlirp(),
 		utils.VmiSRIOV:             utils.GetVMISRIOV(),

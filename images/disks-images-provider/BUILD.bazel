@@ -18,19 +18,6 @@ genrule(
 )
 
 genrule(
-    name = "cirros-img",
-    srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": ["@cirros_image_aarch64//file"],
-        "//conditions:default": ["@cirros_image//file"],
-    }),
-    outs = ["images/cirros/disk.img"],
-    cmd = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir -p images/cirros && cat $(location @cirros_image_aarch64//file) > $@",
-        "//conditions:default": "mkdir -p images/cirros && cat $(location @cirros_image//file) > $@",
-    }),
-)
-
-genrule(
     name = "custom-img",
     srcs = [],
     outs = ["images/custom/disk.img"],
@@ -43,14 +30,6 @@ pkg_tar(
         ":alpine-img",
     ],
     package_dir = "images/alpine",
-)
-
-pkg_tar(
-    name = "cirros-tar",
-    srcs = [
-        ":cirros-img",
-    ],
-    package_dir = "images/cirros",
 )
 
 pkg_tar(
@@ -73,7 +52,6 @@ container_image(
     files = ["entrypoint.sh"],
     tars = [
         ":alpine-tar",
-        ":cirros-tar",
         ":custom-tar",
     ],
     visibility = ["//visibility:public"],
