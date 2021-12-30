@@ -413,7 +413,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				if vmi.Annotations == nil {
 					vmi.Annotations = make(map[string]string)
 				}
-				vmi.Annotations[virtv1.Flavor] = testFlavor
+				vmi.Annotations[v1.Flavor] = testFlavor
 				LaunchVMI(vmi)
 				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)

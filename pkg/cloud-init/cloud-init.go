@@ -113,9 +113,9 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 	precond.MustNotBeNil(vmi)
 	// ClusterFlavor will take precedence over a namespaced Flavor
 	// for setting instance_type in the metadata
-	flavor := vmi.Annotations[virtv1.ClusterFlavor]
+	flavor := vmi.Annotations[v1.ClusterFlavor]
 	if flavor == "" {
-		flavor = vmi.Annotations[virtv1.Flavor]
+		flavor = vmi.Annotations[v1.Flavor]
 	}
 
 	hostname := dns.SanitizeHostname(vmi)
