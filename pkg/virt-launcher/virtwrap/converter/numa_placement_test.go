@@ -3,9 +3,7 @@ package converter
 import (
 	"strconv"
 
-	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -78,6 +76,7 @@ var _ = Describe("NumaPlacement", func() {
 		givenVMI = &v1.VirtualMachineInstance{}
 		memory := resource.MustParse("64Mi")
 		givenVMI.Spec.Domain.Memory = &v1.Memory{Guest: &memory}
+		givenVMI.Spec.Domain.CPU = &v1.CPU{}
 	})
 
 	It("should not map the numa topology without hugepages requested", func() {
@@ -109,6 +108,7 @@ var _ = Describe("NumaPlacement", func() {
 			givenVMI.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
 				PageSize: "2Mi",
 			}
+			givenVMI.Spec.Domain.CPU = &v1.CPU{}
 
 			givenSpec.MemoryBacking = &api.MemoryBacking{
 				HugePages: &api.HugePages{},
@@ -135,6 +135,7 @@ var _ = Describe("NumaPlacement", func() {
 			givenSpec.Memory, err = QuantityToByte(memory)
 			Expect(err).ToNot(HaveOccurred())
 			givenVMI.Spec.Domain.Memory.Guest = &memory
+			givenVMI.Spec.Domain.CPU = &v1.CPU{}
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
 		})
