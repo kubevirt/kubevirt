@@ -111,7 +111,12 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
 	precond.MustNotBeNil(vmi)
-	flavor, _ := vmi.Annotations["Flavor"]
+	// ClusterFlavor will take precedence over a namespaced Flavor
+	// for setting instance_type in the metadata
+	flavor := vmi.Annotations[virtv1.ClusterFlavor]
+	if flavor == "" {
+		flavor = vmi.Annotations[virtv1.Flavor]
+	}
 
 	hostname := dns.SanitizeHostname(vmi)
 
