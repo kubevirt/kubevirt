@@ -33,3 +33,13 @@ func sanitizeIP(address string) (string, error) {
 
 	return sanitizedAddress.String(), nil
 }
+
+func sanitizeCIDR(cidr string) (string, error) {
+	ip, net, err := netutils.ParseCIDRSloppy(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	netMaskSize, _ := net.Mask.Size()
+	return fmt.Sprintf("%s/%d", ip.String(), netMaskSize), nil
+}

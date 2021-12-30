@@ -1351,6 +1351,22 @@ type PodNetwork struct {
 	VMIPv6NetworkCIDR string `json:"vmIPv6NetworkCIDR,omitempty"`
 }
 
+func (podNet *PodNetwork) UnmarshalJSON(data []byte) error {
+	type PodNetworkAlias PodNetwork
+	var podNetAlias PodNetworkAlias
+
+	if err := json.Unmarshal(data, &podNetAlias); err != nil {
+		return err
+	}
+
+	if sanitizedCIDR, err := sanitizeCIDR(podNetAlias.VMNetworkCIDR); err == nil {
+		podNetAlias.VMNetworkCIDR = sanitizedCIDR
+	}
+
+	*podNet = PodNetwork(podNetAlias)
+	return nil
+}
+
 // Rng represents the random device passed from host
 type Rng struct {
 }
