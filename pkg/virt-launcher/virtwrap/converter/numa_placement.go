@@ -57,11 +57,10 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 			involvedCellIDs = append(involvedCellIDs, strconv.Itoa(int(cell.Id)))
 		}
 	}
-
 	domain.CPU.NUMA = &api.NUMA{}
 	domain.NUMATune = &api.NUMATune{
 		Memory: api.NumaTuneMemory{
-			Mode:    "strict",
+			Mode:    memoryMode(vmi),
 			NodeSet: strings.Join(involvedCellIDs, ","),
 		},
 	}
@@ -108,7 +107,7 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 			})
 			domain.NUMATune.MemNodes = append(domain.NUMATune.MemNodes, api.MemNode{
 				CellID:  uint32(virtualCellID),
-				Mode:    "strict",
+				Mode:    memoryMode(vmi),
 				NodeSet: strconv.Itoa(int(cell.Id)),
 			})
 			domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
@@ -146,4 +145,11 @@ func hugePagesInfo(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec) (size
 		}
 	}
 	return 0, "b", false, nil
+}
+
+func memoryMode(vmi *v1.VirtualMachineInstance) string {
+	if vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough.Mode != "" {
+		return vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough.Mode
+	}
+	return "strict"
 }
