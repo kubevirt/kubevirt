@@ -51,6 +51,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
+const (
+	deleteNotifFailed        = "Failed to process delete notification"
+	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
+)
+
 // Reasons for vmi events
 const (
 	// FailedCreatePodReason is added in an event and in a vmi controller condition
@@ -1203,12 +1208,12 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error(deleteNotifFailed)
 			return
 		}
 	}
@@ -1301,12 +1306,12 @@ func (c *VMIController) deletePod(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		pod, ok = tombstone.Obj.(*k8sv1.Pod)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pod %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pod %#v", obj)).Error(deleteNotifFailed)
 			return
 		}
 	}
@@ -1338,12 +1343,12 @@ func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error(deleteNotifFailed)
 			return
 		}
 	}

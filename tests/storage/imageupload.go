@@ -30,6 +30,12 @@ const (
 	uploadProxyPort      = 443
 	localUploadProxyPort = 18443
 	imagePath            = "/tmp/alpine.iso"
+	getDataVolume        = "Get DataVolume"
+	getPVC               = "Get PVC"
+	imageUpload          = "image-upload"
+	namespace            = "--namespace"
+	size                 = "--size"
+	insecure             = "--insecure"
 )
 
 var _ = SIGDescribe("[Serial]ImageUpload", func() {
@@ -70,7 +76,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	})
 
 	validateDataVolume := func(targetName string, _ string) {
-		By("Get DataVolume")
+		By(getDataVolume)
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -129,7 +135,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
-		By("Get PVC")
+		By(getPVC)
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
@@ -144,14 +150,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
-				"--namespace", util.NamespaceTestDefault,
+				namespace, util.NamespaceTestDefault,
 				"--image-path", imagePath,
-				"--size", pvcSize,
+				size, pvcSize,
 				"--storage-class", sc,
 				"--block-volume",
-				"--insecure")
+				insecure)
 			err := virtctlCmd()
 			if err != nil {
 				fmt.Printf("UploadImage Error: %+v\n", err)
@@ -180,7 +186,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	})
 
 	validateDataVolumeForceBind := func(targetName string) {
-		By("Get DataVolume")
+		By(getDataVolume)
 		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -193,7 +199,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
-		By("Get PVC")
+		By(getPVC)
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		_, found := pvc.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
@@ -208,15 +214,15 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
-				"--namespace", util.NamespaceTestDefault,
+				namespace, util.NamespaceTestDefault,
 				"--image-path", imagePath,
-				"--size", pvcSize,
+				size, pvcSize,
 				"--storage-class", tests.Config.StorageClassLocal,
 				"--access-mode", "ReadWriteOnce",
 				"--force-bind",
-				"--insecure")
+				insecure)
 
 			Expect(virtctlCmd()).To(Succeed())
 			validateFunc(targetName)
@@ -240,7 +246,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 		validateArchiveUpload := func(targetName string, uploadDV bool) {
 			if uploadDV {
-				By("Get DataVolume")
+				By(getDataVolume)
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -251,7 +257,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			}
 
-			By("Get PVC")
+			By(getPVC)
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			contentType, found := pvc.Annotations["cdi.kubevirt.io/storage.contentType"]
@@ -263,12 +269,12 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload archive content")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
-				"--namespace", util.NamespaceTestDefault,
+				namespace, util.NamespaceTestDefault,
 				"--archive-path", archivePath,
-				"--size", pvcSize,
-				"--insecure")
+				size, pvcSize,
+				insecure)
 
 			Expect(virtctlCmd()).To(Succeed())
 			validateArchiveUpload(targetName, uploadDV)

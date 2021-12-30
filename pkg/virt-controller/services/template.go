@@ -57,6 +57,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	containerDisks   = "container-disks"
+	hotplugDisks     = "hotplug-disks"
+	hookSidecarSocks = "hook-sidecar-sockets"
+	varRun           = "/var/run"
+	virtBinDir       = "virt-bin-share-dir"
+	hotplugDisk      = "hotplug-disk"
+)
+
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -517,13 +526,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	prop := k8sv1.MountPropagationHostToContainer
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:             "container-disks",
+		Name:             containerDisks,
 		MountPath:        t.containerDiskDir,
 		MountPropagation: &prop,
 	})
 	if !vmi.Spec.Domain.Devices.DisableHotplug {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:             "hotplug-disks",
+			Name:             hotplugDisks,
 			MountPath:        t.hotplugDiskDir,
 			MountPropagation: &prop,
 		})
@@ -982,13 +991,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	if len(requestedHookSidecarList) != 0 {
 		volumes = append(volumes, k8sv1.Volume{
-			Name: "hook-sidecar-sockets",
+			Name: hookSidecarSocks,
 			VolumeSource: k8sv1.VolumeSource{
 				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
 		})
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      "hook-sidecar-sockets",
+			Name:      hookSidecarSocks,
 			MountPath: hooks.HookSocketsSharedDirectory,
 		})
 	}
@@ -1141,15 +1150,15 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		compute.Env = append(compute.Env,
 			k8sv1.EnvVar{
 				Name:  "XDG_CACHE_HOME",
-				Value: "/var/run",
+				Value: varRun,
 			},
 			k8sv1.EnvVar{
 				Name:  "XDG_CONFIG_HOME",
-				Value: "/var/run",
+				Value: varRun,
 			},
 			k8sv1.EnvVar{
 				Name:  "XDG_RUNTIME_DIR",
-				Value: "/var/run",
+				Value: varRun,
 			},
 		)
 	}
@@ -1201,10 +1210,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
-	containersDisks := containerdisk.GenerateContainers(vmi, imageIDs, "container-disks", "virt-bin-share-dir")
+	containersDisks := containerdisk.GenerateContainers(vmi, imageIDs, containerDisks, virtBinDir)
 	containers = append(containers, containersDisks...)
 
-	kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, imageIDs, "container-disks", "virt-bin-share-dir")
+	kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, imageIDs, containerDisks, virtBinDir)
 	if kernelBootContainer != nil {
 		log.Log.Object(vmi).Infof("kernel boot container generated")
 		containers = append(containers, *kernelBootContainer)
@@ -1212,7 +1221,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	volumes = append(volumes,
 		k8sv1.Volume{
-			Name: "virt-bin-share-dir",
+			Name: virtBinDir,
 			VolumeSource: k8sv1.VolumeSource{
 				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
@@ -1231,14 +1240,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	})
 	volumes = append(volumes, k8sv1.Volume{
-		Name: "container-disks",
+		Name: containerDisks,
 		VolumeSource: k8sv1.VolumeSource{
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
 	if !vmi.Spec.Domain.Devices.DisableHotplug {
 		volumes = append(volumes, k8sv1.Volume{
-			Name: "hotplug-disks",
+			Name: hotplugDisks,
 			VolumeSource: k8sv1.VolumeSource{
 				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
@@ -1308,7 +1317,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			},
 			VolumeMounts: []k8sv1.VolumeMount{
 				{
-					Name:      "hook-sidecar-sockets",
+					Name:      hookSidecarSocks,
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
 			},
@@ -1337,7 +1346,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 		initContainerVolumeMounts := []k8sv1.VolumeMount{
 			{
-				Name:      "virt-bin-share-dir",
+				Name:      virtBinDir,
 				MountPath: "/init/usr/bin",
 			},
 		}
@@ -1382,9 +1391,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		initContainers = append(initContainers, cpInitContainer)
 
 		// this causes containerDisks to be pre-pulled before virt-launcher starts.
-		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, imageIDs, "container-disks", "virt-bin-share-dir")...)
+		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, imageIDs, containerDisks, virtBinDir)...)
 
-		kernelBootInitContainer := containerdisk.GenerateKernelBootInitContainer(vmi, imageIDs, "container-disks", "virt-bin-share-dir")
+		kernelBootInitContainer := containerdisk.GenerateKernelBootInitContainer(vmi, imageIDs, containerDisks, virtBinDir)
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
@@ -1526,13 +1535,13 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 				}),
 			},
 			Labels: map[string]string{
-				v1.AppLabel: "hotplug-disk",
+				v1.AppLabel: hotplugDisk,
 			},
 		},
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:    "hotplug-disk",
+					Name:    hotplugDisk,
 					Image:   t.launcherImage,
 					Command: command,
 					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
@@ -1553,7 +1562,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{
-							Name:             "hotplug-disks",
+							Name:             hotplugDisks,
 							MountPath:        "/path",
 							MountPropagation: &sharedMount,
 						},
@@ -1579,7 +1588,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			},
 			Volumes: []k8sv1.Volume{
 				{
-					Name: "hotplug-disks",
+					Name: hotplugDisks,
 					VolumeSource: k8sv1.VolumeSource{
 						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 					},
@@ -1665,14 +1674,14 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				}),
 			},
 			Labels: map[string]string{
-				v1.AppLabel: "hotplug-disk",
+				v1.AppLabel: hotplugDisk,
 			},
 			Annotations: annotationsList,
 		},
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:    "hotplug-disk",
+					Name:    hotplugDisk,
 					Image:   t.launcherImage,
 					Command: command,
 					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
@@ -1693,7 +1702,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{
-							Name:             "hotplug-disks",
+							Name:             hotplugDisks,
 							MountPath:        "/path",
 							MountPropagation: &sharedMount,
 						},
@@ -1723,7 +1732,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					},
 				},
 				{
-					Name: "hotplug-disks",
+					Name: hotplugDisks,
 					VolumeSource: k8sv1.VolumeSource{
 						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 					},

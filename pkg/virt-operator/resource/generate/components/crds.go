@@ -41,6 +41,7 @@ import (
 const (
 	creationTimestampJSONPath = ".metadata.creationTimestamp"
 	errorMessageJSONPath      = ".status.error.message"
+	phaseJSONPath             = ".status.phase"
 )
 
 var (
@@ -151,7 +152,7 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
-		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 		{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 		{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
 		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
@@ -296,7 +297,7 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 	}
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Phase", Type: "string", JSONPath: ".status.phase",
+			{Name: "Phase", Type: "string", JSONPath: phaseJSONPath,
 				Description: "The current phase of VM instance migration"},
 			{Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
 				Description: "The name of the VMI to perform the migration on"},
@@ -350,7 +351,7 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
-		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 	}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{},
 	})
@@ -422,7 +423,7 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
-		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
 		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},

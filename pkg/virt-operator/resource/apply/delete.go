@@ -43,6 +43,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	castFailedFmt   = "Cast failed! obj: %+v"
+	deleteFailedFmt = "Failed to delete %s: %v"
+)
+
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	clientset kubecli.KubevirtClient,
 	stores util.Stores,
@@ -113,7 +118,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 
@@ -132,12 +137,12 @@ func DeleteAll(kv *v1.KubeVirt,
 				err := clientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
 				if err != nil {
 					expectations.DaemonSet.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete %s: %v", ds.Name, err)
+					log.Log.Errorf(deleteFailedFmt, ds.Name, err)
 					return err
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -152,12 +157,12 @@ func DeleteAll(kv *v1.KubeVirt,
 				err = pdbClient.Delete(context.Background(), pdb.Name, metav1.DeleteOptions{})
 				if err != nil {
 					expectations.PodDisruptionBudget.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete %s: %v", pdb.Name, err)
+					log.Log.Errorf(deleteFailedFmt, pdb.Name, err)
 					return err
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -171,12 +176,12 @@ func DeleteAll(kv *v1.KubeVirt,
 				err = clientset.AppsV1().Deployments(depl.Namespace).Delete(context.Background(), depl.Name, deleteOptions)
 				if err != nil {
 					expectations.Deployment.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete %s: %v", depl.Name, err)
+					log.Log.Errorf(deleteFailedFmt, depl.Name, err)
 					return err
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -195,7 +200,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -214,7 +219,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -233,7 +238,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -252,7 +257,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -274,7 +279,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				expectations.ServiceMonitor.DeletionObserved(kvkey, key)
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -293,7 +298,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -312,7 +317,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -330,7 +335,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -348,7 +353,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -366,7 +371,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -384,7 +389,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -402,7 +407,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -420,7 +425,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -445,7 +450,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}

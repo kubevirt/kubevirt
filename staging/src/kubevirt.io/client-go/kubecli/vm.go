@@ -33,7 +33,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const vmSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachines/%s/%s"
+const (
+	cannotMarshalJSONErrFmt = "Cannot Marshal to json: %s"
+	vmSubresourceURLFmt     = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachines/%s/%s"
+)
 
 func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
 	return &vm{
@@ -173,23 +176,23 @@ func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, er
 func (v *vm) Restart(name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) ForceRestart(name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "start")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "start")
 
 	optsJson, err := json.Marshal(startOptions)
 	if err != nil {
@@ -199,7 +202,7 @@ func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
 }
 
 func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "stop")
 	optsJson, err := json.Marshal(stopOptions)
 	if err != nil {
 		return err
@@ -210,14 +213,14 @@ func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
 func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
 	body, err := json.Marshal(stopOptions)
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "stop")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "migrate")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "migrate")
 	optsJson, err := json.Marshal(migrateOptions)
 	if err != nil {
 		return err
@@ -226,7 +229,7 @@ func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
 }
 
 func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 
 	JSON, err := json.Marshal(addVolumeOptions)
 
@@ -238,7 +241,7 @@ func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 }
 
 func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
 

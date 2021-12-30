@@ -64,6 +64,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
+const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
+
 type HostDeviceType string
 
 // The location of uefi boot loader on ARM64 is different from that on x86
@@ -748,7 +750,7 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 
 func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
+		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 
 	disk.Source.File = config.GetSysprepDiskPath(volumeName)
@@ -759,7 +761,7 @@ func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) err
 
 func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
+		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 
 	var dataSource cloudinit.DataSourceType
@@ -795,7 +797,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 
 func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *api.Disk) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
+		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 
 	disk.Type = "file"
@@ -809,7 +811,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 
 func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, c *ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
+		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"

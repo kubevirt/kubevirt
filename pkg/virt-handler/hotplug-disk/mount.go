@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+const unableFindHotplugMountedDir = "unable to find hotplug mounted directories for vmi without uid"
+
 var (
 	deviceBasePath = func(podUID types.UID) string {
 		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID))
@@ -124,7 +126,7 @@ func NewVolumeMounter(isoDetector isolation.PodIsolationDetector, mountStateDir 
 
 func (m *volumeMounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error {
 	if string(vmi.UID) == "" {
-		return fmt.Errorf("unable to find hotplug mounted directories for vmi without uid")
+		return fmt.Errorf(unableFindHotplugMountedDir)
 	}
 
 	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
@@ -158,7 +160,7 @@ func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*v
 	var existingRecord *vmiMountTargetRecord
 
 	if string(vmi.UID) == "" {
-		return nil, fmt.Errorf("unable to find hotplug mounted directories for vmi without uid")
+		return nil, fmt.Errorf(unableFindHotplugMountedDir)
 	}
 
 	m.mountRecordsLock.Lock()
@@ -199,7 +201,7 @@ func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*v
 
 func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
 	if string(vmi.UID) == "" {
-		return fmt.Errorf("unable to find hotplug mounted directories for vmi without uid")
+		return fmt.Errorf(unableFindHotplugMountedDir)
 	}
 
 	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))

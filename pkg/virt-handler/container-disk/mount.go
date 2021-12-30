@@ -24,6 +24,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	failedCheckMountPointFmt = "failed to check mount point for containerDisk %v: %v"
+	failedUnmountFmt         = "failed to unmount containerDisk %v: %v : %v"
+)
+
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type mounter struct {
@@ -293,12 +298,12 @@ func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 				continue
 			}
 			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
-				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
+				return fmt.Errorf(failedCheckMountPointFmt, path, err)
 			} else if mounted {
 				// #nosec No risk for attacket injection. Parameters are predefined strings
 				out, err := virt_chroot.UmountChroot(path).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
+					return fmt.Errorf(failedUnmountFmt, path, string(out), err)
 				}
 			}
 		}
@@ -336,13 +341,13 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			path := entry.TargetFile
 			log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", path)
 			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
-				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
+				return fmt.Errorf(failedCheckMountPointFmt, path, err)
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
 				// #nosec No risk for attacket injection. Parameters are predefined strings
 				out, err := virt_chroot.UmountChroot(path).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
+					return fmt.Errorf(failedUnmountFmt, path, string(out), err)
 				}
 			}
 
@@ -512,13 +517,13 @@ func (m *mounter) UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 
 			targetPath := filepath.Join(targetDir, filepath.Base(artifactPath))
 			if mounted, err := isolation.NodeIsolationResult().IsMounted(targetPath); err != nil {
-				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", targetPath, err)
+				return fmt.Errorf(failedCheckMountPointFmt, targetPath, err)
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at targetDir %s", targetPath)
 
 				out, err := virt_chroot.UmountChroot(targetPath).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", targetPath, string(out), err)
+					return fmt.Errorf(failedUnmountFmt, targetPath, string(out), err)
 				}
 			}
 		}

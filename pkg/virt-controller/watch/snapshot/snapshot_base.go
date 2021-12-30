@@ -42,6 +42,12 @@ import (
 )
 
 const (
+	unexpectedResourceFmt  = "unexpected resource %+v"
+	failedKeyFromObjectFmt = "failed to get key from object: %v, %v"
+	enqueuedForSyncFmt     = "enqueued %q for sync"
+)
+
+const (
 	volumeSnapshotCRD      = "volumesnapshots.snapshot.storage.k8s.io"
 	volumeSnapshotClassCRD = "volumesnapshotclasses.snapshot.storage.k8s.io"
 )
@@ -248,7 +254,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotWorkItem() bool {
 
 		vmSnapshot, ok := storeObj.(*snapshotv1.VirtualMachineSnapshot)
 		if !ok {
-			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+			return 0, fmt.Errorf(unexpectedResourceFmt, storeObj)
 		}
 
 		return ctrl.updateVMSnapshot(vmSnapshot.DeepCopy())
@@ -266,7 +272,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotContentWorkItem() bool {
 
 		vmSnapshotContent, ok := storeObj.(*snapshotv1.VirtualMachineSnapshotContent)
 		if !ok {
-			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+			return 0, fmt.Errorf(unexpectedResourceFmt, storeObj)
 		}
 
 		return ctrl.updateVMSnapshotContent(vmSnapshotContent.DeepCopy())
@@ -293,7 +299,7 @@ func (ctrl *VMSnapshotController) processCRDWorkItem() bool {
 
 		crd, ok := storeObj.(*extv1.CustomResourceDefinition)
 		if !ok {
-			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+			return 0, fmt.Errorf(unexpectedResourceFmt, storeObj)
 		}
 
 		if crd.DeletionTimestamp != nil {
@@ -316,7 +322,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotStatusWorkItem() bool {
 		if exists {
 			vm, ok := storeObj.(*kubevirtv1.VirtualMachine)
 			if !ok {
-				return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+				return 0, fmt.Errorf(unexpectedResourceFmt, storeObj)
 			}
 
 			if err = ctrl.updateVolumeSnapshotStatuses(vm); err != nil {
@@ -340,7 +346,7 @@ func (ctrl *VMSnapshotController) processVMWorkItem() bool {
 		if exists {
 			vm, ok := storeObj.(*kubevirtv1.VirtualMachine)
 			if !ok {
-				return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+				return 0, fmt.Errorf(unexpectedResourceFmt, storeObj)
 			}
 
 			ctrl.handleVM(vm)
@@ -358,10 +364,10 @@ func (ctrl *VMSnapshotController) handleVMSnapshot(obj interface{}) {
 	if vmSnapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot); ok {
 		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmSnapshot)
 		if err != nil {
-			log.Log.Errorf("failed to get key from object: %v, %v", err, vmSnapshot)
+			log.Log.Errorf(failedKeyFromObjectFmt, err, vmSnapshot)
 			return
 		}
-		log.Log.V(3).Infof("enqueued %q for sync", objName)
+		log.Log.V(3).Infof(enqueuedForSyncFmt, objName)
 		ctrl.vmSnapshotQueue.Add(objName)
 	}
 }
@@ -374,7 +380,7 @@ func (ctrl *VMSnapshotController) handleVMSnapshotContent(obj interface{}) {
 	if content, ok := obj.(*snapshotv1.VirtualMachineSnapshotContent); ok {
 		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(content)
 		if err != nil {
-			log.Log.Errorf("failed to get key from object: %v, %v", err, content)
+			log.Log.Errorf(failedKeyFromObjectFmt, err, content)
 			return
 		}
 
@@ -384,7 +390,7 @@ func (ctrl *VMSnapshotController) handleVMSnapshotContent(obj interface{}) {
 			ctrl.vmSnapshotQueue.Add(k)
 		}
 
-		log.Log.V(5).Infof("enqueued %q for sync", objName)
+		log.Log.V(5).Infof(enqueuedForSyncFmt, objName)
 		ctrl.vmSnapshotContentQueue.Add(objName)
 	}
 }
@@ -469,11 +475,11 @@ func (ctrl *VMSnapshotController) handleCRD(obj interface{}) {
 
 			objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(crd)
 			if err != nil {
-				log.Log.Errorf("failed to get key from object: %v, %v", err, crd)
+				log.Log.Errorf(failedKeyFromObjectFmt, err, crd)
 				return
 			}
 
-			log.Log.V(3).Infof("enqueued %q for sync", objName)
+			log.Log.V(3).Infof(enqueuedForSyncFmt, objName)
 			ctrl.crdQueue.Add(objName)
 		}
 	}

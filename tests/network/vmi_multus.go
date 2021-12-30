@@ -60,6 +60,11 @@ import (
 )
 
 const (
+	shouldCreateNetwork = "should successfully create the network"
+	ipLinkSetDev        = "ip link set dev "
+)
+
+const (
 	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	linuxBridgeConfNAD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\", \"vlan\": %d, \"ipam\": {%s}, \"macspoofchk\": %t, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
 	ptpConfNAD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
@@ -100,10 +105,6 @@ const (
 	bridge10CNIType       = "bridge"
 	bridge10Name          = "br10"
 	bridge10MacSpoofCheck = false
-)
-
-const (
-	helloWorldCloudInitData = "#!/bin/bash\necho 'hello'\n"
 )
 
 var _ = SIGDescribe("[Serial]Multus", func() {
@@ -195,7 +196,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), helloWorldCloudInitData)
+		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
 		vmi.Spec.Domain.Devices.Interfaces = interfaces
 		vmi.Spec.Networks = networks
 
@@ -212,7 +213,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -230,7 +231,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
 				tests.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -247,7 +248,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
@@ -284,7 +285,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -555,7 +556,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Start VMI")
 				linuxBridgeIfIdx := 1
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), helloWorldCloudInitData)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
 					linuxBridgeInterface,
@@ -867,7 +868,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		Context("Connected to single SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).
-					To(Succeed(), "should successfully create the network")
+					To(Succeed(), shouldCreateNetwork)
 			})
 
 			It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
@@ -1098,8 +1099,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		Context("Connected to two SRIOV networks", func() {
 			BeforeEach(func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), "should successfully create the network")
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), "should successfully create the network")
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
 			})
 
 			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
@@ -1127,7 +1128,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		Context("Connected to link-enabled SRIOV network", func() {
 			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
-					To(Succeed(), "should successfully create the network")
+					To(Succeed(), shouldCreateNetwork)
 			})
 
 			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
@@ -1432,9 +1433,9 @@ func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName str
 	const maxCommandTimeout = 5 * time.Second
 
 	commands := []string{
-		"ip link set dev " + interfaceName + " down",
-		"ip link set dev " + interfaceName + " address " + newMACAddress,
-		"ip link set dev " + interfaceName + " up",
+		ipLinkSetDev + interfaceName + " down",
+		ipLinkSetDev + interfaceName + " address " + newMACAddress,
+		ipLinkSetDev + interfaceName + " up",
 	}
 
 	for _, cmd := range commands {
@@ -1497,7 +1498,7 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 
@@ -1525,7 +1526,7 @@ func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: command},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }
@@ -1649,7 +1650,7 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }

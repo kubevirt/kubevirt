@@ -32,6 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const linkIfaceFailFmt = "failed to get a link for interface: %s"
+
 type LibvirtSpecGenerator interface {
 	Generate() error
 }
@@ -100,7 +102,7 @@ func (b *BridgeLibvirtSpecGenerator) Generate() error {
 func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
 	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
 		return nil, err
 	}
 	_, dummy := podNicLink.(*netlink.Dummy)
@@ -108,7 +110,7 @@ func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, 
 		newPodNicName := virtnetlink.GenerateNewBridgedVmiInterfaceName(b.podInterfaceName)
 		podNicLink, err = b.handler.LinkByName(newPodNicName)
 		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get a link for interface: %s", newPodNicName)
+			log.Log.Reason(err).Errorf(linkIfaceFailFmt, newPodNicName)
 			return nil, err
 		}
 	}
@@ -150,7 +152,7 @@ func (b *MasqueradeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interfa
 	var domainIface api.Interface
 	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
 		return nil, err
 	}
 
@@ -231,7 +233,7 @@ func (b *MacvtapLibvirtSpecGenerator) Generate() error {
 func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
 	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
 		return nil, err
 	}
 	mac, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)

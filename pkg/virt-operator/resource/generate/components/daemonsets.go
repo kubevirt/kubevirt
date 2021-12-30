@@ -18,6 +18,7 @@ import (
 
 const (
 	VirtHandlerName = "virt-handler"
+	kubeletPodsPath = "/var/lib/kubelet/pods"
 )
 
 func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
@@ -217,8 +218,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		{"virt-lib-dir", "/var/lib/kubevirt", "/var/lib/kubevirt", nil},
 		{"virt-private-dir", "/var/run/kubevirt-private", "/var/run/kubevirt-private", nil},
 		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
-		{"kubelet-pods-shortened", "/var/lib/kubelet/pods", "/pods", nil},
-		{"kubelet-pods", "/var/lib/kubelet/pods", "/var/lib/kubelet/pods", &bidi},
+		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil},
+		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
 		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
 	}
 

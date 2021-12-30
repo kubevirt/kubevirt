@@ -32,6 +32,11 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+const (
+	transTimeErrFmt = "Error encountered during vmi transition time histogram calculation: %v"
+	transTimeFail   = "Failed to get a histogram for a vmi lifecycle transition times"
+)
+
 func getTransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
 	var oldTime *metav1.Time
 	var newTime *metav1.Time
@@ -99,14 +104,14 @@ func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.Histogram
 
 	diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
+		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
 	}
 
 	labels := []string{string(newVMI.Status.Phase), string(oldVMI.Status.Phase)}
 	histogram, err := histogramVec.GetMetricWithLabelValues(labels...)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to get a histogram for a vmi lifecycle transition times")
+		log.Log.Reason(err).Error(transTimeFail)
 		return
 	}
 
@@ -142,14 +147,14 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 
 	diffSeconds, err := getTransitionTimeSeconds(true, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
+		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
 	}
 
 	labels := []string{string(newVMI.Status.Phase)}
 	histogram, err := histogramVec.GetMetricWithLabelValues(labels...)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to get a histogram for a vmi lifecycle transition times")
+		log.Log.Reason(err).Error(transTimeFail)
 		return
 	}
 
@@ -167,14 +172,14 @@ func updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec *prom
 
 	diffSeconds, err := getTransitionTimeSeconds(false, true, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
+		log.Log.V(4).Infof(transTimeErrFmt, err)
 		return
 	}
 
 	labels := []string{string(newVMI.Status.Phase)}
 	histogram, err := histogramVec.GetMetricWithLabelValues(labels...)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to get a histogram for a vmi lifecycle transition times")
+		log.Log.Reason(err).Error(transTimeFail)
 		return
 	}
 
