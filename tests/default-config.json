@@ -2,7 +2,6 @@
     "storageClassLocal":       "local",
     "storageClassHostPath":    "host-path",
     "storageClassHostPathSeparateDevice":    "host-path-sd",
-    "storageClassBlockVolume": "block-volume",
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
     "manageStorageClasses":    true,
