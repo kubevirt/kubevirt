@@ -19386,6 +19386,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationSpec(ref 
 							Format:      "",
 						},
 					},
+					"targetNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The target node that the VMI is moving to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
