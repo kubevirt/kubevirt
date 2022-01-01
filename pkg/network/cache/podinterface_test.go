@@ -36,7 +36,7 @@ var _ = Describe("Pod Interface", func() {
 	const UID = "123"
 	var cache netcache.TempCacheCreator
 	var podBaseCache netcache.PodInterfaceCache
-	var podIfaceCache netcache.PodInterfaceCacheStore
+	var podIfaceCache netcache.PodInterfaceCache
 	var cacheData netcache.PodCacheInterface
 
 	BeforeEach(dutils.MockDefaultOwnershipManager)

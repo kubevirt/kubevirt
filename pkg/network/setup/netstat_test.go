@@ -20,8 +20,6 @@
 package network_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -41,12 +39,15 @@ var _ = Describe("netstat", func() {
 
 	var netStat *netsetup.NetStat
 	var vmi *v1.VirtualMachineInstance
+	var cacheCreator cache.TempCacheCreator
 
 	BeforeEach(func() {
-		netStat = netsetup.NewNetStat(&interfaceCacheFactoryStatusStub{})
+		netStat = netsetup.NewNetStateWithCustomFactory(&interfaceCacheFactoryStatusStub{}, &cacheCreator)
 
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 	})
+
+	AfterEach(func() { cacheCreator.New("").Delete() })
 
 	It("run status with no domain", func() {
 		Expect(netStat.UpdateStatus(vmi, nil)).To(Succeed())
@@ -344,38 +345,12 @@ var _ = Describe("netstat", func() {
 	})
 })
 
-type interfaceCacheFactoryStatusStub struct {
-	podInterfaceCacheStore podInterfaceCacheStoreStatusStub
-}
+type interfaceCacheFactoryStatusStub struct{}
 
-func (i interfaceCacheFactoryStatusStub) CacheForVMI(uid string) cache.PodInterfaceCacheStore {
-	return i.podInterfaceCacheStore
-}
 func (i interfaceCacheFactoryStatusStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
 	return nil
 }
 func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
-	return nil
-}
-
-type podInterfaceCacheStoreStatusStub struct{ failRemove bool }
-
-func (p podInterfaceCacheStoreStatusStub) IfaceEntry(ifaceName string) (cache.PodInterfaceCacheStore, error) {
-	return p, nil
-}
-
-func (p podInterfaceCacheStoreStatusStub) Read() (*cache.PodCacheInterface, error) {
-	return &cache.PodCacheInterface{Iface: &v1.Interface{Name: "net-name"}}, nil
-}
-
-func (p podInterfaceCacheStoreStatusStub) Write(cacheInterface *cache.PodCacheInterface) error {
-	return nil
-}
-
-func (p podInterfaceCacheStoreStatusStub) Remove() error {
-	if p.failRemove {
-		return fmt.Errorf("remove failed")
-	}
 	return nil
 }
 

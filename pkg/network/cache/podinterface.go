@@ -38,13 +38,6 @@ type PodCacheInterface struct {
 	State  PodIfaceState `json:"networkState,omitempty"`
 }
 
-type PodInterfaceCacheStore interface {
-	IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error)
-	Read() (*PodCacheInterface, error)
-	Write(cacheInterface *PodCacheInterface) error
-	Remove() error
-}
-
 type PodInterfaceCache struct {
 	cache *Cache
 }
@@ -57,10 +50,10 @@ func NewPodInterfaceCache(cache *Cache) PodInterfaceCache {
 	return PodInterfaceCache{cache: cache}
 }
 
-func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error) {
+func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCache, error) {
 	cache, err := p.cache.Entry(ifaceName)
 	if err != nil {
-		return nil, err
+		return PodInterfaceCache{}, err
 	}
 
 	return NewPodInterfaceCache(&cache), nil

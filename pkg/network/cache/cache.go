@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 )
@@ -49,14 +50,20 @@ func (_ CacheCreator) New(filePath string) *Cache {
 	return NewCustomCache(filePath, kfs.New())
 }
 
-type TempCacheCreator struct{}
+type TempCacheCreator struct {
+	once   sync.Once
+	tmpDir string
+}
 
-func (_ TempCacheCreator) New(filePath string) *Cache {
-	tmpDir, err := ioutil.TempDir("", "temp-cache")
-	if err != nil {
-		panic("Unable to create temp cache directory")
-	}
-	return NewCustomCache(filePath, kfs.NewWithRootPath(tmpDir))
+func (c *TempCacheCreator) New(filePath string) *Cache {
+	c.once.Do(func() {
+		tmpDir, err := ioutil.TempDir("", "temp-cache")
+		if err != nil {
+			panic("Unable to create temp cache directory")
+		}
+		c.tmpDir = tmpDir
+	})
+	return NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
 }
 
 func NewCustomCache(path string, fs cacheFS) *Cache {

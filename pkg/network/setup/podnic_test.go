@@ -30,6 +30,7 @@ var _ = Describe("podNIC", func() {
 	var (
 		mockNetwork                *netdriver.MockNetworkHandler
 		cacheFactory               cache.InterfaceCacheFactory
+		baseCacheFactory           cache.TempCacheCreator
 		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
 		mockDHCPConfigurator       *dhcp.MockConfigurator
 		ctrl                       *gomock.Controller
@@ -38,7 +39,7 @@ var _ = Describe("podNIC", func() {
 
 	newPhase1PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
 		launcherPID := 1
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &launcherPID)
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &baseCacheFactory, &launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +47,7 @@ var _ = Describe("podNIC", func() {
 		return podnic, nil
 	}
 	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, nil)
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &baseCacheFactory, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -67,6 +68,7 @@ var _ = Describe("podNIC", func() {
 	})
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
+		baseCacheFactory.New("").Delete()
 		ctrl.Finish()
 	})
 	When("reading networking configuration succeed", func() {
@@ -115,7 +117,9 @@ var _ = Describe("podNIC", func() {
 			It("should return no error at phase1 and store pod interface", func() {
 				Expect(podnic.PlugPhase1()).To(Succeed())
 				var podData *cache.PodCacheInterface
-				podIfaceCache, err := podnic.cacheFactory.CacheForVMI(string(vmi.UID)).IfaceEntry("default")
+				baseCache := podnic.baseCacheFactory.New(cache.PodInterfaceCachePath(string(vmi.UID)))
+				podCache := cache.NewPodInterfaceCache(baseCache)
+				podIfaceCache, err := podCache.IfaceEntry("default")
 				Expect(err).ToNot(HaveOccurred())
 				podData, err = podIfaceCache.Read()
 				Expect(err).ToNot(HaveOccurred())

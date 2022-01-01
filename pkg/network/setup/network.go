@@ -31,21 +31,23 @@ import (
 const primaryPodInterfaceName = "eth0"
 
 type VMNetworkConfigurator struct {
-	vmi          *v1.VirtualMachineInstance
-	handler      netdriver.NetworkHandler
-	cacheFactory cache.InterfaceCacheFactory
+	vmi              *v1.VirtualMachineInstance
+	handler          netdriver.NetworkHandler
+	cacheFactory     cache.InterfaceCacheFactory
+	baseCacheFactory cacheFactory
 }
 
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
+func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, baseCacheFactory cacheFactory) *VMNetworkConfigurator {
 	return &VMNetworkConfigurator{
-		vmi:          vmi,
-		handler:      handler,
-		cacheFactory: cacheFactory,
+		vmi:              vmi,
+		handler:          handler,
+		cacheFactory:     cacheFactory,
+		baseCacheFactory: baseCacheFactory,
 	}
 }
 
-func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
+func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory, baseCacheFactory cacheFactory) *VMNetworkConfigurator {
+	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory, baseCacheFactory)
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
@@ -56,7 +58,7 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error)
 	}
 
 	for i, _ := range v.vmi.Spec.Networks {
-		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
+		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, v.baseCacheFactory, launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +76,7 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, erro
 	}
 
 	for i, _ := range v.vmi.Spec.Networks {
-		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, domain)
+		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, v.baseCacheFactory, domain)
 		if err != nil {
 			return nil, err
 		}

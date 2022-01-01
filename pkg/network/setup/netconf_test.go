@@ -21,10 +21,11 @@ package network_test
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -39,7 +40,7 @@ var _ = Describe("netconf", func() {
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netConf = netsetup.NewNetConfWithNSFactory(&interfaceCacheFactoryStub{}, nsNoopFactory)
+		netConf = netsetup.NewNetConfWithCustomFactory(&interfaceCacheFactoryStub{}, nsNoopFactory, &cache.TempCacheCreator{})
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 	})
 
@@ -67,50 +68,24 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the setup run", func() {
-		netConf := netsetup.NewNetConfWithNSFactory(&interfaceCacheFactoryStub{}, nsFailureFactory)
+		netConf := netsetup.NewNetConfWithCustomFactory(&interfaceCacheFactoryStub{}, nsFailureFactory, &cache.TempCacheCreator{})
 		Expect(netConf.Setup(vmi, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("fails the teardown run", func() {
-		factory := &interfaceCacheFactoryStub{podInterfaceCacheStoreStub{failRemove: true}}
-		netConf = netsetup.NewNetConf(factory)
+		netConf := netsetup.NewNetConfWithCustomFactory(&interfaceCacheFactoryStub{}, nil, failingCacheCreator{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 })
 
-type interfaceCacheFactoryStub struct{ podInterfaceCacheStore podInterfaceCacheStoreStub }
-
-func (i interfaceCacheFactoryStub) CacheForVMI(uid string) cache.PodInterfaceCacheStore {
-	return i.podInterfaceCacheStore
-}
+type interfaceCacheFactoryStub struct{}
 
 func (i interfaceCacheFactoryStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
 	return nil
 }
 func (i interfaceCacheFactoryStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
-	return nil
-}
-
-type podInterfaceCacheStoreStub struct{ failRemove bool }
-
-func (p podInterfaceCacheStoreStub) IfaceEntry(ifaceName string) (cache.PodInterfaceCacheStore, error) {
-	return p, nil
-}
-
-func (p podInterfaceCacheStoreStub) Read() (*cache.PodCacheInterface, error) {
-	return nil, nil
-}
-
-func (p podInterfaceCacheStoreStub) Write(cacheInterface *cache.PodCacheInterface) error {
-	return nil
-}
-
-func (p podInterfaceCacheStoreStub) Remove() error {
-	if p.failRemove {
-		return fmt.Errorf("remove failed")
-	}
 	return nil
 }
 
@@ -130,3 +105,22 @@ func nsFailureFactory(_ int) netsetup.NSExecutor { return netnsStub{shouldFail: 
 func netPreSetupDummyNoop() error { return nil }
 
 func netPreSetupFail() error { return fmt.Errorf("pre-setup failure") }
+
+type failingCacheCreator struct{}
+
+func (c failingCacheCreator) New(path string) *cache.Cache {
+	return cache.NewCustomCache(path, stubFS{failRemove: true})
+}
+
+type stubFS struct{ failRemove bool }
+
+func (f stubFS) Stat(name string) (os.FileInfo, error)                          { return nil, nil }
+func (f stubFS) MkdirAll(path string, perm os.FileMode) error                   { return nil }
+func (f stubFS) ReadFile(filename string) ([]byte, error)                       { return nil, nil }
+func (f stubFS) WriteFile(filename string, data []byte, perm fs.FileMode) error { return nil }
+func (f stubFS) RemoveAll(path string) error {
+	if f.failRemove {
+		return fmt.Errorf("remove failed")
+	}
+	return nil
+}

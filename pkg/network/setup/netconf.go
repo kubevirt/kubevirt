@@ -29,9 +29,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 
+type cacheFactory interface {
+	New(filePath string) *cache.Cache
+}
+
 type NetConf struct {
 	setupCompleted    sync.Map
 	ifaceCacheFactory cache.InterfaceCacheFactory
+	baseCacheFactory  cacheFactory
 	nsFactory         nsFactory
 }
 
@@ -42,15 +47,17 @@ type NSExecutor interface {
 }
 
 func NewNetConf(ifaceCacheFactory cache.InterfaceCacheFactory) *NetConf {
-	return NewNetConfWithNSFactory(ifaceCacheFactory, func(pid int) NSExecutor {
+	var cacheFactory cache.CacheCreator
+	return NewNetConfWithCustomFactory(ifaceCacheFactory, func(pid int) NSExecutor {
 		return netns.New(pid)
-	})
+	}, cacheFactory)
 }
 
-func NewNetConfWithNSFactory(ifaceCacheFactory cache.InterfaceCacheFactory, nsFactory nsFactory) *NetConf {
+func NewNetConfWithCustomFactory(ifaceCacheFactory cache.InterfaceCacheFactory, nsFactory nsFactory, baseCacheFactory cacheFactory) *NetConf {
 	return &NetConf{
 		setupCompleted:    sync.Map{},
 		ifaceCacheFactory: ifaceCacheFactory,
+		baseCacheFactory:  baseCacheFactory,
 		nsFactory:         nsFactory,
 	}
 }
@@ -68,7 +75,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.ifaceCacheFactory)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.ifaceCacheFactory, c.baseCacheFactory)
 
 	ns := c.nsFactory(launcherPid)
 	err := ns.Do(func() error {
@@ -85,7 +92,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.setupCompleted.Delete(vmi.UID)
-	if err := c.ifaceCacheFactory.CacheForVMI(string(vmi.UID)).Remove(); err != nil {
+	basePodIfaceCache := c.baseCacheFactory.New(cache.PodInterfaceCachePath(string(vmi.UID)))
+	if err := basePodIfaceCache.Delete(); err != nil {
 		return fmt.Errorf("teardown failed, err: %w", err)
 	}
 

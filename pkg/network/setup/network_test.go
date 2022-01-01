@@ -36,6 +36,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 	var (
 		tmpDir                string
 		interfaceCacheFactory cache.InterfaceCacheFactory
+		baseCacheCreator      cache.TempCacheCreator
 	)
 	BeforeEach(func() {
 		var err error
@@ -45,6 +46,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 	})
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
+		baseCacheCreator.New("").Delete()
 	})
 	Context("interface configuration", func() {
 
@@ -59,7 +61,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{},
 				}}
-				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
+				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, interfaceCacheFactory, &baseCacheCreator)
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
@@ -76,7 +78,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			It("should configure bridged pod networking by default", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, interfaceCacheFactory)
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, interfaceCacheFactory, &baseCacheCreator)
 				iface := v1.DefaultBridgeNetworkInterface()
 				defaultNet := v1.DefaultPodNetwork()
 				launcherPID := 0
@@ -89,6 +91,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					vmiSpecNetwork:   defaultNet,
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
+					baseCacheFactory: vmNetworkConfigurator.baseCacheFactory,
 					launcherPID:      &launcherPID,
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vm,
@@ -100,7 +103,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 			It("should accept empty network list", func() {
 				vmi := newVMI("testnamespace", "testVmName")
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory, &baseCacheCreator)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
@@ -117,7 +120,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					},
 				}
 				vmi.Spec.Networks = []v1.Network{*cniNet}
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory, &baseCacheCreator)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
@@ -128,6 +131,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					podInterfaceName: multusInterfaceName,
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
+					baseCacheFactory: vmNetworkConfigurator.baseCacheFactory,
 					launcherPID:      &launcherPID,
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vmi,
@@ -184,7 +188,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 				vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, interfaceCacheFactory)
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, interfaceCacheFactory, &baseCacheCreator)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
@@ -196,6 +200,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						podInterfaceName: "net1",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
+						baseCacheFactory: vmNetworkConfigurator.baseCacheFactory,
 						launcherPID:      &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
@@ -211,6 +216,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						podInterfaceName: "eth0",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
+						baseCacheFactory: vmNetworkConfigurator.baseCacheFactory,
 						launcherPID:      &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
@@ -226,6 +232,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						podInterfaceName: "net2",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
+						baseCacheFactory: vmNetworkConfigurator.baseCacheFactory,
 						launcherPID:      &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
