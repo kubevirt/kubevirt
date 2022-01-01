@@ -34,7 +34,6 @@ var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interfac
 var dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 
 type InterfaceCacheFactory interface {
-	CacheForVMI(uid string) PodInterfaceCacheStore
 	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
 	CacheDHCPConfigForPid(pid string) DHCPConfigStore
 }
@@ -53,14 +52,6 @@ func NewInterfaceCacheFactoryWithBasePath(rootPath string) *interfaceCacheFactor
 
 type interfaceCacheFactory struct {
 	fs fs.Fs
-}
-
-func (i *interfaceCacheFactory) CacheForVMI(uid string) PodInterfaceCacheStore {
-	podCache := NewPodInterfaceCache(CacheCreator{}, uid)
-	// TODO: Remove this hack when the usage of the all-in-one `interfaceCacheFactory` is removed.
-	podCache.cache.fs = i.fs
-
-	return podCache
 }
 
 func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {

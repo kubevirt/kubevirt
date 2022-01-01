@@ -34,8 +34,6 @@ const (
 	PodIfaceNetworkPreparationFinished
 )
 
-const podIfaceCacheDirName = "network-info-cache"
-
 type PodIfaceCacheData struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
 	PodIP  string        `json:"podIP,omitempty"`
@@ -43,25 +41,19 @@ type PodIfaceCacheData struct {
 	State  PodIfaceState `json:"networkState,omitempty"`
 }
 
-type PodInterfaceCacheStore interface {
-	IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error)
-	Read() (*PodIfaceCacheData, error)
-	Write(cacheInterface *PodIfaceCacheData) error
-	Remove() error
-}
-
 type PodInterfaceCache struct {
 	cache *Cache
 }
 
 func NewPodInterfaceCache(creator cacheCreator, uid string) PodInterfaceCache {
+	const podIfaceCacheDirName = "network-info-cache"
 	return PodInterfaceCache{creator.New(filepath.Join(util.VirtPrivateDir, podIfaceCacheDirName, uid))}
 }
 
-func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error) {
+func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCache, error) {
 	cache, err := p.cache.Entry(ifaceName)
 	if err != nil {
-		return nil, err
+		return PodInterfaceCache{}, err
 	}
 
 	return PodInterfaceCache{&cache}, nil

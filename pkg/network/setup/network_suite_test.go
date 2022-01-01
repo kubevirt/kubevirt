@@ -1,7 +1,12 @@
 package network
 
 import (
+	"io/ioutil"
+	"sync"
 	"testing"
+
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -46,4 +51,20 @@ func NewDomainWithBridgeInterface() *api.Domain {
 	},
 	}
 	return domain
+}
+
+type tempCacheCreator struct {
+	once   sync.Once
+	tmpDir string
+}
+
+func (c *tempCacheCreator) New(filePath string) *cache.Cache {
+	c.once.Do(func() {
+		tmpDir, err := ioutil.TempDir("", "temp-cache")
+		if err != nil {
+			panic("Unable to create temp cache directory")
+		}
+		c.tmpDir = tmpDir
+	})
+	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
 }

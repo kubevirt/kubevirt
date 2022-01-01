@@ -1,7 +1,6 @@
 package cache_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -9,7 +8,6 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/os/fs"
 )
 
 var _ = Describe("cache", func() {
@@ -97,13 +95,3 @@ var _ = Describe("cache", func() {
 		Expect(err.Error()).To(HaveSuffix("is a directory"))
 	})
 })
-
-type tempCacheCreator struct{}
-
-func (_ tempCacheCreator) New(filePath string) *cache.Cache {
-	tmpDir, err := ioutil.TempDir("", "temp-cache")
-	if err != nil {
-		panic("Unable to create temp cache directory")
-	}
-	return cache.NewCustomCache(filePath, fs.NewWithRootPath(tmpDir))
-}

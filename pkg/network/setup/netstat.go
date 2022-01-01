@@ -34,6 +34,7 @@ import (
 
 type NetStat struct {
 	ifaceCacheFactory cache.InterfaceCacheFactory
+	cacheCreator      cacheCreator
 
 	// In memory cache, storing pod interface information.
 	// key is the file path, value is the contents.
@@ -42,8 +43,13 @@ type NetStat struct {
 }
 
 func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
+	return NewNetStateWithCustomFactory(ifaceCacheFactory, cache.CacheCreator{})
+}
+
+func NewNetStateWithCustomFactory(ifaceCacheFactory cache.InterfaceCacheFactory, cacheCreator cacheCreator) *NetStat {
 	return &NetStat{
 		ifaceCacheFactory:         ifaceCacheFactory,
+		cacheCreator:              cacheCreator,
 		podInterfaceVolatileCache: sync.Map{},
 	}
 }
@@ -121,7 +127,8 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 	}
 
 	podInterface := &cache.PodIfaceCacheData{}
-	if podIfaceCache, err := c.ifaceCacheFactory.CacheForVMI(string(vmi.UID)).IfaceEntry(ifaceName); err == nil {
+	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
+	if podIfaceCache, err := podCache.IfaceEntry(ifaceName); err == nil {
 		//FIXME error handling?
 		podInterface, _ = podIfaceCache.Read()
 	}
