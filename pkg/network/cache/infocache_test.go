@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -29,48 +28,6 @@ var _ = Describe("Infocache", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Context("PodInfoCache", func() {
-		const UID = "123"
-		var cache TempCacheCreator
-		var podBaseCache PodInterfaceCache
-		var podIfaceCache PodInterfaceCacheStore
-		var cacheData PodCacheInterface
-
-		BeforeEach(func() {
-			baseCache := cache.New(PodInterfaceCachePath(UID))
-			podBaseCache = NewPodInterfaceCache(baseCache)
-
-			var err error
-			podIfaceCache, err = podBaseCache.IfaceEntry("net0")
-			Expect(err).NotTo(HaveOccurred())
-
-			cacheData = PodCacheInterface{
-				Iface: &v1.Interface{
-					Model: "nice model",
-				},
-				PodIP: "random ip",
-				PodIPs: []string{
-					"ip1", "ip2",
-				},
-			}
-		})
-
-		It("should return os.ErrNotExist if no cache entry exists", func() {
-			_, err := podIfaceCache.Read()
-			Expect(err).To(MatchError(os.ErrNotExist))
-		})
-		It("should save and restore pod interface information", func() {
-			Expect(podIfaceCache.Write(&cacheData)).To(Succeed())
-			Expect(podIfaceCache.Read()).To(Equal(&cacheData))
-		})
-		It("should remove the cache file", func() {
-			Expect(podIfaceCache.Write(&cacheData)).To(Succeed())
-			Expect(podIfaceCache.Remove()).To(Succeed())
-
-			_, err := podIfaceCache.Read()
-			Expect(err).To(MatchError(os.ErrNotExist))
-		})
-	})
 	Context("DomainInfoCache", func() {
 		obj := &api.Interface{
 			Model: &api.Model{Type: "a nice model"},

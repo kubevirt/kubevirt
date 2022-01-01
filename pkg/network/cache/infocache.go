@@ -79,13 +79,6 @@ type DomainInterfaceStore interface {
 	Write(ifaceName string, cacheInterface *api.Interface) error
 }
 
-type PodInterfaceCacheStore interface {
-	IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error)
-	Read() (*PodCacheInterface, error)
-	Write(cacheInterface *PodCacheInterface) error
-	Remove() error
-}
-
 type DHCPConfigStore interface {
 	Read(ifaceName string) (*DHCPConfig, error)
 	Write(ifaceName string, cacheInterface *DHCPConfig) error
@@ -106,41 +99,6 @@ func (d domainInterfaceStore) Read(ifaceName string) (*api.Interface, error) {
 func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interface) (err error) {
 	err = writeToCachedFile(d.fs, cacheInterface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
 	return
-}
-
-type PodInterfaceCache struct {
-	cache *Cache
-}
-
-func PodInterfaceCachePath(uid string) string {
-	return getInterfaceCacheFile(virtHandlerCachePattern, uid, "")
-}
-
-func NewPodInterfaceCache(cache *Cache) PodInterfaceCache {
-	return PodInterfaceCache{cache: cache}
-}
-
-func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error) {
-	cache, err := p.cache.Entry(ifaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewPodInterfaceCache(&cache), nil
-}
-
-func (p PodInterfaceCache) Read() (*PodCacheInterface, error) {
-	iface := &PodCacheInterface{}
-	_, err := p.cache.Read(iface)
-	return iface, err
-}
-
-func (p PodInterfaceCache) Write(cacheInterface *PodCacheInterface) error {
-	return p.cache.Write(cacheInterface)
-}
-
-func (p PodInterfaceCache) Remove() error {
-	return p.cache.Delete()
 }
 
 type dhcpConfigCacheStore struct {
