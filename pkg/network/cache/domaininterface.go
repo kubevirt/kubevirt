@@ -20,25 +20,38 @@
 package cache
 
 import (
-	"kubevirt.io/kubevirt/pkg/os/fs"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 
-type domainInterfaceStore struct {
-	pid     string
-	pattern string
-	fs      fs.Fs
+type DomainInterfaceCache struct {
+	cache *Cache
 }
 
-func (d domainInterfaceStore) Read(ifaceName string) (*api.Interface, error) {
+func NewDomainInterfaceCache(creator cacheCreator, pid string) DomainInterfaceCache {
+	return DomainInterfaceCache{creator.New(DomainInterfaceCachePath(pid))}
+}
+
+func DomainInterfaceCachePath(pid string) string {
+	return getInterfaceCacheFile(virtLauncherCachedPattern, pid, "")
+}
+
+func (d DomainInterfaceCache) IfaceEntry(ifaceName string) (DomainInterfaceCache, error) {
+	cache, err := d.cache.Entry(ifaceName)
+	if err != nil {
+		return DomainInterfaceCache{}, err
+	}
+
+	return DomainInterfaceCache{&cache}, nil
+}
+
+func (d DomainInterfaceCache) Read() (*api.Interface, error) {
 	iface := &api.Interface{}
-	err := readFromCachedFile(d.fs, iface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
+	_, err := d.cache.Read(iface)
 	return iface, err
 }
 
-func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interface) (err error) {
-	err = writeToCachedFile(d.fs, cacheInterface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
-	return
+func (d DomainInterfaceCache) Write(domainInterface *api.Interface) error {
+	return d.cache.Write(domainInterface)
 }

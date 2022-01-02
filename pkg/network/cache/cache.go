@@ -46,6 +46,10 @@ type cacheFS interface {
 	WriteFile(filename string, data []byte, perm fs.FileMode) error
 }
 
+type cacheCreator interface {
+	New(filePath string) *Cache
+}
+
 type CacheCreator struct{}
 
 func (_ CacheCreator) New(filePath string) *Cache {

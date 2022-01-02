@@ -1,46 +1,42 @@
-package cache
+package cache_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("Infocache", func() {
+var _ = Describe("DomainInterfaceCache", func() {
+	var cacheCreator cache.TempCacheCreator
 
-	var tmpDir string
-	var cacheFactory *interfaceCacheFactory
+	obj := &api.Interface{
+		Model: &api.Model{Type: "a nice model"},
+	}
 
-	BeforeEach(func() {
-		var err error
-		tmpDir, err = ioutil.TempDir("", "cache")
-		Expect(err).ToNot(HaveOccurred())
-		cacheFactory = NewInterfaceCacheFactoryWithBasePath(tmpDir)
-		dutils.MockDefaultOwnershipManager()
-	})
+	BeforeEach(dutils.MockDefaultOwnershipManager)
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		cacheCreator.New("").Delete()
 	})
 
-	Context("DomainInfoCache", func() {
-		obj := &api.Interface{
-			Model: &api.Model{Type: "a nice model"},
-		}
-		It("should return os.ErrNotExist if no cache entry exists", func() {
-			_, err := cacheFactory.CacheDomainInterfaceForPID("123").Read("abc")
-			Expect(os.IsNotExist(err)).To(BeTrue())
-		})
-		It("should save and restore pod interface information", func() {
-			Expect(cacheFactory.CacheDomainInterfaceForPID("123").Write("abc", obj)).To(Succeed())
-			newObj, err := cacheFactory.CacheDomainInterfaceForPID("123").Read("abc")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newObj).To(Equal(obj))
-		})
+	It("should return os.ErrNotExist if no cache entry exists", func() {
+		domainIfaceCache, err := cache.NewDomainInterfaceCache(&cacheCreator, "123").IfaceEntry("abc")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = domainIfaceCache.Read()
+		Expect(err).To(MatchError(os.ErrNotExist))
+	})
+
+	It("should save and restore pod interface information", func() {
+		domainIfaceCache, err := cache.NewDomainInterfaceCache(&cacheCreator, "123").IfaceEntry("abc")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainIfaceCache.Write(obj)).To(Succeed())
+		newObj, err := domainIfaceCache.Read()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newObj).To(Equal(obj))
 	})
 })

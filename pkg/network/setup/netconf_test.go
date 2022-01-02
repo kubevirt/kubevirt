@@ -82,9 +82,6 @@ var _ = Describe("netconf", func() {
 
 type interfaceCacheFactoryStub struct{}
 
-func (i interfaceCacheFactoryStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
-	return nil
-}
 func (i interfaceCacheFactoryStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
 	return nil
 }

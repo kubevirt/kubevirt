@@ -142,7 +142,10 @@ var _ = Describe("podNIC", func() {
 			podnic, err = newPhase2PodNICWithMocks(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			podnic.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Write(podnic.podInterfaceName, &cache.DHCPConfig{Name: podnic.podInterfaceName})
-			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, &domain.Spec.Devices.Interfaces[0])
+			domainCache := cache.NewDomainInterfaceCache(podnic.baseCacheFactory, getPIDString(podnic.launcherPID))
+			domainIfaceCache, err := domainCache.IfaceEntry(podnic.vmiSpecIface.Name)
+			Expect(err).NotTo(HaveOccurred())
+			domainIfaceCache.Write(&domain.Spec.Devices.Interfaces[0])
 		})
 		Context("and starting the DHCP server fails", func() {
 			BeforeEach(func() {
