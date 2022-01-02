@@ -313,8 +313,12 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 }
 
 func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
-	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.vmiSpecIface.Name)
-
+	var ifaceConfig *api.Interface
+	domainCache := cache.NewDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID))
+	domainIfaceCache, err := domainCache.IfaceEntry(l.vmiSpecIface.Name)
+	if err == nil {
+		ifaceConfig, err = domainIfaceCache.Read()
+	}
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -327,7 +331,12 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 }
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
-	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.vmiSpecIface.Name, &domainIface)
+	domainCache := cache.NewDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID))
+	domainIfaceCache, err := domainCache.IfaceEntry(l.vmiSpecIface.Name)
+	if err != nil {
+		return err
+	}
+	return domainIfaceCache.Write(&domainIface)
 }
 
 func (l *podNIC) setState(state cache.PodIfaceState) error {

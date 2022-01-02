@@ -21,11 +21,9 @@ package cache
 
 import (
 	"kubevirt.io/kubevirt/pkg/os/fs"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type InterfaceCacheFactory interface {
-	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
 	CacheDHCPConfigForPid(pid string) DHCPConfigStore
 }
 
@@ -45,17 +43,8 @@ type interfaceCacheFactory struct {
 	fs fs.Fs
 }
 
-func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {
-	return domainInterfaceStore{pid: pid, fs: i.fs, pattern: virtLauncherCachedPattern}
-}
-
 func (i *interfaceCacheFactory) CacheDHCPConfigForPid(pid string) DHCPConfigStore {
 	return dhcpConfigCacheStore{pid: pid, fs: i.fs, pattern: dhcpConfigCachedPattern}
-}
-
-type DomainInterfaceStore interface {
-	Read(ifaceName string) (*api.Interface, error)
-	Write(ifaceName string, cacheInterface *api.Interface) error
 }
 
 type DHCPConfigStore interface {

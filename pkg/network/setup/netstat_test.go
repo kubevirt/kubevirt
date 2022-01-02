@@ -467,9 +467,6 @@ var _ = Describe("netstat", func() {
 
 type interfaceCacheFactoryStatusStub struct{}
 
-func (i interfaceCacheFactoryStatusStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
-	return nil
-}
 func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
 	return nil
 }
