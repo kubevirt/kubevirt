@@ -21,6 +21,7 @@ package cache
 
 import (
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type PodIfaceState int
@@ -30,6 +31,8 @@ const (
 	PodIfaceNetworkPreparationStarted
 	PodIfaceNetworkPreparationFinished
 )
+
+const virtHandlerCachePattern = util.VirtPrivateDir + "/network-info-cache/%s/%s"
 
 type PodCacheInterface struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`

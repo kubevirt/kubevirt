@@ -20,21 +20,9 @@
 package cache
 
 import (
-	"encoding/json"
-	"fmt"
-	"path/filepath"
-
-	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-
 	"kubevirt.io/kubevirt/pkg/os/fs"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
-
-const virtHandlerCachePattern = util.VirtPrivateDir + "/network-info-cache/%s/%s"
-
-var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
-var dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 
 type InterfaceCacheFactory interface {
 	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
@@ -73,74 +61,4 @@ type DomainInterfaceStore interface {
 type DHCPConfigStore interface {
 	Read(ifaceName string) (*DHCPConfig, error)
 	Write(ifaceName string, cacheInterface *DHCPConfig) error
-}
-
-type domainInterfaceStore struct {
-	pid     string
-	pattern string
-	fs      fs.Fs
-}
-
-func (d domainInterfaceStore) Read(ifaceName string) (*api.Interface, error) {
-	iface := &api.Interface{}
-	err := readFromCachedFile(d.fs, iface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
-	return iface, err
-}
-
-func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interface) (err error) {
-	err = writeToCachedFile(d.fs, cacheInterface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
-	return
-}
-
-type dhcpConfigCacheStore struct {
-	pid     string
-	pattern string
-	fs      fs.Fs
-}
-
-func (d dhcpConfigCacheStore) Read(ifaceName string) (*DHCPConfig, error) {
-	cachedIface := &DHCPConfig{}
-	err := readFromCachedFile(d.fs, cachedIface, d.getInterfaceCacheFile(ifaceName))
-	return cachedIface, err
-}
-
-func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DHCPConfig) error {
-	return writeToCachedFile(d.fs, ifaceToCache, d.getInterfaceCacheFile(ifaceName))
-}
-
-func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
-	return getInterfaceCacheFile(d.pattern, d.pid, ifaceName)
-}
-
-func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
-	if err := fs.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
-		return err
-	}
-	buf, err := json.MarshalIndent(&obj, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling cached object: %v", err)
-	}
-
-	err = fs.WriteFile(fileName, buf, 0604)
-	if err != nil {
-		return fmt.Errorf("error writing cached object: %v", err)
-	}
-	return dutils.DefaultOwnershipManager.SetFileOwnership(fileName)
-}
-
-func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
-	buf, err := fs.ReadFile(fileName)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(buf, &obj)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling cached object: %v", err)
-	}
-	return nil
-}
-
-func getInterfaceCacheFile(pattern, id, name string) string {
-	return filepath.Join(fmt.Sprintf(pattern, id, name))
 }

@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cache.go",
+        "dhcpconfig.go",
+        "domaininterface.go",
         "infocache.go",
         "podinterface.go",
         "types.go",
@@ -25,7 +27,7 @@ go_test(
     srcs = [
         "cache_suite_test.go",
         "cache_test.go",
-        "infocache_test.go",
+        "domaininterface_test.go",
         "podinterface_test.go",
         "types_test.go",
     ],

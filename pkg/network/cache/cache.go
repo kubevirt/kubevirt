@@ -20,6 +20,7 @@
 package cache
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -28,6 +29,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 )
 
@@ -97,4 +99,37 @@ func (c Cache) Write(data interface{}) error {
 
 func (c Cache) Delete() error {
 	return c.fs.RemoveAll(c.path)
+}
+
+func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
+	if err := fs.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
+		return err
+	}
+	buf, err := json.MarshalIndent(&obj, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling cached object: %v", err)
+	}
+
+	err = fs.WriteFile(fileName, buf, 0604)
+	if err != nil {
+		return fmt.Errorf("error writing cached object: %v", err)
+	}
+	return dutils.DefaultOwnershipManager.SetFileOwnership(fileName)
+}
+
+func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
+	buf, err := fs.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(buf, &obj)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling cached object: %v", err)
+	}
+	return nil
+}
+
+func getInterfaceCacheFile(pattern, id, name string) string {
+	return filepath.Join(fmt.Sprintf(pattern, id, name))
 }
