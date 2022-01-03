@@ -59,6 +59,7 @@ const (
 	vmiServerTestPort         = 4200
 	svcDeclaredTestPort       = 1500
 	svcUndeclaredTestPort     = 1501
+	sshPort                   = 22
 	// Istio uses certain ports for it's own purposes, this port server to verify that traffic is not routed
 	// into the VMI for these ports. https://istio.io/latest/docs/ops/deployment/requirements/
 	istioRestrictedPort = istio.EnvoyTunnelPort
@@ -81,6 +82,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		explicitPorts = []v1.Port{
 			{Port: svcDeclaredTestPort},
 			{Port: svcUndeclaredTestPort},
+			{Port: sshPort},
 		}
 	)
 	BeforeEach(func() {
@@ -181,6 +183,61 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				Eventually(func() error {
 					return allContainersCompleted(sourcePodName)
 				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod"))
+			})
+		})
+		Describe("SSH traffic", func() {
+			var bastionVMI *v1.VirtualMachineInstance
+			sshCommand := func(user, ipAddress string) string {
+				return fmt.Sprintf("ssh -y %s@%s\n", user, ipAddress)
+			}
+			checkSSHConnection := func(vmi *v1.VirtualMachineInstance, user, vmiAddress string) error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: sshCommand(user, vmiAddress)},
+					&expect.BExp{R: fmt.Sprintf("%s@%s's password: ", user, vmiAddress)},
+				}, 60)
+			}
+
+			BeforeEach(func() {
+				bastionVMI = libvmi.NewCirros(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
+				)
+
+				bastionVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bastionVMI)
+				Expect(err).ToNot(HaveOccurred())
+				bastionVMI = tests.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
+			})
+			Context("With VMI having explicit ports specified", func() {
+				BeforeEach(func() {
+					vmiPorts = explicitPorts
+				})
+				It("should ssh to VMI with Istio proxy", func() {
+					By("Getting the VMI IP")
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					vmiIP := vmi.Status.Interfaces[0].IP
+
+					Expect(
+						checkSSHConnection(bastionVMI, "fedora", vmiIP),
+					).Should(Succeed())
+				})
+			})
+			Context("With VMI having no explicit ports specified", func() {
+				BeforeEach(func() {
+					vmiPorts = []v1.Port{}
+				})
+				It("should ssh to VMI with Istio proxy", func() {
+					By("Getting the VMI IP")
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					vmiIP := vmi.Status.Interfaces[0].IP
+
+					Expect(
+						checkSSHConnection(bastionVMI, "fedora", vmiIP),
+					).Should(Succeed())
+				})
 			})
 		})
 		Describe("Inbound traffic", func() {
@@ -383,11 +440,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 })
 
 func istioServiceMeshDeployed() bool {
-	value := os.Getenv(istioDeployedEnvVariable)
-	if strings.ToLower(value) == "true" {
-		return true
-	}
-	return false
+	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
 }
 
 func newVMIWithIstioSidecar(ports []v1.Port) *v1.VirtualMachineInstance {
