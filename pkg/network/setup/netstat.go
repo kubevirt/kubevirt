@@ -71,32 +71,15 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	if len(vmi.Status.Interfaces) == 0 {
-		// Set Pod Interface
-		interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-		for _, network := range vmi.Spec.Networks {
-			podIface, err := c.getPodInterfacefromFileCache(vmi, network.Name)
-			if err != nil {
-				return err
-			}
-
-			if podIface != nil {
-				ifc := v1.VirtualMachineInstanceNetworkInterface{
-					Name: network.Name,
-					IP:   podIface.PodIP,
-					IPs:  podIface.PodIPs,
-				}
-				interfaces = append(interfaces, ifc)
-			}
-		}
-		vmi.Status.Interfaces = interfaces
+	interfacesStatus, err := c.ifacesStatusFromPod(vmi)
+	if err != nil {
+		return err
 	}
+	vmi.Status.Interfaces = interfacesStatus
 
 	if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
 		// This calculates the vmi.Status.Interfaces based on the following data sets:
-		// - vmi.Status.Interfaces - previously calculated interfaces, this can contain data (pod IP)
-		//   set in the previous loops (when there are no interfaces), which can not be deleted,
-		//   unless overridden by Qemu agent
+		// - vmi.Status.Interfaces - interfaces data (IP/s) collected from the pod (non-volatile cache).
 		// - domain.Spec - interfaces form the Spec
 		// - domain.Status.Interfaces - interfaces reported by guest agent (empty if Qemu agent not running)
 		newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
@@ -191,6 +174,23 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		vmi.Status.Interfaces = newInterfaces
 	}
 	return nil
+}
+
+func (c *NetStat) ifacesStatusFromPod(vmi *v1.VirtualMachineInstance) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
+	ifacesStatus := []v1.VirtualMachineInstanceNetworkInterface{}
+	for _, network := range vmi.Spec.Networks {
+		podIface, err := c.getPodInterfacefromFileCache(vmi, network.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		ifacesStatus = append(ifacesStatus, v1.VirtualMachineInstanceNetworkInterface{
+			Name: network.Name,
+			IP:   podIface.PodIP,
+			IPs:  podIface.PodIPs,
+		})
+	}
+	return ifacesStatus, nil
 }
 
 func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
