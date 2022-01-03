@@ -106,7 +106,7 @@ func main() {
 
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			_, _ = fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
+			cmd.Printf(cmd.UsageString())
 		},
 	}
 
@@ -169,7 +169,7 @@ func main() {
 		Short: "run selinux operations in specific namespaces",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			_, _ = fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
+			cmd.Printf(cmd.UsageString())
 		},
 	}
 

@@ -73,6 +73,7 @@ import (
 	v1alpha18 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	versioned2 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	versioned3 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	version "kubevirt.io/client-go/version"
 )
 
 // Mock of KubevirtClient interface
@@ -226,9 +227,9 @@ func (_mr *_MockKubevirtClientRecorder) MigrationPolicy() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicy")
 }
 
-func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
+func (_m *MockKubevirtClient) ServerVersion() ServerVersionInterface {
 	ret := _m.ctrl.Call(_m, "ServerVersion")
-	ret0, _ := ret[0].(*ServerVersion)
+	ret0, _ := ret[0].(ServerVersionInterface)
 	return ret0
 }
 
@@ -1780,4 +1781,36 @@ func (_m *MockKubeVirtInterface) PatchStatus(name string, pt types.PatchType, da
 
 func (_mr *_MockKubeVirtInterfaceRecorder) PatchStatus(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2, arg3)
+}
+
+// Mock of ServerVersionInterface interface
+type MockServerVersionInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockServerVersionInterfaceRecorder
+}
+
+// Recorder for MockServerVersionInterface (not exported)
+type _MockServerVersionInterfaceRecorder struct {
+	mock *MockServerVersionInterface
+}
+
+func NewMockServerVersionInterface(ctrl *gomock.Controller) *MockServerVersionInterface {
+	mock := &MockServerVersionInterface{ctrl: ctrl}
+	mock.recorder = &_MockServerVersionInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockServerVersionInterface) EXPECT() *_MockServerVersionInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockServerVersionInterface) Get() (*version.Info, error) {
+	ret := _m.ctrl.Call(_m, "Get")
+	ret0, _ := ret[0].(*version.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockServerVersionInterfaceRecorder) Get() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get")
 }
