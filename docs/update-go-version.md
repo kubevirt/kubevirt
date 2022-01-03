@@ -53,7 +53,3 @@ In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have t
     ```
 * Visit [Bazel's releases page](https://github.com/bazelbuild/rules_go/releases) and check whether the current Bazel version supports the new Go version.
   * If it is not supported, replace the `io_bazel_rules_go` definition with the one provided in Bazel's page.
-* Use [project-infra's uploader tool](https://github.com/kubevirt/project-infra/blob/main/robots/cmd/uploader/README.md) to upload new dependencies to dependency mirror.
-
-
-  
