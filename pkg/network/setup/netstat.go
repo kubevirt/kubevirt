@@ -33,8 +33,7 @@ import (
 )
 
 type NetStat struct {
-	ifaceCacheFactory cache.InterfaceCacheFactory
-	cacheCreator      cacheCreator
+	cacheCreator cacheCreator
 
 	// In memory cache, storing pod interface information.
 	// key is the file path, value is the contents.
@@ -42,13 +41,12 @@ type NetStat struct {
 	podInterfaceVolatileCache sync.Map
 }
 
-func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
-	return NewNetStateWithCustomFactory(ifaceCacheFactory, cache.CacheCreator{})
+func NewNetStat() *NetStat {
+	return NewNetStateWithCustomFactory(cache.CacheCreator{})
 }
 
-func NewNetStateWithCustomFactory(ifaceCacheFactory cache.InterfaceCacheFactory, cacheCreator cacheCreator) *NetStat {
+func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
 	return &NetStat{
-		ifaceCacheFactory:         ifaceCacheFactory,
 		cacheCreator:              cacheCreator,
 		podInterfaceVolatileCache: sync.Map{},
 	}

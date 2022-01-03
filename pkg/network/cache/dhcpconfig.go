@@ -22,32 +22,41 @@ package cache
 import (
 	"fmt"
 	"net"
+	"path/filepath"
 
 	"github.com/vishvananda/netlink"
 
-	"kubevirt.io/kubevirt/pkg/os/fs"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
-const dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
-
-type dhcpConfigCacheStore struct {
-	pid     string
-	pattern string
-	fs      fs.Fs
+type DHCPInterfaceCache struct {
+	cache *Cache
 }
 
-func (d dhcpConfigCacheStore) Read(ifaceName string) (*DHCPConfig, error) {
+func NewDHCPInterfaceCache(creator cacheCreator, pid string) DHCPInterfaceCache {
+	podRootFilesystemPath := fmt.Sprintf("/proc/%s/root", pid)
+	return DHCPInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir))}
+}
+
+func (d DHCPInterfaceCache) IfaceEntry(ifaceName string) (DHCPInterfaceCache, error) {
+	const dhcpConfigCacheFileFormat = "vif-cache-%s.json"
+	cacheFileName := fmt.Sprintf(dhcpConfigCacheFileFormat, ifaceName)
+	cache, err := d.cache.Entry(cacheFileName)
+	if err != nil {
+		return DHCPInterfaceCache{}, err
+	}
+
+	return DHCPInterfaceCache{&cache}, nil
+}
+
+func (d DHCPInterfaceCache) Read() (*DHCPConfig, error) {
 	cachedIface := &DHCPConfig{}
-	err := readFromCachedFile(d.fs, cachedIface, d.getInterfaceCacheFile(ifaceName))
+	_, err := d.cache.Read(cachedIface)
 	return cachedIface, err
 }
 
-func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DHCPConfig) error {
-	return writeToCachedFile(d.fs, ifaceToCache, d.getInterfaceCacheFile(ifaceName))
-}
-
-func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
-	return getInterfaceCacheFile(d.pattern, d.pid, ifaceName)
+func (d DHCPInterfaceCache) Write(dhcpConfig *DHCPConfig) error {
+	return d.cache.Write(dhcpConfig)
 }
 
 type DHCPConfig struct {

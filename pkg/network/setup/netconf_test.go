@@ -44,7 +44,7 @@ var _ = Describe("netconf", func() {
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netConf = netsetup.NewNetConfWithCustomFactory(&interfaceCacheFactoryStub{}, nsNoopFactory, &tempCacheCreator{})
+		netConf = netsetup.NewNetConfWithCustomFactory(nsNoopFactory, &tempCacheCreator{})
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 	})
 
@@ -72,23 +72,17 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the setup run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactory(&interfaceCacheFactoryStub{}, nsFailureFactory, &tempCacheCreator{})
+		netConf := netsetup.NewNetConfWithCustomFactory(nsFailureFactory, &tempCacheCreator{})
 		Expect(netConf.Setup(vmi, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("fails the teardown run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactory(&interfaceCacheFactoryStub{}, nil, failingCacheCreator{})
+		netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
 		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 })
-
-type interfaceCacheFactoryStub struct{}
-
-func (i interfaceCacheFactoryStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
-	return nil
-}
 
 type netnsStub struct {
 	shouldFail bool

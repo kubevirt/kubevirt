@@ -151,7 +151,6 @@ type LibvirtDomainManager struct {
 	setGuestTimeContextPtr   *contextStore
 	efiEnvironment           *efi.EFIEnvironment
 	ovmfPath                 string
-	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
@@ -195,7 +194,6 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		},
 		agentData:                agentStore,
 		efiEnvironment:           efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
-		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		directIOChecker:          directIOChecker,
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
@@ -560,7 +558,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
-	err = netsetup.NewVMNetworkConfigurator(vmi, l.networkCacheStoreFactory, cache.CacheCreator{}).SetupPodNetworkPhase2(domain)
+	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}

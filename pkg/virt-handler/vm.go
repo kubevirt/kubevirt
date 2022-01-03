@@ -232,9 +232,8 @@ func NewController(
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
 
-	ifaceCacheFactory := netcache.NewInterfaceCacheFactory()
-	c.netConf = netsetup.NewNetConf(ifaceCacheFactory)
-	c.netStat = netsetup.NewNetStat(ifaceCacheFactory)
+	c.netConf = netsetup.NewNetConf()
+	c.netStat = netsetup.NewNetStat()
 
 	c.domainNotifyPipes = make(map[string]string)
 

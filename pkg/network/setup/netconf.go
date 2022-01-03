@@ -34,10 +34,9 @@ type cacheCreator interface {
 }
 
 type NetConf struct {
-	setupCompleted    sync.Map
-	ifaceCacheFactory cache.InterfaceCacheFactory
-	cacheCreator      cacheCreator
-	nsFactory         nsFactory
+	setupCompleted sync.Map
+	cacheCreator   cacheCreator
+	nsFactory      nsFactory
 }
 
 type nsFactory func(int) NSExecutor
@@ -46,19 +45,18 @@ type NSExecutor interface {
 	Do(func() error) error
 }
 
-func NewNetConf(ifaceCacheFactory cache.InterfaceCacheFactory) *NetConf {
+func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
-	return NewNetConfWithCustomFactory(ifaceCacheFactory, func(pid int) NSExecutor {
+	return NewNetConfWithCustomFactory(func(pid int) NSExecutor {
 		return netns.New(pid)
 	}, cacheFactory)
 }
 
-func NewNetConfWithCustomFactory(ifaceCacheFactory cache.InterfaceCacheFactory, nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
+func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
 	return &NetConf{
-		setupCompleted:    sync.Map{},
-		ifaceCacheFactory: ifaceCacheFactory,
-		cacheCreator:      cacheCreator,
-		nsFactory:         nsFactory,
+		setupCompleted: sync.Map{},
+		cacheCreator:   cacheCreator,
+		nsFactory:      nsFactory,
 	}
 }
 
@@ -75,7 +73,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.ifaceCacheFactory, c.cacheCreator)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
 
 	ns := c.nsFactory(launcherPid)
 	err := ns.Do(func() error {

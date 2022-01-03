@@ -2,8 +2,6 @@ package network
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"runtime"
 
 	. "github.com/onsi/ginkgo"
@@ -30,17 +28,15 @@ var _ = Describe("podNIC", func() {
 	)
 	var (
 		mockNetwork                *netdriver.MockNetworkHandler
-		cacheFactory               cache.InterfaceCacheFactory
 		baseCacheCreator           tempCacheCreator
 		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
 		mockDHCPConfigurator       *dhcp.MockConfigurator
 		ctrl                       *gomock.Controller
-		tmpDir                     string
 	)
 
 	newPhase1PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
 		launcherPID := 1
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &baseCacheCreator, &launcherPID)
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, &baseCacheCreator, &launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +44,7 @@ var _ = Describe("podNIC", func() {
 		return podnic, nil
 	}
 	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &baseCacheCreator, nil)
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, &baseCacheCreator, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -57,10 +53,6 @@ var _ = Describe("podNIC", func() {
 	}
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
-		var err error
-		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
-		Expect(err).ToNot(HaveOccurred())
-		cacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
@@ -68,7 +60,6 @@ var _ = Describe("podNIC", func() {
 		mockDHCPConfigurator = dhcp.NewMockConfigurator(ctrl)
 	})
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
 		baseCacheCreator.New("").Delete()
 		ctrl.Finish()
 	})
@@ -141,7 +132,10 @@ var _ = Describe("podNIC", func() {
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			podnic, err = newPhase2PodNICWithMocks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			podnic.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Write(podnic.podInterfaceName, &cache.DHCPConfig{Name: podnic.podInterfaceName})
+			dhcpCache := cache.NewDHCPInterfaceCache(podnic.cacheCreator, getPIDString(podnic.launcherPID))
+			dhcpIfaceCache, err := dhcpCache.IfaceEntry(podnic.podInterfaceName)
+			Expect(err).NotTo(HaveOccurred())
+			dhcpIfaceCache.Write(&cache.DHCPConfig{Name: podnic.podInterfaceName})
 			domainCache := cache.NewDomainInterfaceCache(podnic.cacheCreator, getPIDString(podnic.launcherPID))
 			domainIfaceCache, err := domainCache.IfaceEntry(podnic.vmiSpecIface.Name)
 			Expect(err).NotTo(HaveOccurred())

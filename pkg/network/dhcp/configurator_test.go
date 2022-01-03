@@ -26,17 +26,20 @@ var _ = Describe("DHCP configurator", func() {
 		fakeDhcpStartedDir = "/tmp/dhcpStartedPath"
 	)
 
+	var cacheCreator tempCacheCreator
+
 	BeforeEach(func() {
 		// make sure the test can write a file in the whatever dir ensure uses.
 		Expect(os.MkdirAll(fakeDhcpStartedDir, 0755)).To(Succeed())
 	})
 
 	AfterEach(func() {
+		cacheCreator.New("").Delete()
 		Expect(os.RemoveAll(fakeDhcpStartedDir)).To(Succeed())
 	})
 
 	newBridgeConfigurator := func(launcherPID string, advertisingIfaceName string) Configurator {
-		configurator := NewBridgeConfigurator(cache.NewInterfaceCacheFactoryWithBasePath(fakeDhcpStartedDir), launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil, "")
+		configurator := NewBridgeConfigurator(&cacheCreator, launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil, "")
 		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}

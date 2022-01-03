@@ -46,15 +46,14 @@ type podNIC struct {
 	vmiSpecIface      *v1.Interface
 	vmiSpecNetwork    *v1.Network
 	handler           netdriver.NetworkHandler
-	cacheFactory      cache.InterfaceCacheFactory
 	cacheCreator      cacheCreator
 	dhcpConfigurator  dhcpconfigurator.Configurator
 	infraConfigurator infraconfigurators.PodNetworkInfraConfigurator
 	domainGenerator   domainspec.LibvirtSpecGenerator
 }
 
-func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, handler, cacheFactory, cacheCreator, launcherPID)
+func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+	podnic, err := newPodNIC(vmi, network, handler, cacheCreator, launcherPID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,8 +81,8 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	return podnic, nil
 }
 
-func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, cacheCreator cacheCreator, domain *api.Domain) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, handler, cacheFactory, cacheCreator, nil)
+func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain) (*podNIC, error) {
+	podnic, err := newPodNIC(vmi, network, handler, cacheCreator, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	return podnic, nil
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -110,7 +109,6 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 	}
 
 	return &podNIC{
-		cacheFactory:     cacheFactory,
 		cacheCreator:     cacheCreator,
 		handler:          handler,
 		vmi:              vmi,
@@ -204,7 +202,12 @@ func (l *podNIC) PlugPhase1() error {
 	dhcpConfig := l.infraConfigurator.GenerateNonRecoverableDHCPConfig()
 	if dhcpConfig != nil {
 		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
-		if err := l.cacheFactory.CacheDHCPConfigForPid(getPIDString(l.launcherPID)).Write(l.podInterfaceName, dhcpConfig); err != nil {
+		dhcpCache := cache.NewDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID))
+		dhcpIfaceCache, err := dhcpCache.IfaceEntry(l.podInterfaceName)
+		if err == nil {
+			err = dhcpIfaceCache.Write(dhcpConfig)
+		}
+		if err != nil {
 			return fmt.Errorf("failed to save DHCP configuration: %w", err)
 		}
 	}
@@ -269,7 +272,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	var dhcpConfigurator dhcpconfigurator.Configurator
 	if l.vmiSpecIface.Bridge != nil {
 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
-			l.cacheFactory,
+			l.cacheCreator,
 			getPIDString(l.launcherPID),
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
 			l.handler,

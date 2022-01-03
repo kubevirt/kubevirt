@@ -465,12 +465,6 @@ var _ = Describe("netstat", func() {
 	})
 })
 
-type interfaceCacheFactoryStatusStub struct{}
-
-func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
-	return nil
-}
-
 type testSetup struct {
 	Vmi     *v1.VirtualMachineInstance
 	Domain  *api.Domain
@@ -499,7 +493,7 @@ func newTestSetup() testSetup {
 	return testSetup{
 		Vmi:           vmi,
 		Domain:        &api.Domain{},
-		NetStat:       netsetup.NewNetStateWithCustomFactory(&interfaceCacheFactoryStatusStub{}, &cacheCreator),
+		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
 		cacheCreator:  &cacheCreator,
 		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
 	}
