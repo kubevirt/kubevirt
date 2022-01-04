@@ -18,7 +18,7 @@ func virtualMachineOptions(
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
-		Topology:              topologyToTopology(capabilities),
+		Topology:              capabilitiesToTopology(capabilities),
 		DisksInfo:             disksInfoToDisksInfo(disksInfo),
 		ExpandDisksEnabled:    expandDisksEnabled,
 	}
@@ -34,7 +34,7 @@ func virtualMachineOptions(
 	return options
 }
 
-func topologyToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
+func capabilitiesToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
 	if capabilities == nil {
 		return topology
