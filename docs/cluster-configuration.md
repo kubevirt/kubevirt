@@ -149,14 +149,15 @@ degrade virt-launcher security.
 
 ### enableCommonBootImageImport Feature Gate
 
-Set the `enableCommonBootImageImport` feature gate to `true` in order to enable the common golden images in the cluster.
+Set the `enableCommonBootImageImport` feature gate to `false` in order to disable the common golden images in the cluster 
+(for instance to reduce logs noise on disconnected environments).
 For additional information, see
 here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md
 
 **Note**: Custom golden images are enabled by adding them
 the [dataImportCronTemplates field](#configure-custom-golden-images), even if this feature gate is `false`.
 
-**Default**: `false`
+**Default**: `true`
 
 ### Feature Gates Example
 
@@ -171,7 +172,7 @@ spec:
   featureGates:
     withHostPassthroughCPU: true
     sriovLiveMigration: true
-    enableCommonBootImageImport: false
+    enableCommonBootImageImport: true
 ```
 
 ## Live Migration Configurations
