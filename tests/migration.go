@@ -222,16 +222,18 @@ func RunStressTest(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutS
 }
 
 func RunMigrationAndExpectFailure(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	var createdMigration *v1.VirtualMachineInstanceMigration
 	By("Starting a Migration")
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+		var err error
+		createdMigration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	By("Waiting until the Migration Completes")
 
 	uid := ""
 	Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(createdMigration.Namespace).Get(createdMigration.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		phase := migration.Status.Phase
