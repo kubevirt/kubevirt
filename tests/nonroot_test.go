@@ -37,7 +37,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		name := "test"
 		withVmiOptions := []libvmi.Option{
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(name)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 		}
 
 		return libvmi.NewSriovFedora(withVmiOptions...)
