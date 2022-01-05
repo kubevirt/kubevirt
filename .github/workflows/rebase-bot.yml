@@ -19,7 +19,21 @@ jobs:
         with:
           go-version: '1.17'
 
-      - name: Build Manifests and Rebase
+      - name: Rebase and rebuild manifests
+        id: rebase_rebuild
         run: ./automation/rebase-bot/rebase-bot.sh
         env:
           GITHUB_TOKEN: ${{ secrets.HCO_BOT_TOKEN }}
+
+      - name: Check if rebase action has failed and comment
+        if: steps.rebase_rebuild.outcome != 'success'
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{secrets.HCO_BOT_TOKEN}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Rebase Bot action has failed.'
+            })
