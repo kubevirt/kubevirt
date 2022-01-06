@@ -34,8 +34,6 @@ type methods struct {
 	clusterFlavorStore cache.Store
 }
 
-var _ Methods = &methods{}
-
 func NewMethods(flavorStore, clusterFlavorStore cache.Store) Methods {
 	return &methods{
 		flavorStore:        flavorStore,
