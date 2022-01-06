@@ -194,6 +194,9 @@ type DomainSpec struct {
 	// Chassis specifies the chassis info passed to the domain.
 	// +optional
 	Chassis *Chassis `json:"chassis,omitempty"`
+	// Launch Security setting of the vmi.
+	// +optional
+	LaunchSecurity *LaunchSecurity `json:"launchSecurity,omitempty"`
 }
 
 // Chassis specifies the chassis info passed to the domain.
@@ -454,7 +457,7 @@ type Devices struct {
 // moment only, USB devices using Usbredir's library and tooling. Another fit
 // would be a smartcard with libcacard.
 //
-// The struct is currently empty as there is no imediate request for
+// The struct is currently empty as there is no immediate request for
 // user-facing APIs. This structure simply turns on USB redirection of
 // UsbClientPassthroughMaxNumberOf devices.
 type ClientPassthroughDevices struct {
@@ -596,6 +599,14 @@ type DiskTarget struct {
 	// If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
+}
+
+type LaunchSecurity struct {
+	// AMD Secure Encrypted Virtualization (SEV).
+	SEV *SEV `json:"sev,omitempty"`
+}
+
+type SEV struct {
 }
 
 type LunTarget struct {
@@ -1168,7 +1179,7 @@ type InterfaceSRIOV struct{}
 
 type InterfaceMacvtap struct{}
 
-// Port repesents a port to expose from the virtual machine.
+// Port represents a port to expose from the virtual machine.
 // Default protocol TCP.
 // The port field is mandatory
 type Port struct {

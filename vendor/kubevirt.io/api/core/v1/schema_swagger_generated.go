@@ -94,6 +94,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"devices":         "Devices allows adding disks, network interfaces, and others",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
+		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
 }
 
@@ -249,7 +250,7 @@ func (Devices) SwaggerDoc() map[string]string {
 
 func (ClientPassthroughDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represent a subset of client devices that can be accessed by VMI. At the\nmoment only, USB devices using Usbredir's library and tooling. Another fit\nwould be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for\nuser-facing APIs. This structure simply turns on USB redirection of\nUsbClientPassthroughMaxNumberOf devices.",
+		"": "Represent a subset of client devices that can be accessed by VMI. At the\nmoment only, USB devices using Usbredir's library and tooling. Another fit\nwould be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for\nuser-facing APIs. This structure simply turns on USB redirection of\nUsbClientPassthroughMaxNumberOf devices.",
 	}
 }
 
@@ -344,6 +345,16 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 		"readonly":   "ReadOnly.\nDefaults to false.",
 		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 	}
+}
+
+func (LaunchSecurity) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"sev": "AMD Secure Encrypted Virtualization (SEV).",
+	}
+}
+
+func (SEV) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
@@ -656,7 +667,7 @@ func (InterfaceMacvtap) SwaggerDoc() map[string]string {
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
+		"":         "Port represents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
 		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
 		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
 		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
