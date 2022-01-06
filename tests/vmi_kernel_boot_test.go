@@ -42,7 +42,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 	})
 
 	Context("with external alpine-based kernel & initrd images", func() {
-		It("ensure successful boot", func() {
+		It("[test_id:7748]ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -52,7 +52,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 
 	Context("with illegal definition ensure rejection of", func() {
 
-		It("VMI defined without an image", func() {
+		It("[test_id:7750]VMI defined without an image", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
@@ -61,7 +61,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
 		})
 
-		It("VMI defined with image but without initrd & kernel paths", func() {
+		It("[test_id:7751]VMI defined with image but without initrd & kernel paths", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""
