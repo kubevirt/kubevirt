@@ -566,7 +566,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("[block-storage]", func() {
+	Context("[storage-req]", func() {
 		Context("Online VM", func() {
 			var (
 				vm *v1.VirtualMachine

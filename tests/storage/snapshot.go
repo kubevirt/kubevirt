@@ -248,7 +248,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		})
 	})
 
-	Context("[rook-ceph]", func() {
+	Context("[storage-req]", func() {
 		Context("With online vm snapshot", func() {
 			var (
 				snapshotStorageClass string
