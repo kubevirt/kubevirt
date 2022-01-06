@@ -505,3 +505,36 @@ tests:
       - eval_time: 1m
         alertname: VMCannotBeEvicted
         exp_alerts: []
+
+  # Test recording rule
+  - interval: 1m
+    input_series:
+      # In reality there are many labels on these metrics
+      # they are the same except the ones containing vm name like "name" in the example below
+      - series: 'kubevirt_vmi_memory_available_bytes{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+        # time:  0          1          2          3
+        values: "1376882688 1376882688 1376882688 1376882688"
+      - series: 'kubevirt_vmi_memory_available_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
+        # time:  0          1          2          3
+        values: "2893266944 2893266944 2893266944 2893266944"
+      - series: 'kubevirt_vmi_memory_usable_bytes{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+        # time:  0          1          2          3
+        values: "1073176576 1073176576 1073176576 1273176576"
+      - series: 'kubevirt_vmi_memory_usable_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
+        # time:  0          1          2          3
+        values: "2448936960 2448936960 2448936960 2658936964"
+    promql_expr_test:
+      - expr: 'kubevirt_vmi_memory_used_bytes'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+            value: 303706112
+          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
+            value: 444329984
+      - expr: 'kubevirt_vmi_memory_used_bytes'
+        eval_time: 3m
+        exp_samples:
+          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+            value: 103706112
+          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
+            value: 234329980
