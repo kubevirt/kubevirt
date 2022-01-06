@@ -358,7 +358,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-network ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]|\\[block-storage\\]"
+    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
   elif [[ $TARGET =~ vgpu.* ]]; then
     export KUBEVIRT_E2E_FOCUS=MediatedDevices
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
@@ -382,7 +382,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
 
   if ! [[ $TARGET =~ sig-storage ]]; then
     if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
-        export KUBEVIRT_E2E_FOCUS="\\[rook-ceph\\]|\\[block-storage\\]"
+        export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
     fi
   fi
 fi

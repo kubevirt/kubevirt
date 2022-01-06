@@ -141,7 +141,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
 
-	Context("[block-storage] Upload an image and start a VMI with PVC", func() {
+	Context("[storage-req] Upload an image and start a VMI with PVC", func() {
 		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
 			sc, exists := tests.GetRWOBlockStorageClass()
 			if !exists {
