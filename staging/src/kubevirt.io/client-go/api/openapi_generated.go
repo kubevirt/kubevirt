@@ -534,10 +534,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIStatus":                schema_pkg_apis_core_v1beta1_CDIStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CertConfig":               schema_pkg_apis_core_v1beta1_CertConfig(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ClaimPropertySet":         schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ConditionState":           schema_pkg_apis_core_v1beta1_ConditionState(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCron":           schema_pkg_apis_core_v1beta1_DataImportCron(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronCondition":  schema_pkg_apis_core_v1beta1_DataImportCronCondition(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronList":       schema_pkg_apis_core_v1beta1_DataImportCronList(ref),
-		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronSource":     schema_pkg_apis_core_v1beta1_DataImportCronSource(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronSpec":       schema_pkg_apis_core_v1beta1_DataImportCronSpec(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronStatus":     schema_pkg_apis_core_v1beta1_DataImportCronStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataSource":               schema_pkg_apis_core_v1beta1_DataSource(ref),
@@ -564,6 +564,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeStatus":         schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead":       schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy":              schema_pkg_apis_core_v1beta1_ImportProxy(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportStatus":             schema_pkg_apis_core_v1beta1_ImportStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransfer":           schema_pkg_apis_core_v1beta1_ObjectTransfer(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferCondition":  schema_pkg_apis_core_v1beta1_ObjectTransferCondition(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferList":       schema_pkg_apis_core_v1beta1_ObjectTransferList(ref),
@@ -23917,6 +23918,50 @@ func schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_core_v1beta1_ConditionState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ConditionState represents the state of a condition",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastHeartbeatTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_pkg_apis_core_v1beta1_DataImportCron(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -24060,27 +24105,6 @@ func schema_pkg_apis_core_v1beta1_DataImportCronList(ref common.ReferenceCallbac
 	}
 }
 
-func schema_pkg_apis_core_v1beta1_DataImportCronSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "DataImportCronSource defines where to poll and import disk images from",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"registry": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceRegistry"),
-						},
-					},
-				},
-				Required: []string{"registry"},
-			},
-		},
-		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceRegistry"},
-	}
-}
-
 func schema_pkg_apis_core_v1beta1_DataImportCronSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -24088,10 +24112,10 @@ func schema_pkg_apis_core_v1beta1_DataImportCronSpec(ref common.ReferenceCallbac
 				Description: "DataImportCronSpec defines specification for DataImportCron",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"source": {
+					"template": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Source specifies where to poll disk images from",
-							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronSource"),
+							Description: "Template specifies template for the DVs to be created",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolume"),
 						},
 					},
 					"schedule": {
@@ -24103,9 +24127,16 @@ func schema_pkg_apis_core_v1beta1_DataImportCronSpec(ref common.ReferenceCallbac
 					},
 					"garbageCollect": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported. Options are currently \"Never\" and \"Outdated\", defaults to \"Never\".",
+							Description: "GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported. Options are currently \"Outdated\" and \"Never\", defaults to \"Outdated\".",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"importsToKeep": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of import PVCs to keep when garbage collecting. Default is 3.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"managedDataSource": {
@@ -24115,12 +24146,19 @@ func schema_pkg_apis_core_v1beta1_DataImportCronSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"retentionPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RetentionPolicy specifies whether the created DataVolumes and DataSources are retained when their DataImportCron is deleted. Default is RatainAll.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"source", "schedule", "managedDataSource"},
+				Required: []string{"template", "schedule", "managedDataSource"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronSource"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolume"},
 	}
 }
 
@@ -24131,6 +24169,19 @@ func schema_pkg_apis_core_v1beta1_DataImportCronStatus(ref common.ReferenceCallb
 				Description: "DataImportCronStatus provides the most recently observed status of the DataImportCron",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"currentImports": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CurrentImports are the imports in progress. Currently only a single import is supported.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportStatus"),
+									},
+								},
+							},
+						},
+					},
 					"lastImportedPVC": {
 						SchemaProps: spec.SchemaProps{
 							Description: "LastImportedPVC is the last imported PVC",
@@ -24165,7 +24216,7 @@ func schema_pkg_apis_core_v1beta1_DataImportCronStatus(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronCondition", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourcePVC"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronCondition", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportStatus"},
 	}
 }
 
@@ -24646,6 +24697,34 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSourceHTTP(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"extraHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"secretExtraHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"url"},
 			},
@@ -25098,6 +25177,34 @@ func schema_pkg_apis_core_v1beta1_ImportProxy(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_ImportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ImportStatus of a currently in progress import",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DataVolumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeName is the currently in progress import DataVolume",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"Digest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Digest of the currently imported image",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"DataVolumeName", "Digest"},
 			},
 		},
 	}

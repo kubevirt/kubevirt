@@ -40,7 +40,7 @@ require (
 	github.com/moby/sys/mountinfo v0.4.1
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.3
-	github.com/opencontainers/runc v1.0.0
+	github.com/opencontainers/runc v1.0.3
 	github.com/opencontainers/selinux v1.8.2
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
@@ -76,8 +76,8 @@ require (
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.41.0
-	kubevirt.io/containerized-data-importer-api v1.41.0
-	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
+	kubevirt.io/containerized-data-importer-api v1.42.0
+	kubevirt.io/controller-lifecycle-operator-sdk v0.2.2
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/go/libvirt v1.7005.1
 	mvdan.cc/sh/v3 v3.1.1
@@ -124,8 +124,8 @@ replace (
 	kubevirt.io/api => ./staging/src/kubevirt.io/api
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 
-	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.41.0
-	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.41.0
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.42.0
+	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.42.0
 
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
