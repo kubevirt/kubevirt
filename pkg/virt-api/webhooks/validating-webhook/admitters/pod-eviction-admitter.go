@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -53,7 +55,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 
 	if !vmi.IsMarkedForEviction() && vmi.Status.NodeName == launcher.Spec.NodeName {
 		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
-		err := admitter.markVMI(ar, vmi, dryRun)
+		err := admitter.markVMI(ar, vmi.Name, vmi.Status.NodeName, dryRun)
 		if err != nil {
 			// As with the previous case, it is up to the user to issue a retry.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
@@ -65,12 +67,19 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
-func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, dryRun bool) (err error) {
-	vmiCopy := vmi.DeepCopy()
-	vmiCopy.Status.EvacuationNodeName = vmi.Status.NodeName
+func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vmiName, nodeName string, dryRun bool) (err error) {
+	data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+
 	if !dryRun {
-		_, err = admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Update(vmiCopy)
+		_, err = admitter.
+			VirtClient.
+			VirtualMachineInstance(ar.Request.Namespace).
+			Patch(vmiName,
+				types.JSONPatchType,
+				[]byte(data),
+				&metav1.PatchOptions{})
 	}
+
 	return err
 }
 
