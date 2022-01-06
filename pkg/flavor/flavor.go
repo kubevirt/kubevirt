@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	apiflavor "kubevirt.io/api/flavor"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/client-go/tools/cache"
@@ -112,25 +114,25 @@ func getKey(namespace string, name string) string {
 
 func getProfiles(name string, namespace string, kind string, flavorStore, clusterFlavorStore cache.Store) ([]flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 	switch strings.ToLower(kind) {
-	case "virtualmachineflavors", "virtualmachineflavor":
+	case apiflavor.FlavorResourcePluralName, apiflavor.FlavorResourceSingularName:
 		key := getKey(namespace, name)
 		obj, exists, err := flavorStore.GetByKey(key)
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
-			return nil, errors.NewNotFound(flavorv1alpha1.Resource("virtualmachineflavor"), key)
+			return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.FlavorResourceSingularName), key)
 		}
 		flavor := obj.(*flavorv1alpha1.VirtualMachineFlavor)
 		return flavor.Profiles, nil
 
-	case "", "virtualmachineclusterflavors", "virtualmachineclusterflavor":
+	case "", apiflavor.ClusterFlavorResourcePluralName, apiflavor.ClusterFlavorResourceSingularName:
 		obj, exists, err := clusterFlavorStore.GetByKey(name)
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
-			return nil, errors.NewNotFound(flavorv1alpha1.Resource("virtualmachineclusterflavor"), name)
+			return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.ClusterFlavorResourceSingularName), name)
 		}
 		flavor := obj.(*flavorv1alpha1.VirtualMachineClusterFlavor)
 		return flavor.Profiles, nil

@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/api/flavor"
+
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -525,8 +527,8 @@ func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: flavorv1alpha1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachineflavors",
-			Singular:   "virtualmachineflavor",
+			Plural:     flavor.FlavorResourcePluralName,
+			Singular:   flavor.FlavorResourceSingularName,
 			ShortNames: []string{"vmflavor", "vmflavors"},
 			Kind:       "VirtualMachineFlavor",
 			Categories: []string{"all"},
@@ -552,8 +554,8 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: flavorv1alpha1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachineclusterflavors",
-			Singular:   "virtualmachineclusterflavor",
+			Plural:     flavor.ClusterFlavorResourcePluralName,
+			Singular:   flavor.ClusterFlavorResourceSingularName,
 			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
 			Kind:       "VirtualMachineClusterFlavor",
 			Categories: []string{"all"},

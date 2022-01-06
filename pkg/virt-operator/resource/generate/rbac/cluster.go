@@ -23,6 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"kubevirt.io/api/flavor"
+
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/api/migrations"
@@ -208,8 +210,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					GroupNameFlavor,
 				},
 				Resources: []string{
-					"virtualmachineflavors",
-					"virtualmachineclusterflavors",
+					flavor.FlavorResourcePluralName,
+					flavor.ClusterFlavorResourcePluralName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
@@ -333,8 +335,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					GroupNameFlavor,
 				},
 				Resources: []string{
-					"virtualmachineflavors",
-					"virtualmachineclusterflavors",
+					flavor.FlavorResourcePluralName,
+					flavor.ClusterFlavorResourcePluralName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -437,8 +439,8 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					GroupNameFlavor,
 				},
 				Resources: []string{
-					"virtualmachineflavors",
-					"virtualmachineclusterflavors",
+					flavor.FlavorResourcePluralName,
+					flavor.ClusterFlavorResourcePluralName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",

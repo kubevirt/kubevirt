@@ -6,6 +6,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/api/flavor"
+
 	"kubevirt.io/api/core"
 	"kubevirt.io/api/migrations"
 
@@ -552,7 +554,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
 						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{"virtualmachineflavors"},
+						Resources:   []string{flavor.FlavorResourcePluralName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -577,7 +579,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
 						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{"virtualmachineclusterflavors"},
+						Resources:   []string{flavor.ClusterFlavorResourcePluralName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
