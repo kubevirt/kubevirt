@@ -662,6 +662,7 @@ github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1/go.mod h1:wJfORR
 github.com/gopherjs/gopherjs v0.0.0-20191106031601-ce3c9ade29de/go.mod h1:wJfORRmW1u3UXTncJ5qlYoELFm8eSnnEO6hX4iZ3EWY=
 github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed h1:iyE5OkCrenGp01Wsl/HQqprh83xpcHcBJA2zxjlrBuc=
 github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed/go.mod h1:M9mZEtGIsR1oDaZagNPNG9iq9n2HrhZ17dsXk73V3Lw=
+github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75/go.mod h1:g2644b03hfBX9Ov0ZBDgXXens4rxSxmqFBbhvKv2yVA=
 github.com/gorilla/context v1.1.1/go.mod h1:kBGZzfjB9CEq2AlWe17Uuf7NDRt0dE0s8S51q0aT7Yg=
 github.com/gorilla/handlers v0.0.0-20150720190736-60c7bfde3e33/go.mod h1:Qkdc/uu4tH4g6mTK6auzZ766c4CA0Ng8+o/OAirnOIQ=
 github.com/gorilla/mux v0.0.0-20191024121256-f395758b854c/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
@@ -1726,12 +1727,13 @@ k8s.io/utils v0.0.0-20200603063816-c1c6865ac451/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20201110183641-67b214c5f920/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b h1:wxEMGetGMur3J1xuGLQY7GEQYg9bZxKn3tKo5k/eYcs=
 k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-kubevirt.io/containerized-data-importer v1.41.0 h1:iGsYrf/L/x2gh/6VRMxpllWp8vImY8t7ORh73bJABhY=
-kubevirt.io/containerized-data-importer v1.41.0/go.mod h1:3bxLyI6jF+dz5PfHkORGCp5qnf+p0ZmSTj/pdu2QXAE=
-kubevirt.io/containerized-data-importer-api v1.41.0 h1:VdEwYP36N+4asMnTBSadVH4SF7OVPvvraEQMtOd7Vlk=
-kubevirt.io/containerized-data-importer-api v1.41.0/go.mod h1:0xadDFtaMd8iy+/oD2+dYoPxACZ/YizKqay5QIrQ6cw=
-kubevirt.io/controller-lifecycle-operator-sdk v0.2.1 h1:I1b14fnhwrVvQLmgksMo9vgje42hmH4QN5kqyYDqbMA=
+kubevirt.io/containerized-data-importer v1.42.0 h1:go4Qua1cBAtL7OHRMN2SeoukMnItk8OKPl+K4VZ9YBQ=
+kubevirt.io/containerized-data-importer v1.42.0/go.mod h1:f8kqbQEHS5QncG1KGmzz/EI5ggKaH3tsu0Zj8QiDpz4=
+kubevirt.io/containerized-data-importer-api v1.42.0 h1:rmL8/M3iv/QvkFntRv9HwZzkqZkH0PHZy3p8Jz98ujI=
+kubevirt.io/containerized-data-importer-api v1.42.0/go.mod h1:Ty5GJ+6nKlpcBKjeebb/e6IrF8bNFgOus9hfuMjEt6A=
 kubevirt.io/controller-lifecycle-operator-sdk v0.2.1/go.mod h1:ZJhLceiY2Gl5CXFGSp5eMGt/sksOiJP0289nAZFCQf0=
+kubevirt.io/controller-lifecycle-operator-sdk v0.2.2 h1:Py9IA2OIrgTYEIziJ5YofnQmgE8PNeTyyshA9j8qSP8=
+kubevirt.io/controller-lifecycle-operator-sdk v0.2.2/go.mod h1:ZJhLceiY2Gl5CXFGSp5eMGt/sksOiJP0289nAZFCQf0=
 kubevirt.io/qe-tools v0.1.6 h1:S6z9CATmgV2/z9CWetij++Rhu7l/Z4ObZqerLdNMo0Y=
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 libvirt.org/go/libvirt v1.7005.1 h1:t8qFjP2De2O3xL93h6p3C3JWL4wV9oFc1QLuMq9ziN0=
