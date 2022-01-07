@@ -258,6 +258,21 @@ var _ = Describe("Flavor", func() {
 				}
 			})
 
+			It("passed empty Flavor.Kind down to the VMI expect ClusterFlavor to be used", func() {
+				vm.Spec.Flavor.Kind = ""
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
+
+				// ClusterFlavor should be set
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(""))
+				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(testFlavor))
+			})
+
 			It("passed ClusterFlavor down to the VMI", func() {
 				vm.Spec.Flavor.Kind = "VirtualMachineClusterFlavor"
 

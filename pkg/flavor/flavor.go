@@ -74,13 +74,13 @@ func (m *methods) FindProfile(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Virtua
 
 func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) Conflicts {
 	var conflicts Conflicts
-	var flavor, flavorName string
+	var flavor string
 
 	if vm.Spec.Flavor != nil {
 		flavor = strings.ToLower(vm.Spec.Flavor.Kind)
-		flavorName = vm.Spec.Flavor.Name
-	} else {
-		flavor = "virtualmachineclusterflavor"
+		if flavor == "" {
+			flavor = "virtualmachineclusterflavor"
+		}
 	}
 
 	if vmi.Annotations == nil {
@@ -88,9 +88,9 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.Virtu
 	}
 	switch flavor {
 	case "virtualmachineflavors", "virtualmachineflavor":
-		vmi.Annotations[virtv1.FlavorAnnotation] = flavorName
+		vmi.Annotations[virtv1.FlavorAnnotation] = vm.Spec.Flavor.Name
 	case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-		vmi.Annotations[virtv1.ClusterFlavorAnnotation] = flavorName
+		vmi.Annotations[virtv1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
 	}
 
 	conflicts = append(conflicts, applyCpu(field, profile, &vmi.Spec)...)

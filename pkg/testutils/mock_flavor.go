@@ -20,13 +20,13 @@ func (m *MockFlavorMethods) FindProfile(vm *v1.VirtualMachine) (*flavorv1alpha1.
 }
 
 func (m *MockFlavorMethods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) flavor.Conflicts {
-	var flavor, flavorName string
+	var flavor string
 
 	if vm.Spec.Flavor != nil {
 		flavor = strings.ToLower(vm.Spec.Flavor.Kind)
-		flavorName = vm.Spec.Flavor.Name
-	} else {
-		flavor = "virtualmachineclusterflavor"
+		if flavor == "" {
+			flavor = "virtualmachineclusterflavor"
+		}
 	}
 
 	if vmi.Annotations == nil {
@@ -34,9 +34,9 @@ func (m *MockFlavorMethods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1al
 	}
 	switch flavor {
 	case "virtualmachineflavors", "virtualmachineflavor":
-		vmi.Annotations[v1.FlavorAnnotation] = flavorName
+		vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
 	case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-		vmi.Annotations[v1.ClusterFlavorAnnotation] = flavorName
+		vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
 	}
 	return m.ApplyToVmiFunc(field, profile, vm, vmi)
 }
