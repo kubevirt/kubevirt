@@ -1,18 +1,33 @@
 - metadata:
-    name: centos8-image-cron
+    name: centos-stream8-image-cron
   spec:
     schedule: "0 */12 * * *"
     template:
       spec:
         source:
           registry:
-            url: docker://quay.io/containerdisks/centos:8.4
+            url: docker://quay.io/containerdisks/centos-stream:8
         storage:
           resources:
             requests:
               storage: 10Gi
     garbageCollect: Outdated
-    managedDataSource: centos8
+    managedDataSource: centos-stream8
+- metadata:
+    name: centos-stream9-image-cron
+  spec:
+    schedule: "0 */12 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            url: docker://quay.io/containerdisks/centos-stream:9
+        storage:
+          resources:
+            requests:
+              storage: 10Gi
+    garbageCollect: Outdated
+    managedDataSource: centos-stream9
 - metadata:
     name: fedora-image-cron
   spec:
