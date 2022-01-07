@@ -511,12 +511,12 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:   intstr.FromString("count by(node)(node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} ) * on (node) group_left(pod) (1*(kube_pod_container_status_ready{pod=~'virt-handler-.*'} + on (pod) group_left(node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-handler-.*'} ))) or on (node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} )"),
 					},
 					{
-						Alert: "OrphanedVirtualMachineImages",
+						Alert: "OrphanedVirtualMachineInstances",
 						Expr:  intstr.FromString("(kubevirt_num_virt_handlers_by_node_running_virt_launcher) == 0"),
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary":     "No virt-handler pod detected on node {{ $labels.node }} with running vmis for more than an hour",
-							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineImages",
+							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineInstances",
 						},
 						Labels: map[string]string{
 							severityAlertLabelKey: "warning",
