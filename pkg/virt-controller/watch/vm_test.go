@@ -2382,9 +2382,9 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					switch flavor {
 					case "virtualmachineflavors", "virtualmachineflavor":
-						vmi.Annotations[v1.Flavor] = vm.Spec.Flavor.Name
+						vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
 					case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-						vmi.Annotations[v1.ClusterFlavor] = vm.Spec.Flavor.Name
+						vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
 					}
 					vmi.Spec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
 					return nil
@@ -2403,7 +2403,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(flavorCpus))
-					Expect(vmiArg.Annotations[v1.Flavor]).To(Equal(testFlavor))
+					Expect(vmiArg.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 				}).Return(vmi, nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
@@ -2453,9 +2453,9 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					switch testflavor {
 					case "virtualmachineflavors", "virtualmachineflavor":
-						vmi.Annotations[v1.Flavor] = vm.Spec.Flavor.Name
+						vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
 					case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-						vmi.Annotations[v1.ClusterFlavor] = vm.Spec.Flavor.Name
+						vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
 					}
 					return flavor.Conflicts{k8sfield.NewPath("spec", "template", "test", "path")}
 				}

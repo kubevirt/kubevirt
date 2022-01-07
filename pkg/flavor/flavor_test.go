@@ -270,11 +270,13 @@ var _ = Describe("Flavor", func() {
 
 				// Flavor should be nil
 				// ClusterFlavor should be set
-				Expect(vmi.Annotations[v1.Flavor]).To(Equal(""))
-				Expect(vmi.Annotations[v1.ClusterFlavor]).To(Equal(testFlavor))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(""))
+				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(testFlavor))
 			})
 
 			It("ignores CPU count if not defined", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+
 				const vmiCpuCount = uint32(4)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: vmiCpuCount,
@@ -290,20 +292,24 @@ var _ = Describe("Flavor", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vmiCpuCount))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Annotations[v1.Flavor]).To(Equal(testFlavor))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 			})
 
 			It("sets CPU count", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+
 				vmi.Spec.Domain.CPU = nil
 
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
 				Expect(conflicts).To(HaveLen(0))
 
 				Expect(vmi.Spec.Domain.CPU).To(Equal(profile.CPU))
-				Expect(vmi.Annotations[v1.Flavor]).To(Equal(testFlavor))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 			})
 
 			It("detects CPU count conflict", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+
 				const vmiCpuCount = uint32(4)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:   vmiCpuCount,
@@ -314,7 +320,7 @@ var _ = Describe("Flavor", func() {
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.domain.cpu"))
-				Expect(vmi.Annotations[v1.Flavor]).To(Equal(testFlavor))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 			})
 		})
 	})

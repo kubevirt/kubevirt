@@ -894,7 +894,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				if vmi.Annotations == nil {
 					vmi.Annotations = make(map[string]string)
 				}
-				vmi.Annotations[v1.Flavor] = testFlavor
+				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
 				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
 
 				for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
