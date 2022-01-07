@@ -163,7 +163,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			pvcClaim = "pvc-block"
 			podName := libguestsTools + pvcClaim
 			size, _ := resource.ParseQuantity("500Mi")
-			tests.CreateCephPVC(virtClient, pvcClaim, size)
+			tests.CreateBlockPVC(virtClient, pvcClaim, size)
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))
