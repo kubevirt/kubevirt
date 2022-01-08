@@ -399,12 +399,12 @@ func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, vmiN
 
 			vmiType, err := getVmiType(vmi)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed get vmi type: %v\n", err)
+				fmt.Fprintf(os.Stderr, "failed to get vmi type: %v\n", err)
 				continue
 			}
 
 			if err := prepareVmiConsole(vmi, vmiType); err != nil {
-				fmt.Fprintf(os.Stderr, "failed login to vmi: %v\n", err)
+				fmt.Fprintf(os.Stderr, "failed to login to vmi: %v\n", err)
 				continue
 			}
 
@@ -429,7 +429,7 @@ func (r *KubernetesReporter) logCloudInit(virtCli kubecli.KubevirtClient, vmiNam
 	for _, vmi := range runningVMIs {
 		vmiType, err := getVmiType(vmi)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
+			fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed to get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
 			continue
 		}
 
@@ -828,12 +828,12 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 
 			vmiType, err := getVmiType(vmi)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
+				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed to get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
 				continue
 			}
 
 			if err := prepareVmiConsole(vmi, vmiType); err != nil {
-				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed login: %v\n", vmi.Namespace, vmi.Name, err)
+				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed to login: %v\n", vmi.Namespace, vmi.Name, err)
 				continue
 			}
 			runningVMIs = append(runningVMIs, vmi)
