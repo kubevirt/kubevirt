@@ -138,7 +138,6 @@ const (
 	CommandPipeFailedFmt         = "command pipe failed: %v"
 	EchoLastReturnValue          = "echo $?\n"
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
-	UsrBinBash                   = "/usr/bin/bash"
 )
 
 var Config *KubeVirtTestsConfiguration
