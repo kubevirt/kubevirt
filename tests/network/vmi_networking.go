@@ -838,7 +838,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 
 				var err error
-				var loginMethod console.LoginToFactory
+				var loginMethod console.LoginToFunction
 
 				By("Create VMI")
 				if ipFamily == k8sv1.IPv4Protocol {
@@ -1072,7 +1072,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 })
 
-func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
+func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	tests.WaitForSuccessfulVMIStart(vmi)
 
