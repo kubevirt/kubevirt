@@ -8857,7 +8857,7 @@ var CRDsValidation map[string]string = map[string]string{
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     description: Capacity represents the capacity set on the corresponding
-                      PVC spec
+                      PVC status
                     type: object
                   filesystemOverhead:
                     description: Percentage of filesystem's size to be reserved when
@@ -8868,6 +8868,16 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Preallocated indicates if the PVC's storage is preallocated
                       or not
                     type: boolean
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Requests represents the resources requested by the
+                      corresponding PVC spec
+                    type: object
                   volumeMode:
                     description: VolumeMode defines what type of volume is required
                       by the claim. Value of Filesystem is implied when not included
