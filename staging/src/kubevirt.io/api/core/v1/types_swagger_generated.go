@@ -81,7 +81,8 @@ func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
 		"":                   "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
 		"accessModes":        "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
 		"volumeMode":         "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
-		"capacity":           "Capacity represents the capacity set on the corresponding PVC spec\n+optional",
+		"capacity":           "Capacity represents the capacity set on the corresponding PVC status\n+optional",
+		"requests":           "Requests represents the resources requested by the corresponding PVC spec\n+optional",
 		"preallocated":       "Preallocated indicates if the PVC's storage is preallocated or not\n+optional",
 		"filesystemOverhead": "Percentage of filesystem's size to be reserved when resizing the PVC\n+optional",
 	}

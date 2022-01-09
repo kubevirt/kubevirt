@@ -105,6 +105,36 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("with v1.Disk", func() {
+		table.DescribeTable("Should define disk capacity as the minimum of capacity and request", func(requests, capacity int64) {
+			context := &ConverterContext{}
+			v1Disk := v1.Disk{
+				Name: "myvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "virtio"},
+				},
+			}
+			apiDisk := api.Disk{}
+			devicePerBus := map[string]deviceNamer{}
+			numQueues := uint(2)
+			volumeStatusMap := make(map[string]v1.VolumeStatus)
+			volumeStatusMap["myvolume"] = v1.VolumeStatus{
+				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+					Capacity: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: *resource.NewQuantity(capacity, resource.DecimalSI),
+					},
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: *resource.NewQuantity(requests, resource.DecimalSI),
+					},
+				},
+			}
+			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
+			Expect(apiDisk.Capacity).ToNot(BeNil())
+			Expect(*apiDisk.Capacity).To(Equal(min(capacity, requests)))
+		},
+			table.Entry("Higher request than capacity", int64(9999), int64(1111)),
+			table.Entry("Lower request than capacity", int64(1111), int64(9999)),
+		)
+
 		It("Should add boot order when provided", func() {
 			order := uint(1)
 			kubevirtDisk := &v1.Disk{
