@@ -186,7 +186,7 @@ However KubeVirt might define a Storage CRD along side with a flow description w
 ## Networking
 
 We will try to leverage as much of Kubernetes networking plugin mechanisms (e.g. CNI).
-However, `virt-handler` may provide a plugin mechanism to allow network setup on a host, if the KubeVirt requirements do not fit into the Kubernetes storage scenarios.
+However, `virt-handler` may provide a plugin mechanism to allow network setup on a host, if the KubeVirt requirements do not fit into the Kubernetes network scenarios.
 
 Since host side preparation of network interfaces may not be enough, a cluster-wide [Network Controller](#network-controller) can be used to prepare the network.
 
