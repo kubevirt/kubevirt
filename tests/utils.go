@@ -66,10 +66,8 @@ import (
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -129,18 +127,19 @@ import (
 )
 
 const (
-	KubevirtIoTest               = "kubevirt.io/test"
-	KubernetesIoHostName         = "kubernetes.io/hostname"
-	BinBash                      = "/bin/bash"
-	StartingVMInstance           = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
-	ServerName                   = "--server"
-	CouldNotFindComputeContainer = "could not find compute container for pod"
-	CommandPipeFailed            = "command pipe failed"
-	CommandPipeFailedFmt         = "command pipe failed: %v"
-	EchoLastReturnValue          = "echo $?\n"
-	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
+	KubevirtIoTest                = "kubevirt.io/test"
+	KubernetesIoHostName          = "kubernetes.io/hostname"
+	BinBash                       = "/bin/bash"
+	StartingVMInstance            = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart        = "Waiting until the VirtualMachineInstance will start"
+	KubevirtIoV1Alpha1            = "cdi.kubevirt.io/v1alpha1"
+	ServerName                    = "--server"
+	CouldNotFindComputeContainer  = "could not find compute container for pod"
+	CommandPipeFailed             = "command pipe failed"
+	CommandPipeFailedFmt          = "command pipe failed: %v"
+	EchoLastReturnValue           = "echo $?\n"
+	BashHelloScript               = "#!/bin/bash\necho 'hello'\n"
+	ApiServerCloseConnectionError = "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding"
 )
 
 var Config *KubeVirtTestsConfiguration
@@ -418,7 +417,17 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 					break
 				}
 			} else {
-				Fail(fmt.Sprintf("unexpected error event: %v", apierrors.FromObject(watchEvent.Object)))
+				switch watchEvent.Object.(type) {
+				case *metav1.Status:
+					status := watchEvent.Object.(*metav1.Status)
+					//api server sometimes closes connections to Watch() client command
+					//ignore this error, because it will reconnect automatically
+					if status.Message != ApiServerCloseConnectionError {
+						Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
+					}
+				default:
+					Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
+				}
 			}
 		}
 	}()
@@ -797,7 +806,7 @@ func waitForSchedulableNodeWithCPUManager() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() bool {
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
+		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
 		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 		return len(nodes.Items) != 0
 	}, 360, 1*time.Second).Should(BeTrue())

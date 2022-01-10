@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "input.go",
         "matcher.go",
+        "symbol.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/internal/lsp/fuzzy",
     importpath = "golang.org/x/tools/internal/lsp/fuzzy",

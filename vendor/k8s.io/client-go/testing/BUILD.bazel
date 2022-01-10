@@ -6,6 +6,7 @@ go_library(
         "actions.go",
         "fake.go",
         "fixture.go",
+        "interface.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/testing",
     importpath = "k8s.io/client-go/testing",
