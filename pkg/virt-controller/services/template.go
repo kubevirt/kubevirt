@@ -2088,7 +2088,7 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 		PeriodSeconds:       probe.PeriodSeconds,
 		SuccessThreshold:    probe.SuccessThreshold,
 		FailureThreshold:    probe.FailureThreshold,
-		Handler: k8sv1.Handler{
+		ProbeHandler: k8sv1.ProbeHandler{
 			Exec:      probe.Exec,
 			HTTPGet:   probe.HTTPGet,
 			TCPSocket: probe.TCPSocket,
@@ -2103,18 +2103,18 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
 		"--guestAgentPing",
 	}
-	probe.Handler.Exec = &k8sv1.ExecAction{Command: pingCommand}
+	probe.ProbeHandler.Exec = &k8sv1.ExecAction{Command: pingCommand}
 	// we add 1s to the pod probe to compensate for the additional steps in probing
 	probe.TimeoutSeconds += 1
 	return
 }
 
 func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
-	if probe == nil || probe.Handler.Exec == nil {
+	if probe == nil || probe.ProbeHandler.Exec == nil {
 		return
 	}
 
-	originalCommand := probe.Handler.Exec.Command
+	originalCommand := probe.ProbeHandler.Exec.Command
 	if len(originalCommand) < 1 {
 		return
 	}
@@ -2128,7 +2128,7 @@ func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Pro
 	}
 	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
 
-	probe.Handler.Exec.Command = wrappedCommand
+	probe.ProbeHandler.Exec.Command = wrappedCommand
 	// we add 1s to the pod probe to compensate for the additional steps in probing
 	probe.TimeoutSeconds += 1
 }

@@ -311,7 +311,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		},
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -372,7 +372,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 8,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -386,7 +386,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		TimeoutSeconds:      10,
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -483,7 +483,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 								},
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Scheme: corev1.URISchemeHTTPS,
 										Port: intstr.IntOrString{

@@ -8,7 +8,8 @@ states. If specific changes are needed, first manipulate our main
 [staging/client-go](../staging/src/kubevirt.io/client-go) are located in a
 separate [go.mod](../staging/src/kubevirt.io/client-go/go.mod). Changing in the
 staging area will be inherited by the main go.mod when running `make
-deps-update`.
+deps-update`.  
+To update k8s dependencies please follow [update-k8s-dependencies](update-k8s-dependencies.md)
 
 ## Updating RPM test dependencies
 
