@@ -2926,6 +2926,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0].cache"))
 			Expect(causes[0].Message).To(Equal("fake[0].cache has invalid value unspported"))
 		})
+		table.DescribeTable("It should accept a disk with a valid cache mode", func(mode v1.DriverCache) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk", Cache: mode, DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{}}})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(0))
+		},
+			table.Entry("none", v1.CacheNone),
+			table.Entry("writethrough", v1.CacheWriteThrough),
+			table.Entry("writeback", v1.CacheWriteBack),
+		)
 
 		It("should reject disk count > arrayLenMax", func() {
 			vmi := api.NewMinimalVMI("testvmi")
