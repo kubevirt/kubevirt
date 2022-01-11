@@ -2172,7 +2172,7 @@ func checkDuplicatedDeviceName(deviceNames map[string]string, name, field string
 func validateDevices(field *k8sfield.Path, devices *v1.Devices, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	deviceNames := make(map[string]string)
-	causes = append(causes, validateDisks(field.Child("disks"), devices.Disks)...)
+	causes = append(causes, validateDisks(field.Child("disks"), devices.Disks, deviceNames)...)
 	causes = append(causes, validateInputDevices(field.Child("inputs"), devices.Inputs, deviceNames)...)
 	causes = append(causes, validateGPUsWithPassthroughEnabled(field.Child("gpus"), devices.GPUs, deviceNames, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field.Child("filesystems"), devices.Filesystems, deviceNames, config)...)
@@ -2196,9 +2196,8 @@ func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
 	return nPodInterfaces
 }
 
-func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
+func validateDisks(field *k8sfield.Path, disks []v1.Disk, deviceNames map[string]string) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	nameMap := make(map[string]int)
 
 	if len(disks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
@@ -2212,15 +2211,9 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 
 	for idx, disk := range disks {
 		// verify name is unique
-		otherIdx, ok := nameMap[disk.Name]
-		if !ok {
-			nameMap[disk.Name] = idx
-		} else {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s and %s must not have the same Name.", field.Index(idx).String(), field.Index(otherIdx).String()),
-				Field:   field.Index(idx).Child("name").String(),
-			})
+		thisField := field.Index(idx).Child("name").String()
+		if newCause, ok := checkDuplicatedDeviceName(deviceNames, disk.Name, thisField); !ok {
+			causes = append(causes, newCause)
 		}
 
 		// Reject Floppy disks
@@ -2228,7 +2221,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "Floppy disks are deprecated and will be removed from the API soon.",
-				Field:   field.Index(idx).Child("name").String(),
+				Field:   thisField,
 			})
 		}
 

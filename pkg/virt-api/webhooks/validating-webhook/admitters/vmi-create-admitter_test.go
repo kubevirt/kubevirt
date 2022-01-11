@@ -2739,7 +2739,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(0))
 
 			},
@@ -2763,7 +2764,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Floppy: &v1.FloppyTarget{},
 				},
 			})
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].name"))
 		})
@@ -2782,7 +2784,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2801,7 +2804,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Disk: &v1.DiskTarget{},
 				},
 			})
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
@@ -2817,7 +2821,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						Bus:        "scsi"},
 				},
 			})
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks.disk[0].pciAddress"))
 		})
@@ -2833,7 +2838,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						Bus:        "virtio"},
 				},
 			})
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks.disk[0].pciAddress"))
 		})
@@ -2855,7 +2861,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
@@ -2895,7 +2902,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2911,7 +2919,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
 		})
@@ -2950,7 +2959,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2974,7 +2984,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake[0].disk.bus"))
 			Expect(causes[1].Field).To(Equal("fake[1].lun.bus"))
@@ -2992,7 +3003,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				IO:   "unsupported",
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].io"))
 		})
@@ -3003,7 +3015,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk", Cache: "unspported", DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{}}})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake[0].cache"))
@@ -3015,7 +3028,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk", Cache: mode, DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{}}})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(0))
 		},
 			table.Entry("none", v1.CacheNone),
@@ -3031,7 +3045,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "testdisk" + name, DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}})
 			}
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake"))
@@ -3053,7 +3068,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].serial"))
 		})
@@ -3072,7 +3088,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].serial"))
 		})
@@ -3090,7 +3107,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -3123,7 +3141,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			)
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1)) // Only first disk should fail
 			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
 			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
@@ -3146,7 +3165,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				})
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(0))
 			},
 				table.Entry("a 512n disk", 512, 512),
@@ -3168,7 +3188,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				})
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(2))
 				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.logical"))
 				Expect(causes[1].Field).To(Equal("fake[0].blockSize.custom.physical"))
@@ -3191,7 +3212,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				})
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(1))
 				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.logical"))
 			})
@@ -3209,7 +3231,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				})
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(0))
 			})
 
@@ -3230,7 +3253,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				})
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(1))
 				Expect(causes[0].Field).To(Equal("fake[0].blockSize"))
 			})
@@ -3252,7 +3276,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				})
 
-				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				deviceNames := make(map[string]string)
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 				Expect(len(causes)).To(Equal(0))
 			})
 		})
@@ -3536,7 +3561,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			deviceNames := make(map[string]string)
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks, deviceNames)
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
