@@ -301,7 +301,7 @@ var _ = Describe("netstat", func() {
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(primaryNetworkName, nil, "", "", netvmispec.InfoSourceDomain),
+			newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4}, "", "", netvmispec.InfoSourceDomain),
 		}), "the SR-IOV interface should not be reported in the status.")
 	})
 
@@ -412,7 +412,7 @@ type podInterfaceCacheStoreStatusStub struct {
 
 func (p podInterfaceCacheStoreStatusStub) Read(iface string) (*cache.PodCacheInterface, error) {
 	if d, exists := p.data[iface]; exists {
-		return &cache.PodCacheInterface{Iface: d.Iface}, nil
+		return d, nil
 	}
 	return &cache.PodCacheInterface{}, nil
 }
