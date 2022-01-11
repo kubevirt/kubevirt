@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -43,6 +45,10 @@ func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
 }
 
 func newContextExecutor(pid int, cmd *exec.Cmd, executor Executor) (*ContextExecutor, error) {
+	if pid <= 0 {
+		return nil, fmt.Errorf("pid must be positive")
+	}
+
 	ce := &ContextExecutor{
 		pid:          pid,
 		cmdToExecute: cmd,
@@ -66,6 +72,9 @@ func newContextExecutor(pid int, cmd *exec.Cmd, executor Executor) (*ContextExec
 }
 
 func (ce *ContextExecutor) Execute() error {
+	log.Log.Infof("[ContextExecutor]: Executing... Switching from original (%s) to desired (%s) context",
+		ce.originalLabel, ce.desiredLabel)
+
 	if ce.isSELinuxEnabled() {
 		if err := ce.setDesiredContext(); err != nil {
 			return err
@@ -77,6 +86,8 @@ func (ce *ContextExecutor) Execute() error {
 	if err := ce.executor.Run(ce.cmdToExecute); err != nil {
 		return fmt.Errorf("failed to execute command in launcher namespace %d: %v", ce.pid, err)
 	}
+
+	log.Log.Infof("[ContextExecutor]: Execution ended successfully")
 	return nil
 }
 
