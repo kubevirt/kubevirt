@@ -5,36 +5,68 @@ package cgroup
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	configs "github.com/opencontainers/runc/libcontainer/configs"
 )
 
-// Mock of Parser interface
-type MockParser struct {
+// Mock of Manager interface
+type MockManager struct {
 	ctrl     *gomock.Controller
-	recorder *_MockParserRecorder
+	recorder *_MockManagerRecorder
 }
 
-// Recorder for MockParser (not exported)
-type _MockParserRecorder struct {
-	mock *MockParser
+// Recorder for MockManager (not exported)
+type _MockManagerRecorder struct {
+	mock *MockManager
 }
 
-func NewMockParser(ctrl *gomock.Controller) *MockParser {
-	mock := &MockParser{ctrl: ctrl}
-	mock.recorder = &_MockParserRecorder{mock}
+func NewMockManager(ctrl *gomock.Controller) *MockManager {
+	mock := &MockManager{ctrl: ctrl}
+	mock.recorder = &_MockManagerRecorder{mock}
 	return mock
 }
 
-func (_m *MockParser) EXPECT() *_MockParserRecorder {
+func (_m *MockManager) EXPECT() *_MockManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockParser) Parse(pid int) (map[string]string, error) {
-	ret := _m.ctrl.Call(_m, "Parse", pid)
-	ret0, _ := ret[0].(map[string]string)
+func (_m *MockManager) Set(r *configs.Resources) error {
+	ret := _m.ctrl.Call(_m, "Set", r)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockManagerRecorder) Set(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Set", arg0)
+}
+
+func (_m *MockManager) GetBasePathToHostSubsystem(subsystem string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetBasePathToHostSubsystem", subsystem)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockParserRecorder) Parse(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Parse", arg0)
+func (_mr *_MockManagerRecorder) GetBasePathToHostSubsystem(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetBasePathToHostSubsystem", arg0)
+}
+
+func (_m *MockManager) GetCgroupVersion() CgroupVersion {
+	ret := _m.ctrl.Call(_m, "GetCgroupVersion")
+	ret0, _ := ret[0].(CgroupVersion)
+	return ret0
+}
+
+func (_mr *_MockManagerRecorder) GetCgroupVersion() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupVersion")
+}
+
+func (_m *MockManager) GetCpuSet() (string, error) {
+	ret := _m.ctrl.Call(_m, "GetCpuSet")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockManagerRecorder) GetCpuSet() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCpuSet")
 }
