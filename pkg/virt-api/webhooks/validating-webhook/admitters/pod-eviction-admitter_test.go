@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -92,6 +94,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 			var vmi *virtv1.VirtualMachineInstance
 			liveMigrateStrategy := virtv1.EvictionStrategyLiveMigrate
+			nodeName := "node01"
 
 			BeforeEach(func() {
 				vmi = &virtv1.VirtualMachineInstance{
@@ -106,6 +109,7 @@ var _ = Describe("Pod eviction admitter", func() {
 								Status: k8sv1.ConditionTrue,
 							},
 						},
+						NodeName: nodeName,
 					},
 					Spec: virtv1.VirtualMachineInstanceSpec{
 						EvictionStrategy: &liveMigrateStrategy,
@@ -127,7 +131,9 @@ var _ = Describe("Pod eviction admitter", func() {
 							virtv1.AppLabel: "virt-launcher",
 						},
 					},
-					Spec:   k8sv1.PodSpec{},
+					Spec: k8sv1.PodSpec{
+						NodeName: nodeName,
+					},
 					Status: k8sv1.PodStatus{},
 				}
 
@@ -148,7 +154,14 @@ var _ = Describe("Pod eviction admitter", func() {
 
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-				vmiClient.EXPECT().Update(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+				vmiClient.
+					EXPECT().
+					Patch(vmi.Name,
+						types.JSONPatchType,
+						[]byte(data),
+						&metav1.PatchOptions{}).
+					Return(nil, fmt.Errorf("err"))
 
 				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
 
@@ -179,7 +192,9 @@ var _ = Describe("Pod eviction admitter", func() {
 							virtv1.AppLabel: "virt-launcher",
 						},
 					},
-					Spec:   k8sv1.PodSpec{},
+					Spec: k8sv1.PodSpec{
+						NodeName: nodeName,
+					},
 					Status: k8sv1.PodStatus{},
 				}
 
@@ -200,7 +215,14 @@ var _ = Describe("Pod eviction admitter", func() {
 
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-				vmiClient.EXPECT().Update(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+				vmiClient.
+					EXPECT().
+					Patch(vmi.Name,
+						types.JSONPatchType,
+						[]byte(data),
+						&metav1.PatchOptions{}).
+					Return(nil, fmt.Errorf("err"))
 
 				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
 
@@ -226,7 +248,9 @@ var _ = Describe("Pod eviction admitter", func() {
 							virtv1.AppLabel: "virt-launcher",
 						},
 					},
-					Spec:   k8sv1.PodSpec{},
+					Spec: k8sv1.PodSpec{
+						NodeName: nodeName,
+					},
 					Status: k8sv1.PodStatus{},
 				}
 
@@ -249,7 +273,14 @@ var _ = Describe("Pod eviction admitter", func() {
 				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
 
 				if !dryRun {
-					vmiClient.EXPECT().Update(gomock.Any()).Return(nil, nil)
+					data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+					vmiClient.
+						EXPECT().
+						Patch(vmi.Name,
+							types.JSONPatchType,
+							[]byte(data),
+							&metav1.PatchOptions{}).
+						Return(nil, nil)
 				}
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
