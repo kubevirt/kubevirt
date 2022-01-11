@@ -794,7 +794,7 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, hostDevices
 	return causes
 }
 
-func validateSoundDevices(field *k8sfield.Path, sound *v1.SoundDevice) (causes []metav1.StatusCause) {
+func validateSoundDevices(field *k8sfield.Path, sound *v1.SoundDevice, deviceNames map[string]string) (causes []metav1.StatusCause) {
 	if sound != nil {
 		model := sound.Model
 		if model != "" && model != "ich9" && model != "ac97" {
@@ -811,6 +811,9 @@ func validateSoundDevices(field *k8sfield.Path, sound *v1.SoundDevice) (causes [
 				Message: fmt.Sprintf("Sound device requires a name field."),
 				Field:   field.Child("name").String(),
 			})
+		}
+		if newCause, ok := checkDuplicatedDeviceName(deviceNames, name, field.Child("name").String()); !ok {
+			causes = append(causes, newCause)
 		}
 	}
 	return causes
@@ -2177,7 +2180,7 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices, config *virtconf
 	causes = append(causes, validateGPUsWithPassthroughEnabled(field.Child("gpus"), devices.GPUs, deviceNames, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field.Child("filesystems"), devices.Filesystems, deviceNames, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field.Child("hostDevices"), devices.HostDevices, deviceNames, config)...)
-	causes = append(causes, validateSoundDevices(field.Child("sound"), devices.Sound)...)
+	causes = append(causes, validateSoundDevices(field.Child("sound"), devices.Sound, deviceNames)...)
 	return causes
 }
 

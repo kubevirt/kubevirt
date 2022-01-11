@@ -1980,6 +1980,24 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.gpus[1].name"))
 			Expect(causes[0].Message).To(ContainSubstring("should have an unique name"))
 		})
+		It("should reject GPU and Sound card devices with same name", func() {
+			enableFeatureGate(virtconfig.GPUGate)
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "sound-card-and-gpu",
+					DeviceName: "vendor.com/gpu_name",
+				},
+			}
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Name: "sound-card-and-gpu",
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(ContainSubstring("fake.domain.devices.sound.name"))
+			Expect(causes[0].Message).To(ContainSubstring("should have an unique name"))
+		})
 		It("should reject virtiofs filesystems when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			guestMemory := resource.MustParse("64Mi")
