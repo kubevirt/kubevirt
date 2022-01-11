@@ -48,6 +48,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	expect "github.com/google/goexpect"
@@ -5472,4 +5474,29 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 	applyLabels(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespace.Labels, matchingNSLabels)
 
 	return policy
+}
+
+func GetVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
+	pod, err := GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+	Expect(err).ToNot(HaveOccurred())
+
+	return GetPodsCgroupVersion(pod, virtClient)
+}
+
+func GetPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
+	stdout, stderr, err := ExecuteCommandOnPodV2(virtClient,
+		pod,
+		"compute",
+		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})
+
+	Expect(err).ToNot(HaveOccurred())
+	Expect(stderr).To(BeEmpty())
+
+	cgroupFsType := strings.TrimSpace(stdout)
+
+	if cgroupFsType == "cgroup2fs" {
+		return cgroup.V2
+	} else {
+		return cgroup.V1
+	}
 }
