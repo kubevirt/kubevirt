@@ -23,13 +23,15 @@ if [[ $(${KUBECTL_BINARY} get ssp -n ${INSTALLED_NAMESPACE}) ]]; then
   ./hack/retry.sh 10 3 "[[ -z '$(${KUBECTL_BINARY} get imageStream -n ${IMAGES_NS} centos8 -o jsonpath='{.metadata.labels.test-label}')' ]]" "${KUBECTL_BINARY} get imageStream -n ${IMAGES_NS} centos8 -o yaml"
 
   ${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.featureGates.enableCommonBootImageImport}'
-  ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="centos8-image-cron")'
+  ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="centos-stream8-image-cron")'
+  ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="centos-stream9-image-cron")'
   ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="fedora-image-cron")'
   ${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}" ssp-kubevirt-hyperconverged -o jsonpath='{.spec.commonTemplates.dataImportCronTemplates}' | jq -e '.[] |select(.metadata.name=="centos8-image-cron-is")'
 
-  ./hack/retry.sh 10 30 "[[ \$(count_data_import_crons) -eq 3 ]]" "${KUBECTL_BINARY} get DataImportCron -A"
+  ./hack/retry.sh 10 30 "[[ \$(count_data_import_crons) -eq 4 ]]" "${KUBECTL_BINARY} get DataImportCron -A"
 
-  ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} centos8-image-cron
+  ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} centos-stream8-image-cron
+  ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} centos-stream9-image-cron
   ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} fedora-image-cron
   ${KUBECTL_BINARY} get DataImportCron -o yaml -n ${IMAGES_NS} centos8-image-cron-is
 

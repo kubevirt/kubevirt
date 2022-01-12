@@ -47,6 +47,14 @@ function test_delete_ns(){
         echo "Ignoring webhook on k8s where we don't have OLM based validating webhooks"
     fi
 
+    # TODO: workaround for https://bugzilla.redhat.com/show_bug.cgi?id=2037312
+    # remove once fixed
+    echo "Explictly disabling CommonBootImageImport to be able to safely remove the product"
+    ./hack/retry.sh 10 3 "${CMD} patch hco -n kubevirt-hyperconverged kubevirt-hyperconverged --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": \"/spec/featureGates/enableCommonBootImageImport\", \"value\": false }]'"
+    sleep 10
+    ./hack/retry.sh 10 30 "[[ $(${CMD} get DataImportCron -A --no-headers | wc -l) -eq 0 ]]"
+    # ---
+
     echo "Delete the hyperconverged CR to remove the product"
     timeout 10m ${CMD} delete hyperconverged -n kubevirt-hyperconverged kubevirt-hyperconverged
 
