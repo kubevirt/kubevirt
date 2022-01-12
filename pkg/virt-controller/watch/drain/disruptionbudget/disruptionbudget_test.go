@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	ctrl_util "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 )
 
@@ -44,6 +45,7 @@ var _ = Describe("Disruptionbudget", func() {
 	var kubeClient *fake.Clientset
 	var pdbFeeder *testutils.PodDisruptionBudgetFeeder
 	var vmiFeeder *testutils.VirtualMachineFeeder
+	var config *virtconfig.ClusterConfig
 
 	var controller *disruptionbudget.DisruptionBudgetController
 
@@ -126,8 +128,9 @@ var _ = Describe("Disruptionbudget", func() {
 		podInformer, _ = testutils.NewFakeInformerFor(&corev1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
+		config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient)
+		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)

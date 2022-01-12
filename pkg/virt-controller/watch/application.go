@@ -447,7 +447,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
-		vmiprom.SetupVMICollector(vca.vmiInformer)
+		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
@@ -571,6 +571,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 		vca.migrationInformer,
 		recorder,
 		vca.clientSet,
+		vca.clusterConfig,
 	)
 
 }

@@ -776,7 +776,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() {
-		if migrations.MigrationNeedsProtection(vmi) {
+		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
 			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
 			if err != nil {
 				return err

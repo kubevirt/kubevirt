@@ -713,14 +713,20 @@ func podNetworkRequiredStatusCause(field *k8sfield.Path) metav1.StatusCause {
 }
 
 func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if !config.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
+	evictionStrategy := config.GetConfig().EvictionStrategy
+
+	if spec.EvictionStrategy != nil {
+		evictionStrategy = spec.EvictionStrategy
+	}
+	if !config.LiveMigrationEnabled() && evictionStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "LiveMigration feature gate is not enabled",
 			Field:   field.Child("evictionStrategy").String(),
 		})
-	} else if spec.EvictionStrategy != nil {
-		if *spec.EvictionStrategy != v1.EvictionStrategyLiveMigrate {
+	} else if evictionStrategy != nil {
+		if *evictionStrategy != v1.EvictionStrategyLiveMigrate &&
+			*evictionStrategy != v1.EvictionStrategyNone {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
