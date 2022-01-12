@@ -225,8 +225,8 @@ cdiFile=$(create_cdi_csv)
 cdiCsv="${TEMPDIR}/${cdiFile}.${CSV_EXT}"
 nmoFile=$(create_nmo_csv)
 nmoCsv="${TEMPDIR}/${nmoFile}.${CSV_EXT}"
-hhpFile=$(create_hpp_csv)
-hppCsv="${TEMPDIR}/${hhpFile}.${CSV_EXT}"
+hppFile=$(create_hpp_csv)
+hppCsv="${TEMPDIR}/${hppFile}.${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
 keywords="  keywords:
   - KubeVirt
