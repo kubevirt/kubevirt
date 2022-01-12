@@ -71,6 +71,7 @@ go_test(
         "certificates_test.go",
         "core_test.go",
         "crds_test.go",
+        "delete_test.go",
         "install_strategy_suite_test.go",
         "patches_test.go",
         "pdb_test.go",
