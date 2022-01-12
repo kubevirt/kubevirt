@@ -256,24 +256,26 @@ tests:
   # and the number of requests with error code should be 190+100+200+300+...+1900 which is more than 80% of the total requests
   # in each 5 minutes interval of the test and the error condition(more than 80% of the requests has error code) is true for
   # more than 5 minutes(because each test run for 20 minutes) which should fire an alert for EACH POD
+  # values : 0+100x15  0+100x5  ==  :"0 100 200 .... 1400  0 100 200 300 400"  we should treat values : `0+100x20` and
+  # values : `0+100x15  0+100x5`  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
-        values: '0+100x20'
+        values: '0+100x15  0+100x5'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
-        values: '0+100x20'
+        values: '0+100x15  0+100x5'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
-        values: '0+100x20'
+        values: '0+100x15  0+100x5'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x20'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
-        values: '0+100x20'
+        values: '0+100x15  0+100x5'
 
     alert_rule_test:
       - eval_time: 20m
@@ -322,24 +324,26 @@ tests:
   # and the number of requests with error code should be 5+10+15+...+495 which is more than 5% of the total requests
   # the error condition(more than 5% of the requests has error code) is true which should fire an alert for EACH POD
   # High REST errors
+  # values : '0+5x90 0+5x10'  ==  :"0 5 10 .... 445  0 5 10 ... 45"  we should treat values : '0+5x100' and
+  # values : '0+5x90 0+5x10'  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x100'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
-        values: '0+5x100'
+        values: '0+5x90 0+5x10'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x100'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
-        values: '0+5x100'
+        values: '0+5x90 0+5x10'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x100'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
-        values: '0+5x100'
+        values: '0+5x90 0+5x10'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x100'
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
-        values: '0+5x100'
+        values: '0+5x90 0+5x10'
 
     alert_rule_test:
       - eval_time: 100m
