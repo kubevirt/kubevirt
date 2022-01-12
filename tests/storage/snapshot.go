@@ -1070,6 +1070,11 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", nil
 	}
 
+	configuredStorageClass, exists := tests.GetSnapshotStorageClass()
+	if exists {
+		return configuredStorageClass, nil
+	}
+
 	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err

@@ -57,7 +57,6 @@ const (
 	VmiAlpineEFI         = "vmi-alpine-efi"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
-	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
 	VmiKernelBoot        = "vmi-kernel-boot"
 	VmiSlirp             = "vmi-slirp"
@@ -561,13 +560,6 @@ func GetVMIPvc() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiPVC)
 
 	addPVCDisk(&vmi.Spec, "disk-alpine", busVirtio, "pvcdisk")
-	return vmi
-}
-
-func GetVMIBlockPvc() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiBlockPVC)
-
-	addPVCDisk(&vmi.Spec, "local-block-storage-cirros", busVirtio, "blockpvcdisk")
 	return vmi
 }
 

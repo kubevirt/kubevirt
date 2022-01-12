@@ -229,11 +229,6 @@ const (
 	IstioInjectNamespaceLabel = "istio-injection"
 )
 
-var (
-	// BlockDiskForTest contains name of the block PV and PVC
-	BlockDiskForTest string
-)
-
 const (
 	tmpPath = "/var/provision/kubevirt.io/tests"
 )
@@ -492,7 +487,6 @@ func SynchronizedAfterTestSuiteCleanup() {
 
 	if Config.ManageStorageClasses {
 		deleteStorageClass(Config.StorageClassHostPath)
-		deleteStorageClass(Config.StorageClassBlockVolume)
 		deleteStorageClass(Config.StorageClassHostPathSeparateDevice)
 	}
 	CleanNodes()
@@ -510,7 +504,6 @@ func AfterTestSuitCleanup() {
 }
 
 func BeforeTestCleanup() {
-	deleteBlockPVAndPVC()
 	cleanNamespaces()
 	CleanNodes()
 	resetToDefaultConfig()
@@ -681,7 +674,6 @@ func SynchronizedBeforeTestSetup() []byte {
 		immediateBinding := storagev1.VolumeBindingImmediate
 		wffc := storagev1.VolumeBindingWaitForFirstConsumer
 		createStorageClass(Config.StorageClassHostPath, &immediateBinding)
-		createStorageClass(Config.StorageClassBlockVolume, &immediateBinding)
 		createStorageClass(Config.StorageClassHostPathSeparateDevice, &wffc)
 	}
 
@@ -706,8 +698,6 @@ func BeforeTestSuitSetup(_ []byte) {
 	worker := config.GinkgoConfig.ParallelNode
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
-
-	BlockDiskForTest = fmt.Sprintf("block-disk-for-tests%v", worker)
 
 	// Wait for schedulable nodes
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -1978,6 +1968,17 @@ func createNamespaces() {
 	}
 }
 
+func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	sc, exists := GetRWOBlockStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, exists = GetRWXBlockStorageClass()
+	}
+	if !exists {
+		Skip("Skip test when Block storage is not present")
+	}
+	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
+}
+
 func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
@@ -1986,7 +1987,7 @@ func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMod
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode)
+	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
 }
 
 func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
@@ -1997,8 +1998,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	dv := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode)
-	dv.Spec.PVC.VolumeMode = &volMode
+	dv := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	if HasBindingModeWaitForFirstConsumer() {
@@ -2039,7 +2039,7 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
 	name := TestDataVolumeName + rand.String(12)
 	quantity, err := resource.ParseQuantity("1Gi")
 	util2.PanicOnError(err)
@@ -2056,6 +2056,7 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
 				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+				VolumeMode:  &volumeMode,
 				Resources: k8sv1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						"storage": quantity,
@@ -2176,10 +2177,7 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	diskName := "disk0"
+func AddDataVolumeDisk(vmi *v1.VirtualMachineInstance, diskName, dataVolumeName string) *v1.VirtualMachineInstance {
 	bus := "virtio"
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
@@ -2197,6 +2195,16 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 			},
 		},
 	})
+
+	return vmi
+}
+
+func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+
+	diskName := "disk0"
+
+	vmi = AddDataVolumeDisk(vmi, diskName, dataVolumeName)
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
@@ -2219,7 +2227,7 @@ func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) 
 }
 
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode)
+	dataVolume := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
 	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
@@ -2247,7 +2255,7 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 }
 
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
+	dataVolume := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
@@ -2603,96 +2611,6 @@ func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachi
 	return vmi
 }
 
-func CreateBlockVolumePvAndPvc(size string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	labelSelector := make(map[string]string)
-	labelSelector["kubevirt-test"] = BlockDiskForTest
-	labelSelector[cleanup.TestLabelForNamespace(util2.NamespaceTestDefault)] = ""
-
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), newBlockVolumePV(BlockDiskForTest, labelSelector, size), metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-
-	_, err = virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Create(context.Background(), newBlockVolumePVC(BlockDiskForTest, labelSelector, size), metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func newBlockVolumePV(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolume {
-	quantity, err := resource.ParseQuantity(size)
-	util2.PanicOnError(err)
-
-	storageClass := Config.StorageClassBlockVolume
-	volumeMode := k8sv1.PersistentVolumeBlock
-
-	// Note: the path depends on kubevirtci!
-	// It's configured to have a device backed by a cirros image at exactly that place on node01
-	// And the local storage provider also has access to it
-	return &k8sv1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labelSelector,
-		},
-		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Capacity: k8sv1.ResourceList{
-				"storage": quantity,
-			},
-			StorageClassName: storageClass,
-			VolumeMode:       &volumeMode,
-			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				Local: &k8sv1.LocalVolumeSource{
-					Path: "/mnt/local-storage/cirros-block-device",
-				},
-			},
-			NodeAffinity: &k8sv1.VolumeNodeAffinity{
-				Required: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      KubernetesIoHostName,
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{schedulableNode},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func newBlockVolumePVC(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolumeClaim {
-	quantity, err := resource.ParseQuantity(size)
-	util2.PanicOnError(err)
-
-	storageClass := Config.StorageClassBlockVolume
-	volumeMode := k8sv1.PersistentVolumeBlock
-
-	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					"storage": quantity,
-				},
-			},
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labelSelector,
-			},
-			StorageClassName: &storageClass,
-			VolumeMode:       &volumeMode,
-		},
-	}
-}
-
 func DeletePvAndPvc(name string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
@@ -2706,10 +2624,6 @@ func DeletePvAndPvc(name string) {
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
-}
-
-func deleteBlockPVAndPVC() {
-	DeletePvAndPvc(BlockDiskForTest)
 }
 
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
