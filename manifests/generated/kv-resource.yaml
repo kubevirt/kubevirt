@@ -232,6 +232,12 @@ spec:
                     items:
                       type: string
                     type: array
+                  evictionStrategy:
+                    description: EvictionStrategy defines at the cluster level if
+                      the VirtualMachineInstance should be migrated instead of shut-off
+                      in case of a node drain. If the VirtualMachineInstance specific
+                      field is set it overrides the cluster level one.
+                    type: string
                   handlerConfiguration:
                     description: ReloadableComponentConfiguration holds all generic
                       k8s configuration options which can be reloaded by components
@@ -2831,6 +2837,12 @@ spec:
                     items:
                       type: string
                     type: array
+                  evictionStrategy:
+                    description: EvictionStrategy defines at the cluster level if
+                      the VirtualMachineInstance should be migrated instead of shut-off
+                      in case of a node drain. If the VirtualMachineInstance specific
+                      field is set it overrides the cluster level one.
+                    type: string
                   handlerConfiguration:
                     description: ReloadableComponentConfiguration holds all generic
                       k8s configuration options which can be reloaded by components

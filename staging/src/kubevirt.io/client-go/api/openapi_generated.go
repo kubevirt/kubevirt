@@ -17235,6 +17235,13 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref: ref("kubevirt.io/api/core/v1.SMBiosConfiguration"),
 						},
 					},
+					"evictionStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"supportedGuestAgentVersions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "deprecated",
