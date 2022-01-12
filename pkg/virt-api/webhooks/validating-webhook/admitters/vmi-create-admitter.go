@@ -718,7 +718,8 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	if spec.EvictionStrategy != nil {
 		evictionStrategy = spec.EvictionStrategy
 	}
-	if !config.LiveMigrationEnabled() && evictionStrategy != nil {
+	if !config.LiveMigrationEnabled() && evictionStrategy != nil &&
+		*evictionStrategy != v1.EvictionStrategyNone {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "LiveMigration feature gate is not enabled",

@@ -1793,6 +1793,7 @@ const (
 )
 
 const (
+	EvictionStrategyNone        EvictionStrategy = "None"
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
 
