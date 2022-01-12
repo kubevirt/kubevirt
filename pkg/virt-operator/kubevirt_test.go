@@ -2617,6 +2617,10 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.shouldExpectDeletions()
+
+			// Due to finalizers being added to CRDs during deletion
+			kvTestData.extClient.Fake.PrependReactor("patch", "customresourcedefinitions", kvTestData.crdPatchFunc())
+
 			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
@@ -2654,6 +2658,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.shouldExpectDeletions()
+
+			// Due to finalizers being added to CRDs during deletion
+			kvTestData.extClient.Fake.PrependReactor("patch", "customresourcedefinitions", kvTestData.crdPatchFunc())
 			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
