@@ -347,7 +347,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 
 	// If the current version is not updated in CR ,then we're updating. This is also works when updating from
 	// an old version, since Status.Versions will be empty.
-	knownHcoVersion, _ := req.Instance.Status.GetVersion(hcoVersionName)
+	knownHcoVersion, _ := GetVersion(&req.Instance.Status, hcoVersionName)
 
 	// detect upgrade mode
 	if !r.upgradeMode && !init && knownHcoVersion != r.ownVersion {
@@ -544,7 +544,7 @@ func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) (boo
 }
 
 func (r *ReconcileHyperConverged) setInitialConditions(req *common.HcoRequest) {
-	req.Instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+	UpdateVersion(&req.Instance.Status, hcoVersionName, r.ownVersion)
 
 	req.Conditions.SetStatusCondition(metav1.Condition{
 		Type:               hcov1beta1.ConditionReconcileComplete,
@@ -828,7 +828,7 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 		// if in upgrade mode, and all the components are upgraded, and nothing pending to be written - upgrade is completed
 		if r.upgradeMode && req.ComponentUpgradeInProgress && !req.Dirty {
 			// update the new version only when upgrade is completed
-			req.Instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+			UpdateVersion(&req.Instance.Status, hcoVersionName, r.ownVersion)
 			req.StatusDirty = true
 
 			r.upgradeMode = false
@@ -1043,7 +1043,7 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bool, error) {
 	modified := false
 
-	knownHcoVersion, _ := req.Instance.Status.GetVersion(hcoVersionName)
+	knownHcoVersion, _ := GetVersion(&req.Instance.Status, hcoVersionName)
 	if knownHcoVersion == "" {
 		knownHcoVersion = "0.0.0"
 	}

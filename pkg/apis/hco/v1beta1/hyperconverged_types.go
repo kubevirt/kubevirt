@@ -372,7 +372,7 @@ type HyperConvergedStatus struct {
 	// is the HCO version itself, as described here:
 	// https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version
 	// +optional
-	Versions Versions `json:"versions,omitempty"`
+	Versions []Version `json:"versions,omitempty"`
 
 	// ObservedGeneration reflects the HyperConverged resource generation. If the ObservedGeneration is less than the
 	// resource generation in metadata, the status is out of date
@@ -385,45 +385,9 @@ type HyperConvergedStatus struct {
 	DataImportSchedule string `json:"dataImportSchedule,omitempty"`
 }
 
-func (hcs *HyperConvergedStatus) UpdateVersion(name, version string) {
-	if hcs.Versions == nil {
-		hcs.Versions = Versions{}
-	}
-	hcs.Versions.updateVersion(name, version)
-}
-
-func (hcs *HyperConvergedStatus) GetVersion(name string) (string, bool) {
-	return hcs.Versions.getVersion(name)
-}
-
 type Version struct {
 	Name    string `json:"name,omitempty"`
 	Version string `json:"version,omitempty"`
-}
-
-func newVersion(name, version string) Version {
-	return Version{Name: name, Version: version}
-}
-
-type Versions []Version
-
-func (vs *Versions) updateVersion(name, version string) {
-	for i, v := range *vs {
-		if v.Name == name {
-			(*vs)[i].Version = version
-			return
-		}
-	}
-	*vs = append(*vs, newVersion(name, version))
-}
-
-func (vs *Versions) getVersion(name string) (string, bool) {
-	for _, v := range *vs {
-		if v.Name == name {
-			return v.Version, true
-		}
-	}
-	return "", false
 }
 
 const (

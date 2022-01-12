@@ -927,7 +927,7 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = commonTestUtils.GetScheme() // ensure the scheme is loaded so this test can be focused
 
 				// old HCO Version is set
-				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+				UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
@@ -958,7 +958,7 @@ var _ = Describe("HyperconvergedController", func() {
 						break
 					}
 				}
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 
@@ -967,7 +967,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("detect upgrade existing HCO Version", func() {
 				// old HCO Version is set
-				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+				UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 				// CDI is not ready
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
@@ -977,7 +977,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionFalse)
 				// check that the HCO version is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
@@ -987,7 +987,7 @@ var _ = Describe("HyperconvergedController", func() {
 				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the HCO version is not set, because upgrade is not completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
@@ -1000,7 +1000,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
@@ -1012,7 +1012,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
@@ -1030,7 +1030,7 @@ var _ = Describe("HyperconvergedController", func() {
 				"be tolerant parsing parse version",
 				func(testHcoVersion string, acceptableVersion bool, errorMessage string) {
 					foundResource := &hcov1beta1.HyperConverged{}
-					expected.hco.Status.UpdateVersion(hcoVersionName, testHcoVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, testHcoVersion)
 
 					cl := expected.initClient()
 
@@ -1044,7 +1044,7 @@ var _ = Describe("HyperconvergedController", func() {
 							types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 							foundResource),
 					).To(BeNil())
-					ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+					ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 
 					if acceptableVersion {
 						Expect(err).To(BeNil())
@@ -1060,7 +1060,7 @@ var _ = Describe("HyperconvergedController", func() {
 								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 								foundResource),
 						).To(BeNil())
-						ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(newVersion))
 					} else {
@@ -1079,7 +1079,7 @@ var _ = Describe("HyperconvergedController", func() {
 								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 								foundResource),
 						).To(BeNil())
-						ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(testHcoVersion))
 						// and a third
@@ -1092,7 +1092,7 @@ var _ = Describe("HyperconvergedController", func() {
 								types.NamespacedName{Name: request.Name, Namespace: request.Namespace},
 								foundResource),
 						).To(BeNil())
-						ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
 						Expect(ver).Should(Equal(testHcoVersion))
 					}
@@ -1200,7 +1200,7 @@ var _ = Describe("HyperconvergedController", func() {
 				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the image Id is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				_, _ = fmt.Fprintln(GinkgoWriter, "foundResource.Status.Versions", foundResource.Status.Versions)
 				Expect(ok).To(BeFalse())
 				Expect(ver).Should(BeEmpty())
@@ -1213,12 +1213,12 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
-				_, ok = foundResource.Status.GetVersion(hcoVersionName)
+				_, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 
@@ -1232,7 +1232,7 @@ var _ = Describe("HyperconvergedController", func() {
 					_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 					// old HCO Version is set
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 					makeComponentNotReady()
 
@@ -1248,7 +1248,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionFalse)
 
 					// check that the image Id is not set, because upgrade is not completed
-					ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+					ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
 					Expect(ver).Should(Equal(oldVersion))
 					cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
@@ -1267,7 +1267,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					// check that the image Id is set, now, when upgrade is completed
-					ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+					ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
 					Expect(ver).Should(Equal(oldVersion))
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
@@ -1285,7 +1285,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					// check that the image Id is set, now, when upgrade is completed
-					ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+					ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
 					Expect(ver).Should(Equal(newVersion))
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
@@ -1341,7 +1341,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should update .status.storedVersions on the HCO CRD during upgrades", func() {
 					// Simulate ongoing upgrade
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 					expected.hcoCRD.Status.StoredVersions = []string{"v1alpha1", "v1beta1", "v1"}
 
@@ -1369,7 +1369,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(requeue).To(BeFalse())
 
 					checkAvailability(foundHC, metav1.ConditionTrue)
-					ver, ok := foundHC.Status.GetVersion(hcoVersionName)
+					ver, ok := GetVersion(&foundHC.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
 					Expect(ver).Should(Equal(newVersion))
 				})
@@ -1491,7 +1491,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should remove v2v CRDs during upgrades", func() {
 					// Simulate ongoing upgrade
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 					resources := expected.toArray()
 					for _, r := range currentCRDs {
@@ -1555,7 +1555,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should remove v2v related objects if upgrade is in progress", func() {
 					// Simulate ongoing upgrade
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 					// Initialize RelatedObjects with a bunch of objects
 					// including old SSP ones.
@@ -1633,7 +1633,7 @@ var _ = Describe("HyperconvergedController", func() {
 				customBandwidthPerMigration := "32Mi"
 
 				It("should drop spec.livemigrationconfig.bandwidthpermigration if == 64Mi when upgrading from < 1.5.0", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, "1.4.99")
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &badBandwidthPerMigration
 
 					cl := expected.initClient()
@@ -1647,7 +1647,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("should preserve spec.livemigrationconfig.bandwidthpermigration if != 64Mi when upgrading from < 1.5.0", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, "1.4.99")
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &customBandwidthPerMigration
 
 					cl := expected.initClient()
@@ -1660,7 +1660,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("should preserve spec.livemigrationconfig.bandwidthpermigration even if == 64Mi when upgrading from >= 1.5.1", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, "1.5.1")
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.5.1")
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &badBandwidthPerMigration
 
 					cl := expected.initClient()
@@ -1673,7 +1673,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("should amend spec.featureGates.sriovLiveMigration upgrading from <= 1.5.0", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, "1.4.99")
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
 					expected.hco.Spec.FeatureGates.SRIOVLiveMigration = false
 
 					cl := expected.initClient()
@@ -1688,7 +1688,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("should not amend spec.featureGates.sriovLiveMigration upgrading from >= 1.5.1", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, "1.5.1")
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.5.1")
 					expected.hco.Spec.FeatureGates.SRIOVLiveMigration = false
 
 					cl := expected.initClient()
@@ -1704,7 +1704,7 @@ var _ = Describe("HyperconvergedController", func() {
 			Context("remove old quickstart guides", func() {
 				It("should drop old quickstart guide", func() {
 					const oldQSName = "old-quickstart-guide"
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
 
 					oldQs := &consolev1.ConsoleQuickStart{
 						ObjectMeta: metav1.ObjectMeta{
@@ -2096,7 +2096,7 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 			BeforeEach(func() {
 				hco = commonTestUtils.NewHco()
-				hco.Status.UpdateVersion(hcoVersionName, version.Version)
+				UpdateVersion(&hco.Status, hcoVersionName, version.Version)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
 

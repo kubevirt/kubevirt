@@ -40,6 +40,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus":                 schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedWorkloadUpdateStrategy": schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations":          schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedDevicesConfiguration":         schema_pkg_apis_hco_v1beta1_MediatedDevicesConfiguration(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedHostDevice":                   schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements":          schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PciHostDevice":                        schema_pkg_apis_hco_v1beta1_PciHostDevice(ref),
@@ -307,6 +308,12 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices"),
 						},
 					},
+					"mediatedDevicesConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MediatedDevicesConfiguration holds information about MDEV types to be defined on nodes, if available",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedDevicesConfiguration"),
+						},
+					},
 					"certConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "certConfig holds the rotation policy for internal, self-signed certificates",
@@ -378,11 +385,18 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							},
 						},
 					},
+					"uninstallStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstall. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedObsoleteCPUs", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedWorkloadUpdateStrategy", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.StorageImportConfig", "kubevirt.io/ssp-operator/api/v1beta1.DataImportCronTemplate"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedObsoleteCPUs", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedWorkloadUpdateStrategy", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedDevicesConfiguration", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.StorageImportConfig", "kubevirt.io/ssp-operator/api/v1beta1.DataImportCronTemplate"},
 	}
 }
 
@@ -477,7 +491,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref common
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating.",
+							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -551,6 +565,38 @@ func schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref common.Referenc
 							Description: "The migration will be canceled if memory copy fails to make progress in this time, in seconds.",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_hco_v1beta1_MediatedDevicesConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mediatedDevicesTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

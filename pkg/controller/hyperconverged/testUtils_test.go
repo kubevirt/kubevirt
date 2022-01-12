@@ -173,8 +173,11 @@ func getBasicDeployment() *BasicExpected {
 					Message: common.ReconcileCompletedMessage,
 				},
 			},
-			Versions: hcov1beta1.Versions{
-				{Name: hcoVersionName, Version: version.Version},
+			Versions: []hcov1beta1.Version{
+				{
+					Name:    hcoVersionName,
+					Version: version.Version,
+				},
 			},
 		},
 	}
