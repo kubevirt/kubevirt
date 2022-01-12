@@ -223,7 +223,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var err error
 			vmi := tests.NewRandomVMI()
 			vmi.Labels = map[string]string{
-				"debugLogs": "true",
+				"logVerbosity": "10",
 			}
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
