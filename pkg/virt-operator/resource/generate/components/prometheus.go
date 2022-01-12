@@ -507,6 +507,23 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
+						Record: "kubevirt_vm_container_free_memory_bytes_based_on_requests",
+						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
+					},
+					{
+						Alert: "KubevirtVmHighMemoryUsageBasedOnRequests",
+						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes_based_on_requests < 20971520"),
+						For:   "1m",
+						Annotations: map[string]string{
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to requested memory",
+							"summary":     "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
+							"runbook_url": runbookUrlBasePath + "KubevirtVmHighMemoryUsageBasedOnRequests",
+						},
+						Labels: map[string]string{
+							severityAlertLabelKey: "warning",
+						},
+					},
+					{
 						Record: "kubevirt_num_virt_handlers_by_node_running_virt_launcher",
 						Expr:   intstr.FromString("count by(node)(node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} ) * on (node) group_left(pod) (1*(kube_pod_container_status_ready{pod=~'virt-handler-.*'} + on (pod) group_left(node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-handler-.*'} ))) or on (node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} )"),
 					},
