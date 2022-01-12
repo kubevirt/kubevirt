@@ -142,15 +142,11 @@ func (l *podNIC) setPodInterfaceCache() error {
 	}
 
 	ifCache.PodIP = ifCache.PodIPs[0]
-	podCache := cache.NewPodInterfaceCache(l.cacheCreator, string(l.vmi.UID))
-	podIfaceCache, err := podCache.IfaceEntry(l.vmiSpecIface.Name)
-	if err == nil {
-		if err = podIfaceCache.Write(ifCache); err == nil {
-			return nil
-		}
+	if err := cache.WritePodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name, ifCache); err != nil {
+		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
+		return err
 	}
-	log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
-	return err
+	return nil
 }
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
@@ -202,11 +198,7 @@ func (l *podNIC) PlugPhase1() error {
 	dhcpConfig := l.infraConfigurator.GenerateNonRecoverableDHCPConfig()
 	if dhcpConfig != nil {
 		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
-		dhcpCache := cache.NewDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID))
-		dhcpIfaceCache, err := dhcpCache.IfaceEntry(l.podInterfaceName)
-		if err == nil {
-			err = dhcpIfaceCache.Write(dhcpConfig)
-		}
+		err = cache.WriteDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.podInterfaceName, dhcpConfig)
 		if err != nil {
 			return fmt.Errorf("failed to save DHCP configuration: %w", err)
 		}
@@ -317,11 +309,7 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 
 func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 	var ifaceConfig *api.Interface
-	domainCache := cache.NewDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID))
-	domainIfaceCache, err := domainCache.IfaceEntry(l.vmiSpecIface.Name)
-	if err == nil {
-		ifaceConfig, err = domainIfaceCache.Read()
-	}
+	ifaceConfig, err := cache.ReadDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -334,21 +322,12 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 }
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
-	domainCache := cache.NewDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID))
-	domainIfaceCache, err := domainCache.IfaceEntry(l.vmiSpecIface.Name)
-	if err != nil {
-		return err
-	}
-	return domainIfaceCache.Write(&domainIface)
+	return cache.WriteDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name, &domainIface)
 }
 
 func (l *podNIC) setState(state cache.PodIfaceState) error {
 	var podIfaceCacheData *cache.PodIfaceCacheData
-	podCache := cache.NewPodInterfaceCache(l.cacheCreator, string(l.vmi.UID))
-	podIfaceCache, err := podCache.IfaceEntry(l.vmiSpecIface.Name)
-	if err == nil {
-		podIfaceCacheData, err = podIfaceCache.Read()
-	}
+	podIfaceCacheData, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name)
 	if err != nil && !os.IsNotExist(err) {
 		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache, %s", err.Error())
 		return err
@@ -357,7 +336,7 @@ func (l *podNIC) setState(state cache.PodIfaceState) error {
 		podIfaceCacheData = &cache.PodIfaceCacheData{}
 	}
 	podIfaceCacheData.State = state
-	err = podIfaceCache.Write(podIfaceCacheData)
+	err = cache.WritePodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name, podIfaceCacheData)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod interface network state to cache, %s", err.Error())
 		return err
@@ -367,11 +346,7 @@ func (l *podNIC) setState(state cache.PodIfaceState) error {
 
 func (l *podNIC) state() (cache.PodIfaceState, error) {
 	var podIfaceCacheData *cache.PodIfaceCacheData
-	podCache := cache.NewPodInterfaceCache(l.cacheCreator, string(l.vmi.UID))
-	podIfaceCache, err := podCache.IfaceEntry(l.vmiSpecIface.Name)
-	if err == nil {
-		podIfaceCacheData, err = podIfaceCache.Read()
-	}
+	podIfaceCacheData, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return defaultState, nil

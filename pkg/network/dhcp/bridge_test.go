@@ -48,9 +48,9 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			Expect(config).To(BeNil())
 		})
 		It("Should succeed with ipam", func() {
-			dhcpIfaceCache, err := cache.NewDHCPInterfaceCache(&cacheCreator, launcherPID).IfaceEntry(ifaceName)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dhcpIfaceCache.Write(&cache.DHCPConfig{IPAMDisabled: false})).To(Succeed())
+			Expect(cache.WriteDHCPInterfaceCache(
+				&cacheCreator, launcherPID, ifaceName, &cache.DHCPConfig{IPAMDisabled: false},
+			)).To(Succeed())
 
 			iface := v1.Interface{Name: "network"}
 			generator = BridgeConfigGenerator{
@@ -80,9 +80,9 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			Expect(*config).To(Equal(expectedConfig))
 		})
 		It("Should succeed with no ipam", func() {
-			dhcpIfaceCache, err := cache.NewDHCPInterfaceCache(&cacheCreator, launcherPID).IfaceEntry(ifaceName)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dhcpIfaceCache.Write(&cache.DHCPConfig{IPAMDisabled: true})).To(Succeed())
+			Expect(cache.WriteDHCPInterfaceCache(
+				&cacheCreator, launcherPID, ifaceName, &cache.DHCPConfig{IPAMDisabled: true},
+			)).To(Succeed())
 
 			generator = BridgeConfigGenerator{
 				cacheCreator:     &cacheCreator,

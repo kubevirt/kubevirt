@@ -33,6 +33,22 @@ type DHCPInterfaceCache struct {
 	cache *Cache
 }
 
+func ReadDHCPInterfaceCache(c cacheCreator, pid, ifaceName string) (*DHCPConfig, error) {
+	dhcpCache, err := NewDHCPInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+	return dhcpCache.Read()
+}
+
+func WriteDHCPInterfaceCache(c cacheCreator, pid, ifaceName string, dhcpConfig *DHCPConfig) error {
+	dhcpCache, err := NewDHCPInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return dhcpCache.Write(dhcpConfig)
+}
+
 func NewDHCPInterfaceCache(creator cacheCreator, pid string) DHCPInterfaceCache {
 	podRootFilesystemPath := fmt.Sprintf("/proc/%s/root", pid)
 	return DHCPInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir))}

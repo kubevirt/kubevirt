@@ -24,11 +24,7 @@ type BridgeConfigGenerator struct {
 }
 
 func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
-	dhcpIfaceCache, err := cache.NewDHCPInterfaceCache(d.cacheCreator, d.launcherPID).IfaceEntry(d.podInterfaceName)
-	if err != nil {
-		return nil, err
-	}
-	dhcpConfig, err := dhcpIfaceCache.Read()
+	dhcpConfig, err := cache.ReadDHCPInterfaceCache(d.cacheCreator, d.launcherPID, d.podInterfaceName)
 	if err != nil {
 		return nil, err
 	}

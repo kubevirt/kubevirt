@@ -45,6 +45,22 @@ type PodInterfaceCache struct {
 	cache *Cache
 }
 
+func ReadPodInterfaceCache(c cacheCreator, uid, ifaceName string) (*PodIfaceCacheData, error) {
+	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+	return podCache.Read()
+}
+
+func WritePodInterfaceCache(c cacheCreator, uid, ifaceName string, cacheInterface *PodIfaceCacheData) error {
+	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return podCache.Write(cacheInterface)
+}
+
 func NewPodInterfaceCache(creator cacheCreator, uid string) PodInterfaceCache {
 	const podIfaceCacheDirName = "network-info-cache"
 	return PodInterfaceCache{creator.New(filepath.Join(util.VirtPrivateDir, podIfaceCacheDirName, uid))}

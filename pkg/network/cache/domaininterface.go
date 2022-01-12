@@ -31,6 +31,22 @@ type DomainInterfaceCache struct {
 	cache *Cache
 }
 
+func ReadDomainInterfaceCache(c cacheCreator, pid, ifaceName string) (*api.Interface, error) {
+	domainCache, err := NewDomainInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+	return domainCache.Read()
+}
+
+func WriteDomainInterfaceCache(c cacheCreator, pid, ifaceName string, domainInterface *api.Interface) error {
+	domainCache, err := NewDomainInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return domainCache.Write(domainInterface)
+}
+
 func NewDomainInterfaceCache(creator cacheCreator, pid string) DomainInterfaceCache {
 	podRootFilesystemPath := fmt.Sprintf("/proc/%s/root", pid)
 	return DomainInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir))}

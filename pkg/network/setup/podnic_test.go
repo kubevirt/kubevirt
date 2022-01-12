@@ -109,10 +109,7 @@ var _ = Describe("podNIC", func() {
 			It("should return no error at phase1 and store pod interface", func() {
 				Expect(podnic.PlugPhase1()).To(Succeed())
 				var podData *cache.PodIfaceCacheData
-				podCache := cache.NewPodInterfaceCache(podnic.cacheCreator, string(vmi.UID))
-				podIfaceCache, err := podCache.IfaceEntry("default")
-				Expect(err).ToNot(HaveOccurred())
-				podData, err = podIfaceCache.Read()
+				podData, err := cache.ReadPodInterfaceCache(podnic.cacheCreator, string(vmi.UID), "default")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(podData.PodIP).To(Equal("1.2.3.4"))
 				Expect(podData.PodIPs).To(ConsistOf("1.2.3.4", "169.254.0.0"))
@@ -132,14 +129,18 @@ var _ = Describe("podNIC", func() {
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			podnic, err = newPhase2PodNICWithMocks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			dhcpCache := cache.NewDHCPInterfaceCache(podnic.cacheCreator, getPIDString(podnic.launcherPID))
-			dhcpIfaceCache, err := dhcpCache.IfaceEntry(podnic.podInterfaceName)
-			Expect(err).NotTo(HaveOccurred())
-			dhcpIfaceCache.Write(&cache.DHCPConfig{Name: podnic.podInterfaceName})
-			domainCache := cache.NewDomainInterfaceCache(podnic.cacheCreator, getPIDString(podnic.launcherPID))
-			domainIfaceCache, err := domainCache.IfaceEntry(podnic.vmiSpecIface.Name)
-			Expect(err).NotTo(HaveOccurred())
-			domainIfaceCache.Write(&domain.Spec.Devices.Interfaces[0])
+			cache.WriteDHCPInterfaceCache(
+				podnic.cacheCreator,
+				getPIDString(podnic.launcherPID),
+				podnic.podInterfaceName,
+				&cache.DHCPConfig{Name: podnic.podInterfaceName},
+			)
+			cache.WriteDomainInterfaceCache(
+				podnic.cacheCreator,
+				getPIDString(podnic.launcherPID),
+				podnic.vmiSpecIface.Name,
+				&domain.Spec.Devices.Interfaces[0],
+			)
 		})
 		Context("and starting the DHCP server fails", func() {
 			BeforeEach(func() {
