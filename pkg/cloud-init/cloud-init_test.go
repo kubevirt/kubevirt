@@ -139,6 +139,56 @@ var _ = Describe("CloudInit", func() {
 				Expect(err).To(BeNil())
 				Expect(string(buf)).To(Equal(exampleJSONParsed))
 			})
+			It("should match the generated configdrive metadata for hostdev with numaNode", func() {
+				exampleJSONParsed := `{
+  "instance_id": "fake.fake-namespace",
+  "local_hostname": "fake",
+  "uuid": "5d307ca9-b3ef-428c-8861-06e72d69f223",
+  "devices": [
+    {
+      "type": "hostdev",
+      "bus": "pci",
+      "address": "0000:65:10:0",
+      "numaNode": 1,
+      "alignedCPUs": [
+        0,
+        1
+      ],
+      "tags": [
+        "testtag1"
+      ]
+    }
+  ],
+  "public_keys": {
+    "0": "somekey"
+  }
+}`
+				devices := []DeviceData{
+					{
+						Type:        HostDevMetadataType,
+						Bus:         "pci",
+						Address:     "0000:65:10:0",
+						MAC:         "",
+						NumaNode:    uint32(1),
+						AlignedCPUs: []uint32{0, 1},
+						Tags:        []string{"testtag1"},
+					},
+				}
+
+				metadataStruct := ConfigDriveMetadata{
+					InstanceID:    "fake.fake-namespace",
+					LocalHostname: "fake",
+					UUID:          "5d307ca9-b3ef-428c-8861-06e72d69f223",
+					Devices:       &devices,
+					PublicSSHKeys: map[string]string{"0": "somekey"},
+				}
+				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
+				Expect(err).To(BeNil())
+				fmt.Println("expected: ", string(buf))
+				fmt.Println("exmapleJsob: ", exampleJSONParsed)
+
+				Expect(string(buf)).To(Equal(exampleJSONParsed))
+			})
 			It("should match the generated nocloud metadata", func() {
 				exampleJSONParsed := `{
   "instance-id": "fake.fake-namespace",

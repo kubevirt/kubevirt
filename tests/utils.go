@@ -250,6 +250,11 @@ const (
 	waitVolumeRequestProcessError = "waiting on all VolumeRequests to be processed"
 )
 
+const (
+	cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+	cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -1692,6 +1697,32 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 	}
 
 	return pods, nil
+}
+
+func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", cgroupV2cpusetPath},
+	)
+
+	if err == nil {
+		return
+	}
+
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", cgroupV1cpusetPath},
+	)
+
+	return
 }
 
 func GetRunningPodByLabel(label string, labelType string, namespace string, node string) (*k8sv1.Pod, error) {
