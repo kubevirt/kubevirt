@@ -209,6 +209,10 @@ type LiveMigrationConfigurations struct {
 	// +kubebuilder:default=150
 	// +optional
 	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
+
+	// The migrations will be performed over a dedicated multus network to minimize disruption to tenant workloads due to network saturation when VM live migrations are triggered.
+	// +optional
+	Network *string `json:"network,omitempty"`
 }
 
 // HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled

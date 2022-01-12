@@ -179,6 +179,7 @@ LiveMigrationConfigurations - Live migration limits and timeouts are applied so 
 | bandwidthPerMigration | Bandwidth limit of each migration, in MiB/s. | *string |  | false |
 | completionTimeoutPerGiB | The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included in the calculation. | *int64 | 800 | false |
 | progressTimeout | The migration will be canceled if memory copy fails to make progress in this time, in seconds. | *int64 | 150 | false |
+| network | The migrations will be performed over a dedicated multus network to minimize disruption to tenant workloads due to network saturation when VM live migrations are triggered. | *string |  | false |
 
 [Back to TOC](#table-of-contents)
 

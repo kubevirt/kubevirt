@@ -1856,6 +1856,11 @@ spec:
                       in the calculation.
                     format: int64
                     type: integer
+                  network:
+                    description: The migrations will be performed over a dedicated
+                      multus network to minimize disruption to tenant workloads due
+                      to network saturation when VM live migrations are triggered.
+                    type: string
                   parallelMigrationsPerCluster:
                     default: 5
                     description: Number of migrations running in parallel in the cluster.

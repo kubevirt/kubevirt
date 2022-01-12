@@ -248,6 +248,7 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelMigrationsPerCluster).Should(Equal(uint32(5)))
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(2)))
 			Expect(*mc.ProgressTimeout).Should(Equal(int64(150)))
+			Expect(mc.Network).Should(BeNil())
 		})
 
 		It("should find if present", func() {
@@ -326,12 +327,14 @@ Version: 1.2.3`)
 			bandwidthPerMigration := resource.MustParse("16Mi")
 			wrongNumeric64Value := int64(0)
 			wrongNumeric32Value := uint32(0)
+			network := "testNetwork"
 			existKv.Spec.Configuration.MigrationConfiguration = &kubevirtcorev1.MigrationConfiguration{
 				BandwidthPerMigration:             &bandwidthPerMigration,
 				CompletionTimeoutPerGiB:           &wrongNumeric64Value,
 				ParallelMigrationsPerCluster:      &wrongNumeric32Value,
 				ParallelOutboundMigrationsPerNode: &wrongNumeric32Value,
 				ProgressTimeout:                   &wrongNumeric64Value,
+				Network:                           &network,
 			}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
@@ -384,6 +387,7 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelMigrationsPerCluster).Should(Equal(uint32(5)))
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(2)))
 			Expect(*mc.ProgressTimeout).Should(Equal(int64(150)))
+			Expect(mc.Network).Should(BeNil())
 		})
 
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {
@@ -509,12 +513,14 @@ Version: 1.2.3`)
 			parallelOutboundMigrationsPerNode := uint32(7)
 			parallelMigrationsPerCluster := uint32(18)
 			progressTimeout := int64(5000)
+			network := "testNetwork"
 
 			hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 			hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 			hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
 			hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
 			hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
+			hco.Spec.LiveMigrationConfig.Network = &network
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -538,6 +544,7 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelOutboundMigrationsPerNode).To(Equal(parallelOutboundMigrationsPerNode))
 			Expect(*mc.ParallelMigrationsPerCluster).To(Equal(parallelMigrationsPerCluster))
 			Expect(*mc.ProgressTimeout).To(Equal(progressTimeout))
+			Expect(*mc.Network).To(Equal(network))
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -2655,6 +2662,7 @@ Version: 1.2.3`)
 		parallelMigrationsPerCluster := uint32(100)
 		parallelOutboundMigrationsPerNode := uint32(100)
 		progressTimeout := int64(100)
+		network := "testNetwork"
 
 		It("should create valid KV LM config from a valid HC LM config", func() {
 			lmc := hcov1beta1.LiveMigrationConfigurations{
@@ -2663,6 +2671,7 @@ Version: 1.2.3`)
 				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
+				Network:                           &network,
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).ToNot(HaveOccurred())
@@ -2672,6 +2681,7 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
 			Expect(*mc.ProgressTimeout).Should(Equal(progressTimeout))
+			Expect(*mc.Network).Should(Equal(network))
 		})
 
 		It("should create valid empty KV LM config from a valid empty HC LM config", func() {
@@ -2684,6 +2694,7 @@ Version: 1.2.3`)
 			Expect(mc.ParallelMigrationsPerCluster).Should(BeNil())
 			Expect(mc.ParallelOutboundMigrationsPerNode).Should(BeNil())
 			Expect(mc.ProgressTimeout).Should(BeNil())
+			Expect(mc.Network).Should(BeNil())
 		})
 
 		It("should return error if the value of the BandwidthPerMigration field is not valid", func() {
@@ -2694,6 +2705,7 @@ Version: 1.2.3`)
 				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
+				Network:                           &network,
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).To(HaveOccurred())

@@ -212,6 +212,12 @@ The migration will be canceled if memory copy fails to make progress in this tim
 
 **default**: 150
 
+### network
+
+The name of a [Multus](https://github.com/k8snetworkplumbingwg/multus-cni) network attachment definition to be dedicated to live migrations to minimize disruption to tenant workloads due to network saturation when VM live migrations are triggered. The format is a string.
+
+**default**: unset
+
 ### Example
 
 ```yaml
@@ -222,6 +228,7 @@ metadata:
 spec:
   liveMigrationConfig:
     completionTimeoutPerGiB: 800
+    network: migration-network
     parallelMigrationsPerCluster: 5
     parallelOutboundMigrationsPerNode: 2
     progressTimeout: 150
