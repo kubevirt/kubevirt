@@ -642,6 +642,22 @@ $ kubectl get hco -n kubevirt-hyperconverged  kubevirt-hyperconverged -o json \
 }
 ```
 
+##### Kubevirt Feature Gates
+The user wants to enable experimental Kubevirt features
+```yaml
+metadata:
+  annotations:
+    kubevirt.kubevirt.io/jsonpatch: |-
+      [
+        {
+          "op":"add",
+          "path":"/spec/configuration/developerConfiguration/featureGates/-",
+          "value":"CPUManager"
+        }
+      ]
+```
+
+
 ##### Higher Log Verbosity
 The user wants to configure kubevirt pods to log more verbosely
 ```yaml
