@@ -25,7 +25,6 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -198,7 +197,7 @@ func NewController(
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state", clusterConfig),
-		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(virtPrivateDir + "/hotplug-volume-mount-state"),
 		clusterConfig:               clusterConfig,
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,
@@ -753,7 +752,11 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
-		if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
+		mounted, err := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID)
+		if err != nil {
+			log.Log.Object(vmi).Errorf("error occurred while checking if volume is mounted: %v", err)
+		}
+		if mounted {
 			if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
 				log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
 				// mounted, and still in spec, and in phase we can change, update status to mounted.
@@ -2796,20 +2799,17 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 }
 
 func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	isoRes, err := d.podIsolationDetector.Detect(vmi)
+	cgroupManager, err := cgroup.NewManagerFromVM(vmi)
 	if err != nil {
 		return err
 	}
 
-	rootPath := "/proc/1/root"
-	cpuSetPath := cgroup.CPUSetPath(isoRes.Slice())
-	cpusetFilePath := filepath.Join(rootPath, cpuSetPath)
-	cpuSetStr, err := ioutil.ReadFile(cpusetFilePath)
+	cpusetStr, err := cgroupManager.GetCpuSet()
 	if err != nil {
-		return fmt.Errorf("failed to read target VMI cpuset: %v", err)
+		return err
 	}
 
-	cpuSet, err := hardware.ParseCPUSetLine(strings.TrimSpace(string(cpuSetStr)), 50000)
+	cpuSet, err := hardware.ParseCPUSetLine(cpusetStr, 50000)
 	if err != nil {
 		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
 	}
@@ -2826,6 +2826,5 @@ func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 		return err
 	}
 	vmi.Status.MigrationState.TargetNodeTopology = string(topology)
-
 	return nil
 }

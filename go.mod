@@ -88,7 +88,6 @@ replace (
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 	github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega => github.com/onsi/gomega v1.10.1
-	github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.0-rc92
 	github.com/opencontainers/selinux => github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47

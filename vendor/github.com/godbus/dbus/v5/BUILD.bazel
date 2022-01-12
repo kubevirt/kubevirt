@@ -24,6 +24,8 @@ go_library(
         "match.go",
         "message.go",
         "object.go",
+        "sequence.go",
+        "sequential_handler.go",
         "server_interfaces.go",
         "sig.go",
         "transport_darwin.go",

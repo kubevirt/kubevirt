@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
@@ -3278,6 +3280,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			workerLabel   = "node-role.kubernetes.io/worker"
 			testLabel1    = "kubevirt.io/testlabel1"
 			testLabel2    = "kubevirt.io/testlabel2"
+			cgroupVersion cgroup.CgroupVersion
 		)
 
 		parseVCPUPinOutput := func(vcpuPinOutput string) []int {
@@ -3317,10 +3320,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		}
 
 		getPodCPUSet := func(pod *k8sv1.Pod) []int {
+
+			var cpusetPath string
+			if cgroupVersion == cgroup.V2 {
+				cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+			} else {
+				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+			}
+
 			stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient,
 				pod,
 				"compute",
-				[]string{"cat", "/sys/fs/cgroup/cpuset/cpuset.cpus"})
+				[]string{"cat", cpusetPath})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stderr).To(BeEmpty())
 
@@ -3422,6 +3433,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			By("determining cgroups version")
+			cgroupVersion = tests.GetVMIsCgroupVersion(vmi, virtClient)
 
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
