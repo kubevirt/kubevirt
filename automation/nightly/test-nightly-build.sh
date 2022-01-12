@@ -24,6 +24,7 @@ git clone https://github.com/kubevirt/kubevirt.git
 (cd kubevirt; git checkout "${latest_kubevirt_commit}")
 go mod edit -replace kubevirt.io/client-go=./kubevirt/staging/src/kubevirt.io/client-go
 go mod edit -replace kubevirt.io/api=./kubevirt/staging/src/kubevirt.io/api
+go mod edit -replace kubevirt.io/containerized-data-importer-api=$(grep "kubevirt.io/containerized-data-importer-api v" go.mod | xargs | sed "s/ /@/g")
 go mod vendor
 
 # set envs
