@@ -3165,6 +3165,74 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	})
 
+	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", func() {
+		var originalKV *v1.KubeVirt
+
+		BeforeEach(func() {
+			kv := util.GetCurrentKv(virtClient)
+			originalKV = kv.DeepCopy()
+
+			evictionStrategy := v1.EvictionStrategyLiveMigrate
+			kv.Spec.Configuration.EvictionStrategy = &evictionStrategy
+			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+		})
+
+		AfterEach(func() {
+			tests.UpdateKubeVirtConfigValueAndWait(originalKV.Spec.Configuration)
+		})
+
+		Context("with a VMI running", func() {
+			Context("with no eviction strategy set", func() {
+				It("should block the eviction api and migrate", func() {
+					// no EvictionStrategy set
+					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+					vmiNodeOrig := vmi.Status.NodeName
+					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+
+					By("Ensuring the VMI has migrated and lives on another node")
+					Eventually(func() error {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+
+						if vmi.Status.NodeName == vmiNodeOrig {
+							return fmt.Errorf("VMI is still on the same node")
+						}
+
+						if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
+							return fmt.Errorf("VMI did not migrate yet")
+						}
+
+						if vmi.Status.EvacuationNodeName != "" {
+							return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
+						}
+
+						return nil
+					}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+					resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
+				})
+			})
+
+			Context("with eviction strategy set to 'None'", func() {
+				It("The VMI should get evicted", func() {
+					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					evictionStrategy := v1.EvictionStrategyNone
+					vmi.Spec.EvictionStrategy = &evictionStrategy
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+		})
+	})
+
 	Context("[Serial] With Huge Pages", func() {
 		var hugepagesVmi *v1.VirtualMachineInstance
 
