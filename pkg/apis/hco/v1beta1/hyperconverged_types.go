@@ -283,6 +283,20 @@ type MediatedHostDevice struct {
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+	// +optional
+	// +listType=atomic
+	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
+}
+
+// NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+// +k8s:openapi-gen=true
+type NodeMediatedDeviceTypesConfig struct {
+	// NodeSelector is a selector which must be true for the vmi to fit on a node.
+	// Selector which must match a node's labels for the vmi to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	NodeSelector map[string]string `json:"nodeSelector"`
+	// +listType=atomic
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes"`
 }
 
 // OperandResourceRequirements is a list of resource requirements for the operand workloads pods

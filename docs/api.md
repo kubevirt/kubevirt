@@ -20,6 +20,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
 * [MediatedDevicesConfiguration](#mediateddevicesconfiguration)
 * [MediatedHostDevice](#mediatedhostdevice)
+* [NodeMediatedDeviceTypesConfig](#nodemediateddevicetypesconfig)
 * [OperandResourceRequirements](#operandresourcerequirements)
 * [PciHostDevice](#pcihostdevice)
 * [PermittedHostDevices](#permittedhostdevices)
@@ -188,6 +189,7 @@ MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, i
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | mediatedDevicesTypes |  | []string |  | false |
+| nodeMediatedDeviceTypes |  | [][NodeMediatedDeviceTypesConfig](#nodemediateddevicetypesconfig) |  | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -201,6 +203,17 @@ MediatedHostDevice represents a host mediated device allowed for passthrough
 | resourceName | name by which a device is advertised and being requested | string |  | true |
 | externalResourceProvider | indicates that this resource is being provided by an external device plugin | bool |  | false |
 | disabled | HCO enforces the existence of several MediatedHostDevice objects. Set disabled field to true instead of remove these objects. | bool |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## NodeMediatedDeviceTypesConfig
+
+NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| nodeSelector | NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ | map[string]string |  | true |
+| mediatedDevicesTypes |  | []string |  | true |
 
 [Back to TOC](#table-of-contents)
 

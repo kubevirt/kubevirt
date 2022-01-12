@@ -580,6 +580,58 @@ Version: 1.2.3`)
 				Expect(mdevConf.MediatedDevicesTypes).To(ContainElements("nvidia-222", "nvidia-230"))
 
 			})
+			It("should propagate the mediated devices configuration from the HC with node selectors", func() {
+				existKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.MediatedDevicesConfiguration = &hcov1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []hcov1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				mdevConf := foundResource.Spec.Configuration.MediatedDevicesConfiguration
+				Expect(mdevConf).ToNot(BeNil())
+				Expect(mdevConf.MediatedDevicesTypes).To(HaveLen(2))
+				Expect(mdevConf.MediatedDevicesTypes).To(ContainElements("nvidia-222", "nvidia-230"))
+				Expect(mdevConf.NodeMediatedDeviceTypes).To(HaveLen(2))
+				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDevicesTypes).To(ContainElements("nvidia-223"))
+				Expect(mdevConf.NodeMediatedDeviceTypes[0].NodeSelector).To(HaveKeyWithValue("testLabel1", "true"))
+				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDevicesTypes).To(ContainElements("nvidia-229"))
+				Expect(mdevConf.NodeMediatedDeviceTypes[1].NodeSelector).To(HaveKeyWithValue("testLabel2", "true"))
+
+			})
 			It("should update the permitted host devices configuration from the HC", func() {
 				existKv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())

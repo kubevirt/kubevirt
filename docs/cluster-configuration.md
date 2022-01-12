@@ -249,9 +249,38 @@ spec:
       - i915-GVTg_V5_4
 ```
 
+Administrators are able to expand the mediatedDevicesConfiguration API to allow a more specific per-node configuration, using
+NodeSelectors to target a sepcific node.
+
+
+### Example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  mediatedDevicesConfiguration:
+    mediatedDevicesTypes:
+      - nvidia-222
+      - nvidia-228
+      - i915-GVTg_V5_4
+    nodeMediatedDevices:
+      - nodeSelector:
+        someLabel1: ""
+        mediatedDevicesTypes:
+        - nvidia-222
+      - nodeSelector:
+        kubernetes.io/hostname=nodeName
+        mediatedDevicesTypes:
+        - nvidia-228
+```
+
 This API will facilitate the creation of mediated devices types on cluster
 nodes. However, administrators are expected to use the PermittedHostDevices API
 to allow these devices in the cluster.
+
 
 
 ## Listing Permitted Host Devices

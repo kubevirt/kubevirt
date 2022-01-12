@@ -357,8 +357,24 @@ func toKvMediatedDevicesConfiguration(mdevsConfig *hcov1beta1.MediatedDevicesCon
 	}
 
 	return &kubevirtcorev1.MediatedDevicesConfiguration{
-		MediatedDevicesTypes: mdevsConfig.MediatedDevicesTypes,
+		MediatedDevicesTypes:    mdevsConfig.MediatedDevicesTypes,
+		NodeMediatedDeviceTypes: toKvNodeMediatedDevicesConfiguration(mdevsConfig.NodeMediatedDeviceTypes),
 	}
+}
+
+func toKvNodeMediatedDevicesConfiguration(hcoNodeMdevTypesConf []hcov1beta1.NodeMediatedDeviceTypesConfig) []kubevirtcorev1.NodeMediatedDeviceTypesConfig {
+	if len(hcoNodeMdevTypesConf) > 0 {
+		nodeMdevTypesConf := make([]kubevirtcorev1.NodeMediatedDeviceTypesConfig, 0, len(hcoNodeMdevTypesConf))
+		for _, hcoNodeMdevTypeConf := range hcoNodeMdevTypesConf {
+			nodeMdevTypesConf = append(nodeMdevTypesConf, kubevirtcorev1.NodeMediatedDeviceTypesConfig{
+				NodeSelector:         hcoNodeMdevTypeConf.NodeSelector,
+				MediatedDevicesTypes: hcoNodeMdevTypeConf.MediatedDevicesTypes,
+			})
+		}
+		return nodeMdevTypesConf
+	}
+
+	return nil
 }
 
 func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtcorev1.PermittedHostDevices {
