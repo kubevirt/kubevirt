@@ -29,8 +29,6 @@ import (
 
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
 type KubeVirtTestsConfiguration struct {
-	// StorageClass to use to create local PVCs
-	StorageClassLocal string `json:"storageClassLocal"`
 	// StorageClass to use to create rhel PVCs
 	StorageClassRhel string `json:"storageClassRhel"`
 	// StorageClass to use to create windows PVCs

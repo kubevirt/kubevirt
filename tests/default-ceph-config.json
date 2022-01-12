@@ -1,5 +1,4 @@
 {
-    "storageClassLocal":       "rook-ceph-block",
     "storageClassRhel":        "rook-ceph-block",
     "storageClassWindows":     "rook-ceph-block",
     "storageRWXBlock":         "rook-ceph-block",

@@ -1,5 +1,4 @@
 {
-    "storageClassLocal":       "local",
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
     "storageRWOFileSystem":    "local"

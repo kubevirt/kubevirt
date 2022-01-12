@@ -416,11 +416,6 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	createAndStartWFFCStorageHotplugVM := func() *v1.VirtualMachine {
-		hasWffc := tests.HasBindingModeWaitForFirstConsumer()
-		if !hasWffc {
-			Skip("Skip no local wffc storage class available")
-		}
-
 		template := libvmi.NewCirros()
 		vm := createVirtualMachine(true, template)
 		Eventually(func() bool {
@@ -508,8 +503,10 @@ var _ = SIGDescribe("Hotplug", func() {
 		var (
 			vm *v1.VirtualMachine
 		)
+		storageClassLocal := "local"
 
 		BeforeEach(func() {
+
 			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			// Verify we have at least 3 available file system PVs
@@ -526,6 +523,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			if count < 3 {
 				Skip("Not enough available filesystem local storage PVs available")
 			}
+			if !tests.IsStorageClassBindingModeWaitForFirstConsumer(storageClassLocal) {
+				Skip("Skip no local wffc storage class available")
+			}
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
@@ -536,7 +536,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dvNames := make([]string, 0)
 			for i := 0; i < 3; i++ {
-				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, storageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				dvNames = append(dvNames, dv.Name)
@@ -1085,7 +1085,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 120)
 
 		It("should allow adding and removing hotplugged volumes", func() {
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			sc, exists := tests.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip no filesystem storage class available")
+			}
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
@@ -1162,9 +1166,15 @@ var _ = SIGDescribe("Hotplug", func() {
 	Context("virtctl", func() {
 		var (
 			vm *v1.VirtualMachine
+			sc string
 		)
 
 		BeforeEach(func() {
+			var exists bool
+			sc, exists = tests.GetStorageClassWithBindingModeWaitForFirstConsumer()
+			if !exists {
+				Skip("Skip no wffc storage class available")
+			}
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
@@ -1172,7 +1182,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 			Eventually(func() error {
@@ -1201,7 +1211,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 			Eventually(func() error {

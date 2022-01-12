@@ -2030,11 +2030,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	dv := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	if HasBindingModeWaitForFirstConsumer() {
-		Eventually(ThisDV(dv), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
-	} else {
-		Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
-	}
+	Eventually(ThisDV(dv), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
@@ -2118,7 +2114,14 @@ func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 }
 
 func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, Config.StorageClassLocal, "1Gi", accessMode)
+	sc, exists := GetRWOFileSystemStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, exists = GetRWXFileSystemStorageClass()
+	}
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
+	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
 }
 
 func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -3844,7 +3847,7 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
-	storageClass := Config.StorageClassLocal
+	storageClass := "local"
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
@@ -3878,7 +3881,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 
-	storageClass := Config.StorageClassLocal
+	storageClass := "local"
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -4279,20 +4282,37 @@ func VolumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
-func HasBindingModeWaitForFirstConsumer() bool {
+func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	sc, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		return false
-	}
 	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
 	if err != nil {
 		return false
 	}
 	return storageClass.VolumeBindingMode != nil &&
 		*storageClass.VolumeBindingMode == wffc
+}
+
+func GetStorageClassWithBindingModeWaitForFirstConsumer() (string, bool) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+
+	storageClassList, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	wffcStorageClass := ""
+	for _, storageClass := range storageClassList.Items {
+		isWFFC := storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == wffc
+		if !isWFFC {
+			continue
+		}
+		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			return storageClass.Name, true
+		}
+		wffcStorageClass = storageClass.Name
+	}
+
+	return wffcStorageClass, wffcStorageClass != ""
 }
 
 func GetSnapshotStorageClass() (string, bool) {
