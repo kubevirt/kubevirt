@@ -29,6 +29,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
+	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
+
 	kvv1 "kubevirt.io/api/core/v1"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
@@ -43,9 +46,11 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
+		startTime  time.Time
+		endTime    time.Time
 	)
-
 	BeforeEach(func() {
+		startTime = time.Now()
 		skipIfNoPerformanceTests()
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
@@ -55,6 +60,8 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	AfterEach(func() {
 		// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s
 		time.Sleep(30 * time.Second)
+		endTime = time.Now()
+		runAudit(startTime, endTime)
 	})
 
 	Describe("Density test", func() {
@@ -72,6 +79,26 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		})
 	})
 })
+
+func runAudit(startTime time.Time, endTime time.Time) {
+	prometheusPort := 30007
+	duration := audit_api.Duration(endTime.Sub(startTime))
+	inputCfg := &audit_api.InputConfig{
+		PrometheusURL: fmt.Sprintf("http://127.0.0.1:%v", prometheusPort),
+		StartTime:     &startTime,
+		EndTime:       &endTime,
+		Duration:      &duration,
+	}
+
+	metricClient, err := metric_client.NewMetricClient(inputCfg)
+	Expect(err).ToNot(HaveOccurred())
+
+	result, err := metricClient.GenerateResults()
+	Expect(err).ToNot(HaveOccurred())
+
+	err = result.DumpToStdout()
+	Expect(err).ToNot(HaveOccurred())
+}
 
 // createBatchVMIWithRateControl creates a batch of vms concurrently, uses one goroutine for each creation.
 // between creations there is an interval for throughput control
