@@ -76,7 +76,7 @@ metadata:
   name: ${namespace:?}
 EOF
 
-if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
+if [[ "$KUBEVIRT_PROVIDER" =~ kind.* || "$KUBEVIRT_PROVIDER" = "external" ]]; then
     # Don't install CDI and loopback devices it's crashing with dind because loopback devices are shared with the host
     export KUBEVIRT_DEPLOY_CDI=false
 fi
