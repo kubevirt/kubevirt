@@ -426,6 +426,32 @@ var _ = SIGDescribe("Hotplug", func() {
 		return vm
 	}
 
+	checkNoProvisionerStorageClassPVs := func(storageClassName string) {
+		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
+			return
+		}
+
+		// Verify we have at least 3 available file system PVs
+		pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		count := 0
+		for _, pv := range pvList.Items {
+			if pv.Spec.StorageClassName != storageClassName || pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == corev1.PersistentVolumeBlock) {
+				// Not a local volume filesystem PV
+				continue
+			}
+			if pv.Spec.ClaimRef == nil {
+				count++
+			}
+		}
+		if count < 3 {
+			Skip("Not enough available filesystem local storage PVs available")
+		}
+	}
+
 	verifyHotplugAttachedAndUseable := func(vmi *v1.VirtualMachineInstance, names []string) []string {
 		targets := getTargetsFromVolumeStatus(vmi, names...)
 		for _, target := range targets {
@@ -502,30 +528,17 @@ var _ = SIGDescribe("Hotplug", func() {
 	Context("WFFC storage", func() {
 		var (
 			vm *v1.VirtualMachine
+			sc string
 		)
-		storageClassLocal := "local"
 
 		BeforeEach(func() {
+			var exists bool
+			sc, exists = tests.GetRWOFileSystemStorageClass()
+			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				Skip("Skip no wffc storage class available")
+			}
+			checkNoProvisionerStorageClassPVs(sc)
 
-			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			// Verify we have at least 3 available file system PVs
-			count := 0
-			for _, pv := range pvList.Items {
-				if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == corev1.PersistentVolumeBlock) {
-					// Not a local volume filesystem PV
-					continue
-				}
-				if pv.Spec.ClaimRef == nil {
-					count++
-				}
-			}
-			if count < 3 {
-				Skip("Not enough available filesystem local storage PVs available")
-			}
-			if !tests.IsStorageClassBindingModeWaitForFirstConsumer(storageClassLocal) {
-				Skip("Skip no local wffc storage class available")
-			}
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
@@ -536,7 +549,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dvNames := make([]string, 0)
 			for i := 0; i < 3; i++ {
-				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, storageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				dvNames = append(dvNames, dv.Name)
@@ -1171,8 +1184,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			var exists bool
-			sc, exists = tests.GetStorageClassWithBindingModeWaitForFirstConsumer()
-			if !exists {
+			sc, exists = tests.GetRWOFileSystemStorageClass()
+			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				Skip("Skip no wffc storage class available")
 			}
 			vm = createAndStartWFFCStorageHotplugVM()
