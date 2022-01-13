@@ -23,14 +23,14 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/tools v0.1.7
-	k8s.io/api v0.22.4
+	k8s.io/api v0.23.0
 	k8s.io/apiextensions-apiserver v0.22.4
-	k8s.io/apimachinery v0.22.4
+	k8s.io/apimachinery v0.23.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 	kubevirt.io/api v0.49.0-rc.0
-	kubevirt.io/containerized-data-importer-api v1.42.1
-	kubevirt.io/controller-lifecycle-operator-sdk v0.2.2
+	kubevirt.io/containerized-data-importer-api v1.43.0
+	kubevirt.io/controller-lifecycle-operator-sdk v0.2.3
 	kubevirt.io/ssp-operator v0.13.0-rc.2
 	sigs.k8s.io/controller-runtime v0.10.3
 	sigs.k8s.io/controller-tools v0.7.0

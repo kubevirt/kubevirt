@@ -134,6 +134,7 @@ func (DataVolumeSourceRef) SwaggerDoc() map[string]string {
 func (DataVolumeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "DataVolumeStatus contains the current status of the DataVolume",
+		"claimName":    "ClaimName is the name of the underlying PVC used by the DataVolume.",
 		"phase":        "Phase is the current phase of the data volume",
 		"restartCount": "RestartCount is the number of times the pod populating the DataVolume has restarted",
 	}
@@ -193,7 +194,7 @@ func (StorageProfileList) SwaggerDoc() map[string]string {
 
 func (DataSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataSource references an import/clone source for a DataVolume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+		"": "DataSource references an import/clone source for a DataVolume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=das,categories=all",
 	}
 }
 
@@ -238,7 +239,7 @@ func (DataSourceList) SwaggerDoc() map[string]string {
 
 func (DataImportCron) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+		"": "DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=dic;dics,categories=all",
 	}
 }
 
