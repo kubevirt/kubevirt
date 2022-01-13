@@ -3866,7 +3866,10 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
-	storageClass := "local"
+	storageClass, exists := GetRWOFileSystemStorageClass()
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
@@ -3900,7 +3903,10 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 
-	storageClass := "local"
+	storageClass, exists := GetRWOFileSystemStorageClass()
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -4301,6 +4307,15 @@ func VolumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
+func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
+	annotations := dv.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
+	dv.SetAnnotations(annotations)
+}
+
 func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
@@ -4310,28 +4325,6 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	}
 	return storageClass.VolumeBindingMode != nil &&
 		*storageClass.VolumeBindingMode == wffc
-}
-
-func GetStorageClassWithBindingModeWaitForFirstConsumer() (string, bool) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-
-	storageClassList, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	wffcStorageClass := ""
-	for _, storageClass := range storageClassList.Items {
-		isWFFC := storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == wffc
-		if !isWFFC {
-			continue
-		}
-		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			return storageClass.Name, true
-		}
-		wffcStorageClass = storageClass.Name
-	}
-
-	return wffcStorageClass, wffcStorageClass != ""
 }
 
 func GetSnapshotStorageClass() (string, bool) {
