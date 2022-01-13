@@ -21,9 +21,11 @@ package virthandler
 
 import (
 	"context"
+	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -33,6 +35,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/config"
 
@@ -55,6 +59,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -691,6 +696,19 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.migrationIpAddress, portsStrList))
 			vmiCopy.Status.MigrationState.TargetNodeAddress = d.migrationIpAddress
 			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
+		}
+
+		// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
+		// via the VMI migration status in order to patch the domain pre migration
+		if vmi.IsCPUDedicated() {
+			err := d.reportDedicatedCPUSetForMigratingVMI(vmiCopy)
+			if err != nil {
+				return err
+			}
+			err = d.reportTargetTopologyForMigratingVMI(vmiCopy)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -2775,4 +2793,39 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 		}
 	}
 	return false
+}
+
+func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
+	isoRes, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	rootPath := "/proc/1/root"
+	cpuSetPath := cgroup.CPUSetPath(isoRes.Slice())
+	cpusetFilePath := filepath.Join(rootPath, cpuSetPath)
+	cpuSetStr, err := ioutil.ReadFile(cpusetFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read target VMI cpuset: %v", err)
+	}
+
+	cpuSet, err := hardware.ParseCPUSetLine(strings.TrimSpace(string(cpuSetStr)), 50000)
+	if err != nil {
+		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
+	}
+
+	vmi.Status.MigrationState.TargetCPUSet = cpuSet
+
+	return nil
+}
+
+func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, map[string]*containerdisk.DiskInfo{}, d.clusterConfig.ExpandDisksEnabled())
+	topology, err := json.Marshal(options.Topology)
+	if err != nil {
+		return err
+	}
+	vmi.Status.MigrationState.TargetNodeTopology = string(topology)
+
+	return nil
 }

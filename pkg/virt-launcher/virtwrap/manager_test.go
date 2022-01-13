@@ -21,6 +21,7 @@ package virtwrap
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -2107,6 +2108,7 @@ var _ = Describe("migratableDomXML", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockDomain.EXPECT().Free()
 	})
 	It("should remove only the kubevirt migration metadata", func() {
 		domXML := `<domain type="kvm" id="1">
@@ -2159,12 +2161,95 @@ var _ = Describe("migratableDomXML", func() {
   </metadata>
   <kubevirt><migration>this should stay</migration></kubevirt>
 </domain>`
-		mockDomain.EXPECT().Free()
 		vmi := newVMI("testns", "kubevirt")
-		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(string(domXML), nil)
-		newXML, err := migratableDomXML(mockDomain, vmi)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domain := &api.Domain{}
+		err := xml.Unmarshal([]byte(domXML), domain)
+		Expect(err).NotTo(HaveOccurred())
+		newXML, err := migratableDomXML(mockDomain, vmi, &domain.Spec)
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
+	})
+	It("should change CPU pinning according to migration metadata", func() {
+		domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      <migration>
+         <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+         <failed>false</failed>
+      </migration>
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <vcpu placement="static">2</vcpu>
+  <cputune>
+    <vcpupin vcpu="0" cpuset="4"></vcpupin>
+    <vcpupin vcpu="1" cpuset="5"></vcpupin>
+  </cputune>
+</domain>`
+		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <vcpu placement="static">2</vcpu>
+  <cputune>
+    <vcpupin vcpu="0" cpuset="6"></vcpupin>
+    <vcpupin vcpu="1" cpuset="7"></vcpupin>
+  </cputune>
+</domain>`
+
+		By("creating a VMI with dedicated CPU cores")
+		vmi := newVMI("testns", "kubevirt")
+		vmi.Spec.Domain.CPU = &v1.CPU{
+			Cores:                 2,
+			DedicatedCPUPlacement: true,
+		}
+
+		By("making up a target topology")
+		topology := &cmdv1.Topology{NumaCells: []*cmdv1.Cell{{
+			Id: 0,
+			Cpus: []*cmdv1.CPU{
+				{
+					Id:       6,
+					Siblings: []uint32{6},
+				},
+				{
+					Id:       7,
+					Siblings: []uint32{7},
+				},
+			},
+		}}}
+		targetNodeTopology, err := json.Marshal(topology)
+		Expect(err).NotTo(HaveOccurred(), "failed to marshall the topology")
+
+		By("saving that topology in the migration state of the VMI")
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetCPUSet:       []int{6, 7},
+			TargetNodeTopology: string(targetNodeTopology),
+		}
+
+		By("generated the domain XML for a migration to that target")
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domain := &api.Domain{}
+		err = xml.Unmarshal([]byte(domXML), domain)
+		Expect(err).NotTo(HaveOccurred())
+		newXML, err := migratableDomXML(mockDomain, vmi, &domain.Spec)
+		Expect(err).To(BeNil(), "failed to generate target domain XML")
+
+		By("ensuring the generated XML is accurate")
+		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
 	})
 })
 
