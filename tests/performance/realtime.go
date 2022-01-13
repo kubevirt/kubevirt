@@ -81,7 +81,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 	})
 
 	It("running cyclictest and collecting results directly from VM", func() {
-		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
+		vmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
 		byConfiguringTheVMIForRealtime(vmi, "")
 		byStartingTheVMI(vmi, virtClient)
 		By("validating VMI is up and running")

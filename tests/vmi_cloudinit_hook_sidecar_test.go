@@ -94,7 +94,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#FAKE")
+		vmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#FAKE")
 		vmi.ObjectMeta.Annotations = map[string]string{
 			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, flags.KubeVirtUtilityVersionTag),
 		}

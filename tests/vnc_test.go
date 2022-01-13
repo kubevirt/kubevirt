@@ -58,7 +58,7 @@ var _ = Describe("[Serial][rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.
 			util.PanicOnError(err)
 
 			tests.BeforeTestCleanup()
-			vmi = tests.NewRandomVMI()
+			vmi = tests.NewVMI()
 			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})

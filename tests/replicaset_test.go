@@ -114,7 +114,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 	}
 
 	newReplicaSetWithTemplate := func(template *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceReplicaSet {
-		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(0))
+		newRS := tests.NewReplicaSetFromVMI(template, int32(0))
 		newRS, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
 		return newRS
@@ -122,7 +122,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		template := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		return newReplicaSetWithTemplate(template)
 	}
 
@@ -149,8 +149,8 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 
 	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
 		tests.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
-		template := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
+		template := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+		newRS := tests.NewReplicaSetFromVMI(template, int32(1))
 		newRS, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(startScale), int32(startScale), int32(startScale))
@@ -405,7 +405,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 
 	It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
 		By("Creating new replica set")
-		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		template := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		var gracePeriod int64 = 200
 		template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 		rs := newReplicaSetWithTemplate(template)

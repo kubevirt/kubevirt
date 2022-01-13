@@ -79,7 +79,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 	})
 	It("[test_id:6225]Should catch the IO error event", func() {
 		By("Creating VMI with faulty disk")
-		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
+		vmi := tests.NewVMIWithPVC(pvc.Name)
 		Eventually(func() error {
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

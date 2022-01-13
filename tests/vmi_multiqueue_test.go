@@ -61,7 +61,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 		})
 
 		It("[test_id:4599]should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := tests.NewFedoraVMIWithGuestAgent()
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
@@ -82,7 +82,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 		})
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),

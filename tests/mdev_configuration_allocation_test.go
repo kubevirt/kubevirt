@@ -121,7 +121,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		It("Should successfully passthrough a mediated device", func() {
 
 			By("Creating a Fedora VMI")
-			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.NewFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{
@@ -152,7 +152,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		It("Should successfully passthrough a mediated device with a disabled display", func() {
 			_false := false
 			By("Creating a Fedora VMI")
-			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.NewFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{
@@ -202,7 +202,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			tests.AddLabelToNode(singleNode.Name, "mdevTestLabel1", "true")
 
 			By("Creating a Fedora VMI")
-			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.NewFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{

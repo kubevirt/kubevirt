@@ -50,7 +50,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
+			vmi = tests.NewVMI()
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
@@ -99,7 +99,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
+			vmi = tests.NewVMI()
 
 			kv := util.GetCurrentKv(virtClient)
 			kvConfiguration = kv.Spec.Configuration

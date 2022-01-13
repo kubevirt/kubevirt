@@ -68,7 +68,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				config.SELinuxLauncherType = "container_t"
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
 				// the `virt_launcher.process` selinux context
@@ -147,7 +147,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				config.SELinuxLauncherType = superPrivilegedType
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -177,7 +177,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				config.SELinuxLauncherType = launcherType
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -219,7 +219,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		It("[test_id:4300]has precisely the documented extra capabilities relative to a regular user pod", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

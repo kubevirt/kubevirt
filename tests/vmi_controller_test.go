@@ -27,7 +27,7 @@ var _ = Describe("[sig-compute]Controller devices", func() {
 
 	Context("with ephemeral disk", func() {
 		table.DescribeTable("a scsi controller", func(enabled bool) {
-			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			randomVMI := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			randomVMI.Spec.Domain.Devices.DisableHotplug = !enabled
 			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())

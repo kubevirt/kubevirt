@@ -49,7 +49,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
 	Describe("[rfe_id:609]Creating a VirtualMachineInstance", func() {
@@ -104,7 +104,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 			})
 
 			It("[test_id:713]should have more memory on pod when headless", func() {
-				normalVmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				normalVmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)

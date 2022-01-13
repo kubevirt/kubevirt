@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 
 	virtioFsVM := func() *v1.VirtualMachineInstance {
 		name := "test"
-		return tests.NewRandomVMIWithPVCFS(name)
+		return tests.NewVMIWithPVCFS(name)
 	}
 
 	table.DescribeTable("should cause fail in creating of vmi with", func(createVMI func() *v1.VirtualMachineInstance, neededFeature, feature string) {
@@ -67,7 +67,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		It("Fails if can't be tested", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 
 			tests.WaitForSuccessfulVMIStart(vmi)

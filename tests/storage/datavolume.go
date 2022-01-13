@@ -110,7 +110,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if !volumeExpansionAllowed {
 				Skip("Skip when volume expansion storage class not available")
 			}
-			vmi, dataVolume := tests.NewRandomVirtualMachineInstanceWithDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, volumeMode)
+			vmi, dataVolume := tests.NewVirtualMachineInstanceWithDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, volumeMode)
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
 
@@ -189,13 +189,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				pvName := createNFSPvAndPvc(ipProtocol, nfsPod)
 
 				// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
-				dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				dv := tests.NewDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
 
-				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
+				vmi := tests.NewVMIWithDataVolume(dv.Name)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
@@ -224,8 +224,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				dataVolume := tests.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewVMIWithDataVolume(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
@@ -260,8 +260,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dvs := make([]*cdiv1.DataVolume, 0, numVmis)
 
 				for idx := 0; idx < numVmis; idx++ {
-					dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+					dataVolume := tests.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					vmi := tests.NewVMIWithDataVolume(dataVolume.Name)
 
 					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
@@ -284,8 +284,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+				dataVolume := tests.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewVMIWithPVC(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
@@ -334,7 +334,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 
-				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				dv := tests.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
@@ -347,7 +347,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				}, 30).Should(Not(BeNil()))
 
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 
 				diskName := "disk0"
 				bus := "virtio"
@@ -370,7 +370,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := tests.NewVirtualMachine(vmi, true)
 				dvt := &v1.DataVolumeTemplateSpec{
 					ObjectMeta: dv.ObjectMeta,
 					Spec:       dv.Spec,
@@ -380,7 +380,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
-				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				dv := tests.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
@@ -393,7 +393,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return err
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 
 				diskName := "disk0"
 				bus := "virtio"
@@ -416,7 +416,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := tests.NewVirtualMachine(vmi, true)
 				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -438,8 +438,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 
 			It("shold be possible to stop VM if datavolume is crashing", func() {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
+				dataVolume := tests.NewDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vm := tests.NewVirtualMachine(tests.NewVMIWithDataVolume(dataVolume.Name), true)
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
 						ObjectMeta: dataVolume.ObjectMeta,
@@ -460,11 +460,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
 				// Don't actually create the DataVolume since it's invalid.
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				//  Add the invalid DataVolume to a VMI
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				vmi := tests.NewVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := tests.NewVirtualMachine(vmi, true)
 
 				By(creatingVMInvalidDataVolume)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
@@ -490,7 +490,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					fakeRegistryWithPort = fmt.Sprintf("%s:%s", fakeRegistryName, realRegistryPort)
 				}
 
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlFromRegistryForContainerDisk(fakeRegistryWithPort, cd.ContainerDiskCirros),
+				dataVolume := tests.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlFromRegistryForContainerDisk(fakeRegistryWithPort, cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					k8sv1.ReadWriteOnce,
 				)
@@ -502,9 +502,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				By(creatingVMInvalidDataVolume)
 				//  Add the invalid DataVolume to a VMI
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				vmi := tests.NewVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := tests.NewVirtualMachine(vmi, true)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -543,7 +543,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			running := true
 
-			vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
+			vm = tests.NewVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 			vm.Spec.Running = &running
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
@@ -643,7 +643,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		Context("using Alpine http import", func() {
 			It("a DataVolume with preallocation shouldn't have discard=unmap", func() {
 				var vm *v1.VirtualMachine
-				vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
+				vm = tests.NewVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
 
@@ -664,10 +664,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			table.DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
 				var vm *v1.VirtualMachine
 				if isHTTP {
-					vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
+					vm = tests.NewVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				} else {
 					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
-					vm = tests.NewRandomVMWithDataVolume(url, util.NamespaceTestDefault)
+					vm = tests.NewVMWithDataVolume(url, util.NamespaceTestDefault)
 				}
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -693,7 +693,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			)
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
-				vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
+				vm := tests.NewVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -727,13 +727,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when RWOFileSystem storage class is not present")
 				}
 				var err error
-				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				dv := tests.NewDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				tests.SetDataVolumeForceBindAnnotation(dv)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisDV(dataVolume), 90).Should(HaveSucceeded())
 
-				vm = tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, util.NamespaceTestDefault)
+				vm = tests.NewVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, util.NamespaceTestDefault)
 				const volumeName = "sa"
 				saVol := v1.Volume{
 					Name: volumeName,
@@ -909,12 +909,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			return dv
 		}
 		table.DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
-			dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			dataVolume := tests.NewDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("5Gi")
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation
 
-			vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+			vmi := tests.NewVMIWithDataVolume(dataVolume.Name)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")

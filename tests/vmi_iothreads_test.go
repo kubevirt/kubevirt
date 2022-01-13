@@ -55,7 +55,7 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
 	Context("IOThreads Policies", func() {

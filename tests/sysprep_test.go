@@ -297,7 +297,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		tests.CreatePVC(tests.OSWindowsSysprep, "35Gi", tests.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		windowsVMI = tests.NewRandomVMI()
+		windowsVMI = tests.NewVMI()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"

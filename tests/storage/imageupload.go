@@ -168,7 +168,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 			if startVM {
 				By("Start VM")
-				vmi := tests.NewRandomVMIWithDataVolume(targetName)
+				vmi := tests.NewVMIWithDataVolume(targetName)
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {

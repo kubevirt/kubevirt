@@ -68,7 +68,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 		vmi.Labels = map[string]string{flavorKey: memoryFlavor}
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
@@ -202,7 +202,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 
 			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -231,7 +231,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			// reset the label so it will not match
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -279,7 +279,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 			vmi.Annotations = map[string]string{exclusionMarking: "true"}
@@ -371,7 +371,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			time.Sleep(3 * time.Second)
 
 			By("Creating VMI with 128M")
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{overrideKey: overrideFlavor}
 			vmi.Spec.Domain.Resources.Requests["memory"] = vmiMemory
 
@@ -473,11 +473,11 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 
 			// The actual type of machine is unimportant here. This test is about the label
-			vmiWin7 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmiWin7 = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			// this helper function explicitly sets a memory req, but we don't want one for this test
 			vmiWin7.Spec.Domain.Resources = v1.ResourceRequirements{}
 			vmiWin7.Labels = map[string]string{labelKey: win7Label}
-			vmiWin10 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmiWin10 = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmiWin10.Spec.Domain.Resources = v1.ResourceRequirements{}
 			vmiWin10.Labels = map[string]string{labelKey: win10Label}
 		})
@@ -535,9 +535,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 
 			// The actual type of machine is unimportant here. This test is about the label
-			vmiWin7 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmiWin7 = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmiWin7.Labels = map[string]string{labelKey: labelValue}
-			vmiWin10 = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmiWin10 = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmiWin10.Labels = map[string]string{labelKey: labelValue}
 
 			annotationLabel = fmt.Sprintf("virtualmachinepreset.kubevirt.io/%s", presetName)

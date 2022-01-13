@@ -106,7 +106,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
-				vmi := tests.NewRandomVMIWithConfigMap(configMapName)
+				vmi := tests.NewVMIWithConfigMap(configMapName)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				CheckIsoVolumeSizes(vmi)
@@ -163,7 +163,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 
 			It("[test_id:783]Should start VMI with multiple ConfigMaps", func() {
-				vmi := tests.NewRandomVMIWithConfigMap(configMaps[0])
+				vmi := tests.NewVMIWithConfigMap(configMaps[0])
 				tests.AddConfigMapDisk(vmi, configMaps[1], configMaps[1])
 				tests.AddConfigMapDisk(vmi, configMaps[2], configMaps[2])
 
@@ -200,7 +200,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
-				vmi := tests.NewRandomVMIWithSecret(secretName)
+				vmi := tests.NewVMIWithSecret(secretName)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				CheckIsoVolumeSizes(vmi)
@@ -256,7 +256,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 
 			It("[test_id:780]Should start VMI with multiple Secrets", func() {
-				vmi := tests.NewRandomVMIWithSecret(secrets[0])
+				vmi := tests.NewVMIWithSecret(secrets[0])
 				tests.AddSecretDisk(vmi, secrets[1], secrets[1])
 				tests.AddSecretDisk(vmi, secrets[2], secrets[2])
 
@@ -273,7 +273,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := tests.NewRandomVMIWithServiceAccount("default")
+			vmi := tests.NewVMIWithServiceAccount("default")
 			tests.RunVMIAndExpectLaunch(vmi, 90)
 			CheckIsoVolumeSizes(vmi)
 
@@ -363,7 +363,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Running VMI")
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(
+				vmi := tests.NewVMIWithEphemeralDiskHighMemory(
 					cd.ContainerDiskFor(
 						cd.ContainerDiskFedoraTestTooling))
 				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
@@ -482,7 +482,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				expectedPublicKey := string(publicKeyBytes)
 
 				By("Running VMI")
-				vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(
+				vmi := tests.NewVMIWithEphemeralDiskHighMemory(
 					cd.ContainerDiskFor(
 						cd.ContainerDiskFedoraTestTooling))
 				tests.AddSecretDisk(vmi, secretName, secretName)
@@ -545,7 +545,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
+			vmi := tests.NewVMIWithPVC(tests.DiskAlpineHostPath)
 			//Add the testing label to the VMI
 			if vmi.ObjectMeta.Labels == nil {
 				vmi.ObjectMeta.Labels = map[string]string{testLabelKey: testLabelVal}

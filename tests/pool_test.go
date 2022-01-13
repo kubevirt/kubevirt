@@ -90,7 +90,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		Expect(tests.NotDeletedVMs(vms)).To(HaveLen(int(scale)))
 	}
 	newVirtualMachinePoolWithTemplate := func(template *v1.VirtualMachineInstance, running bool) *poolv1.VirtualMachinePool {
-		newPool := tests.NewRandomPoolFromVMI(template, int32(0), running)
+		newPool := tests.NewPoolFromVMI(template, int32(0), running)
 		newPool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return newPool
@@ -99,9 +99,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 	newPersistentStorageVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool with persistent storage")
 
-		vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault)
+		vm := tests.NewVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault)
 
-		newPool := tests.NewRandomPoolFromVMI(&v1.VirtualMachineInstance{
+		newPool := tests.NewPoolFromVMI(&v1.VirtualMachineInstance{
 			ObjectMeta: vm.Spec.Template.ObjectMeta,
 			Spec:       vm.Spec.Template.Spec,
 		}, int32(0), true)
@@ -114,12 +114,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		template := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		return newVirtualMachinePoolWithTemplate(template, true)
 	}
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		template := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		return newVirtualMachinePoolWithTemplate(template, false)
 	}
 

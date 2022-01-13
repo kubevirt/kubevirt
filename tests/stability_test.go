@@ -25,7 +25,7 @@ var _ = PDescribe("Ensure stable functionality", func() {
 
 	Measure("by repeately starting vmis many times without issues", func(b Benchmarker) {
 		b.Time("from_start_to_ready", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)

@@ -106,7 +106,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("with all devices on the root PCI bus", func() {
 		It("[test_id:4623]should start run the guest as usual", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Annotations = map[string]string{
 				v1.PlacePCIDevicesOnRootComplex: "true",
 			}
@@ -129,7 +129,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("when requesting virtio-transitional models", func() {
 		It("[test_id:6957]should start and run the guest", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
@@ -145,7 +145,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
 
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {
@@ -160,7 +160,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{
@@ -189,7 +189,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{},
@@ -234,7 +234,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				requiredNumberOfCpus := 3
 				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
 					fmt.Sprintf("Test requires %d cpus, but only %d available!", requiredNumberOfCpus, availableNumberOfCPUs))
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			})
 
 			It("[test_id:1659]should report 3 cpu cores under guest OS", func() {
@@ -472,7 +472,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", func() {
 			It("[test_id:3113]should failed to the VMI creation", func() {
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -490,7 +490,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 				guestMemory := resource.MustParse("4096M")
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
@@ -502,7 +502,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("with BIOS bootloader method and no disk", func() {
 			It("[test_id:5265]should find no bootable device by default", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
 
 				By("Enabling BIOS serial output")
@@ -528,7 +528,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
 
 				By("Enabling BIOS serial output")
@@ -581,13 +581,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			table.Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			table.Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
+			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
@@ -609,7 +609,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
 			It("[test_id:3115]should show the memory limit inside the VMI", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
 					kubev1.ResourceMemory: resource.MustParse("256Mi"),
 				}
@@ -629,7 +629,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
 			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
@@ -662,7 +662,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
 			It("[test_id:755]should show the requested memory different than guest memory", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
 				vmi.Spec.Domain.Memory = &v1.Memory{
@@ -700,7 +700,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
 				vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
 
@@ -733,7 +733,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:3078][crit:medium][vendor:cnv-qe@redhat.com][level:component]with usb controller", func() {
 			It("[test_id:3117]should start the VMI with usb controller when usb device is present", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -757,7 +757,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3117]should start the VMI with usb controller when input device doesn't have bus", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -780,7 +780,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3118]should start the VMI without usb controller", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start vmi")
@@ -800,7 +800,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices", func() {
 			It("[test_id:2642]should failed to start the VMI with wrong type of input device", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -814,7 +814,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -828,7 +828,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -852,7 +852,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:3073]should start the VMI with tablet input device with usb bus", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -900,7 +900,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
 				Eventually(func() error {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceMemory: resource.MustParse("64M"),
@@ -937,7 +937,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
 				Eventually(func() error {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceCPU:    resource.MustParse("800m"),
@@ -976,7 +976,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				_, err := virtClient.CoreV1().LimitRanges(util.NamespaceTestDefault).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("64M"),
@@ -1060,7 +1060,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				return false
 			}
 			BeforeEach(func() {
-				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				hugepagesVmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
 			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
@@ -1162,7 +1162,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var rngVmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				rngVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				rngVmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			})
 
 			It("[test_id:1674]should have the virtio rng device present when present", func() {
@@ -1205,7 +1205,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomFedoraVMIWithGuestAgent()
+				agentVMI := tests.NewFedoraVMIWithGuestAgent()
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
@@ -1232,7 +1232,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("[test_id:1676]should have attached a guest agent channel by default", func() {
 
-				agentVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				agentVMI = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1303,7 +1303,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-shutdown")
+					agentVMI := tests.NewFedoraVMIWithBlacklistGuestAgent("guest-shutdown")
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1327,7 +1327,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				})
 
 				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
-					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
+					agentVMI := tests.NewFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1466,7 +1466,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var snVmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				snVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				snVmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			})
 
 			It("[test_id:3121]should have serial-number set when present", func() {
@@ -1510,7 +1510,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		Context("with TSC timer", func() {
 			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
 						{
@@ -1555,7 +1555,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("with Clock and timezone", func() {
 
 			It("[sig-compute][test_id:5268]guest should see timezone", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				timezone := "America/New_York"
 				tz := v1.ClockOffsetTimezone(timezone)
 				vmi.Spec.Domain.Clock = &v1.Clock{
@@ -1595,7 +1595,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMI()
+				vmi = tests.NewVMI()
 			})
 
 			It("[test_id:6960]should reject disk with missing volume", func() {
@@ -1646,7 +1646,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				var vmi = tests.NewRandomVMI()
+				var vmi = tests.NewVMI()
 				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1657,7 +1657,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("should not apply runtimeClassName to pod when not set", func() {
 				By("Creating a VMI")
-				var vmi = tests.NewRandomVMI()
+				var vmi = tests.NewVMI()
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1703,7 +1703,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		BeforeEach(func() {
-			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			cpuVmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
@@ -1813,7 +1813,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: "pc"}
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1823,7 +1823,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi.Spec.Domain.Machine = nil
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1834,7 +1834,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1850,7 +1850,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			config.MachineType = "pc"
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi.Spec.Domain.Machine = nil
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1862,7 +1862,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("with a custom scheduler", func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 			launcherPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1873,7 +1873,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
@@ -1884,7 +1884,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:3128]should set CPU request when it is not provided", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1901,7 +1901,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			config.CPURequest = &configureCPURequest
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, util.NamespaceTestDefault)
@@ -1919,7 +1919,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
 			// create a new PV and PVC (PVs can't be reused)
-			dataVolume = tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			dataVolume = tests.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1933,7 +1933,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 
 			By("adding disks to a VMI")
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -1990,7 +1990,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewVMI()
 
 			By("adding disks to a VMI")
 			// disk[0]:  File, sparsed, no user-input, cache=none
@@ -2051,14 +2051,14 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", func() {
 			By("creating a block volume")
-			dataVolume := tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			dataVolume := tests.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+			vmi := tests.NewVMIWithPVC(dataVolume.Name)
 
 			By("setting the disk to use custom block sizes")
 			logicalSize := uint(16384)
@@ -2088,14 +2088,14 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", func() {
 			By("creating a block volume")
-			dataVolume := tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			dataVolume := tests.NewBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+			vmi := tests.NewVMIWithPVC(dataVolume.Name)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
@@ -2143,7 +2143,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
 
-			vmi := tests.NewRandomVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
+			vmi := tests.NewVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
@@ -2179,8 +2179,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			// ordering:
 			// use a small disk for the other ones
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			// virtio - added by NewRandomVMIWithEphemeralDisk
-			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
+			// virtio - added by NewVMIWithEphemeralDisk
+			vmi = tests.NewVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
 			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
 			// NOTE: we have one disk per bus, so we expect vda, sda
@@ -2315,7 +2315,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
 			It("[test_id:991]should be scheduled on a node with running cpu manager", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
@@ -2374,7 +2374,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets:               2,
 					Cores:                 1,
@@ -2429,7 +2429,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 			It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
 
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
@@ -2485,7 +2485,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					IsolateEmulatorThread: true,
@@ -2497,7 +2497,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -2520,7 +2520,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:1688]should fail the vmi creation if the requested resources are inconsistent", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
@@ -2533,7 +2533,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("[test_id:1689]should fail the vmi creation if cpu is not an integer", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -2545,7 +2545,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("[test_id:1690]should fail the vmi creation if Guaranteed QOS cannot be set", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -2560,8 +2560,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
-				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				Vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -2671,7 +2671,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", func() {
-			vmi := tests.NewRandomFedoraVMIWithDmidecode()
+			vmi := tests.NewFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
 			}
@@ -2703,7 +2703,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			vmi = tests.NewFedoraVMIWithDmidecode()
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
@@ -2784,7 +2784,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			vmi = tests.NewFedoraVMIWithDmidecode()
 		})
 
 		table.DescribeTable("For various bus types", func(bus string, errMsg string) {
@@ -2860,7 +2860,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		BeforeEach(func() {
 			var bootOrder uint = 1
-			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.NewFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
@@ -2896,7 +2896,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Skip("Skip KVM MSR prescence test on kind")
 			}
 
-			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper()
+			vmi = tests.NewFedoraVMIWithVirtWhatCpuidHelper()
 		})
 
 		It("[test_id:5271]test cpuid hidden", func() {

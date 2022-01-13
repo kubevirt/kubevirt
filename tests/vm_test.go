@@ -81,8 +81,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:1518]should be rejected on POST", func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-			newVM := tests.NewRandomVirtualMachine(template, false)
+			template := tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			newVM := tests.NewVirtualMachine(template, false)
 			// because we're marshaling this ourselves, we have to make sure
 			// we're using the same version the virtClient is using.
 			newVM.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
@@ -102,13 +102,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 		It("[test_id:1519]should reject POST if validation webhoook deems the spec is invalid", func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			template := tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
 			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
-			newVM := tests.NewRandomVirtualMachine(template, false)
+			newVM := tests.NewVirtualMachine(template, false)
 
 			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body(newVM).Do(context.Background())
 
@@ -141,12 +141,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
+			return tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
-			vm := tests.NewRandomVirtualMachine(template, running)
+			vm := tests.NewVirtualMachine(template, running)
 			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
@@ -183,15 +183,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
+			return tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
 		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
+			return tests.NewVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
+			return tests.NewVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
 		deleteDataVolume := func(dv *cdiv1.DataVolume) {
@@ -203,7 +203,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
-			vm := tests.NewRandomVirtualMachine(template, running)
+			vm := tests.NewVirtualMachine(template, running)
 			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
@@ -216,12 +216,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		newVirtualMachineWithRunStrategy := func(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			template := tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 
 			var newVM *v1.VirtualMachine
 			var err error
 
-			newVM = NewRandomVirtualMachineWithRunStrategy(template, runStrategy)
+			newVM = NewVirtualMachineWithRunStrategy(template, runStrategy)
 
 			newVM, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
 			Expect(err).ToNot(HaveOccurred())
@@ -315,8 +315,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		table.DescribeTable("cpu/memory in requests/limits should allow", func(cpu, request string) {
-			vm := tests.NewRandomVirtualMachine(
-				tests.NewRandomVMIWithEphemeralDisk(
+			vm := tests.NewVirtualMachine(
+				tests.NewVMIWithEphemeralDisk(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
 				), false,
 			)
@@ -779,7 +779,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		table.DescribeTable("should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
-			vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
+			vmi := tests.NewVMIWithEphemeralDisk("no-such-image")
 			unschedulableFunc(vmi)
 
 			vm := createVirtualMachine(true, vmi)
@@ -809,7 +809,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:6869]should report an error status when image pull error occurs", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
+			vmi := tests.NewVMIWithEphemeralDisk("no-such-image")
 
 			vm := createVirtualMachine(true, vmi)
 
@@ -844,14 +844,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			table.Entry(
 				"[test_id:7596]missing PVC",
 				func() *v1.VirtualMachineInstance {
-					return tests.NewRandomVMIWithPVC("missing-pvc")
+					return tests.NewVMIWithPVC("missing-pvc")
 				},
 				v1.VirtualMachineStatusPvcNotFound,
 			),
 			table.Entry(
 				"[test_id:7597]missing DataVolume",
 				func() *v1.VirtualMachineInstance {
-					return tests.NewRandomVMIWithDataVolume("missing-datavolume")
+					return tests.NewVMIWithDataVolume("missing-datavolume")
 				},
 				v1.VirtualMachineStatusDataVolumeNotFound,
 			),
@@ -869,7 +869,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Creating a VM with a DataVolume cloned from an invalid source")
 			// Registry URL scheme validated in CDI
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
+			vm := tests.NewVMWithDataVolumeWithRegistryImport("docker://no.such/image",
 				util.NamespaceTestDefault, storageClassName, k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
 			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -978,10 +978,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
-				newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+				newVMI := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 				gracePeriod := int64(600)
 				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
-				newVM := tests.NewRandomVirtualMachine(newVMI, true)
+				newVM := tests.NewVirtualMachine(newVMI, true)
 				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
 				waitForVMIStart(virtClient, newVMI)
@@ -1019,11 +1019,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("Should force stop a VMI", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
-				newVMI := tests.NewRandomVMI()
+				newVMI := tests.NewVMI()
 				gracePeriod := int64(1600)
 				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
-				newVM := tests.NewRandomVirtualMachine(newVMI, true)
+				newVM := tests.NewVirtualMachine(newVMI, true)
 				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1656,7 +1656,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
 
 					By("Creating a VM with RunStrategyManual")
-					newVM := NewRandomVirtualMachineWithRunStrategy(vmi, v1.RunStrategyManual)
+					newVM := NewVirtualMachineWithRunStrategy(vmi, v1.RunStrategyManual)
 
 					By("Annotate the VM with regard for leaving launcher pod after qemu exit")
 					newVM.Spec.Template.ObjectMeta.Annotations = map[string]string{
@@ -1740,8 +1740,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:243][posneg:negative]should create VM only once", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vm := tests.NewVirtualMachine(vmi, true)
 
 			vmJson, err = tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
@@ -1763,8 +1763,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		table.DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", func(version string) {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vm := tests.NewVirtualMachine(vmi, true)
 
 			vm.APIVersion = version
 
@@ -1800,8 +1800,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:264]should create and delete via command line", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			thisVm := tests.NewRandomVirtualMachine(vmi, false)
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			thisVm := tests.NewVirtualMachine(vmi, false)
 
 			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
@@ -1838,8 +1838,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		Context("should not change anything if dry-run option is passed", func() {
 			It("[test_id:7530]in start command", func() {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				thisVm := tests.NewRandomVirtualMachine(vmi, false)
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewVirtualMachine(vmi, false)
 
 				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
 				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
@@ -1859,8 +1859,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			table.DescribeTable("in stop command", func(flags ...string) {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				thisVm := tests.NewRandomVirtualMachine(vmi, true)
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewVirtualMachine(vmi, true)
 
 				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
 				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
@@ -1902,8 +1902,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			)
 
 			It("[test_id:7528]in restart command", func() {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				thisVm := tests.NewRandomVirtualMachine(vmi, true)
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewVirtualMachine(vmi, true)
 
 				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
 				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
@@ -1941,8 +1941,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			thisVm := tests.NewRandomVirtualMachine(vmi, true)
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			thisVm := tests.NewVirtualMachine(vmi, true)
 
 			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
@@ -1970,7 +1970,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", func() {
-			vmi := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, stdErr, err := tests.RunCommand(k8sClient, "delete", "vm", vmi.Name)
@@ -2008,8 +2008,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:2839]should create VM via command line", func() {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-					vm := tests.NewRandomVirtualMachine(vmi, true)
+					vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vm := tests.NewVirtualMachine(vmi, true)
 
 					vmJson, err = tests.GenerateVMJson(vm, workDir)
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
@@ -2034,8 +2034,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:2914]should create VM via command line", func() {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-					vm := tests.NewRandomVirtualMachine(vmi, true)
+					vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vm := tests.NewVirtualMachine(vmi, true)
 
 					vmJson, err = tests.GenerateVMJson(vm, workDir)
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
@@ -2054,10 +2054,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	Context("crash loop backoff", func() {
 		It("should backoff attempting to create a new VMI when 'runStrategy: Always' during crash loop.", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo Hi\n")
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo Hi\n")
 
 			By("Creating VirtualMachine")
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := tests.NewVirtualMachine(vmi, true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 				v1.FuncTestLauncherFailFastAnnotation: "",
 			}
@@ -2120,10 +2120,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo Hi\n")
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo Hi\n")
 
 			By("Creating VirtualMachine")
-			curVM := tests.NewRandomVirtualMachine(vmi, true)
+			curVM := tests.NewVirtualMachine(vmi, true)
 			curVM.Spec.Template.ObjectMeta.Annotations = map[string]string{
 				v1.FuncTestLauncherFailFastAnnotation: "",
 			}
@@ -2174,8 +2174,8 @@ func getExpectedPodName(vm *v1.VirtualMachine) string {
 	return expectedPodName
 }
 
-func NewRandomVirtualMachineWithRunStrategy(vmi *v1.VirtualMachineInstance, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-	vm := tests.NewRandomVirtualMachine(vmi, false)
+func NewVirtualMachineWithRunStrategy(vmi *v1.VirtualMachineInstance, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
+	vm := tests.NewVirtualMachine(vmi, false)
 	vm.Spec.Running = nil
 	vm.Spec.RunStrategy = &runStrategy
 	return vm

@@ -87,8 +87,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("VM with invalid FlavorMatcher", func() {
 		It("[test_id:TODO] should fail to create VM with non-existing cluster flavor", func() {
-			vmi := tests.NewRandomVMI()
-			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vmi := tests.NewVMI()
+			vm := tests.NewVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: "non-existing-cluster-flavor",
 			}
@@ -106,8 +106,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:TODO] should fail to create VM with non-existing namespaced flavor", func() {
-			vmi := tests.NewRandomVMI()
-			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vmi := tests.NewVMI()
+			vm := tests.NewVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: "non-existing-flavor",
 				Kind: namespacedFlavorKind,
@@ -135,8 +135,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
-			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vmi := tests.NewVMI()
+			vm := tests.NewVirtualMachine(vmi, false)
 
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: flavor.Name,
@@ -162,8 +162,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
-			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vmi := tests.NewVMI()
+			vm := tests.NewVirtualMachine(vmi, false)
 
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name:    flavor.Name,
@@ -228,12 +228,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Create(context.Background(), flavor, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(
+				vmi := tests.NewVMIWithEphemeralDisk(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
 				)
 				vmi.Spec.Domain.CPU = nil
 
-				vm := tests.NewRandomVirtualMachine(vmi, false)
+				vm := tests.NewVirtualMachine(vmi, false)
 				vm.Spec.Flavor = &v1.FlavorMatcher{
 					Name: flavor.Name,
 					Kind: namespacedFlavorKind,
@@ -259,10 +259,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Create(context.Background(), flavor, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 				vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
 
-				vm := tests.NewRandomVirtualMachine(vmi, false)
+				vm := tests.NewVirtualMachine(vmi, false)
 				vm.Spec.Flavor = &v1.FlavorMatcher{
 					Name: flavor.Name,
 					Kind: namespacedFlavorKind,

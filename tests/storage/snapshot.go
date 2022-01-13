@@ -185,8 +185,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		BeforeEach(func() {
 			var err error
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+			vm = tests.NewVirtualMachine(vmi, false)
 			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -359,9 +359,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			It("[test_id:6767]with volumes and guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = tests.NewVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -438,9 +438,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			It("[test_id:6768]with volumes and no guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := tests.NewFedoraVMI()
 				vmi.Namespace = util.NamespaceTestDefault
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = tests.NewVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -498,9 +498,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6769]without volumes with guest agent available", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = tests.NewVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
@@ -522,7 +522,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -553,7 +553,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:6949]should unfreeze vm if snapshot fails when deadline exceeded", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -602,7 +602,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:7472]should succeed online snapshot with hot plug disk", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -653,9 +653,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 			It("Calling Velero hooks should freeze/unfreeze VM", func() {
 				By("Creating VM")
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = tests.NewVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
@@ -713,7 +713,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 
 				running := false
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm = tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					sc,

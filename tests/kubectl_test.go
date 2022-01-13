@@ -86,7 +86,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			virtCli, err = kubecli.GetKubevirtClient()
 			util.PanicOnError(err)
 
-			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+			vm = tests.NewVirtualMachine(tests.NewVMI(), false)
 			vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)
@@ -154,7 +154,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 
 		Context("'kubectl get vmim'", func() {
 			It("print the expected columns and their corresponding values", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				By("Starting the VirtualMachineInstance")
@@ -164,7 +164,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("creating the migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := tests.NewMigration(vmi.Name, vmi.Namespace)
 
 				var migrationCreated *v1.VirtualMachineInstanceMigration
 				By("starting migration")

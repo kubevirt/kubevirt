@@ -72,7 +72,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 	Context("with qemu guest agent", func() {
 		It("[test_id:6220]should propagate public ssh keys", func() {
 			secretID := "my-pub-key"
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := tests.NewFedoraVMIWithGuestAgent()
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -152,7 +152,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 		It("[test_id:6221]should propagate user password", func() {
 			secretID := "my-user-pass"
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := tests.NewFedoraVMIWithGuestAgent()
 			vmi.Namespace = util.NamespaceTestDefault
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
@@ -222,7 +222,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 		It("[test_id:6222]should update guest agent for public ssh keys", func() {
 			secretID := "my-pub-key"
-			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec")
+			vmi := tests.NewFedoraVMIWithBlacklistGuestAgent("guest-exec")
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -284,7 +284,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 		It("[test_id:6223]should update guest agent for user password", func() {
 			secretID := "my-user-pass"
-			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-set-user-password")
+			vmi := tests.NewFedoraVMIWithBlacklistGuestAgent("guest-set-user-password")
 			vmi.Namespace = util.NamespaceTestDefault
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
@@ -351,7 +351,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
 				fedoraPassword,
 			)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+			vmi := tests.NewVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{

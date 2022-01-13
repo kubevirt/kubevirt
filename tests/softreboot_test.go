@@ -69,9 +69,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		runVMI := func(withGuestAgent bool, ACPIEnabled bool) {
 			if withGuestAgent {
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewFedoraVMIWithGuestAgent()
 			} else {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			}
 			if !ACPIEnabled {

@@ -200,8 +200,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 		BeforeEach(func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, tests.BashHelloScript)
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(vmiImage, tests.BashHelloScript)
+			vm = tests.NewVirtualMachine(vmi, false)
 		})
 
 		AfterEach(func() {
@@ -585,7 +585,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					tests.BashHelloScript,
@@ -614,7 +614,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					tests.BashHelloScript,
@@ -632,7 +632,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
-				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm = tests.NewVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					tests.BashHelloScript,
@@ -707,8 +707,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalPVCName := pvc.Name
 
-				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, tests.BashHelloScript)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vmi = tests.NewVMIWithPVCAndUserData(pvc.Name, tests.BashHelloScript)
+				vm = tests.NewVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
 
@@ -734,11 +734,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+				vmi = tests.NewVMIWithEphemeralDiskAndUserdata(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
 					tests.BashHelloScript,
 				)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = tests.NewVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -789,7 +789,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("should reject vm start if restore in progress", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					tests.BashHelloScript,
@@ -884,7 +884,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:6053]should restore a vm from an online snapshot", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					tests.BashHelloScript,
@@ -898,9 +898,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[test_id:6766]should restore a vm from an online snapshot with guest agent", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = tests.NewVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -949,7 +949,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -968,7 +968,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("should restore vm spec at startup without new changes", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -1016,7 +1016,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:7425]should restore vm with hot plug disks", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm, vmi = createAndStartVM(tests.NewVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,

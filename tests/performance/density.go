@@ -119,7 +119,7 @@ func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.Virtual
 	cpuLimit := "100m"
 	memLimit := "90Mi"
 	cloudInitUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, cloudInitUserData)
+	vmi := tests.NewVMIWithEphemeralDiskAndUserdata(vmImage, cloudInitUserData)
 	vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 		k8sv1.ResourceMemory: resource.MustParse(memLimit),
 		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),

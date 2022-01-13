@@ -2001,7 +2001,7 @@ func createNamespaces() {
 	}
 }
 
-func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	sc, exists := GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
 		sc, exists = GetRWXBlockStorageClass()
@@ -2009,10 +2009,10 @@ func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, acce
 	if !exists {
 		Skip("Skip test when Block storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
+	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
 		sc, exists = GetRWXFileSystemStorageClass()
@@ -2020,21 +2020,21 @@ func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMod
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
 	}
-	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
+	return NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
 }
 
-func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+func NewVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	dv := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
+	dv := NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisDV(dv), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
-	return NewRandomVMIWithDataVolume(dv.Name), dv
+	return NewVMIWithDataVolume(dv.Name), dv
 }
 
-func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+func NewVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
@@ -2046,10 +2046,10 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 		Skip("Skip test when Filesystem storage is not present")
 	}
 
-	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
+	return NewVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
 }
 
-func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+func NewVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
@@ -2061,7 +2061,7 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 		Skip("Skip test when Block storage is not present")
 	}
 
-	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
+	return NewVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
 func newDataVolume(namespace, storageClass string, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode, dataVolumeSource cdiv1.DataVolumeSource) *cdiv1.DataVolume {
@@ -2096,7 +2096,7 @@ func newDataVolume(namespace, storageClass string, size string, accessMode k8sv1
 	return dataVolume
 }
 
-func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+func NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
 	size := "1Gi"
 	dataVolumeSource := cdiv1.DataVolumeSource{
 		Registry: &cdiv1.DataVolumeSourceRegistry{
@@ -2106,14 +2106,14 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+func NewBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
 	dataVolumeSource := cdiv1.DataVolumeSource{
 		Blank: &cdiv1.DataVolumeBlankImage{},
 	}
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
 		sc, exists = GetRWXFileSystemStorageClass()
@@ -2135,11 +2135,11 @@ func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceNam
 	return newDataVolume(targetNamespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func NewRandomVMI() *v1.VirtualMachineInstance {
-	return NewRandomVMIWithNS(util2.NamespaceTestDefault)
+func NewVMI() *v1.VirtualMachineInstance {
+	return NewVMIWithNS(util2.NamespaceTestDefault)
 }
 
-func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
+func NewVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	vmi := api.NewMinimalVMIWithNS(namespace, libvmi.RandName(libvmi.DefaultVmiName))
 
 	t := defaultTestGracePeriod
@@ -2185,8 +2185,8 @@ func AddDataVolumeDisk(vmi *v1.VirtualMachineInstance, diskName, dataVolumeName 
 	return vmi
 }
 
-func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	diskName := "disk0"
 
@@ -2196,9 +2196,9 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 	return vmi
 }
 
-func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	vm := NewRandomVirtualMachine(vmi, false)
+func NewVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
+	vmi := NewVMIWithEphemeralDisk(containerImage)
+	vm := NewVirtualMachine(vmi, false)
 
 	return vm
 }
@@ -2212,72 +2212,72 @@ func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) 
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
-func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
+func NewVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
+	dataVolume := NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, accessMode, k8sv1.PersistentVolumeFilesystem)
 	dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("6Gi")
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vm := NewRandomVirtualMachine(vmi, false)
+	vmi := NewVMIWithDataVolume(dataVolume.Name)
+	vm := NewVirtualMachine(vmi, false)
 
 	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
-func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vm := NewRandomVirtualMachine(vmi, false)
+func NewVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
+	dataVolume := NewDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+	vmi := NewVMIWithDataVolume(dataVolume.Name)
+	vm := NewVirtualMachine(vmi, false)
 
 	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
-func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+func NewVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
+	vmi := NewVMIWithDataVolume(dataVolume.Name)
 	AddUserData(vmi, "cloud-init", userData)
-	vm := NewRandomVirtualMachine(vmi, false)
+	vm := NewVirtualMachine(vmi, false)
 
 	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
-func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
+func NewVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
+	dataVolume := NewDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+	return NewVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
-func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+func NewVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
+	dataVolume := NewDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
+	vmi := NewVMIWithDataVolume(dataVolume.Name)
 	vmi.Namespace = targetNamespace
-	vm := NewRandomVirtualMachine(vmi, false)
+	vm := NewVirtualMachine(vmi, false)
 
 	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
-func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+func NewVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(containerImage)
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+func NewVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage, userData)
+func NewVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage, userData)
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
 }
 
-func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+func NewVMIWithEFIBootloader() *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 	// EFI needs more memory than other images
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -2293,8 +2293,8 @@ func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
 
 }
 
-func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskMicroLiveCD))
+func NewVMIWithSecureBoot() *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskMicroLiveCD))
 
 	// EFI needs more memory than other images
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -2313,7 +2313,7 @@ func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
 
 }
 
-func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
+func NewMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	return &v1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
@@ -2329,8 +2329,8 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 	}
 }
 
-func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
@@ -2412,7 +2412,7 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	return vmi
 }
 
-func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
+func NewFedoraVMI() *v1.VirtualMachineInstance {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -2423,7 +2423,7 @@ func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
 	)
 }
 
-func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
+func NewFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -2434,7 +2434,7 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	)
 }
 
-func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
+func NewFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -2463,8 +2463,8 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 	return vmi
 }
 
-func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
@@ -2482,8 +2482,8 @@ func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineI
 	return vmi
 }
 
-func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
@@ -2491,13 +2491,13 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+func NewFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
 }
 
-func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+func NewFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
 }
 
@@ -2507,26 +2507,26 @@ func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 `, commands)
 }
 
-func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+func NewVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(containerImage)
 	AddUserData(vmi, "disk1", userData)
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+func NewVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(containerImage)
 	AddCloudInitConfigDriveData(vmi, "disk1", userData, "", false)
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+func NewVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(containerImage)
 	AddCloudInitNoCloudData(vmi, "disk1", userData, networkData, b64encode)
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+func NewVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(containerImage)
 	AddCloudInitConfigDriveData(vmi, "disk1", userData, networkData, b64encode)
 	return vmi
 }
@@ -2582,15 +2582,15 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 	})
 }
 
-func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	return vmi
 }
 
-func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	AddUserData(vmi, "disk1", userData)
@@ -2612,8 +2612,8 @@ func DeletePvAndPvc(name string) {
 	}
 }
 
-func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
@@ -2636,8 +2636,8 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
@@ -2686,8 +2686,8 @@ func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDi
 	})
 }
 
-func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
+	vmi := NewVMI()
 	AddHostDisk(vmi, diskPath, diskType, "host-disk")
 	if nodeName != "" {
 		vmi.Spec.Affinity = &k8sv1.Affinity{
@@ -2711,8 +2711,8 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 	return vmi
 }
 
-func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+func NewVMIWithWatchdog() *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -2725,8 +2725,8 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomVMIWithConfigMap(configMapName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+func NewVMIWithConfigMap(configMapName string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithPVC(DiskAlpineHostPath)
 	AddConfigMapDisk(vmi, configMapName, configMapName)
 	return vmi
 }
@@ -2752,8 +2752,8 @@ func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapNa
 	})
 }
 
-func NewRandomVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+func NewVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithPVC(DiskAlpineHostPath)
 	AddSecretDisk(vmi, secretName, secretName)
 	return vmi
 }
@@ -2817,8 +2817,8 @@ func AddDownwardMetricsVolume(vmi *v1.VirtualMachineInstance, volumeName string)
 	})
 }
 
-func NewRandomVMIWithServiceAccount(serviceAccountName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+func NewVMIWithServiceAccount(serviceAccountName string) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithPVC(DiskAlpineHostPath)
 	AddServiceAccountDisk(vmi, serviceAccountName)
 	return vmi
 }
@@ -2838,16 +2838,16 @@ func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName st
 	})
 }
 
-func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+func NewVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}}}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 	return vmi
 }
 
-func NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+func NewVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
@@ -2859,16 +2859,16 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 }
 
-func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
+func NewVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurely before link is ready
-	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+	vmi := NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	return vmi
 }
 
-func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+func NewVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
+	vmi := NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 	return vmi
@@ -3059,7 +3059,7 @@ func NewInt32(x int32) *int32 {
 	return &x
 }
 
-func NewRandomPoolFromVMI(vmi *v1.VirtualMachineInstance, replicas int32, running bool) *poolv1.VirtualMachinePool {
+func NewPoolFromVMI(vmi *v1.VirtualMachineInstance, replicas int32, running bool) *poolv1.VirtualMachinePool {
 	selector := "pool" + rand.String(5)
 	pool := &poolv1.VirtualMachinePool{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool" + rand.String(5)},
@@ -3087,7 +3087,7 @@ func NewRandomPoolFromVMI(vmi *v1.VirtualMachineInstance, replicas int32, runnin
 	return pool
 }
 
-func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
+func NewReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5)},
@@ -4102,7 +4102,7 @@ func GetNodeCPUInfo(vmi *v1.VirtualMachineInstance) string {
 	return RunCommandOnVmiPod(vmi, []string{"lscpu"})
 }
 
-func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
+func NewVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
 	name := vmi.Name
 	namespace := vmi.Namespace
 	labels := map[string]string{"name": name}
@@ -5245,7 +5245,7 @@ func VerifyVolumeAndDiskVMIAdded(virtClient kubecli.KubevirtClient, vmi *v1.Virt
 }
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
-	dv := NewRandomBlankDataVolume(vm.Namespace, storageClass, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+	dv := NewBlankDataVolume(vm.Namespace, storageClass, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).To(BeNil())
 	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())

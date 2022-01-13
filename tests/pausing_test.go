@@ -64,7 +64,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vmi *v1.VirtualMachineInstance
 
 		runVMI := func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.RunVMIAndExpectLaunch(vmi, 90)
 		}
 
@@ -124,7 +124,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			When("paused via virtctl", func() {
 				It("[test_id:3224]should not be paused", func() {
 					By("Launching a VMI with LivenessProbe")
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 					// a random probe which will not fail immediately
 					vmi.Spec.LivenessProbe = &v1.Probe{
 						Handler: v1.Handler{
@@ -214,7 +214,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vm *v1.VirtualMachine
 
 		runVM := func() {
-			vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vm = tests.NewVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			vm = tests.StartVirtualMachine(vm)
@@ -500,7 +500,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			By("Starting a Cirros VMI")
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi = tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 

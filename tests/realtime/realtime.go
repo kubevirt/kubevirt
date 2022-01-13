@@ -80,7 +80,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 	})
 
 	It("should start the realtime VM when no mask is specified", func() {
-		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
+		vmi = tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
 		byConfiguringTheVMIForRealtime(vmi, "")
 		byStartingTheVMI(vmi, virtClient)
 		By("Validating VCPU scheduler placement information")
@@ -122,7 +122,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 	})
 
 	It("should start the realtime VM when realtime mask is specified", func() {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
+		vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
 		byConfiguringTheVMIForRealtime(vmi, "0-1,^1")
 		byStartingTheVMI(vmi, virtClient)
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)

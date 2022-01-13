@@ -684,7 +684,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				configMapName := "configmap-" + rand.String(5)
 				secretName := "secret-" + rand.String(5)
 				downwardAPIName := "downwardapi-" + rand.String(5)
@@ -722,7 +722,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				// Remove the masquerade interface to use the default bridge one
 				// bridge interface isn't allowed to migrate
 				vmi.Spec.Domain.Devices.Interfaces = nil
@@ -1316,7 +1316,7 @@ spec:
 			}
 
 			By("starting a VM")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -1724,7 +1724,7 @@ spec:
 
 			By("Verifying that a once migrated VMI after an update can be migrated again")
 			vmi := migratableVMIs[0]
-			migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewRandomMigration(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
+			migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewMigration(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
 
@@ -1789,7 +1789,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("creating a simple VMI")
-				_, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				_, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
@@ -1873,7 +1873,7 @@ spec:
 			Expect(prefix).To(Equal(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -2164,7 +2164,7 @@ spec:
 				)
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -2208,7 +2208,7 @@ spec:
 			tests.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
-			vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)
+			vm = tests.NewVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)
 			running := false
 			vm.Spec.Running = &running
 

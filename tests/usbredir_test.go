@@ -174,7 +174,7 @@ var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:componen
 })
 
 func createVMI(virtClient kubecli.KubevirtClient, enableUsbredir bool) (*v1.VirtualMachineInstance, error) {
-	randomVmi := tests.NewRandomVMI()
+	randomVmi := tests.NewVMI()
 	if enableUsbredir {
 		randomVmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
 	}

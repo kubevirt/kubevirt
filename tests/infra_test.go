@@ -124,7 +124,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 		It("on the controller rate limiter should lead to delayed VMI starts", func() {
 			By("first getting the basetime for a replicaset")
-			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
+			replicaset := tests.NewReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
 			start := time.Now()
@@ -159,7 +159,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libvmi.WithResourceMemory("1Mi"),
 				libvmi.WithNodeSelectorFor(&targetNode),
 			)
-			replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)
+			replicaset := tests.NewReplicaSetFromVMI(vmi, 0)
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
 			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
@@ -308,7 +308,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("checking that we can still start virtual machines and connect to the VMI")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		})
@@ -324,7 +324,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 			Eventually(func() (rotated bool) {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -543,7 +543,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			*/
 
 			By("creating a VMI in a user defined namespace")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(
+			vmi := tests.NewVMIWithEphemeralDisk(
 				cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			startVMI(vmi)
 
@@ -686,7 +686,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			// but if the default disk is not vda, the test will break
 			// TODO: introspect the VMI and get the device name of this
 			// block device?
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
 
 			if preferredNodeName != "" {
@@ -1172,7 +1172,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					return k8sv1.ConditionUnknown
 				}()).To(Equal(k8sv1.ConditionTrue))
 
-				vmi := tests.NewRandomVMI()
+				vmi := tests.NewVMI()
 
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()

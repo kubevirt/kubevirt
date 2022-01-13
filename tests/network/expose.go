@@ -45,7 +45,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 		{Name: "test-port-tcp", Port: 1500, Protocol: "TCP"},
 		{Name: "udp", Port: 82, Protocol: "UDP"},
 		{Name: "test-port-udp", Port: 1500, Protocol: "UDP"}}
-	vmi = tests.NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+	vmi = tests.NewVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 	vmi.Labels = map[string]string{"expose": label}
 
 	var err error
@@ -572,7 +572,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			By("Creating a VMRS object with 2 replicas")
 			template := newLabeledVMI("vmirs", virtClient, false)
-			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
+			vmrs = tests.NewReplicaSetFromVMI(template, int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
@@ -671,7 +671,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		createStoppedVM := func(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 			By("Creating an VM object")
 			template := newLabeledVMI("vm", virtClient, false)
-			vm := tests.NewRandomVirtualMachine(template, false)
+			vm := tests.NewVirtualMachine(template, false)
 
 			By("Creating the VM")
 			vm, err = virtClient.VirtualMachine(namespace).Create(vm)

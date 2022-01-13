@@ -191,7 +191,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
 
-		vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+		vm = tests.NewVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
 		util.PanicOnError(err)
 
@@ -323,7 +323,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
 		By("Creating a running VMI to avoid empty output")
-		guardVmi := tests.NewRandomVMI()
+		guardVmi := tests.NewVMI()
 		guardVmi = tests.RunVMIAndExpectLaunch(guardVmi, 60)
 
 		By("Setting up the kubectl command")

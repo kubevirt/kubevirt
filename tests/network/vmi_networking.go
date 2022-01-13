@@ -301,7 +301,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Context("VirtualMachineInstance with unsupported interface model", func() {
 				It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
 					// Create a virtual machine with an unsupported interface model
-					customIfVMI := NewRandomVMIWithInvalidNetworkInterface()
+					customIfVMI := NewVMIWithInvalidNetworkInterface()
 					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(customIfVMI)
 					Expect(err).To(HaveOccurred())
 				})
@@ -313,7 +313,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
-			e1000VMI := tests.NewRandomVMIWithe1000NetworkInterface()
+			e1000VMI := tests.NewVMIWithe1000NetworkInterface()
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -326,7 +326,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address", func() {
 		It("[test_id:1771]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
+			deadbeafVMI := tests.NewVMIWithCustomMacAddress()
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -338,7 +338,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
 		It("[test_id:1772]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI := tests.NewVMIWithCustomMacAddress()
 			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -351,7 +351,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with invalid MAC address", func() {
 		It("[test_id:700]should failed to start with invalid MAC address", func() {
 			By("Start VMI")
-			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI := tests.NewVMIWithCustomMacAddress()
 			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:00c:00c:00:00:de:abc"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).To(HaveOccurred())
@@ -363,7 +363,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		It("[test_id:1773]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript, []v1.Port{})
+			deadbeafVMI := tests.NewVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript, []v1.Port{})
 			deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -377,7 +377,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1774]should not configure any external interfaces", func() {
 			By("checking loopback is the only guest interface")
 			autoAttach := false
-			detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
+			detachedVMI := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 			// Remove the masquerade interface to use the default bridge one
 			detachedVMI.Spec.Domain.Devices.Interfaces = nil
 			detachedVMI.Spec.Networks = nil
@@ -399,7 +399,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1775]should not request a tun device", func() {
 			By("Creating random VirtualMachineInstance")
 			autoAttach := false
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			// Remove the masquerade interface to use the default bridge one
 			vmi.Spec.Domain.Devices.Interfaces = nil
 			vmi.Spec.Networks = nil
@@ -453,7 +453,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		It("[test_id:1776]should configure custom Pci address", func() {
 			By("checking eth0 Pci address")
-			testVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
+			testVMI := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 			tests.AddExplicitPodNetworkInterface(testVMI)
 			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:00.1"
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(testVMI)
@@ -467,7 +467,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
 		It("[test_id:1777]should disable learning on pod iface", func() {
 			By("checking learning flag")
-			learningDisabledVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
+			learningDisabledVMI := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
 			// Remove the masquerade interface to use the default bridge one
 			learningDisabledVMI.Spec.Domain.Devices.Interfaces = nil
 			learningDisabledVMI.Spec.Networks = nil
@@ -481,7 +481,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
-			dhcpVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+			dhcpVMI := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
 			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
@@ -527,7 +527,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom dns", func() {
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			userData := "#cloud-config\n"
-			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
+			dnsVMI := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
 			dnsVMI.Spec.DNSPolicy = "None"
 
@@ -570,7 +570,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			userData := tests.BashHelloScript
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 			net := v1.DefaultPodNetwork()
 			if ipv4NetworkCIDR != "" {
@@ -870,7 +870,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(ping(podIP)).To(Succeed())
 
 				By("Execute migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := tests.NewMigration(vmi.Name, vmi.Namespace)
 				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
@@ -919,13 +919,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
 			})
 			It("Should migrate over that network", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", tests.BashHelloScript)
 
 				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
 				By("Starting the migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := tests.NewMigration(vmi.Name, vmi.Namespace)
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				By("Checking if the migration happened, and over the right network")
@@ -1038,7 +1038,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with TX offload disabled", func() {
 		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho")
+			vmi := tests.NewVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho")
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -1087,9 +1087,9 @@ func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 	return vmi
 }
 
-func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
+func NewVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurely before link is ready
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+	vmi := tests.NewVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	tests.AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"
 	return vmi

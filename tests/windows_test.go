@@ -129,7 +129,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		tests.BeforeTestCleanup()
 		tests.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
 		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows, true)
-		windowsVMI = tests.NewRandomVMI()
+		windowsVMI = tests.NewVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"

@@ -106,7 +106,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By(specifyingVMReadinessProbe)
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
@@ -149,7 +149,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
 			By(specifyingVMReadinessProbe)
 			if isExecProbe {
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 			} else {
@@ -206,7 +206,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By(specifyingVMLivenessProbe)
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
@@ -231,7 +231,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, isExecProbe bool) {
 			By("Specifying a VMI with a livenessProbe probe")
 			if isExecProbe {
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 			} else {
@@ -254,7 +254,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 func createReadyCirrosVMIWithReadinessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
 	dummyUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+	vmi := tests.NewVMIWithEphemeralDiskAndUserdata(
 		cd.ContainerDiskFor(cd.ContainerDiskCirros), dummyUserData)
 	vmi.Spec.ReadinessProbe = probe
 
@@ -263,7 +263,7 @@ func createReadyCirrosVMIWithReadinessProbe(virtClient kubecli.KubevirtClient, p
 
 func createReadyCirrosVMIWithLivenessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
 	dummyUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+	vmi := tests.NewVMIWithEphemeralDiskAndUserdata(
 		cd.ContainerDiskFor(cd.ContainerDiskCirros), dummyUserData)
 	vmi.Spec.LivenessProbe = probe
 
