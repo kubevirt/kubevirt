@@ -163,12 +163,6 @@ var _ = Describe("Pod eviction admitter", func() {
 						&metav1.PatchOptions{}).
 					Return(nil, fmt.Errorf("err"))
 
-				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
-
-				podEvictionAdmitter := PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
 				resp := podEvictionAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Code).To(Equal(int32(http.StatusTooManyRequests)))
@@ -224,12 +218,6 @@ var _ = Describe("Pod eviction admitter", func() {
 						&metav1.PatchOptions{}).
 					Return(nil, fmt.Errorf("err"))
 
-				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
-
-				podEvictionAdmitter := PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
 				resp := podEvictionAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
 				Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
@@ -270,8 +258,6 @@ var _ = Describe("Pod eviction admitter", func() {
 					return true, pod, nil
 				})
 
-				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
-
 				if !dryRun {
 					data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 					vmiClient.
@@ -284,10 +270,6 @@ var _ = Describe("Pod eviction admitter", func() {
 				}
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-				podEvictionAdmitter := PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
 				resp := podEvictionAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
 				actions := kubeClient.Fake.Actions()
