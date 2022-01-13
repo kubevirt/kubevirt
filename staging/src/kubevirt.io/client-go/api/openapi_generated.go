@@ -18312,7 +18312,21 @@ func schema_kubevirtio_api_core_v1_PersistentVolumeClaimInfo(ref common.Referenc
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Capacity represents the capacity set on the corresponding PVC spec",
+							Description: "Capacity represents the capacity set on the corresponding PVC status",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"requests": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Requests represents the resources requested by the corresponding PVC spec",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,

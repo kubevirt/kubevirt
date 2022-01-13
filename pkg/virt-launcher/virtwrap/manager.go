@@ -627,17 +627,11 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 }
 
 func possibleGuestSize(disk api.Disk) (int64, bool) {
-	var err error
-	capacityResource := disk.Capacity
-	if capacityResource == nil {
-		log.DefaultLogger().Error("Failed to get storage capacity")
+	if disk.Capacity == nil {
+		log.DefaultLogger().Error("No disk capacity")
 		return 0, false
 	}
-	capacity, ok := capacityResource.AsInt64()
-	if !ok {
-		log.DefaultLogger().Error("Failed to convert capacity to int64")
-		return 0, false
-	}
+	preferredSize := *disk.Capacity
 	if disk.FilesystemOverhead == nil {
 		log.DefaultLogger().Errorf("No filesystem overhead found for disk %v", disk)
 		return 0, false
@@ -647,7 +641,7 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
 		return 0, false
 	}
-	return int64((1 - filesystemOverhead) * float64(capacity)), true
+	return int64((1 - filesystemOverhead) * float64(preferredSize)), true
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
