@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -148,70 +147,6 @@ var _ = Describe("Qemu agent poller", func() {
 					IPs:           []string{"1.2.3.4", "fe80::ff:1111:2222"},
 					InterfaceName: "eth5",
 				})
-			Expect(interfaceStatuses).To(Equal(expectedStatuses))
-		})
-
-		It("should merge QEMU info and agent info", func() {
-			interfaceStatuses, err := parseInterfaces(JSONInput)
-			Expect(err).ToNot(HaveOccurred(), "should parse network inferfaces")
-
-			domInterfaces := []api.Interface{
-				{
-					MAC: &api.MAC{
-						MAC: "0a:58:0a:f4:00:51",
-					},
-					Alias: api.NewUserDefinedAlias("ovs"),
-				},
-				{
-					MAC: &api.MAC{
-						MAC: "02:00:00:b0:17:66",
-					},
-					Alias: api.NewUserDefinedAlias("net1"),
-				},
-				{
-					MAC: &api.MAC{
-						MAC: "02:11:11:b0:17:66",
-					},
-					Alias: api.NewUserDefinedAlias("net2"),
-				},
-			}
-
-			interfaceStatuses = MergeAgentStatusesWithDomainData(domInterfaces, interfaceStatuses)
-
-			expectedStatuses := []api.InterfaceStatus{}
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:          "ovs",
-					Mac:           "0a:58:0a:f4:00:51",
-					Ip:            "10.244.0.81",
-					IPs:           []string{"10.244.0.81", "fe80::858:aff:fef4:51"},
-					InterfaceName: "eth0",
-					InfoSource:    netvmispec.InfoSourceDomainAndGA,
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:          "net1",
-					Mac:           "02:00:00:b0:17:66",
-					Ip:            "fe80::ff:feb0:1766",
-					IPs:           []string{"fe80::ff:feb0:1766"},
-					InterfaceName: "eth1",
-					InfoSource:    netvmispec.InfoSourceDomainAndGA,
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Mac:           "02:00:00:22:11:11",
-					Ip:            "1.2.3.4",
-					IPs:           []string{"1.2.3.4", "fe80::ff:1111:2222"},
-					InterfaceName: "eth5",
-					InfoSource:    netvmispec.InfoSourceGuestAgent,
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:       "net2",
-					Mac:        "02:11:11:b0:17:66",
-					InfoSource: netvmispec.InfoSourceDomain,
-				})
-
 			Expect(interfaceStatuses).To(Equal(expectedStatuses))
 		})
 

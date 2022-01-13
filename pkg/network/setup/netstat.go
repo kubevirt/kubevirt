@@ -89,6 +89,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	if len(domain.Status.Interfaces) > 0 {
+		domain.Status.Interfaces = MergeAgentStatusesWithDomainData(domain.Spec.Devices.Interfaces, domain.Status.Interfaces)
 		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, domain.Status.Interfaces)
 	}
 
@@ -203,4 +204,47 @@ func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus
 		InterfaceName: guestAgentInterface.InterfaceName,
 		InfoSource:    guestAgentInterface.InfoSource,
 	}
+}
+
+// MergeAgentStatusesWithDomainData merge QEMU interfaces with agent interfaces
+func MergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceStatuses []api.InterfaceStatus) []api.InterfaceStatus {
+	aliasByMac := map[string]string{}
+	for _, ifc := range domInterfaces {
+		mac := ifc.MAC.MAC
+		alias := ifc.Alias.GetName()
+		aliasByMac[mac] = alias
+	}
+
+	aliasesCoveredByAgent := []string{}
+	for i, interfaceStatus := range interfaceStatuses {
+		if alias, exists := aliasByMac[interfaceStatus.Mac]; exists {
+			interfaceStatuses[i].Name = alias
+			interfaceStatuses[i].InfoSource = netvmispec.InfoSourceDomainAndGA
+			aliasesCoveredByAgent = append(aliasesCoveredByAgent, alias)
+		} else {
+			interfaceStatuses[i].InfoSource = netvmispec.InfoSourceGuestAgent
+		}
+	}
+
+	// If interface present in domain was not found in interfaceStatuses, add it
+	for mac, alias := range aliasByMac {
+		isCoveredByAgentData := false
+		for _, coveredAlias := range aliasesCoveredByAgent {
+			if alias == coveredAlias {
+				isCoveredByAgentData = true
+				break
+			}
+		}
+		if !isCoveredByAgentData {
+			interfaceStatuses = append(interfaceStatuses,
+				api.InterfaceStatus{
+					Mac:        mac,
+					Name:       alias,
+					InfoSource: netvmispec.InfoSourceDomain,
+				},
+			)
+		}
+	}
+
+	return interfaceStatuses
 }

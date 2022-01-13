@@ -49,7 +49,6 @@ import (
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -1725,65 +1724,25 @@ var _ = Describe("Manager", func() {
 		Context("on call to InterfacesStatus", func() {
 			var libvirtmanager DomainManager
 			var agentStore agentpoller.AsyncAgentStore
-			fakeDomInterfaces := []api.Interface{
-				{
-					MAC: &api.MAC{
-						MAC: "00:00:00:00:00:01",
-					},
-					Alias: api.NewUserDefinedAlias("eth1"),
-				},
-			}
-			fakeInterfaces := []api.InterfaceStatus{
-				{
-					Name: "eth2",
-					Mac:  "00:00:00:00:00:02",
-				},
-			}
 
 			BeforeEach(func() {
 				agentStore = agentpoller.NewAsyncAgentStore()
 				libvirtmanager, _ = NewLibvirtDomainManager(mockConn, testVirtShareDir, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			})
 
-			It("should return nil when no interfaces exists in the cache, nor as argument", func() {
-				Expect(libvirtmanager.InterfacesStatus(nil)).To(BeNil())
-			})
-
 			It("should return nil when no interfaces exists in the cache", func() {
-				Expect(libvirtmanager.InterfacesStatus(fakeDomInterfaces)).To(BeNil())
+				Expect(libvirtmanager.InterfacesStatus()).To(BeNil())
 			})
 
-			It("should return merged list when interfaces exists on both the cache and argument", func() {
-				expectedResult := []api.InterfaceStatus{
-					{
-						Name:       fakeInterfaces[0].Name,
-						Mac:        fakeInterfaces[0].Mac,
-						InfoSource: netvmispec.InfoSourceGuestAgent,
-					},
-					{
-						Name:       fakeDomInterfaces[0].Alias.GetName(),
-						Mac:        fakeDomInterfaces[0].MAC.MAC,
-						InfoSource: netvmispec.InfoSourceDomain,
-					},
-				}
+			It("should report interfaces info when interfaces exists", func() {
+				fakeInterfaces := []api.InterfaceStatus{{
+					InterfaceName: "eth1",
+					Mac:           "00:00:00:00:00:01",
+				}}
 				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
+				interfacesStatus := agentStore.GetInterfaceStatus()
 
-				interfaces := libvirtmanager.InterfacesStatus(fakeDomInterfaces)
-				Expect(interfaces).To(Equal(expectedResult))
-			})
-
-			It("should return merged list when interfaces exists on the cache only", func() {
-				expectedResult := []api.InterfaceStatus{
-					{
-						Name:       fakeInterfaces[0].Name,
-						Mac:        fakeInterfaces[0].Mac,
-						InfoSource: netvmispec.InfoSourceGuestAgent,
-					},
-				}
-				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
-
-				interfaces := libvirtmanager.InterfacesStatus(nil)
-				Expect(interfaces).To(Equal(expectedResult))
+				Expect(interfacesStatus).To(Equal(fakeInterfaces))
 			})
 		})
 	})

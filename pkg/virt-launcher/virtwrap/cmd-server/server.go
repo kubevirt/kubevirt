@@ -383,7 +383,7 @@ func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.D
 		if osInfo := l.domainManager.GetGuestOSInfo(); osInfo != nil {
 			domainObj.Status.OSInfo = *osInfo
 		}
-		if interfaces := l.domainManager.InterfacesStatus(domainObj.Spec.Devices.Interfaces); interfaces != nil {
+		if interfaces := l.domainManager.InterfacesStatus(); interfaces != nil {
 			domainObj.Status.Interfaces = interfaces
 		}
 		if domain, err := json.Marshal(domainObj); err != nil {

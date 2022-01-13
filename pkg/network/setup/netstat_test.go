@@ -122,8 +122,8 @@ var _ = Describe("netstat", func() {
 			)
 
 			setup.addGuestAgentInterfaces(
-				newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, "", netvmispec.InfoSourceDomainAndGA),
-				newDomainStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, "", netvmispec.InfoSourceDomainAndGA),
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, ""),
+				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, ""),
 			)
 
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
@@ -153,7 +153,7 @@ var _ = Describe("netstat", func() {
 				primaryPodIPv4, primaryPodIPv6,
 			)
 			setup.addGuestAgentInterfaces(
-				newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, "eth0", netvmispec.InfoSourceDomainAndGA),
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, "eth0"),
 			)
 
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
@@ -243,7 +243,7 @@ var _ = Describe("netstat", func() {
 		}
 
 		setup.addGuestAgentInterfaces(
-			newDomainStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, "", netvmispec.InfoSourceDomainAndGA),
+			newDomainStatusIface([]string{newGaIPv4, newGaIPv6}, origMAC, ""),
 		)
 
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
@@ -317,7 +317,7 @@ var _ = Describe("netstat", func() {
 			newVMISpecMultusNetwork(networkName),
 		)
 		setup.addGuestAgentInterfaces(
-			newDomainStatusIface("", nil, ifaceMAC, guestIfaceName, netvmispec.InfoSourceGuestAgent),
+			newDomainStatusIface(nil, ifaceMAC, guestIfaceName),
 		)
 
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
@@ -366,10 +366,8 @@ var _ = Describe("netstat", func() {
 
 		It("reports masquerade and bridge interfaces with their MAC changed in the guest", func() {
 			setup.addGuestAgentInterfaces(
-				newDomainStatusIface(primaryIfaceName, nil, primaryMAC, "", netvmispec.InfoSourceDomain),
-				newDomainStatusIface(secondaryIfaceName, nil, secondaryMAC, "", netvmispec.InfoSourceDomain),
-				newDomainStatusIface("", []string{primaryGaIPv4, primaryGaIPv6}, newMAC1, primaryIfaceName, netvmispec.InfoSourceGuestAgent),
-				newDomainStatusIface("", []string{secondaryGaIPv4, secondaryGaIPv6}, newMAC2, secondaryIfaceName, netvmispec.InfoSourceGuestAgent),
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, newMAC1, primaryIfaceName),
+				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, newMAC2, secondaryIfaceName),
 			)
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
@@ -388,9 +386,9 @@ var _ = Describe("netstat", func() {
 				newIfaceName = "eth3"
 			)
 			setup.addGuestAgentInterfaces(
-				newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName, netvmispec.InfoSourceDomainAndGA),
-				newDomainStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName, netvmispec.InfoSourceDomainAndGA),
-				newDomainStatusIface("", []string{newGaIPv4, newGaIPv6}, newMAC1, newIfaceName, netvmispec.InfoSourceGuestAgent),
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
+				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName),
+				newDomainStatusIface([]string{newGaIPv4, newGaIPv6}, newMAC1, newIfaceName),
 			)
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
@@ -573,18 +571,16 @@ func newDomainSpecIface(alias, mac string) api.Interface {
 	}
 }
 
-func newDomainStatusIface(name string, IPs []string, mac, interfaceName string, infoSource string) api.InterfaceStatus {
+func newDomainStatusIface(IPs []string, mac, interfaceName string) api.InterfaceStatus {
 	var ip string
 	if len(IPs) > 0 {
 		ip = IPs[0]
 	}
 	return api.InterfaceStatus{
-		Name:          name,
 		Ip:            ip,
 		IPs:           IPs,
 		Mac:           mac,
 		InterfaceName: interfaceName,
-		InfoSource:    infoSource,
 	}
 }
 
