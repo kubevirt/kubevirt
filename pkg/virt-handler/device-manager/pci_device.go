@@ -387,7 +387,7 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 			log.DefaultLogger().Reason(err).Errorf("failed get vendor:device ID for device: %s", info.Name())
 			return nil
 		}
-		if _, supported := supportedPCIDeviceMap[pciID]; supported {
+		if resourceName, supported := supportedPCIDeviceMap[pciID]; supported {
 			// check device driver
 			driver, err := Handler.GetDeviceDriver(pciBasePath, info.Name())
 			if err != nil || driver != "vfio-pci" {
@@ -405,7 +405,7 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 			pcidev.iommuGroup = iommuGroup
 			pcidev.driver = driver
 			pcidev.numaNode = Handler.GetDeviceNumaNode(pciBasePath, info.Name())
-			pciDevicesMap[pciID] = append(pciDevicesMap[pciID], pcidev)
+			pciDevicesMap[resourceName] = append(pciDevicesMap[resourceName], pcidev)
 		}
 		return nil
 	})

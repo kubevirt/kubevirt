@@ -147,10 +147,9 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 					supportedPCIDeviceMap[strings.ToLower(pciDev.PCIVendorSelector)] = pciDev.ResourceName
 				}
 			}
-			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-			for pciID, pciDevices := range pciHostDevices {
-				pciResourceName := supportedPCIDeviceMap[pciID]
-				log.Log.V(4).Infof("Discovered PCI device on the node, ID: %s, resourceName: %s", pciID, pciResourceName)
+			pciHostDevicesPerResourceName := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
+			for pciResourceName, pciDevices := range pciHostDevicesPerResourceName {
+				log.Log.V(4).Infof("Discovered PCIs %d devices on the node for the resource: %s", len(pciDevices), pciResourceName)
 				// add a device plugin only for new devices
 				if _, isRunning := c.devicePlugins[pciResourceName]; !isRunning {
 					devicePluginsToRun[pciResourceName] = ControlledDevice{
