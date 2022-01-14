@@ -2021,10 +2021,6 @@ func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMod
 	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
 }
 
-func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
-	return newRandomBlankDataVolume(namespace, storageClass, size, accessMode, volumeMode)
-}
-
 func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
@@ -2112,7 +2108,7 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
-func newRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
 	dataVolumeSource := cdiv1.DataVolumeSource{
 		Blank: &cdiv1.DataVolumeBlankImage{},
 	}
