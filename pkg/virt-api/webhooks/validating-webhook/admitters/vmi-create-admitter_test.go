@@ -153,7 +153,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(resp).To(BeEmpty())
 		},
-			table.Entry("migration policy to be set", v1.EvictionStrategyLiveMigrate),
+			table.Entry("migration policy to be set to LiveMigrate", v1.EvictionStrategyLiveMigrate),
+			table.Entry("migration policy to be set None", v1.EvictionStrategyNone),
 		)
 
 		It("should block setting eviction policies if the feature gate is disabled", func() {
