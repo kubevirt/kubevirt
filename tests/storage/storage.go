@@ -427,7 +427,7 @@ var _ = SIGDescribe("Storage", func() {
 					virtClient,
 					pod,
 					"compute",
-					[]string{tests.UsrBinBash, "-c", virtioFsFileTestCmd},
+					[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -494,7 +494,7 @@ var _ = SIGDescribe("Storage", func() {
 					virtClient,
 					pod,
 					"compute",
-					[]string{tests.UsrBinBash, "-c", virtioFsFileTestCmd},
+					[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -909,12 +909,12 @@ var _ = SIGDescribe("Storage", func() {
 					diskPath = filepath.Join(mountDir, diskImgName)
 					srcDir := filepath.Join(tmpDir, "src")
 					cmd := "mkdir -p " + mountDir + " && mkdir -p " + srcDir + " && chcon -t container_file_t " + srcDir + " && mount --bind " + srcDir + " " + mountDir + " && while true; do sleep 1; done"
-					pod = tests.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{tests.UsrBinBash, "-c"}, []string{cmd})
+					pod = tests.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{tests.BinBash, "-c"}, []string{cmd})
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
 						PreStop: &k8sv1.Handler{
 							Exec: &k8sv1.ExecAction{
 								Command: []string{
-									tests.UsrBinBash, "-c",
+									tests.BinBash, "-c",
 									fmt.Sprintf("rm -f %s && umount %s", diskPath, mountDir),
 								},
 							},
@@ -938,7 +938,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Determining the size of the mounted directory")
-					diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{tests.UsrBinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+					diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
 					Expect(err).ToNot(HaveOccurred())
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte
