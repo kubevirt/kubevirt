@@ -57,50 +57,14 @@ func main() {
 				}
 			}
 
-			if cpuTime > 0 {
-				value := &syscall.Rlimit{
-					Cur: cpuTime,
-					Max: cpuTime,
-				}
-				err := syscall.Setrlimit(unix.RLIMIT_CPU, value)
-				if err != nil {
-					return fmt.Errorf("error setting prlimit on cpu time with value %d: %v", value, err)
-				}
+			resourceLimitErr := setResourceRLimits(cpuTime, memoryBytes)
+			if resourceLimitErr != nil {
+				return resourceLimitErr
 			}
 
-			if memoryBytes > 0 {
-				value := &syscall.Rlimit{
-					Cur: memoryBytes,
-					Max: memoryBytes,
-				}
-				err := syscall.Setrlimit(unix.RLIMIT_AS, value)
-				if err != nil {
-					return fmt.Errorf("error setting prlimit on virtual memory with value %d: %v", value, err)
-				}
-			}
-
-			// Now let's switch users and drop privileges
-			if u != nil {
-				uid, err := strconv.ParseInt(u.Uid, 10, 32)
-				if err != nil {
-					return fmt.Errorf("failed to parse uid: %v", err)
-				}
-				gid, err := strconv.ParseInt(u.Gid, 10, 32)
-				if err != nil {
-					return fmt.Errorf("failed to parse gid: %v", err)
-				}
-				err = unix.Setgroups([]int{int(gid)})
-				if err != nil {
-					return fmt.Errorf("failed to drop auxiliary groups: %v", err)
-				}
-				_, _, errno := syscall.Syscall(syscall.SYS_SETGID, uintptr(gid), 0, 0)
-				if errno != 0 {
-					return fmt.Errorf("failed to join the group of the user: %v", err)
-				}
-				_, _, errno = syscall.Syscall(syscall.SYS_SETUID, uintptr(uid), 0, 0)
-				if errno != 0 {
-					return fmt.Errorf("failed to switch to user: %v", err)
-				}
+			userErr := setUser(u)
+			if userErr != nil {
+				return userErr
 			}
 			return nil
 
@@ -250,4 +214,84 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func setResourceRLimits(cpuTimeLimit uint64, memoryLimit uint64) error {
+	cpuTimeErr := setCPURLimit(cpuTimeLimit)
+	if cpuTimeErr != nil {
+		return cpuTimeErr
+	}
+
+	memBytesErr := setMemoryRLimit(memoryLimit)
+	if memBytesErr != nil {
+		return memBytesErr
+	}
+	return nil
+}
+
+func setCPURLimit(cpuTimeLimit uint64) error {
+	if cpuTimeLimit > 0 {
+		value := &syscall.Rlimit{
+			Cur: cpuTimeLimit,
+			Max: cpuTimeLimit,
+		}
+		err := syscall.Setrlimit(unix.RLIMIT_CPU, value)
+		if err != nil {
+			return fmt.Errorf("error setting prlimit on cpu time with value %d: %v", value, err)
+		}
+	}
+	return nil
+}
+
+func setMemoryRLimit(memoryLimit uint64) error {
+	if memoryLimit > 0 {
+		value := &syscall.Rlimit{
+			Cur: memoryLimit,
+			Max: memoryLimit,
+		}
+		err := syscall.Setrlimit(unix.RLIMIT_AS, value)
+		if err != nil {
+			return fmt.Errorf("error setting prlimit on virtual memory with value %d: %v", value, err)
+		}
+	}
+	return nil
+}
+
+func setUser(u *user.User) error {
+	uidErr, guidErr := setUID(u), setGUID(u)
+	if uidErr != nil {
+		return uidErr
+	}
+	if guidErr != nil {
+		return uidErr
+	}
+	return nil
+}
+
+func setUID(u *user.User) error {
+	uid, err := strconv.ParseInt(u.Uid, 10, 32)
+	if err != nil {
+		return fmt.Errorf("failed to parse uid: %v", err)
+	}
+	_, _, errno := syscall.Syscall(syscall.SYS_SETUID, uintptr(uid), 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("failed to switch to user: %v", err)
+	}
+	return nil
+}
+
+func setGUID(u *user.User) error {
+	gid, err := strconv.ParseInt(u.Gid, 10, 32)
+	if err != nil {
+		return fmt.Errorf("failed to parse gid: %v", err)
+	}
+	err = unix.Setgroups([]int{int(gid)})
+	if err != nil {
+		return fmt.Errorf("failed to drop auxiliary groups: %v", err)
+	}
+	_, _, errno := syscall.Syscall(syscall.SYS_SETGID, uintptr(gid), 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("failed to join the group of the user: %v", err)
+	}
+	return nil
 }
