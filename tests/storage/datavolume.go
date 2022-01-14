@@ -480,6 +480,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					realRegistryName = strings.Split(flags.KubeVirtUtilityRepoPrefix, ":")[0]
 					realRegistryPort = strings.Split(flags.KubeVirtUtilityRepoPrefix, ":")[1]
 				}
+				if realRegistryPort == "" {
+					Skip("Skip when no port, CDI will always try to reach dockerhub/fakeregistry instead of just fakeregistry")
+				}
 
 				fakeRegistryName := "fakeregistry"
 				fakeRegistryWithPort := fakeRegistryName

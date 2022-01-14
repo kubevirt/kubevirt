@@ -103,6 +103,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		var vmi *v1.VirtualMachineInstance
 		t := true
 		vm.Spec.Running = &t
+		var gracePeriod int64 = 10
+		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
