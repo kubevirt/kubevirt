@@ -132,7 +132,6 @@ const (
 	BinBash                      = "/bin/bash"
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	TestDataVolumeName           = "test-datavolume-"
 	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
 	ServerName                   = "--server"
 	CouldNotFindComputeContainer = "could not find compute container for pod"
@@ -2071,9 +2070,9 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
-	name := TestDataVolumeName + rand.String(12)
-	quantity, err := resource.ParseQuantity("1Gi")
+func newDataVolume(namespace, storageClass string, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode, dataVolumeSource cdiv1.DataVolumeSource) *cdiv1.DataVolume {
+	name := "test-datavolume-" + rand.String(12)
+	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2081,11 +2080,7 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 			Namespace: namespace,
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: &cdiv1.DataVolumeSource{
-				Registry: &cdiv1.DataVolumeSourceRegistry{
-					URL: &imageUrl,
-				},
-			},
+			Source: &dataVolumeSource,
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
 				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 				VolumeMode:  &volumeMode,
@@ -2107,78 +2102,36 @@ func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, st
 	return dataVolume
 }
 
+func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+	size := "1Gi"
+	dataVolumeSource := cdiv1.DataVolumeSource{
+		Registry: &cdiv1.DataVolumeSourceRegistry{
+			URL: &imageUrl,
+		},
+	}
+	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
+}
+
 func newRandomBlankDataVolume(namespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
-	name := TestDataVolumeName + rand.String(12)
-	quantity, err := resource.ParseQuantity(size)
-	util2.PanicOnError(err)
-	dataVolume := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			Source: &cdiv1.DataVolumeSource{
-				Blank: &cdiv1.DataVolumeBlankImage{},
-			},
-			PVC: &k8sv1.PersistentVolumeClaimSpec{
-				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
-				Resources: k8sv1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						"storage": quantity,
-					},
-				},
-				StorageClassName: &storageClass,
-				VolumeMode:       &volumeMode,
-			},
-		},
+	dataVolumeSource := cdiv1.DataVolumeSource{
+		Blank: &cdiv1.DataVolumeBlankImage{},
 	}
-
-	dataVolume.TypeMeta = metav1.TypeMeta{
-		APIVersion: KubevirtIoV1Alpha1,
-		Kind:       "DataVolume",
-	}
-
-	return dataVolume
+	return newDataVolume(namespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
 func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, Config.StorageClassLocal, "1Gi", accessMode)
+	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, Config.StorageClassLocal, "1Gi", accessMode)
 }
 
-func NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	name := TestDataVolumeName + rand.String(12)
-	quantity, err := resource.ParseQuantity(size)
-	util2.PanicOnError(err)
-	dataVolume := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: targetNamespace,
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			Source: &cdiv1.DataVolumeSource{
-				PVC: &cdiv1.DataVolumeSourcePVC{
-					Namespace: sourceNamespace,
-					Name:      sourceName,
-				},
-			},
-			PVC: &k8sv1.PersistentVolumeClaimSpec{
-				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
-				Resources: k8sv1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						"storage": quantity,
-					},
-				},
-				StorageClassName: &storageClass,
-			},
+func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	dataVolumeSource := cdiv1.DataVolumeSource{
+		PVC: &cdiv1.DataVolumeSourcePVC{
+			Namespace: sourceNamespace,
+			Name:      sourceName,
 		},
 	}
-
-	dataVolume.TypeMeta = metav1.TypeMeta{
-		APIVersion: KubevirtIoV1Alpha1,
-		Kind:       "DataVolume",
-	}
-
-	return dataVolume
+	volumeMode := k8sv1.PersistentVolumeFilesystem
+	return newDataVolume(targetNamespace, storageClass, size, accessMode, volumeMode, dataVolumeSource)
 }
 
 func NewRandomVMI() *v1.VirtualMachineInstance {
