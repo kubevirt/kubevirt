@@ -1727,14 +1727,7 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 			ifacesNames[idx])
 	}
 
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $'" + interfacesConfig + "' > /etc/network/interfaces\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: tests.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
+	return runSafeCommands(vmi, []string{
+		"echo $'" + interfacesConfig + "' > /etc/network/interfaces\n",
+		"/etc/init.d/networking restart\n"})
 }
