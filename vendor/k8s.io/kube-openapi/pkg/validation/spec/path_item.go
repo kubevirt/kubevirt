@@ -17,7 +17,6 @@ package spec
 import (
 	"encoding/json"
 
-	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
 )
 
@@ -43,18 +42,6 @@ type PathItem struct {
 	Refable
 	VendorExtensible
 	PathItemProps
-}
-
-// JSONLookup look up a value by the json property name
-func (p PathItem) JSONLookup(token string) (interface{}, error) {
-	if ex, ok := p.Extensions[token]; ok {
-		return &ex, nil
-	}
-	if token == jsonRef {
-		return &p.Ref, nil
-	}
-	r, _, err := jsonpointer.GetForToken(p.PathItemProps, token)
-	return r, err
 }
 
 // UnmarshalJSON hydrates this items instance with the data from JSON

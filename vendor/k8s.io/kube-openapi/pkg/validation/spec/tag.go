@@ -17,7 +17,6 @@ package spec
 import (
 	"encoding/json"
 
-	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
 )
 
@@ -28,11 +27,6 @@ type TagProps struct {
 	ExternalDocs *ExternalDocumentation `json:"externalDocs,omitempty"`
 }
 
-// NewTag creates a new tag
-func NewTag(name, description string, externalDocs *ExternalDocumentation) Tag {
-	return Tag{TagProps: TagProps{Description: description, Name: name, ExternalDocs: externalDocs}}
-}
-
 // Tag allows adding meta data to a single tag that is used by the
 // [Operation Object](http://goo.gl/8us55a#operationObject).
 // It is not mandatory to have a Tag Object per tag used there.
@@ -41,16 +35,6 @@ func NewTag(name, description string, externalDocs *ExternalDocumentation) Tag {
 type Tag struct {
 	VendorExtensible
 	TagProps
-}
-
-// JSONLookup implements an interface to customize json pointer lookup
-func (t Tag) JSONLookup(token string) (interface{}, error) {
-	if ex, ok := t.Extensions[token]; ok {
-		return &ex, nil
-	}
-
-	r, _, err := jsonpointer.GetForToken(t.TagProps, token)
-	return r, err
 }
 
 // MarshalJSON marshal this to JSON

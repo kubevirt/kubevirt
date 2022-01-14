@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
 )
 
@@ -132,15 +131,6 @@ type InfoProps struct {
 type Info struct {
 	VendorExtensible
 	InfoProps
-}
-
-// JSONLookup look up a value by the json property name
-func (i Info) JSONLookup(token string) (interface{}, error) {
-	if ex, ok := i.Extensions[token]; ok {
-		return &ex, nil
-	}
-	r, _, err := jsonpointer.GetForToken(i.InfoProps, token)
-	return r, err
 }
 
 // MarshalJSON marshal this to JSON

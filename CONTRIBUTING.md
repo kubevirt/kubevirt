@@ -79,14 +79,7 @@ for example:
     WithHostPassthroughCPU bool `json:"withHostPassthroughCPU,omitempty"`
     ```
 
-1. Run openapi-gen code generation (the GOPATH below is an example. use the right value for your settings)
-    ```shell
-    GOPATH=~/go GO111MODULE=auto openapi-gen --output-file-base zz_generated.openapi --input-dirs="github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1" --output-package github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1
-    ```
-1. Run deepcopy code generation (the GOPATH below is an example. use the right value for your settings):
-    ```shell
-    GOPATH=~/go GO111MODULE=auto deepcopy-gen --input-dirs="github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1" --output-file-base zz_generated.deepcopy ~/go/src/github.com/kubevirt/hyperconverged-cluster-operator
-    ```
+1. Run `make generate` to trigger automatic code generation (`deepcopy-gen` and  `openapi-gen`)
 1. Add a set of unit tests
    in [pkg/apis/hco/v1beta1/hyperconverged_types_test.go](pkg/apis/hco/v1beta1/hyperconverged_types_test.go)
    to check this new function.

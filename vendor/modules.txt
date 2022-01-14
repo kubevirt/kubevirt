@@ -44,9 +44,6 @@ github.com/go-openapi/jsonpointer
 # github.com/go-openapi/jsonreference v0.19.6
 ## explicit; go 1.13
 github.com/go-openapi/jsonreference
-# github.com/go-openapi/spec v0.20.4
-## explicit; go 1.13
-github.com/go-openapi/spec
 # github.com/go-openapi/swag v0.19.15
 ## explicit; go 1.11
 github.com/go-openapi/swag
@@ -604,10 +601,11 @@ k8s.io/component-base/config/v1alpha1
 # k8s.io/klog/v2 v2.10.0
 ## explicit; go 1.13
 k8s.io/klog/v2
-# k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c => k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
+# k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 ## explicit; go 1.12
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
+k8s.io/kube-openapi/pkg/validation/spec
 # k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 ## explicit; go 1.12
 k8s.io/utils/buffer
@@ -702,7 +700,6 @@ sigs.k8s.io/yaml
 # k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.22.4
 # k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.4
 # k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.22.4
-# k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 # k8s.io/kube-proxy => k8s.io/kube-proxy v0.22.4
 # k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.4
 # k8s.io/kubectl => k8s.io/kubectl v0.22.4

@@ -7,7 +7,6 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.4.0
-	github.com/go-openapi/spec v0.20.4
 	github.com/google/uuid v1.3.0
 	github.com/imdario/mergo v0.3.12
 	github.com/kubevirt/cluster-network-addons-operator v0.65.2
@@ -152,7 +151,6 @@ replace (
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.22.4
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.4
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.22.4
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.22.4
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.4
 	k8s.io/kubectl => k8s.io/kubectl v0.22.4

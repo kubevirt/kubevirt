@@ -20,7 +20,7 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
-sanity: generate-doc validate-no-offensive-lang
+sanity: generate generate-doc validate-no-offensive-lang
 	go version
 	go fmt ./...
 	go install golang.org/x/tools/cmd/goimports@latest
@@ -173,6 +173,9 @@ bump-kubevirtci:
 	rm -rf _kubevirtci
 	./hack/bump-kubevirtci.sh
 
+generate:
+	./hack/generate.sh
+
 generate-doc: build-docgen
 	_out/docgen ./pkg/apis/hco/v1beta1/hyperconverged_types.go > docs/api.md
 
@@ -247,5 +250,6 @@ validate-no-offensive-lang:
 		local \
 		deploy_cr \
 		build-docgen \
+		generate \
 		generate-doc \
 		validate-no-offensive-lang

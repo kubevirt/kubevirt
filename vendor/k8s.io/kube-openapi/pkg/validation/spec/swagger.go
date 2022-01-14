@@ -15,13 +15,9 @@
 package spec
 
 import (
-	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
-	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
 )
 
@@ -33,15 +29,6 @@ import (
 type Swagger struct {
 	VendorExtensible
 	SwaggerProps
-}
-
-// JSONLookup look up a value by the json property name
-func (s Swagger) JSONLookup(token string) (interface{}, error) {
-	if ex, ok := s.Extensions[token]; ok {
-		return &ex, nil
-	}
-	r, _, err := jsonpointer.GetForToken(s.SwaggerProps, token)
-	return r, err
 }
 
 // MarshalJSON marshals this swagger structure to json
@@ -70,36 +57,6 @@ func (s *Swagger) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GobEncode provides a safe gob encoder for Swagger, including extensions
-func (s Swagger) GobEncode() ([]byte, error) {
-	var b bytes.Buffer
-	raw := struct {
-		Props SwaggerProps
-		Ext   VendorExtensible
-	}{
-		Props: s.SwaggerProps,
-		Ext:   s.VendorExtensible,
-	}
-	err := gob.NewEncoder(&b).Encode(raw)
-	return b.Bytes(), err
-}
-
-// GobDecode provides a safe gob decoder for Swagger, including extensions
-func (s *Swagger) GobDecode(b []byte) error {
-	var raw struct {
-		Props SwaggerProps
-		Ext   VendorExtensible
-	}
-	buf := bytes.NewBuffer(b)
-	err := gob.NewDecoder(buf).Decode(&raw)
-	if err != nil {
-		return err
-	}
-	s.SwaggerProps = raw.Props
-	s.VendorExtensible = raw.Ext
-	return nil
-}
-
 // SwaggerProps captures the top-level properties of an Api specification
 //
 // NOTE: validation rules
@@ -125,98 +82,6 @@ type SwaggerProps struct {
 	ExternalDocs        *ExternalDocumentation `json:"externalDocs,omitempty"`
 }
 
-type swaggerPropsAlias SwaggerProps
-
-type gobSwaggerPropsAlias struct {
-	Security []map[string]struct {
-		List []string
-		Pad  bool
-	}
-	Alias           *swaggerPropsAlias
-	SecurityIsEmpty bool
-}
-
-// GobEncode provides a safe gob encoder for SwaggerProps, including empty security requirements
-func (o SwaggerProps) GobEncode() ([]byte, error) {
-	raw := gobSwaggerPropsAlias{
-		Alias: (*swaggerPropsAlias)(&o),
-	}
-
-	var b bytes.Buffer
-	if o.Security == nil {
-		// nil security requirement
-		err := gob.NewEncoder(&b).Encode(raw)
-		return b.Bytes(), err
-	}
-
-	if len(o.Security) == 0 {
-		// empty, but non-nil security requirement
-		raw.SecurityIsEmpty = true
-		raw.Alias.Security = nil
-		err := gob.NewEncoder(&b).Encode(raw)
-		return b.Bytes(), err
-	}
-
-	raw.Security = make([]map[string]struct {
-		List []string
-		Pad  bool
-	}, 0, len(o.Security))
-	for _, req := range o.Security {
-		v := make(map[string]struct {
-			List []string
-			Pad  bool
-		}, len(req))
-		for k, val := range req {
-			v[k] = struct {
-				List []string
-				Pad  bool
-			}{
-				List: val,
-			}
-		}
-		raw.Security = append(raw.Security, v)
-	}
-
-	err := gob.NewEncoder(&b).Encode(raw)
-	return b.Bytes(), err
-}
-
-// GobDecode provides a safe gob decoder for SwaggerProps, including empty security requirements
-func (o *SwaggerProps) GobDecode(b []byte) error {
-	var raw gobSwaggerPropsAlias
-
-	buf := bytes.NewBuffer(b)
-	err := gob.NewDecoder(buf).Decode(&raw)
-	if err != nil {
-		return err
-	}
-	if raw.Alias == nil {
-		return nil
-	}
-
-	switch {
-	case raw.SecurityIsEmpty:
-		// empty, but non-nil security requirement
-		raw.Alias.Security = []map[string][]string{}
-	case len(raw.Alias.Security) == 0:
-		// nil security requirement
-		raw.Alias.Security = nil
-	default:
-		raw.Alias.Security = make([]map[string][]string, 0, len(raw.Security))
-		for _, req := range raw.Security {
-			v := make(map[string][]string, len(req))
-			for k, val := range req {
-				v[k] = make([]string, 0, len(val.List))
-				v[k] = append(v[k], val.List...)
-			}
-			raw.Alias.Security = append(raw.Alias.Security, v)
-		}
-	}
-
-	*o = *(*SwaggerProps)(raw.Alias)
-	return nil
-}
-
 // Dependencies represent a dependencies property
 type Dependencies map[string]SchemaOrStringArray
 
@@ -224,15 +89,6 @@ type Dependencies map[string]SchemaOrStringArray
 type SchemaOrBool struct {
 	Allows bool
 	Schema *Schema
-}
-
-// JSONLookup implements an interface to customize json pointer lookup
-func (s SchemaOrBool) JSONLookup(token string) (interface{}, error) {
-	if token == "allows" {
-		return s.Allows, nil
-	}
-	r, _, err := jsonpointer.GetForToken(s.Schema, token)
-	return r, err
 }
 
 var jsTrue = []byte("true")
@@ -271,12 +127,6 @@ func (s *SchemaOrBool) UnmarshalJSON(data []byte) error {
 type SchemaOrStringArray struct {
 	Schema   *Schema
 	Property []string
-}
-
-// JSONLookup implements an interface to customize json pointer lookup
-func (s SchemaOrStringArray) JSONLookup(token string) (interface{}, error) {
-	r, _, err := jsonpointer.GetForToken(s.Schema, token)
-	return r, err
 }
 
 // MarshalJSON converts this schema object or array into JSON structure
@@ -339,16 +189,6 @@ func (s StringOrArray) Contains(value string) bool {
 		}
 	}
 	return false
-}
-
-// JSONLookup implements an interface to customize json pointer lookup
-func (s SchemaOrArray) JSONLookup(token string) (interface{}, error) {
-	if _, err := strconv.Atoi(token); err == nil {
-		r, _, err := jsonpointer.GetForToken(s.Schemas, token)
-		return r, err
-	}
-	r, _, err := jsonpointer.GetForToken(s.Schema, token)
-	return r, err
 }
 
 // UnmarshalJSON unmarshals this string or array object from a JSON array or JSON string
@@ -444,5 +284,3 @@ func (s *SchemaOrArray) UnmarshalJSON(data []byte) error {
 	*s = nw
 	return nil
 }
-
-// vim:set ft=go noet sts=2 sw=2 ts=2:
