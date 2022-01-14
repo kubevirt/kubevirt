@@ -20489,6 +20489,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							Format:      "",
 						},
 					},
+					"infoSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
