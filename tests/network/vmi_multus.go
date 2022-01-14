@@ -1597,14 +1597,22 @@ func setInterfaceUp(vmi *v1.VirtualMachineInstance, interfaceName string) error 
 }
 
 func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
+	return runSafeCommands(vmi, []string{command})
+}
+
+func runSafeCommands(vmi *v1.VirtualMachineInstance, commands []string) error {
+	batcher := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: command},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: tests.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
+	}
+	for _, command := range commands {
+		batcher = append(batcher,
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: command},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: tests.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")})
+	}
+	return console.SafeExpectBatch(vmi, batcher, 15)
 }
 
 func getInterfaceNameByMAC(vmi *v1.VirtualMachineInstance, mac string) (string, error) {
