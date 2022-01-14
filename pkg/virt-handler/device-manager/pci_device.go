@@ -71,8 +71,7 @@ type PCIDevicePlugin struct {
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
-	deviceIDStr := strings.Replace(pciDevices[0].pciID, ":", "-", -1)
-	serverSock := SocketPath(deviceIDStr)
+	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
 	iommuToPCIMap := make(map[string]string)
 
 	initHandler()
