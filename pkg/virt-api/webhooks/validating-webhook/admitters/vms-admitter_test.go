@@ -1463,7 +1463,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				path1    = basePath.Child("example", "path")
 				path2    = basePath.Child("domain", "example", "path")
 			)
-			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachine, _ *v1.VirtualMachineInstance) flavor.Conflicts {
 				return flavor.Conflicts{path1, path2}
 			}
 
@@ -1482,8 +1482,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Allowed).To(BeTrue())
 
 			// Flavor application sets invalid memory value
-			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
-				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
+			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) flavor.Conflicts {
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
 				return nil
 			}
 

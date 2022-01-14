@@ -957,7 +957,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("should have cloud-init meta_data with tagged sriov nics", func() {
 				noCloudInitNetworkData := ""
 				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
-
+				testFlavor := "testFlavor"
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
 				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
 
 				for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -995,10 +999,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
-					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
-					Hostname:   dns.SanitizeHostname(vmi),
-					UUID:       string(vmi.UID),
-					Devices:    &deviceData,
+					InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					InstanceType: testFlavor,
+					Hostname:     dns.SanitizeHostname(vmi),
+					UUID:         string(vmi.UID),
+					Devices:      &deviceData,
 				}
 
 				buf, err := json.Marshal(metadataStruct)

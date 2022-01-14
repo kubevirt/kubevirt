@@ -824,6 +824,12 @@ const (
 
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
+
+	// FlavorAnnotation is the name of a VirtualMachineFlavor
+	FlavorAnnotation string = "kubevirt.io/flavor-name"
+
+	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
+	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
