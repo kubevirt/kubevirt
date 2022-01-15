@@ -40,6 +40,8 @@ var KubeVirtGoCliPath = ""
 var KubeVirtInstallNamespace string
 var PreviousReleaseTag = ""
 var PreviousReleaseRegistry = ""
+var PreviousUtilityRegistry = ""
+var PreviousUtilityTag = ""
 var ConfigFile = ""
 var SkipShasumCheck bool
 var SkipDualStackTests bool
@@ -73,6 +75,8 @@ func init() {
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "quay.io/kubevirt", "Set registry of the release to test updating from")
+	flag.StringVar(&PreviousUtilityRegistry, "previous-utility-container-registry", "", "Set registry of the utility containers to test updating from")
+	flag.StringVar(&PreviousUtilityTag, "previous-utility-container-tag", "", "Set tag of the utility containers to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.StringVar(&OperatorManifestPath, "operator-manifest-path", "", "Set path to virt-operator manifest file")
@@ -95,4 +99,13 @@ func NormalizeFlags() {
 	if KubeVirtUtilityRepoPrefix == "" {
 		KubeVirtUtilityRepoPrefix = KubeVirtRepoPrefix
 	}
+
+	if PreviousUtilityRegistry == "" {
+		PreviousUtilityRegistry = PreviousReleaseRegistry
+	}
+
+	if PreviousUtilityTag == "" {
+		PreviousUtilityTag = PreviousReleaseTag
+	}
+
 }

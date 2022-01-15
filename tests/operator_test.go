@@ -664,8 +664,13 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
-		Expect(strings.HasPrefix(version, "@")).To(BeTrue())
-		originalOperatorVersion = strings.TrimPrefix(version, "@")
+		if !flags.SkipShasumCheck {
+			Expect(strings.HasPrefix(version, "@")).To(BeTrue())
+			originalOperatorVersion = strings.TrimPrefix(version, "@")
+		} else {
+			Expect(strings.HasPrefix(version, ":")).To(BeTrue())
+			originalOperatorVersion = strings.TrimPrefix(version, ":")
+		}
 
 		if tests.HasDataVolumeCRD() {
 			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
@@ -897,7 +902,7 @@ spec:
 			}
 		}
 
-		generatePreviousVersionVmYamls = func(previousImageRegistry string, previousImageTag string) {
+		generatePreviousVersionVmYamls = func(previousUtilityRegistry string, previousUtilityTag string) {
 			ext, err := extclient.NewForConfig(virtClient.Config())
 			Expect(err).ToNot(HaveOccurred())
 
@@ -968,7 +973,7 @@ spec:
 
             echo 'printed from cloud-init userdata'
         name: cloudinitdisk
-`, version, version, version, i, version, i, previousImageRegistry, cd.ContainerDiskCirros, previousImageTag)
+`, version, version, version, i, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
 
 				yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 				err = ioutil.WriteFile(yamlFile, []byte(vmYaml), 0644)
@@ -1436,16 +1441,27 @@ spec:
 
 			migratableVMIs := generateMigratableVMIs(2)
 			launcherSha := getVirtLauncherSha()
-			Expect(launcherSha).ToNot(Equal(""))
+			if !flags.SkipShasumCheck {
+				Expect(launcherSha).ToNot(Equal(""))
+			}
 
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
 				previousImageTag, err = tests.DetectLatestUpstreamOfficialTag()
 				Expect(err).ToNot(HaveOccurred())
-				By(fmt.Sprintf("By Using detected tag %s", previousImageTag))
+				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
 			} else {
-				By(fmt.Sprintf("By Using user defined tag %s", previousImageTag))
+				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
+			}
+
+			previousUtilityTag := flags.PreviousUtilityTag
+			previousUtilityRegistry := flags.PreviousUtilityRegistry
+			if previousUtilityTag == "" {
+				previousUtilityTag = previousImageTag
+				By(fmt.Sprintf("By Using detected tag %s for previous utility containers", previousUtilityTag))
+			} else {
+				By(fmt.Sprintf("By Using user defined tag %s for previous utility containers", previousUtilityTag))
 			}
 
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
@@ -1516,7 +1532,7 @@ spec:
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
 
-			generatePreviousVersionVmYamls(previousImageRegistry, previousImageTag)
+			generatePreviousVersionVmYamls(previousUtilityRegistry, previousUtilityTag)
 			generatePreviousVersionVmsnapshotYamls()
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
