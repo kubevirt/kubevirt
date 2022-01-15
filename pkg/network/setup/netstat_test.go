@@ -431,9 +431,7 @@ var _ = Describe("netstat", func() {
 
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
-			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-				newVMIStatusIface(networkName, nil, "", "", ""),
-			}))
+			Expect(setup.Vmi.Status.Interfaces).To(BeEmpty())
 		})
 
 		It("has interface in VMI and domain specs, but not in filesystem cache", func() {

@@ -137,7 +137,6 @@ type InterfaceStatus struct {
 	Ip            string
 	IPs           []string
 	InterfaceName string
-	InfoSource    string
 }
 
 type Timezone struct {
