@@ -271,7 +271,7 @@ var _ = Describe("netstat", func() {
 
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
-		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{}), "the SR-IOV interface should not be reported in the status.")
+		Expect(setup.Vmi.Status.Interfaces).To(BeEmpty(), "the SR-IOV interface should not be reported in the status.")
 	})
 
 	// The reporting of the SR-IOV interface when no guest-agent exists is missing.
@@ -458,7 +458,7 @@ var _ = Describe("netstat", func() {
 
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
-			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{}))
+			Expect(setup.Vmi.Status.Interfaces).To(BeEmpty())
 		})
 	})
 })
