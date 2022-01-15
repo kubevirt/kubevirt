@@ -232,7 +232,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		return vmi
 	}
 
-	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstanceMigration {
+	cancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vminame string, with_virtctl bool) {
+		if !with_virtctl {
+			By("Cancelling a Migration")
+			Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		} else {
+			By("Cancelling a Migration with virtctl")
+			command := tests.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)
+			Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
+		}
+	}
+
+	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, with_virtctl bool, timeout int) *v1.VirtualMachineInstanceMigration {
 		By("Starting a Migration")
 		Eventually(func() error {
 			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -257,11 +268,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).Should(BeTrue())
 
-		By("Cancelling a Migration")
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		cancelMigration(migration, vmi.Name, with_virtctl)
+
 		return migration
 	}
-	runAndImmediatelyCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstanceMigration {
+
+	runAndImmediatelyCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, with_virtctl bool, timeout int) *v1.VirtualMachineInstanceMigration {
 		By("Starting a Migration")
 		Eventually(func() error {
 			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -277,8 +289,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).Should(BeTrue())
 
-		By("Cancelling a Migration")
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		cancelMigration(migration, vmi.Name, with_virtctl)
+
 		return migration
 	}
 
@@ -2188,7 +2200,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				return vmi, dv
 			}
 
-			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder) {
+			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi, dv := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				defer deleteDataVolume(dv)
@@ -2208,7 +2220,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				migration = runAndCancelMigration(migration, vmi, 180)
+				migration = runAndCancelMigration(migration, vmi, with_virtctl, 180)
 				migrationUID := string(migration.UID)
 
 				// check VMI, confirm migration state
@@ -2224,10 +2236,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
-				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk),
-			)
-			It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
+				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
+				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
+				table.Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
+				table.Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+
+			table.DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2241,7 +2255,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				migration = runAndImmediatelyCancelMigration(migration, vmi, 180)
+				migration = runAndImmediatelyCancelMigration(migration, vmi, with_virtctl, 180)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
@@ -2255,8 +2269,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			})
+			},
+				table.Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
+				table.Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
+			)
 		})
 
 		Context("with a host-model cpu", func() {

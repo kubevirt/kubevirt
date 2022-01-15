@@ -38,15 +38,16 @@ import (
 )
 
 const (
-	COMMAND_START        = "start"
-	COMMAND_STOP         = "stop"
-	COMMAND_RESTART      = "restart"
-	COMMAND_MIGRATE      = "migrate"
-	COMMAND_GUESTOSINFO  = "guestosinfo"
-	COMMAND_USERLIST     = "userlist"
-	COMMAND_FSLIST       = "fslist"
-	COMMAND_ADDVOLUME    = "addvolume"
-	COMMAND_REMOVEVOLUME = "removevolume"
+	COMMAND_START          = "start"
+	COMMAND_STOP           = "stop"
+	COMMAND_RESTART        = "restart"
+	COMMAND_MIGRATE        = "migrate"
+	COMMAND_MIGRATE_CANCEL = "migrate-cancel"
+	COMMAND_GUESTOSINFO    = "guestosinfo"
+	COMMAND_USERLIST       = "userlist"
+	COMMAND_FSLIST         = "fslist"
+	COMMAND_ADDVOLUME      = "addvolume"
+	COMMAND_REMOVEVOLUME   = "removevolume"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
@@ -136,6 +137,21 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func NewMigrateCancelCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "migrate-cancel (VM)",
+		Short:   "Cancel migration of a virtual machine.",
+		Example: usage(COMMAND_MIGRATE_CANCEL),
+		Args:    templates.ExactArgs("migrate-cancel", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_MIGRATE_CANCEL, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -423,6 +439,35 @@ func (o *Command) Run(args []string) error {
 		err = virtClient.VirtualMachine(namespace).Migrate(vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
+		}
+	case COMMAND_MIGRATE_CANCEL:
+		// get a list of migrations for vmiName (use LabelSelector filter)
+		labelselector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)
+		migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{
+			LabelSelector: labelselector})
+		if err != nil {
+			return fmt.Errorf("Error fetching virtual machine instance migration list  %v", err)
+		}
+
+		// There may be a single active migrations but several completed/failed ones
+		// go over the migrations list and find the active one
+		done := false
+		for _, mig := range migrations.Items {
+			migname := mig.ObjectMeta.Name
+
+			if !mig.IsFinal() {
+				// Cancel the active migration by calling Delete
+				err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(migname, &metav1.DeleteOptions{})
+				if err != nil {
+					return fmt.Errorf("Error canceling migration %s of a VirtualMachine %s: %v", migname, vmiName, err)
+				}
+				done = true
+				break
+			}
+		}
+
+		if !done {
+			return fmt.Errorf("Found no migration to cancel for %s", vmiName)
 		}
 	case COMMAND_GUESTOSINFO:
 		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
