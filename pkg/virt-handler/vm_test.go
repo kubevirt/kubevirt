@@ -2487,7 +2487,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			domain.Status.Interfaces = append(domain.Status.Interfaces, api.InterfaceStatus{
-				Name:          "myname",
 				Mac:           "01:00:00:00:00:10",
 				Ip:            "10.10.10.10",
 				IPs:           []string{"10.10.10.10", "1::1/128"},
@@ -2501,7 +2500,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 					{
 						IP:            domain.Status.Interfaces[0].Ip,
 						MAC:           domain.Status.Interfaces[0].Mac,
-						Name:          domain.Status.Interfaces[0].Name,
 						IPs:           domain.Status.Interfaces[0].IPs,
 						InterfaceName: domain.Status.Interfaces[0].InterfaceName,
 					},
@@ -3098,7 +3096,6 @@ func (ns *netStatStub) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.
 	ifaceStatus := v1.VirtualMachineInstanceNetworkInterface{
 		IP:            domain.Status.Interfaces[0].Ip,
 		MAC:           domain.Status.Interfaces[0].Mac,
-		Name:          domain.Status.Interfaces[0].Name,
 		IPs:           domain.Status.Interfaces[0].IPs,
 		InterfaceName: domain.Status.Interfaces[0].InterfaceName,
 	}

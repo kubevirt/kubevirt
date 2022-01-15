@@ -83,7 +83,6 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 
 	var err error
 	if len(domain.Status.Interfaces) > 0 {
-		domain.Status.Interfaces = mergeAgentStatusesWithDomainData(domain.Spec.Devices.Interfaces, domain.Status.Interfaces)
 		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, domain.Status.Interfaces)
 
 		natedIfacesSpec := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
@@ -170,8 +169,14 @@ func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetwo
 			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
 			vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
 		} else {
-			setMissingSRIOVInterfaceName(&guestAgentInterface, vmiInterfacesSpecByMac)
 			newVMIIfaceStatus := newVMIIfaceStatusFromGuestAgentData(guestAgentInterface)
+
+			// Special SR-IOV handling: Current implementation does not detect SR-IOV interfaces from the domain,
+			// therefore, such interfaces are detected from the guest-agent and requires association based on the
+			// VMI interfaces spec.
+			if vmiSpecIface := vmiInterfacesSpecByMac[guestAgentInterface.Mac]; vmiSpecIface.SRIOV != nil {
+				newVMIIfaceStatus.Name = vmiSpecIface.Name
+			}
 			newVMIIfaceStatus.InfoSource = netvmispec.InfoSourceGuestAgent
 			vmiIfacesStatus = append(vmiIfacesStatus, newVMIIfaceStatus)
 		}
@@ -185,35 +190,11 @@ func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstan
 	ifaceStatus.IPs = guestAgentIface.IPs
 }
 
-func setMissingSRIOVInterfaceName(guestAgentInterface *api.InterfaceStatus, vmiInterfacesSpecByMac map[string]v1.Interface) {
-	vmiSpecIface := vmiInterfacesSpecByMac[guestAgentInterface.Mac]
-	if vmiSpecIface.SRIOV != nil {
-		guestAgentInterface.Name = vmiSpecIface.Name
-	}
-}
-
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
 	return v1.VirtualMachineInstanceNetworkInterface{
-		Name:          guestAgentInterface.Name,
 		MAC:           guestAgentInterface.Mac,
 		IP:            guestAgentInterface.Ip,
 		IPs:           guestAgentInterface.IPs,
 		InterfaceName: guestAgentInterface.InterfaceName,
 	}
-}
-
-// mergeAgentStatusesWithDomainData merge QEMU interfaces with agent interfaces
-func mergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceStatuses []api.InterfaceStatus) []api.InterfaceStatus {
-	aliasByMac := map[string]string{}
-	for _, ifc := range domInterfaces {
-		aliasByMac[ifc.MAC.MAC] = ifc.Alias.GetName()
-	}
-
-	for i, interfaceStatus := range interfaceStatuses {
-		if alias, exists := aliasByMac[interfaceStatus.Mac]; exists {
-			interfaceStatuses[i].Name = alias
-		}
-	}
-
-	return interfaceStatuses
 }

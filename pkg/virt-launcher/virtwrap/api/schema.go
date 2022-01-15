@@ -132,7 +132,6 @@ type GuestOSInfo struct {
 }
 
 type InterfaceStatus struct {
-	Name          string
 	Mac           string
 	Ip            string
 	IPs           []string

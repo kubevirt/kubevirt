@@ -126,7 +126,6 @@ var _ = Describe("Qemu agent poller", func() {
 			expectedStatuses := []api.InterfaceStatus{}
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
-					Name:          "",
 					Mac:           "0a:58:0a:f4:00:51",
 					Ip:            "10.244.0.81",
 					IPs:           []string{"10.244.0.81", "fe80::858:aff:fef4:51"},
@@ -134,7 +133,6 @@ var _ = Describe("Qemu agent poller", func() {
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
-					Name:          "",
 					Mac:           "02:00:00:b0:17:66",
 					Ip:            "fe80::ff:feb0:1766",
 					IPs:           []string{"fe80::ff:feb0:1766"},

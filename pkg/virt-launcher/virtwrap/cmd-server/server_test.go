@@ -164,8 +164,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			fakeInterfaces := []api.InterfaceStatus{
 				{
-					Name: "eth1",
-					Mac:  "00:00:00:00:00:01",
+					Mac: "00:00:00:00:00:01",
 				},
 			}
 			domainManager.EXPECT().InterfacesStatus().Return(fakeInterfaces)
