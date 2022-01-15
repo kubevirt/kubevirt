@@ -1070,7 +1070,11 @@ func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("unknown type, vmi %s", vmi.ObjectMeta.Name)
+	if vmiJson, err := json.Marshal(vmi); err == nil {
+		return "", fmt.Errorf("unknown type, vmi %s", vmiJson)
+	} else {
+		return "", fmt.Errorf("%w: unknown type, vmi %s", err, vmi.ObjectMeta.Name)
+	}
 }
 
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
