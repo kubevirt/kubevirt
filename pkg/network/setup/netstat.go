@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -79,11 +80,16 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	interfacesStatus := ifacesStatusFromDomain(domain.Spec.Devices.Interfaces)
+	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
+
+	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
+	interfacesStatus = append(interfacesStatus,
+		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
+	)
 
 	var err error
 	if len(domain.Status.Interfaces) > 0 {
-		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, domain.Status.Interfaces)
+		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
 		natedIfacesSpec := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
 			return i.Masquerade != nil || i.Slirp != nil
@@ -144,7 +150,7 @@ func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
 	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
 }
 
-func ifacesStatusFromDomain(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, domainSpecIface := range domainSpecIfaces {
@@ -157,9 +163,23 @@ func ifacesStatusFromDomain(domainSpecIfaces []api.Interface) []v1.VirtualMachin
 	return vmiStatusIfaces
 }
 
-func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, vmiIfacesSpec []v1.Interface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
-	vmiInterfacesSpecByMac := netvmispec.IndexInterfaceSpecByMac(vmiIfacesSpec)
+func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
+	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, sriov.AliasPrefix) {
+		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
+			Name:       hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
+			InfoSource: netvmispec.InfoSourceDomain,
+		}
+		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
+			vmiStatusIface.MAC = iface.MacAddress
+		}
+		vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
+	}
+	return vmiStatusIfaces
+}
+
+func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
 	for _, guestAgentInterface := range guestAgentInterfaces {
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
 			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
@@ -168,13 +188,6 @@ func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetwo
 			}
 		} else {
 			newVMIIfaceStatus := newVMIIfaceStatusFromGuestAgentData(guestAgentInterface)
-
-			// Special SR-IOV handling: Current implementation does not detect SR-IOV interfaces from the domain,
-			// therefore, such interfaces are detected from the guest-agent and requires association based on the
-			// VMI interfaces spec.
-			if vmiSpecIface := vmiInterfacesSpecByMac[guestAgentInterface.Mac]; vmiSpecIface.SRIOV != nil {
-				newVMIIfaceStatus.Name = vmiSpecIface.Name
-			}
 			newVMIIfaceStatus.InfoSource = netvmispec.InfoSourceGuestAgent
 			vmiIfacesStatus = append(vmiIfacesStatus, newVMIIfaceStatus)
 		}
@@ -204,4 +217,15 @@ func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus
 		IPs:           guestAgentInterface.IPs,
 		InterfaceName: guestAgentInterface.InterfaceName,
 	}
+}
+
+func filterHostDevicesByAlias(hostDevices []api.HostDevice, prefix string) []api.HostDevice {
+	var filteredHostDevices []api.HostDevice
+
+	for _, hostDevice := range hostDevices {
+		if hostDevice.Alias != nil && strings.HasPrefix(hostDevice.Alias.GetName(), prefix) {
+			filteredHostDevices = append(filteredHostDevices, hostDevice)
+		}
+	}
+	return filteredHostDevices
 }

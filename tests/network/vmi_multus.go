@@ -1103,7 +1103,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				By("checking virtual machine instance reports the expected info source")
 				networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, mac)
 				Expect(networkInterface).NotTo(BeNil(), "interface not found")
-				Expect(networkInterface.InfoSource).To(Equal(netvmispec.InfoSourceGuestAgent))
+				Expect(networkInterface.InfoSource).To(Equal(netvmispec.InfoSourceDomainAndGA))
 			})
 
 			Context("migration", func() {
