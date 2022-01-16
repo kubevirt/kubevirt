@@ -147,16 +147,12 @@ func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
 func ifacesStatusFromDomain(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
-	for _, domainSpecInterface := range domainSpecIfaces {
-		interfaceMAC := domainSpecInterface.MAC.MAC
-		domainIfaceAlias := domainSpecInterface.Alias.GetName()
-
-		networkInterface := v1.VirtualMachineInstanceNetworkInterface{
-			Name:       domainIfaceAlias,
-			MAC:        interfaceMAC,
+	for _, domainSpecIface := range domainSpecIfaces {
+		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
+			Name:       domainSpecIface.Alias.GetName(),
+			MAC:        domainSpecIface.MAC.MAC,
 			InfoSource: netvmispec.InfoSourceDomain,
-		}
-		vmiStatusIfaces = append(vmiStatusIfaces, networkInterface)
+		})
 	}
 	return vmiStatusIfaces
 }
