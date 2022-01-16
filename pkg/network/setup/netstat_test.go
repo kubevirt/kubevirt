@@ -301,7 +301,7 @@ var _ = Describe("netstat", func() {
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(primaryNetworkName, nil, "", "", netvmispec.InfoSourceDomain),
+			newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4}, "", "", netvmispec.InfoSourceDomain),
 		}), "the SR-IOV interface should not be reported in the status.")
 	})
 
@@ -327,6 +327,90 @@ var _ = Describe("netstat", func() {
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName, netvmispec.InfoSourceGuestAgent),
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
+	})
+
+	When("the desired state (VMI spec) is not in sync with the state in the guest (guest-agent)", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryPodIPv6     = "fd10:244::8c4c"
+			primaryGaIPv4      = "2.2.2.1"
+			primaryGaIPv6      = "fd20:244::8c4c"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+
+			secondaryNetworkName = "secondary"
+			secondaryPodIPv4     = "1.1.1.2"
+			secondaryPodIPv6     = "fd10:244::8c4e"
+			secondaryGaIPv4      = secondaryPodIPv4
+			secondaryGaIPv6      = secondaryPodIPv6
+			secondaryMAC         = "1C:CE:C0:01:BE:E9"
+			secondaryIfaceName   = "eth1"
+
+			newMAC1 = "fd20:000::0001"
+			newMAC2 = "fd20:000::0002"
+		)
+
+		BeforeEach(func() {
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4, primaryPodIPv6,
+			)
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+				newVMISpecMultusNetwork(secondaryNetworkName),
+				newDomainSpecIface(secondaryNetworkName, secondaryMAC),
+				secondaryPodIPv4, secondaryPodIPv6,
+			)
+		})
+
+		It("reports masquerade and bridge interfaces with their MAC changed in the guest", func() {
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface(primaryIfaceName, nil, primaryMAC, "", netvmispec.InfoSourceDomain),
+				newDomainStatusIface(secondaryIfaceName, nil, secondaryMAC, "", netvmispec.InfoSourceDomain),
+				newDomainStatusIface("", []string{primaryGaIPv4, primaryGaIPv6}, newMAC1, primaryIfaceName, netvmispec.InfoSourceGuestAgent),
+				newDomainStatusIface("", []string{secondaryGaIPv4, secondaryGaIPv6}, newMAC2, secondaryIfaceName, netvmispec.InfoSourceGuestAgent),
+			)
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(ConsistOf([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, "", netvmispec.InfoSourceDomain),
+				newVMIStatusIface(secondaryNetworkName, nil, secondaryMAC, "", netvmispec.InfoSourceDomain),
+				newVMIStatusIface("", []string{primaryGaIPv4, primaryGaIPv6}, newMAC1, primaryIfaceName, netvmispec.InfoSourceGuestAgent),
+				newVMIStatusIface("", []string{secondaryGaIPv4, secondaryGaIPv6}, newMAC2, secondaryIfaceName, netvmispec.InfoSourceGuestAgent),
+			}))
+		})
+
+		It("reports a new interface that appeared in the guest", func() {
+			const (
+				newGaIPv4    = "3.3.3.3"
+				newGaIPv6    = "fd20:333::3333"
+				newIfaceName = "eth3"
+			)
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName, netvmispec.InfoSourceDomainAndGA),
+				newDomainStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName, netvmispec.InfoSourceDomainAndGA),
+				newDomainStatusIface("", []string{newGaIPv4, newGaIPv6}, newMAC1, newIfaceName, netvmispec.InfoSourceGuestAgent),
+			)
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(ConsistOf([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, primaryIfaceName, netvmispec.InfoSourceDomainAndGA),
+				newVMIStatusIface(secondaryNetworkName, []string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, secondaryIfaceName, netvmispec.InfoSourceDomainAndGA),
+				newVMIStatusIface("", []string{newGaIPv4, newGaIPv6}, newMAC1, newIfaceName, netvmispec.InfoSourceGuestAgent),
+			}))
+		})
+
+		It("reports that an interface is not seen in the guest", func() {
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(ConsistOf([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, "", netvmispec.InfoSourceDomain),
+				newVMIStatusIface(secondaryNetworkName, []string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, "", netvmispec.InfoSourceDomain),
+			}))
+		})
 	})
 
 	Context("misc scenario", func() {
@@ -412,7 +496,7 @@ type podInterfaceCacheStoreStatusStub struct {
 
 func (p podInterfaceCacheStoreStatusStub) Read(iface string) (*cache.PodCacheInterface, error) {
 	if d, exists := p.data[iface]; exists {
-		return &cache.PodCacheInterface{Iface: d.Iface}, nil
+		return d, nil
 	}
 	return &cache.PodCacheInterface{}, nil
 }
