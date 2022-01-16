@@ -338,16 +338,19 @@ func processCsvs(componentsWithCsvs []util.CsvWithComponent, installStrategyBase
 	}
 }
 
+var csvNames = []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
+
 func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
+	csvName := csvNames[i]
+
 	if c.Csv == "" {
-		csvNames := []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
-		log.Panicf("ERROR: the %s CSV was empty", csvNames[i])
+		log.Panicf("ERROR: the %s CSV was empty", csvName)
 	}
 	csvBytes := []byte(c.Csv)
 
 	csvStruct := &csvv1alpha1.ClusterServiceVersion{}
 
-	panicOnError(yaml.Unmarshal(csvBytes, csvStruct))
+	panicOnError(yaml.Unmarshal(csvBytes, csvStruct), "failed to unmarshal the CSV for", csvName)
 
 	strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
@@ -374,12 +377,12 @@ func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alp
 		csvBaseAlmString = "[" + csvBaseAlmString + "]"
 	}
 
-	panicOnError(json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs))
-	panicOnError(json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs))
+	panicOnError(json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs), "failed to unmarshal the example from base from base csv for", csvName, "csvBaseAlmString:", csvBaseAlmString)
+	panicOnError(json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs), "failed to unmarshal the example from base from struct csv for", csvName, "csvStructAlmString:", csvStructAlmString)
 
 	baseAlmcrs = append(baseAlmcrs, structAlmcrs...)
 	almB, err := json.Marshal(baseAlmcrs)
-	panicOnError(err)
+	panicOnError(err, "failed to marshal the combined example for", csvName)
 	csvBase.Annotations[almExamplesAnnotation] = string(almB)
 
 	if !*ignoreComponentsRelatedImages {
@@ -530,9 +533,14 @@ func addRelatedImage(images []csvv1alpha1.RelatedImage, image string) []csvv1alp
 	return appendRelatedImageIfMissing(images, ri)
 }
 
-func panicOnError(err error) {
+func panicOnError(err error, info ...string) {
 	if err != nil {
-		log.Println("Error!", err)
+		moreInfo := ""
+		if len(info) > 0 {
+			moreInfo = strings.Join(info, " ")
+		}
+
+		log.Println("Error!", err, moreInfo)
 		panic(err)
 	}
 }
