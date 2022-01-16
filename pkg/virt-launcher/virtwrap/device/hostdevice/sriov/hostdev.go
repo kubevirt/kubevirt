@@ -70,7 +70,7 @@ func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMet
 }
 
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
-	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec, AliasPrefix)
+	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, AliasPrefix)
 	return hostdevice.SafelyDetachHostDevices(sriovDevices, eventDetach, dom, timeout)
 }
 
@@ -79,7 +79,7 @@ func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.Doma
 	if err != nil {
 		return nil, err
 	}
-	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec, AliasPrefix)
+	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, AliasPrefix)
 
 	sriovHostDevicesToAttach := hostdevice.DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
 

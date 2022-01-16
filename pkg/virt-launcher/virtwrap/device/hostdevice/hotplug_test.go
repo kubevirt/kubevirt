@@ -43,7 +43,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov1")},
 				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov2")},
 			)
-			Expect(hostdevice.FilterHostDevicesByAlias(&domainSpec, aliasPrefix)).To(BeEmpty())
+			Expect(hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, aliasPrefix)).To(BeEmpty())
 		})
 
 		It("filters 2 SRIOV devices, given 2 SRIOV devices and 2 non-SRIOV devices", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 				hostDevice2,
 				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov2")},
 			)
-			Expect(hostdevice.FilterHostDevicesByAlias(&domainSpec, aliasPrefix)).To(Equal([]api.HostDevice{hostDevice1, hostDevice2}))
+			Expect(hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, aliasPrefix)).To(Equal([]api.HostDevice{hostDevice1, hostDevice2}))
 		})
 	})
 
