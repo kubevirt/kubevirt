@@ -149,7 +149,15 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	return nil, nil
 }
 
+func (m *mounter) addMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
+	return m.setAddMountTargetRecordHelper(vmi, record, true)
+}
+
 func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
+	return m.setAddMountTargetRecordHelper(vmi, record, false)
+}
+
+func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord, addPreviousRules bool) error {
 	if string(vmi.UID) == "" {
 		return fmt.Errorf("unable to set container disk mounted directories for vmi without uid")
 	}
@@ -167,6 +175,10 @@ func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *v
 	if ok && fileExists && reflect.DeepEqual(existingRecord, record) {
 		// already done
 		return nil
+	}
+
+	if addPreviousRules {
+		record.MountTargetEntries = append(record.MountTargetEntries, existingRecord.MountTargetEntries...)
 	}
 
 	bytes, err := json.Marshal(record)
