@@ -1,0 +1,6 @@
+reviewers:
+  - network-reviewers
+approvers:
+  - network-approvers
+labels:
+  - sig/network
