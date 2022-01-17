@@ -177,7 +177,7 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 		return nil
 	}
 
-	if addPreviousRules {
+	if addPreviousRules && existingRecord != nil && len(existingRecord.MountTargetEntries) > 0 {
 		record.MountTargetEntries = append(record.MountTargetEntries, existingRecord.MountTargetEntries...)
 	}
 
@@ -389,7 +389,8 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 	return true, nil
 }
 
-// Mount artifacts defined by KernelBootName in VMI
+// MountKernelArtifacts mounts artifacts defined by KernelBootName in VMI.
+// This function is assumed to run after MountAndVerify.
 func (m *mounter) MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bool) error {
 	const kernelBootName = containerdisk.KernelBootName
 
@@ -420,7 +421,7 @@ func (m *mounter) MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 		}},
 	}
 
-	err = m.setMountTargetRecord(vmi, &record)
+	err = m.addMountTargetRecord(vmi, &record)
 	if err != nil {
 		return err
 	}
