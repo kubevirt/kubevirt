@@ -48,6 +48,7 @@ import (
 const (
 	castFailedFmt   = "Cast failed! obj: %+v"
 	deleteFailedFmt = "Failed to delete %s: %v"
+	finalizerPath   = "/metadata/finalizers"
 )
 
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,
@@ -518,6 +519,8 @@ func crdHandleDeletion(kvkey string,
 	ext := clientset.ExtensionsClient()
 	objects := stores.CrdCache.List()
 
+	finalizerPath := "/metadata/finalizers"
+
 	crds := []*extv1.CustomResourceDefinition{}
 	for _, obj := range objects {
 		crd, ok := obj.(*extv1.CustomResourceDefinition)
@@ -540,7 +543,7 @@ func crdHandleDeletion(kvkey string,
 		if err != nil {
 			return err
 		}
-		ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/finalizers", "value": %s }]`, string(patchBytes))
+		ops := fmt.Sprintf(`[{ "op": "add", "path": "%s", "value": %s }]`, finalizerPath, string(patchBytes))
 		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
 		if err != nil {
 			return err
@@ -563,7 +566,30 @@ func crdHandleDeletion(kvkey string,
 	}
 
 	for _, crd := range needFinalizerRemoved {
-		ops := `[ { "op": "remove", "path": "/metadata/finalizers" } ]`
+		var ops string
+		if len(crd.Finalizers) > 1 {
+			crdCopy := crd.DeepCopy()
+			controller.RemoveFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
+
+			newPatchBytes, err := json.Marshal(crdCopy.Finalizers)
+			if err != nil {
+				return err
+			}
+
+			oldPatchBytes, err := json.Marshal(crd.Finalizers)
+			if err != nil {
+				return err
+			}
+
+			ops = fmt.Sprintf(`[{ "op": "test", "path": "%s", "value": %s }, { "op": "replace", "path": "%s", "value": %s }]`,
+				finalizerPath,
+				string(oldPatchBytes),
+				finalizerPath,
+				string(newPatchBytes))
+		} else {
+			ops = fmt.Sprintf(`[{ "op": "remove", "path": "%s" }]`, finalizerPath)
+		}
+
 		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
 		if err != nil {
 			return err
