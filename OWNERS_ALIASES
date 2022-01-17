@@ -64,3 +64,5 @@ aliases:
       - phoracek
       - qinqon
       - rhrazdil
+  network-approvers:
+      - AlonaKaplan
