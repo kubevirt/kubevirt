@@ -15,8 +15,7 @@ workloads:
     waitWhenFinished: 30s
     objects:          
       - templateFile: templates/vmi-ephemeral.yaml
-        replicas: 1
-          #replicas: 100
+        replicas: 100
         inputVars:
           containerPrefix: ""
           containerImg: cirros-container-disk-demo
