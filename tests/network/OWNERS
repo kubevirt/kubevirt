@@ -1,2 +1,4 @@
 reviewers:
   - network-reviewers
+labels:
+  - sig/network
