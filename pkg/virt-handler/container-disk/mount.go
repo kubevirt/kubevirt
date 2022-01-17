@@ -543,7 +543,7 @@ func (m *mounter) UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 			log.Log.Object(vmi).Reason(err).Error("unable to unmount kernel artifacts")
 		}
 
-		err = os.Remove(targetDir)
+		err = os.RemoveAll(targetDir)
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Infof("cannot delete dir %s. err: %v", targetDir, err)
 		}
