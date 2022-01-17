@@ -1810,9 +1810,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.migrationProxy.StopSourceListener(vmiId)
 
 	// Unmount container disks and clean up remaining files
-	if err := d.containerDiskMounter.UnmountKernelArtifacts(vmi); err != nil {
-		return err
-	}
 	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
 	}
@@ -2393,10 +2390,6 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return err
 	}
 
-	if err := d.containerDiskMounter.MountKernelArtifacts(vmi, false); err != nil {
-		return fmt.Errorf("failed to mount kernel artifacts: %v", err)
-	}
-
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
 		if err := d.hotplugVolumeMounter.MountFromPod(vmi, attachmentPodUID); err != nil {
@@ -2483,10 +2476,6 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		disksInfo, err = d.containerDiskMounter.MountAndVerify(vmi)
 		if err != nil {
 			return err
-		}
-
-		if err := d.containerDiskMounter.MountKernelArtifacts(vmi, true); err != nil {
-			return fmt.Errorf("failed to mount kernel artifacts: %v", err)
 		}
 
 		// Try to mount hotplug volume if there is any during startup.
