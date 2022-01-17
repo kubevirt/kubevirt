@@ -41,7 +41,7 @@ func FilterSRIOVInterfaces(ifaces []v1.Interface) []v1.Interface {
 
 func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
 	if podNetwork := lookupPodNetwork(networks); podNetwork != nil {
-		if podInterface := lookupInterfaceByNetwork(ifaces, podNetwork); podInterface != nil {
+		if podInterface := LookupInterfaceByNetwork(ifaces, podNetwork); podInterface != nil {
 			return podInterface.Masquerade != nil
 		}
 	}
@@ -84,7 +84,7 @@ func IndexInterfaceSpecByMac(interfaces []v1.Interface) map[string]v1.Interface 
 	return ifacesByMac
 }
 
-func lookupInterfaceByNetwork(ifaces []v1.Interface, network *v1.Network) *v1.Interface {
+func LookupInterfaceByNetwork(ifaces []v1.Interface, network *v1.Network) *v1.Interface {
 	for _, iface := range ifaces {
 		if iface.Name == network.Name {
 			iface := iface

@@ -33,6 +33,7 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -97,7 +98,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("Network not implemented")
 	}
 
-	correspondingNetworkIface := findInterfaceByNetworkName(vmi, network)
+	correspondingNetworkIface := vmispec.LookupInterfaceByNetwork(vmi.Spec.Domain.Devices.Interfaces, network)
 	if correspondingNetworkIface == nil {
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
@@ -370,15 +371,6 @@ func composePodInterfaceName(vmi *v1.VirtualMachineInstance, network *v1.Network
 		return fmt.Sprintf("net%d", multusIndex), nil
 	}
 	return primaryPodInterfaceName, nil
-}
-
-func findInterfaceByNetworkName(vmi *v1.VirtualMachineInstance, network *v1.Network) *v1.Interface {
-	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Name == network.Name {
-			return &vmi.Spec.Domain.Devices.Interfaces[i]
-		}
-	}
-	return nil
 }
 
 func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) int {
