@@ -27,25 +27,24 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer) {
-	isResourceRequirementMissing := func(vmiResources kubev1.ResourceRequirements) bool {
-		if vmiResources.Limits == nil || vmiResources.Requests == nil {
+func memoryOrCpuIsMissing(resource k8sv1.ResourceList) bool {
+	for _, v := range []k8sv1.ResourceName{k8sv1.ResourceMemory, k8sv1.ResourceCPU} {
+		if _, ok := resource[v]; !ok {
 			return true
 		}
-		isMemoryAndCpuExist := func(resource k8sv1.ResourceList) bool {
-			for _, v := range []k8sv1.ResourceName{k8sv1.ResourceMemory, k8sv1.ResourceCPU} {
-				if _, ok := resource[v]; !ok {
-					return false
-				}
-			}
-			return true
-		}
-		if !isMemoryAndCpuExist(vmiResources.Limits) || !isMemoryAndCpuExist(vmiResources.Requests) {
-			return true
-		}
-		return false
+	}
+	return false
+}
+
+func isResourceRequirementMissing(resourceRequirements kubev1.ResourceRequirements) bool {
+	if resourceRequirements.Limits == nil || resourceRequirements.Requests == nil {
+		return true
 	}
 
+	return memoryOrCpuIsMissing(resourceRequirements.Limits) || memoryOrCpuIsMissing(resourceRequirements.Requests)
+}
+
+func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer) {
 	// Copy namespace limits (if exist) to the VM spec
 	if isResourceRequirementMissing(vmi.Spec.Domain.Resources) {
 		limits, err := limitrangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
