@@ -174,12 +174,12 @@ func initializeDirs(ephemeralDiskDir string,
 		panic(err)
 	}
 
-	err = cloudinit.SetLocalDirectory(ephemeralDiskDir + "/cloud-init-data")
+	err = cloudinit.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "cloud-init-data"))
 	if err != nil {
 		panic(err)
 	}
 
-	err = ignition.SetLocalDirectory(ephemeralDiskDir + "/ignition-data")
+	err = ignition.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "ignition-data"))
 	if err != nil {
 		panic(err)
 	}

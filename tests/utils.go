@@ -40,6 +40,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -1300,11 +1301,11 @@ func composeResourceURI(object unstructured.Unstructured) string {
 	if object.GetAPIVersion() != "v1" {
 		uri += "s"
 	}
-	uri += "/" + object.GetAPIVersion()
+	uri = path.Join(uri, object.GetAPIVersion())
 	if object.GetNamespace() != "" && isNamespaceScoped(object.GroupVersionKind()) {
-		uri += "/namespaces/" + object.GetNamespace()
+		uri = path.Join(uri, "namespaces", object.GetNamespace())
 	}
-	uri += "/" + strings.ToLower(object.GetKind())
+	uri = path.Join(uri, strings.ToLower(object.GetKind()))
 	if !strings.HasSuffix(object.GetKind(), "s") {
 		uri += "s"
 	}
@@ -1332,7 +1333,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	util2.PanicOnError(err)
 
 	uri := composeResourceURI(object)
-	uri = uri + "/" + object.GetName()
+	uri = path.Join(uri, object.GetName())
 
 	policy := metav1.DeletePropagationBackground
 	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
@@ -4861,7 +4862,7 @@ func GetNodeDrainKey() string {
 }
 
 func RandTmpDir() string {
-	return tmpPath + "/" + rand.String(10)
+	return filepath.Join(tmpPath, rand.String(10))
 }
 
 func getTagHint() string {
@@ -5001,7 +5002,7 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 }
 
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-	cmdCheck := "cat /mnt/" + testFile + "\n"
+	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
 		&expect.BExp{R: console.PromptExpression},

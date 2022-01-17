@@ -22,8 +22,8 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"reflect"
-	"strings"
 
 	"kubevirt.io/api/migrations"
 
@@ -593,10 +593,7 @@ func ClusterResourcePath(gvr schema.GroupVersionResource) string {
 }
 
 func SubResourcePath(subResource string) string {
-	if !strings.HasPrefix(subResource, "/") {
-		return "/" + subResource
-	}
-	return subResource
+	return path.Join("/", subResource)
 }
 
 const (
