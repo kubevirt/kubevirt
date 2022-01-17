@@ -1,4 +1,4 @@
-FROM centos:7.6.1810
+FROM quay.io/centos/centos:stream9
 
 COPY tests/travis-tests/kubernetes.repo /etc/yum.repos.d/kubernetes.repo
 

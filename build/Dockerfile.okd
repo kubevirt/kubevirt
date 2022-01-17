@@ -1,4 +1,4 @@
-FROM centos:7
+FROM quay.io/centos/centos:stream9
 
 ENV KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1
 

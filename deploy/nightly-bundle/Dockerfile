@@ -1,4 +1,4 @@
-FROM centos:centos8.1.1911
+FROM quay.io/centos/centos:stream9
 
 COPY deploy/nightly-bundle/deploy.sh /deploy.sh
 COPY deploy/nightly-bundle/create_docker_config.sh /create_docker_config.sh
