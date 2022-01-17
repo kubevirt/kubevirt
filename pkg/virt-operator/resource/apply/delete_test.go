@@ -54,7 +54,7 @@ var _ = Describe("Deletion", func() {
 
 			needDeletion := crdFilterNeedDeletion(crds)
 
-			Expect(len(needDeletion)).To(Equal(1))
+			Expect(needDeletion).To(HaveLen(1))
 			Expect(needDeletion[0].Name).To(Equal("needs-deletion"))
 		})
 
