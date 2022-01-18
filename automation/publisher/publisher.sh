@@ -34,7 +34,10 @@ function main() {
   sed -r -i "s/(.*channel.*: ).+/\1\stable/g" hco_bundle/metadata/annotations.yaml
 
   echo "Add annotation for community-operators index image"
-  INDEX_IMAGE_VERSION=$(echo "${BASE_TAGGED_VERSION%.*}+3.4" | bc)
+  IFS='.' read -r -a SPLITTED_BASE_VERSION <<< "${BASE_TAGGED_VERSION%.*}"
+  SPLITTED_BASE_VERSION[0]=$((SPLITTED_BASE_VERSION[0]+3))
+  SPLITTED_BASE_VERSION[1]=$((SPLITTED_BASE_VERSION[1]+4))
+  INDEX_IMAGE_VERSION=$(IFS=. ; echo "${SPLITTED_BASE_VERSION[*]}")
   echo "  com.redhat.openshift.versions: \"v${INDEX_IMAGE_VERSION}\"" >> hco_bundle/metadata/annotations.yaml
 
   echo "Bump version to ${TAGGED_VERSION}"
