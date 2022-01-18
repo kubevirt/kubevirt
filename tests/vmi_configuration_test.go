@@ -1200,7 +1200,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
-		Context("[Serial][rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
 			var agentVMI *v1.VirtualMachineInstance
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
