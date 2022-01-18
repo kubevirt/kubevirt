@@ -838,6 +838,9 @@ const (
 
 	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
 	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
+
+	// VirtualMachineNameLabel is the name of the Virtual Machine
+	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
