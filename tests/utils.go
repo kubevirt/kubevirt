@@ -253,6 +253,10 @@ const (
 	cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
 )
 
+const StorageClassHostPathSeparateDevice = "host-path-sd"
+
+var wffc = storagev1.VolumeBindingWaitForFirstConsumer
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -490,10 +494,6 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
-	if Config.ManageStorageClasses {
-		deleteStorageClass(Config.StorageClassHostPath)
-		deleteStorageClass(Config.StorageClassHostPathSeparateDevice)
-	}
 	CleanNodes()
 }
 
@@ -675,13 +675,6 @@ func SynchronizedBeforeTestSetup() []byte {
 		DeployTestingInfrastructure()
 	}
 
-	if Config.ManageStorageClasses {
-		immediateBinding := storagev1.VolumeBindingImmediate
-		wffc := storagev1.VolumeBindingWaitForFirstConsumer
-		createStorageClass(Config.StorageClassHostPath, &immediateBinding)
-		createStorageClass(Config.StorageClassHostPathSeparateDevice, &wffc)
-	}
-
 	EnsureKVMPresent()
 	AdjustKubeVirtResource()
 
@@ -820,7 +813,7 @@ func RestoreKubeVirtResource() {
 	}
 }
 
-func createStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
+func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -840,7 +833,7 @@ func createStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 	}
 }
 
-func deleteStorageClass(name string) {
+func DeleteStorageClass(name string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -989,7 +982,8 @@ func CreateSecret(name string, data map[string]string) {
 }
 
 func CreateHostPathPVC(os, size string) {
-	CreatePVC(os, size, Config.StorageClassHostPath, false)
+	sc := "manual"
+	CreatePVC(os, size, sc, false)
 }
 
 func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
@@ -1067,14 +1061,17 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	util2.PanicOnError(err)
 	for _, pv := range pvList.Items {
-		if pv.Spec.StorageClassName == Config.StorageClassHostPathSeparateDevice {
+		if pv.Spec.StorageClassName == StorageClassHostPathSeparateDevice {
 			// ignore error we want to attempt to delete them all.
 			virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		}
 	}
+
+	DeleteStorageClass(StorageClassHostPathSeparateDevice)
 }
 
 func CreateAllSeparateDeviceHostPathPvs(osName string) {
+	CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
@@ -1111,7 +1108,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 					Path: "/tmp/hostImages/mount_hp/test",
 				},
 			},
-			StorageClassName: Config.StorageClassHostPathSeparateDevice,
+			StorageClassName: StorageClassHostPathSeparateDevice,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -1136,11 +1133,16 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 	}
 }
 
-func CreateHostPathPv(osName string, hostPath string) string {
-	return CreateHostPathPvWithSize(osName, hostPath, "1Gi")
+func CreateHostPathPv(osName, hostPath string) string {
+	return createHostPathPvWithSize(osName, hostPath, "1Gi")
 }
 
-func CreateHostPathPvWithSize(osName string, hostPath string, size string) string {
+func createHostPathPvWithSize(osName, hostPath, size string) string {
+	sc := "manual"
+	return CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc)
+}
+
+func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) string {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -1170,7 +1172,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) strin
 					Type: &hostPathType,
 				},
 			},
-			StorageClassName: Config.StorageClassHostPath,
+			StorageClassName: sc,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -2028,11 +2030,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	dv := NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, sc, accessMode, volMode)
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	if HasBindingModeWaitForFirstConsumer() {
-		Eventually(ThisDV(dv), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
-	} else {
-		Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
-	}
+	Eventually(ThisDV(dv), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
@@ -2116,7 +2114,14 @@ func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 }
 
 func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, Config.StorageClassLocal, "1Gi", accessMode)
+	sc, exists := GetRWOFileSystemStorageClass()
+	if accessMode == k8sv1.ReadWriteMany {
+		sc, exists = GetRWXFileSystemStorageClass()
+	}
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
+	return newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, sc, "1Gi", accessMode)
 }
 
 func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -3842,7 +3847,10 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
-	storageClass := Config.StorageClassLocal
+	storageClass, exists := GetRWOFileSystemStorageClass()
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
@@ -3876,7 +3884,10 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 
-	storageClass := Config.StorageClassLocal
+	storageClass, exists := GetRWOFileSystemStorageClass()
+	if !exists {
+		Skip("Skip test when Filesystem storage is not present")
+	}
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -4277,20 +4288,24 @@ func VolumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
-func HasBindingModeWaitForFirstConsumer() bool {
+func SetDataVolumeForceBindAnnotation(dv *cdiv1.DataVolume) {
+	annotations := dv.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
+	dv.SetAnnotations(annotations)
+}
+
+func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	sc, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		return false
-	}
 	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
 	if err != nil {
 		return false
 	}
 	return storageClass.VolumeBindingMode != nil &&
-		*storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
+		*storageClass.VolumeBindingMode == wffc
 }
 
 func GetSnapshotStorageClass() (string, bool) {

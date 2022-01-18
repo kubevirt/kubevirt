@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -415,11 +416,6 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	createAndStartWFFCStorageHotplugVM := func() *v1.VirtualMachine {
-		hasWffc := tests.HasBindingModeWaitForFirstConsumer()
-		if !hasWffc {
-			Skip("Skip no local wffc storage class available")
-		}
-
 		template := libvmi.NewCirros()
 		vm := createVirtualMachine(true, template)
 		Eventually(func() bool {
@@ -428,6 +424,32 @@ var _ = SIGDescribe("Hotplug", func() {
 			return vm.Status.Ready
 		}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		return vm
+	}
+
+	checkNoProvisionerStorageClassPVs := func(storageClassName string) {
+		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
+			return
+		}
+
+		// Verify we have at least 3 available file system PVs
+		pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		count := 0
+		for _, pv := range pvList.Items {
+			if pv.Spec.StorageClassName != storageClassName || pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == corev1.PersistentVolumeBlock) {
+				// Not a local volume filesystem PV
+				continue
+			}
+			if pv.Spec.ClaimRef == nil {
+				count++
+			}
+		}
+		if count < 3 {
+			Skip("Not enough available filesystem local storage PVs available")
+		}
 	}
 
 	verifyHotplugAttachedAndUseable := func(vmi *v1.VirtualMachineInstance, names []string) []string {
@@ -506,25 +528,17 @@ var _ = SIGDescribe("Hotplug", func() {
 	Context("WFFC storage", func() {
 		var (
 			vm *v1.VirtualMachine
+			sc string
 		)
 
 		BeforeEach(func() {
-			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			// Verify we have at least 3 available file system PVs
-			count := 0
-			for _, pv := range pvList.Items {
-				if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == corev1.PersistentVolumeBlock) {
-					// Not a local volume filesystem PV
-					continue
-				}
-				if pv.Spec.ClaimRef == nil {
-					count++
-				}
+			var exists bool
+			sc, exists = tests.GetRWOFileSystemStorageClass()
+			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				Skip("Skip no wffc storage class available")
 			}
-			if count < 3 {
-				Skip("Not enough available filesystem local storage PVs available")
-			}
+			checkNoProvisionerStorageClassPVs(sc)
+
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
@@ -535,7 +549,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dvNames := make([]string, 0)
 			for i := 0; i < 3; i++ {
-				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				dvNames = append(dvNames, dv.Name)
@@ -1015,10 +1029,14 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm *v1.VirtualMachine
 		)
 
+		storageClassHostPath := "host-path"
+		immediateBinding := storagev1.VolumeBindingImmediate
+
 		BeforeEach(func() {
+			tests.CreateStorageClass(storageClassHostPath, &immediateBinding)
 			// Setup second PVC to use in this context
-			pvNode := tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
-			tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
+			pvNode := tests.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, tests.HostPathCustom, "1Gi", storageClassHostPath)
+			tests.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
 			template := libvmi.NewCirros()
 			if pvNode != "" {
 				template.Spec.NodeSelector = make(map[string]string)
@@ -1034,6 +1052,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		AfterEach(func() {
 			tests.DeletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
+			tests.DeleteStorageClass(storageClassHostPath)
 		})
 
 		It("should attach a hostpath based volume to running VM", func() {
@@ -1079,7 +1098,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 120)
 
 		It("should allow adding and removing hotplugged volumes", func() {
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			sc, exists := tests.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip no filesystem storage class available")
+			}
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
@@ -1126,7 +1149,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		It("should attach a hostpath based volume to running VM", func() {
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassHostPathSeparateDevice, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.StorageClassHostPathSeparateDevice, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
@@ -1156,9 +1179,15 @@ var _ = SIGDescribe("Hotplug", func() {
 	Context("virtctl", func() {
 		var (
 			vm *v1.VirtualMachine
+			sc string
 		)
 
 		BeforeEach(func() {
+			var exists bool
+			sc, exists = tests.GetRWOFileSystemStorageClass()
+			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				Skip("Skip no wffc storage class available")
+			}
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
@@ -1166,7 +1195,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 			Eventually(func() error {
@@ -1195,7 +1224,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 			Eventually(func() error {
