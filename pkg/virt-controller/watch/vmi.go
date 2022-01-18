@@ -2056,6 +2056,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					AccessModes:  pvc.Spec.AccessModes,
 					VolumeMode:   pvc.Spec.VolumeMode,
 					Capacity:     pvc.Status.Capacity,
+					Requests:     pvc.Spec.Resources.Requests,
 					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
 				filesystemOverhead, err := c.getFilesystemOverhead(pvc)

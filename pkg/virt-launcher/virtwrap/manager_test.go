@@ -2339,20 +2339,21 @@ var _ = Describe("Manager helper functions", func() {
 		BeforeEach(func() {
 			fakePercentFloat = 0.7648
 			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
+			fakeCapacity := int64(123000)
 
 			properDisk = api.Disk{
 				FilesystemOverhead: &fakePercent,
-				Capacity:           resource.NewScaledQuantity(123, 4),
+				Capacity:           &fakeCapacity,
 			}
 		})
 
 		It("should return correct value", func() {
 			size, ok := possibleGuestSize(properDisk)
 			Expect(ok).To(BeTrue())
-			capacity, ok := properDisk.Capacity.AsInt64()
-			Expect(ok).To(BeTrue())
+			capacity := properDisk.Capacity
+			Expect(capacity).ToNot(Equal(nil))
 
-			expectedSize := int64((1 - fakePercentFloat) * float64(capacity))
+			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
 
 			Expect(size).To(Equal(expectedSize))
 		})
@@ -2365,19 +2366,12 @@ var _ = Describe("Manager helper functions", func() {
 				disk.Capacity = nil
 				return disk
 			}),
-			table.Entry("disk capacity non-int", func() api.Disk {
-				disk := properDisk
-				nonIntQuantity, ok := resource.ParseQuantity("0.456546456")
-				Expect(ok).To(BeTrue())
-				disk.Capacity = &nonIntQuantity
-				return disk
-			}),
 			table.Entry("filesystem overhead is nil", func() api.Disk {
 				disk := properDisk
 				disk.FilesystemOverhead = nil
 				return disk
 			}),
-			table.Entry("filesystem is non-float", func() api.Disk {
+			table.Entry("filesystem overhead is non-float", func() api.Disk {
 				disk := properDisk
 				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
 				disk.FilesystemOverhead = &fakePercent

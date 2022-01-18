@@ -803,8 +803,8 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 	}
 	if in.Capacity != nil {
 		in, out := &in.Capacity, &out.Capacity
-		x := (*in).DeepCopy()
-		*out = &x
+		*out = new(int64)
+		**out = **in
 	}
 	return
 }

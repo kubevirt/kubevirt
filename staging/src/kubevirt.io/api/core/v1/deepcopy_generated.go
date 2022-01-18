@@ -2865,6 +2865,13 @@ func (in *PersistentVolumeClaimInfo) DeepCopyInto(out *PersistentVolumeClaimInfo
 			(*out)[key] = val.DeepCopy()
 		}
 	}
+	if in.Requests != nil {
+		in, out := &in.Requests, &out.Requests
+		*out = make(corev1.ResourceList, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val.DeepCopy()
+		}
+	}
 	if in.FilesystemOverhead != nil {
 		in, out := &in.FilesystemOverhead, &out.FilesystemOverhead
 		*out = new(v1beta1.Percent)
