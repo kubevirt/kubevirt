@@ -1294,6 +1294,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
 	podLabels[v1.CreatedByLabel] = string(vmi.UID)
+	podLabels[v1.VirtualMachineNameLabel] = vmi.Name
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		resources := k8sv1.ResourceRequirements{}

@@ -348,8 +348,9 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:       "virt-launcher",
-					v1.CreatedByLabel: "1234",
+					v1.AppLabel:                "virt-launcher",
+					v1.CreatedByLabel:          "1234",
+					v1.VirtualMachineNameLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					v1.DomainAnnotation:                    "testvmi",
@@ -1081,8 +1082,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:       "virt-launcher",
-					v1.CreatedByLabel: "1234",
+					v1.AppLabel:                "virt-launcher",
+					v1.CreatedByLabel:          "1234",
+					v1.VirtualMachineNameLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
@@ -1570,10 +1572,11 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Labels).To(Equal(
 					map[string]string{
-						"key1":            "val1",
-						"key2":            "val2",
-						v1.AppLabel:       "virt-launcher",
-						v1.CreatedByLabel: "1234",
+						"key1":                     "val1",
+						"key2":                     "val2",
+						v1.AppLabel:                "virt-launcher",
+						v1.CreatedByLabel:          "1234",
+						v1.VirtualMachineNameLabel: "testvmi",
 					},
 				))
 			})
@@ -3198,6 +3201,48 @@ var _ = Describe("Template", func() {
 				expectedMemory.Add(*GetMemoryOverhead(vmi, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+			})
+		})
+
+		Context("with Virtual Machine name label", func() {
+			It("should replace label with VM name", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+						Labels: map[string]string{
+							v1.VirtualMachineNameLabel: "random_name",
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+				Expect(ok).To(BeTrue())
+				Expect(vmNameLabel).To(Equal(vmi.Name))
+			})
+		})
+
+		Context("without Virtual Machine name label", func() {
+			It("should create label with VM name", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers).To(HaveLen(1))
+				vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+				Expect(ok).To(BeTrue())
+				Expect(vmNameLabel).To(Equal(vmi.Name))
 			})
 		})
 	})
