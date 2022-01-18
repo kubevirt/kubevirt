@@ -833,6 +833,9 @@ const (
 	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
 	// originated from.
 	VirtualMachinePoolRevisionName string = "kubevirt.io/vm-pool-revision-name"
+
+	// VirtualMachineNameLabel is the name of the Virtual Machine
+	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
