@@ -73,7 +73,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -772,17 +771,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
-
-		legacyGPUDevices, err := legacy.CreateGPUHostDevices()
-		if err != nil {
-			return nil, err
-		}
-		legacyVGPUDevices, err := legacy.CreateVGPUHostDevices()
-		if err != nil {
-			return nil, err
-		}
-		c.LegacyHostDevices = legacyGPUDevices
-		c.LegacyHostDevices = append(c.LegacyHostDevices, legacyVGPUDevices...)
 
 		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
 		if err != nil {
