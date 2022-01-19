@@ -73,8 +73,8 @@ spec:
                             garbageCollect:
                               description: GarbageCollect specifies whether old PVCs
                                 should be cleaned up after a new PVC is imported.
-                                Options are currently "Never" and "Outdated", defaults
-                                to "Never".
+                                Options are currently "Outdated" and "Never", defaults
+                                to "Outdated".
                               type: string
                             importsToKeep:
                               description: Number of import PVCs to keep when garbage
@@ -85,6 +85,11 @@ spec:
                               description: ManagedDataSource specifies the name of
                                 the corresponding DataSource this cron will manage.
                                 DataSource has to be in the same namespace.
+                              type: string
+                            retentionPolicy:
+                              description: RetentionPolicy specifies whether the created
+                                DataVolumes and DataSources are retained when their
+                                DataImportCron is deleted. Default is RatainAll.
                               type: string
                             schedule:
                               description: Schedule specifies in cron format when
@@ -341,6 +346,21 @@ spec:
                                                 Authority(CA) public key, and a base64
                                                 encoded pem certificate
                                               type: string
+                                            extraHeaders:
+                                              description: ExtraHeaders is a list
+                                                of strings containing extra headers
+                                                to include with HTTP transfer requests
+                                              items:
+                                                type: string
+                                              type: array
+                                            secretExtraHeaders:
+                                              description: SecretExtraHeaders is a
+                                                list of Secret references, each containing
+                                                an extra HTTP header that may include
+                                                sensitive information
+                                              items:
+                                                type: string
+                                              type: array
                                             secretRef:
                                               description: SecretRef A Secret reference,
                                                 the secret should contain accessKeyId

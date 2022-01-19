@@ -1506,7 +1506,9 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - get
   - list
+  - watch
 - apiGroups:
   - apps
   resources:
@@ -1573,6 +1575,14 @@ rules:
   - datavolumes/source
   verbs:
   - create
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - infrastructures
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
