@@ -252,6 +252,9 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 		Configuration:               *config,
 		CertificateRotationStrategy: *kvCertConfig,
 		WorkloadUpdateStrategy:      hcWorkloadUpdateStrategyToKv(hc.Spec.WorkloadUpdateStrategy),
+		ProductName:                 hcoutil.HyperConvergedCluster,
+		ProductVersion:              os.Getenv(hcoutil.HcoKvIoVersionName),
+		ProductComponent:            string(hcoutil.AppComponentCompute),
 	}
 
 	kv := NewKubeVirtWithNameOnly(hc, opts...)
