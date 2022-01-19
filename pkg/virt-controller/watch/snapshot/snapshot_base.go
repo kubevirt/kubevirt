@@ -25,6 +25,7 @@ import (
 	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -167,6 +168,15 @@ func (ctrl *VMSnapshotController) Init() {
 			AddFunc:    ctrl.handleDV,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDV(newObj) },
 			DeleteFunc: ctrl.handleDV,
+		},
+		ctrl.ResyncPeriod,
+	)
+
+	ctrl.PVCInformer.AddEventHandlerWithResyncPeriod(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handlePVC,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
+			DeleteFunc: ctrl.handlePVC,
 		},
 		ctrl.ResyncPeriod,
 	)
@@ -510,12 +520,37 @@ func (ctrl *VMSnapshotController) handleDV(obj interface{}) {
 	}
 
 	if dv, ok := obj.(*cdiv1.DataVolume); ok {
-		log.Log.V(3).Infof("Processing DV %s/%s", dv.Namespace, dv.Name)
-		for _, or := range dv.OwnerReferences {
-
-			if or.Kind == "VirtualMachine" {
-				ctrl.vmQueue.Add(cacheKeyFunc(dv.Namespace, or.Name))
+		key, _ := cache.MetaNamespaceKeyFunc(dv)
+		log.Log.V(3).Infof("Processing DV %s", key)
+		// TODO come back when DV/PVC name may differ
+		for _, idx := range []string{"dv", "pvc"} {
+			keys, err := ctrl.VMInformer.GetIndexer().IndexKeys(idx, key)
+			if err != nil {
+				utilruntime.HandleError(err)
+				return
 			}
+			for _, k := range keys {
+				ctrl.vmSnapshotStatusQueue.Add(k)
+			}
+		}
+	}
+}
+
+func (ctrl *VMSnapshotController) handlePVC(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if pvc, ok := obj.(*corev1.PersistentVolumeClaim); ok {
+		key, _ := cache.MetaNamespaceKeyFunc(pvc)
+		log.Log.V(3).Infof("Processing PVC %s", key)
+		keys, err := ctrl.VMInformer.GetIndexer().IndexKeys("pvc", key)
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
+		for _, k := range keys {
+			ctrl.vmSnapshotStatusQueue.Add(k)
 		}
 	}
 }

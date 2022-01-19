@@ -31,9 +31,6 @@ import (
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
 
-	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/util"
-
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -44,19 +41,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
-
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -306,6 +303,48 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
+			})
+
+			It("should accurately report DataVolume provisioning", func() {
+				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
+					Skip("need immediate binding")
+				}
+
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				vm := tests.NewRandomVirtualMachine(vmi, false)
+
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				defer func() {
+					err := virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}()
+
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.PrintableStatus == v1.VirtualMachineStatusStopped
+				}, 180*time.Second, 2*time.Second).Should(BeTrue())
+
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				defer func() {
+					err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}()
+
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.PrintableStatus == v1.VirtualMachineStatusProvisioning
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
+
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.PrintableStatus == v1.VirtualMachineStatusStopped
+				}, 180*time.Second, 2*time.Second).Should(BeTrue())
 			})
 		})
 

@@ -9,9 +9,11 @@ import (
 	expect "github.com/google/goexpect"
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1073,6 +1075,46 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 				Expect(snapshot.Status.CreationTime).To(BeNil())
 			})
+		})
+
+		Context("with independent DataVolume", func() {
+			var dv *cdiv1.DataVolume
+
+			AfterEach(func() {
+				if dv != nil {
+					err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.TODO(), dv.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			table.DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := vmif(dataVolume.Name)
+				vm = tests.NewRandomVirtualMachine(vmi, false)
+
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return len(vm.Status.VolumeSnapshotStatuses) == 1 &&
+						!vm.Status.VolumeSnapshotStatuses[0].Enabled
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return len(vm.Status.VolumeSnapshotStatuses) == 1 &&
+						vm.Status.VolumeSnapshotStatuses[0].Enabled
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
+			},
+				table.Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
+				table.Entry("with PVC volume", tests.NewRandomVMIWithPVC),
+			)
 		})
 	})
 })

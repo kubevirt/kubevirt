@@ -7,8 +7,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/api/core"
-
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -27,6 +25,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -229,17 +228,7 @@ var _ = Describe("Restore controlleer", func() {
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 
-			vmRestoreInformer, vmRestoreSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
-					vmr := obj.(*snapshotv1.VirtualMachineRestore)
-					if vmr.Spec.Target.APIGroup != nil &&
-						*vmr.Spec.Target.APIGroup == core.GroupName &&
-						vmr.Spec.Target.Kind == "VirtualMachine" {
-						return []string{vmr.Namespace + "/" + vmr.Spec.Target.Name}, nil
-					}
-					return nil, nil
-				},
-			})
+			vmRestoreInformer, vmRestoreSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, virtcontroller.GetVirtualMachineRestoreInformerIndexers())
 			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
