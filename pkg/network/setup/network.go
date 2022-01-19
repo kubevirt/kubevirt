@@ -74,9 +74,8 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, erro
 	return nics, nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
-	launcherPID := &pid
-	nics, err := n.getPhase1NICs(launcherPID)
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int) error {
+	nics, err := n.getPhase1NICs(&launcherPID)
 	if err != nil {
 		return err
 	}
