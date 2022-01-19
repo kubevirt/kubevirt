@@ -27,6 +27,9 @@ Current balloon bytes.
 ### kubevirt_vmi_memory_available_bytes
 Amount of `usable` memory as seen by the domain.
 
+### kubevirt_vmi_memory_domain_total_bytes
+The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file.
+
 ### kubevirt_vmi_memory_pgmajfault
 The number of page faults when disk IO was required.
 
@@ -48,8 +51,8 @@ Amount of `unused` memory as seen by the domain.
 ### kubevirt_vmi_memory_usable_bytes
 The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.
 
-### kubevirt_vmi_memory_used_total_bytes
-The amount of memory in bytes used by the domain.
+### kubevirt_vmi_memory_used_bytes
+Amount of `used` memory as seen by the domain.
 
 ### kubevirt_vmi_network_receive_bytes_total
 Network traffic receive in bytes.
