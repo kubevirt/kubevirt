@@ -112,7 +112,7 @@ function _add_common_params() {
         params=" --enable-prometheus $params"
 
         if [[ $KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER == "true" ]] &&
-            [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-grafana"* ]]; then
+            [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-prometheus-alertmanager"* ]]; then
             params=" --enable-prometheus-alertmanager $params"
         fi
 
