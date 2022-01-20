@@ -89,12 +89,12 @@ pciHostDevices:
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		devices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
 		Expect(len(devices)).To(Equal(1))
-		Expect(len(devices[fakeID])).To(Equal(1))
-		Expect(devices[fakeID][0].pciID).To(Equal(fakeID))
-		Expect(devices[fakeID][0].driver).To(Equal(fakeDriver))
-		Expect(devices[fakeID][0].pciAddress).To(Equal(fakeAddress))
-		Expect(devices[fakeID][0].iommuGroup).To(Equal(fakeIommuGroup))
-		Expect(devices[fakeID][0].numaNode).To(Equal(fakeNumaNode))
+		Expect(len(devices[fakeName])).To(Equal(1))
+		Expect(devices[fakeName][0].pciID).To(Equal(fakeID))
+		Expect(devices[fakeName][0].driver).To(Equal(fakeDriver))
+		Expect(devices[fakeName][0].pciAddress).To(Equal(fakeAddress))
+		Expect(devices[fakeName][0].iommuGroup).To(Equal(fakeIommuGroup))
+		Expect(devices[fakeName][0].numaNode).To(Equal(fakeNumaNode))
 	})
 
 	It("Should validate DPI devices", func() {
@@ -109,7 +109,7 @@ pciHostDevices:
 		// discoverPermittedHostPCIDevices() will walk real PCI devices wherever the tests are running
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		pciDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-		devs := constructDPIdevices(pciDevices[fakeID], iommuToPCIMap)
+		devs := constructDPIdevices(pciDevices[fakeName], iommuToPCIMap)
 		Expect(devs[0].ID).To(Equal(fakeIommuGroup))
 		Expect(devs[0].Topology.Nodes[0].ID).To(Equal(int64(fakeNumaNode)))
 	})
