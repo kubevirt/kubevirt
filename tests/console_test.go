@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", func() {
@@ -55,6 +56,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 	RunVMIAndWaitForStart := func(vmi *v1.VirtualMachineInstance) {
 		By("Creating a new VirtualMachineInstance")
+		vmi.ObjectMeta.Namespace = util.NamespaceTestDefault
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 
 		By("Waiting until it starts")
@@ -88,7 +90,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			Context("with a cirros image", func() {
 
 				It("[test_id:1588]should return that we are running cirros", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					vmi := libvmi.NewCirros()
 					RunVMIAndWaitForStart(vmi)
 					ExpectConsoleOutput(
 						vmi,
@@ -99,7 +101,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 			Context("with a fedora image", func() {
 				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+					vmi := libvmi.NewFedora()
 					RunVMIAndWaitForStart(vmi)
 					ExpectConsoleOutput(
 						vmi,
