@@ -50,6 +50,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	"kubevirt.io/kubevirt/tests/framework/client"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
@@ -1805,135 +1806,140 @@ func GetContainerOfPod(pod *k8sv1.Pod, containerName string) *k8sv1.Container {
 }
 
 func cleanNamespaces() {
-	virtCli, err := kubecli.GetKubevirtClient()
+	virtCli, err := client.TestClientWithHighRateLimits()
 	util2.PanicOnError(err)
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(TestNamespaces))
 	for _, namespace := range TestNamespaces {
+		go func(namespace string) {
+			defer wg.Done()
+			_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+			if err != nil {
+				return
+			}
 
-		_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-		if err != nil {
-			continue
-		}
+			// Clean namespace labels
+			err = libnet.RemoveAllLabelsFromNamespace(virtCli, namespace)
+			util2.PanicOnError(err)
 
-		// Clean namespace labels
-		err = libnet.RemoveAllLabelsFromNamespace(virtCli, namespace)
-		util2.PanicOnError(err)
+			//Remove all Jobs
+			util2.PanicOnError(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Do(context.Background()).Error())
+			//Remove all HPA
+			util2.PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error())
 
-		//Remove all Jobs
-		util2.PanicOnError(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Do(context.Background()).Error())
-		//Remove all HPA
-		util2.PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error())
+			// Remove all VirtualMachinePools
+			util2.PanicOnError(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
 
-		// Remove all VirtualMachinePools
-		util2.PanicOnError(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+			// Remove all VirtualMachines
+			util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error())
 
-		// Remove all VirtualMachines
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error())
+			// Remove all VirtualMachineReplicaSets
+			util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error())
 
-		// Remove all VirtualMachineReplicaSets
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error())
+			// Remove all VMIs
+			util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
+			vmis, err := virtCli.VirtualMachineInstance(namespace).List(&metav1.ListOptions{})
+			util2.PanicOnError(err)
+			for _, vmi := range vmis.Items {
+				if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
+					_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
+					if !errors.IsNotFound(err) {
+						util2.PanicOnError(err)
+					}
+				}
+			}
 
-		// Remove all VMIs
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
-		vmis, err := virtCli.VirtualMachineInstance(namespace).List(&metav1.ListOptions{})
-		util2.PanicOnError(err)
-		for _, vmi := range vmis.Items {
-			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
-				if !errors.IsNotFound(err) {
+			// Remove all Pods
+			podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+			util2.PanicOnError(err)
+			var gracePeriod int64 = 0
+			for _, pod := range podList.Items {
+				err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+				if errors.IsNotFound(err) {
+					continue
+				}
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Remove all Services
+			svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
+			util2.PanicOnError(err)
+			for _, svc := range svcList.Items {
+				util2.PanicOnError(virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}))
+			}
+
+			// Remove PVCs
+			util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error())
+			if HasCDI() {
+				// Remove DataVolumes
+				util2.PanicOnError(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error())
+			}
+			// Remove PVs
+			pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
+			})
+			util2.PanicOnError(err)
+			for _, pv := range pvs.Items {
+				err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+				if err != nil && !errors.IsNotFound(err) {
 					util2.PanicOnError(err)
 				}
 			}
-		}
 
-		// Remove all Pods
-		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-		util2.PanicOnError(err)
-		var gracePeriod int64 = 0
-		for _, pod := range podList.Items {
-			err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
-			if errors.IsNotFound(err) {
-				continue
+			// Remove all VirtualMachineInstance Secrets
+			labelSelector := fmt.Sprintf("%s", SecretLabel)
+			util2.PanicOnError(
+				virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
+					metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
+				),
+			)
+
+			// Remove all VirtualMachineInstance Presets
+			util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error())
+			// Remove all limit ranges
+			util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error())
+
+			// Remove all Migration Objects
+			util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error())
+			migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
+			util2.PanicOnError(err)
+			for _, migration := range migrations.Items {
+				if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
+					_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+					if !errors.IsNotFound(err) {
+						util2.PanicOnError(err)
+					}
+				}
 			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Remove all Services
-		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
-		util2.PanicOnError(err)
-		for _, svc := range svcList.Items {
-			util2.PanicOnError(virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}))
-		}
-
-		// Remove PVCs
-		util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error())
-		if HasCDI() {
-			// Remove DataVolumes
-			util2.PanicOnError(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error())
-		}
-		// Remove PVs
-		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
-		})
-		util2.PanicOnError(err)
-		for _, pv := range pvs.Items {
-			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+			// Remove all NetworkAttachmentDefinitions
+			nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				util2.PanicOnError(err)
 			}
-		}
-
-		// Remove all VirtualMachineInstance Secrets
-		labelSelector := fmt.Sprintf("%s", SecretLabel)
-		util2.PanicOnError(
-			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
-				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
-			),
-		)
-
-		// Remove all VirtualMachineInstance Presets
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error())
-		// Remove all limit ranges
-		util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error())
-
-		// Remove all Migration Objects
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error())
-		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
-		util2.PanicOnError(err)
-		for _, migration := range migrations.Items {
-			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
-				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
-				if !errors.IsNotFound(err) {
-					util2.PanicOnError(err)
-				}
+			for _, netDef := range nets.Items {
+				util2.PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
 			}
-		}
-		// Remove all NetworkAttachmentDefinitions
-		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
-		if err != nil && !errors.IsNotFound(err) {
+
+			// Remove all Istio Sidecars, VirtualServices, DestinationRules and Gateways
+			for _, res := range []string{"sidecars", "virtualservices", "destinationrules", "gateways"} {
+				util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: res}, namespace))
+			}
+
+			// Remove all Istio PeerAuthentications
+			util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
+
+			// Remove migration policies
+			migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
+			})
 			util2.PanicOnError(err)
-		}
-		for _, netDef := range nets.Items {
-			util2.PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
-		}
-
-		// Remove all Istio Sidecars, VirtualServices, DestinationRules and Gateways
-		for _, res := range []string{"sidecars", "virtualservices", "destinationrules", "gateways"} {
-			util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: res}, namespace))
-		}
-
-		// Remove all Istio PeerAuthentications
-		util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
-
-		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
-		})
-		util2.PanicOnError(err)
-		for _, policy := range migrationPolicyList.Items {
-			util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
-		}
+			for _, policy := range migrationPolicyList.Items {
+				util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
+			}
+		}(namespace)
 	}
+	wg.Wait()
 }
 
 func removeNamespaces() {
