@@ -354,10 +354,6 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
-func (v *VirtualMachineInstance) IsEvictable() bool {
-	return v.Spec.EvictionStrategy != nil && *v.Spec.EvictionStrategy == EvictionStrategyLiveMigrate
-}
-
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
