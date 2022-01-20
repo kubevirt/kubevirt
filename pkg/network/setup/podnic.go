@@ -120,7 +120,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 }
 
 func (l *podNIC) setPodInterfaceCache() error {
-	ifCache := &cache.PodCacheInterface{Iface: l.vmiSpecIface}
+	ifCache := &cache.PodIfaceCacheData{Iface: l.vmiSpecIface}
 
 	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
 	if err != nil {
@@ -328,7 +328,7 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 }
 
 func (l *podNIC) setState(state cache.PodIfaceState) error {
-	var podIfaceCacheData *cache.PodCacheInterface
+	var podIfaceCacheData *cache.PodIfaceCacheData
 	podIfaceCache, err := l.cacheFactory.CacheForVMI(string(l.vmi.UID)).IfaceEntry(l.vmiSpecIface.Name)
 	if err == nil {
 		podIfaceCacheData, err = podIfaceCache.Read()
@@ -338,7 +338,7 @@ func (l *podNIC) setState(state cache.PodIfaceState) error {
 		return err
 	}
 	if os.IsNotExist(err) {
-		podIfaceCacheData = &cache.PodCacheInterface{}
+		podIfaceCacheData = &cache.PodIfaceCacheData{}
 	}
 	podIfaceCacheData.State = state
 	err = podIfaceCache.Write(podIfaceCacheData)
@@ -350,7 +350,7 @@ func (l *podNIC) setState(state cache.PodIfaceState) error {
 }
 
 func (l *podNIC) state() (cache.PodIfaceState, error) {
-	var podIfaceCacheData *cache.PodCacheInterface
+	var podIfaceCacheData *cache.PodIfaceCacheData
 	podIfaceCache, err := l.cacheFactory.CacheForVMI(string(l.vmi.UID)).IfaceEntry(l.vmiSpecIface.Name)
 	if err == nil {
 		podIfaceCacheData, err = podIfaceCache.Read()

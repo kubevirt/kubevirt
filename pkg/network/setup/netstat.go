@@ -62,7 +62,7 @@ func (c *NetStat) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstanc
 	return exists
 }
 
-func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodCacheInterface) {
+func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodIfaceCacheData) {
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), data)
 }
 
@@ -112,15 +112,15 @@ func (c *NetStat) ifacesStatusFromPodCache(vmi *v1.VirtualMachineInstance) ([]v1
 	return ifacesStatus, nil
 }
 
-func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
+func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodIfaceCacheData, error) {
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
 	cacheData, exists := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceName))
 	if exists {
-		return cacheData.(*cache.PodCacheInterface), nil
+		return cacheData.(*cache.PodIfaceCacheData), nil
 	}
 
-	podInterface := &cache.PodCacheInterface{}
+	podInterface := &cache.PodIfaceCacheData{}
 	if podIfaceCache, err := c.ifaceCacheFactory.CacheForVMI(string(vmi.UID)).IfaceEntry(ifaceName); err == nil {
 		//FIXME error handling?
 		podInterface, _ = podIfaceCache.Read()

@@ -36,7 +36,7 @@ const (
 
 const podIfaceCacheDirName = "network-info-cache"
 
-type PodCacheInterface struct {
+type PodIfaceCacheData struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
 	PodIP  string        `json:"podIP,omitempty"`
 	PodIPs []string      `json:"podIPs,omitempty"`
@@ -45,8 +45,8 @@ type PodCacheInterface struct {
 
 type PodInterfaceCacheStore interface {
 	IfaceEntry(ifaceName string) (PodInterfaceCacheStore, error)
-	Read() (*PodCacheInterface, error)
-	Write(cacheInterface *PodCacheInterface) error
+	Read() (*PodIfaceCacheData, error)
+	Write(cacheInterface *PodIfaceCacheData) error
 	Remove() error
 }
 
@@ -67,13 +67,13 @@ func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCacheStore,
 	return PodInterfaceCache{&cache}, nil
 }
 
-func (p PodInterfaceCache) Read() (*PodCacheInterface, error) {
-	iface := &PodCacheInterface{}
+func (p PodInterfaceCache) Read() (*PodIfaceCacheData, error) {
+	iface := &PodIfaceCacheData{}
 	_, err := p.cache.Read(iface)
 	return iface, err
 }
 
-func (p PodInterfaceCache) Write(cacheInterface *PodCacheInterface) error {
+func (p PodInterfaceCache) Write(cacheInterface *PodIfaceCacheData) error {
 	return p.cache.Write(cacheInterface)
 }
 

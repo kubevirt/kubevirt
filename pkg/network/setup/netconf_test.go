@@ -98,11 +98,11 @@ func (p podInterfaceCacheStoreStub) IfaceEntry(ifaceName string) (cache.PodInter
 	return p, nil
 }
 
-func (p podInterfaceCacheStoreStub) Read() (*cache.PodCacheInterface, error) {
+func (p podInterfaceCacheStoreStub) Read() (*cache.PodIfaceCacheData, error) {
 	return nil, nil
 }
 
-func (p podInterfaceCacheStoreStub) Write(cacheInterface *cache.PodCacheInterface) error {
+func (p podInterfaceCacheStoreStub) Write(cacheInterface *cache.PodIfaceCacheData) error {
 	return nil
 }
 

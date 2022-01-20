@@ -115,7 +115,7 @@ var _ = Describe("podNIC", func() {
 			})
 			It("should return no error at phase1 and store pod interface", func() {
 				Expect(podnic.PlugPhase1()).To(Succeed())
-				var podData *cache.PodCacheInterface
+				var podData *cache.PodIfaceCacheData
 				podIfaceCache, err := podnic.cacheFactory.CacheForVMI(string(vmi.UID)).IfaceEntry("default")
 				Expect(err).ToNot(HaveOccurred())
 				podData, err = podIfaceCache.Read()

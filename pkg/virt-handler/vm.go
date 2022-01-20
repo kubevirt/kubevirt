@@ -95,7 +95,7 @@ type netstat interface {
 	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	Teardown(vmi *v1.VirtualMachineInstance)
 	PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool
-	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodCacheInterface)
+	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData)
 }
 
 const (
