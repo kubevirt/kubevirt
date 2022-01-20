@@ -42,6 +42,7 @@ const (
 	vfioMount           = "/dev/vfio/vfio"
 	pciBasePath         = "/sys/bus/pci/devices"
 	PCI_RESOURCE_PREFIX = "PCI_RESOURCE"
+	pciDevIDPrefix      = "pci"
 )
 
 type PCIDevice struct {
@@ -53,52 +54,53 @@ type PCIDevice struct {
 }
 
 type PCIDevicePlugin struct {
-	devs          []*pluginapi.Device
-	server        *grpc.Server
-	socketPath    string
-	stop          chan struct{}
-	health        chan string
-	devicePath    string
-	deviceName    string
-	resourceName  string
-	done          chan struct{}
-	deviceRoot    string
-	healthy       chan string
-	unhealthy     chan string
-	iommuToPCIMap map[string]string
-	initialized   bool
-	lock          *sync.Mutex
+	devs         []*pluginapi.Device
+	server       *grpc.Server
+	socketPath   string
+	stop         chan struct{}
+	health       chan string
+	devicePath   string
+	deviceName   string
+	resourceName string
+	done         chan struct{}
+	deviceRoot   string
+	healthy      chan string
+	unhealthy    chan string
+	devIDPCIMap  map[string]string
+	initialized  bool
+	lock         *sync.Mutex
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
 	deviceIDStr := strings.Replace(pciDevices[0].pciID, ":", "-", -1)
 	serverSock := SocketPath(deviceIDStr)
-	iommuToPCIMap := make(map[string]string)
+	devIDPCIMap := make(map[string]string)
 
 	initHandler()
 
-	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
+	devs := constructDPIdevices(pciDevices, devIDPCIMap)
 	dpi := &PCIDevicePlugin{
-		devs:          devs,
-		socketPath:    serverSock,
-		deviceName:    resourceName,
-		resourceName:  resourceName,
-		devicePath:    vfioDevicePath,
-		deviceRoot:    util.HostRootMount,
-		iommuToPCIMap: iommuToPCIMap,
-		healthy:       make(chan string),
-		unhealthy:     make(chan string),
-		initialized:   false,
-		lock:          &sync.Mutex{},
+		devs:         devs,
+		socketPath:   serverSock,
+		deviceName:   resourceName,
+		resourceName: resourceName,
+		devicePath:   vfioDevicePath,
+		deviceRoot:   util.HostRootMount,
+		devIDPCIMap:  devIDPCIMap,
+		healthy:      make(chan string),
+		unhealthy:    make(chan string),
+		initialized:  false,
+		lock:         &sync.Mutex{},
 	}
 	return dpi
 }
 
-func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevices(pciDevices []*PCIDevice, devIDPCIMap map[string]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
-		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		devID := PciAddressToDevID(pciDevIDPrefix, pciDevice.pciAddress)
+		devIDPCIMap[devID] = pciDevice.pciAddress
 		dpiDev := &pluginapi.Device{
-			ID:     string(pciDevice.iommuGroup),
+			ID:     devID,
 			Health: pluginapi.Healthy,
 		}
 		if pciDevice.numaNode >= 0 {
@@ -222,8 +224,8 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 	for _, request := range r.ContainerRequests {
 		deviceSpecs := make([]*pluginapi.DeviceSpec, 0)
 		for _, devID := range request.DevicesIDs {
-			// translate device's iommu group to its pci address
-			devPCIAddress, exist := dpi.iommuToPCIMap[devID]
+			// translate device's  to its pci address
+			devPCIAddress, exist := dpi.devIDPCIMap[devID]
 			if !exist {
 				continue
 			}
