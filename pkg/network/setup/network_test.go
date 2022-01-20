@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
+	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -99,7 +100,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				}}))
 			})
 			It("should accept empty network list", func() {
-				vmi := newVMI("testnamespace", "testVmName")
+				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)

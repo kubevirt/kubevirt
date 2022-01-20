@@ -13,6 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
+	api2 "kubevirt.io/client-go/api"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
@@ -170,7 +171,8 @@ var _ = Describe("podNIC", func() {
 		)
 		BeforeEach(func() {
 
-			vmi = newVMI("testnamespace", "testVmName")
+			vmi = api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
