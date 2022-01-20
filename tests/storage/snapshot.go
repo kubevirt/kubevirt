@@ -251,25 +251,26 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 	})
 
 	Context("[storage-req]", func() {
+		var (
+			snapshotStorageClass string
+		)
+
+		BeforeEach(func() {
+			sc, err := getSnapshotStorageClass(virtClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			if sc == "" {
+				Skip("Skiping test, no VolumeSnapshot support")
+			}
+
+			snapshotStorageClass = sc
+		})
+
 		Context("With online vm snapshot", func() {
-			var (
-				snapshotStorageClass string
-			)
 			const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
 			const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
 			const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
 			const VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION = "post.hook.backup.velero.io/command"
-
-			BeforeEach(func() {
-				sc, err := getSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-
-				if sc == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
-				}
-
-				snapshotStorageClass = sc
-			})
 
 			createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 				var vmi *v1.VirtualMachineInstance
@@ -739,18 +740,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 		Context("With more complicated VM", func() {
 			BeforeEach(func() {
-				sc, err := getSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-
-				if sc == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
-				}
-
 				running := false
 				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
-					sc,
+					snapshotStorageClass,
 					corev1.ReadWriteOnce,
 				)
 				vm.Spec.Running = &running
@@ -1088,7 +1082,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			})
 
 			table.DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					k8sv1.ReadWriteOnce,
+					k8sv1.PersistentVolumeFilesystem,
+				)
 				vmi := vmif(dataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 

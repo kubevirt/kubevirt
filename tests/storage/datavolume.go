@@ -306,11 +306,18 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("should accurately report DataVolume provisioning", func() {
-				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
-					Skip("need immediate binding")
+				sc, exists := tests.GetSnapshotStorageClass()
+				if !exists {
+					Skip("no snapshot storage class configured")
 				}
 
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					util.NamespaceTestDefault,
+					sc,
+					k8sv1.ReadWriteOnce,
+					k8sv1.PersistentVolumeFilesystem,
+				)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				vm := tests.NewRandomVirtualMachine(vmi, false)
 
