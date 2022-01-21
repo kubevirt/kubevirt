@@ -881,10 +881,10 @@ var _ = Describe("HyperconvergedController", func() {
 
 		Context("Upgrade Mode", func() {
 			const (
-				oldVersion          = "1.5.1"
-				newVersion          = "1.6.0" // TODO: avoid hard-coding values
-				oldComponentVersion = "1.6.0"
-				newComponentVersion = "1.6.3"
+				oldVersion          = "1.6.1"
+				newVersion          = "1.7.0" // TODO: avoid hard-coding values
+				oldComponentVersion = "1.7.0"
+				newComponentVersion = "1.7.3"
 			)
 
 			// this is used for version label and the tests below
@@ -1159,7 +1159,7 @@ var _ = Describe("HyperconvergedController", func() {
 				),
 				Entry(
 					"negative numbers",
-					"-1.6.0",
+					"-1.7.0",
 					false,
 					"Invalid character(s) found in major number",
 				),
