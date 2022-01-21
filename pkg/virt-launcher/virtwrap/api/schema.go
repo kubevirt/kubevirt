@@ -562,6 +562,7 @@ type Disk struct {
 	Address      *Address      `xml:"address,omitempty"`
 	Model        string        `xml:"model,attr,omitempty"`
 	BlockIO      *BlockIO      `xml:"blockio,omitempty"`
+	IOTune		 *IOTune       `xml:"iotune,omitempty"`
 }
 
 type DiskAuth struct {
@@ -621,6 +622,15 @@ type BackingStoreFormat struct {
 type BlockIO struct {
 	LogicalBlockSize  uint `xml:"logical_block_size,attr,omitempty"`
 	PhysicalBlockSize uint `xml:"physical_block_size,attr,omitempty"`
+}
+
+type IOTune struct {
+	TotalIopsSec  uint64 `xml:"total_iops_sec,omitempty"`
+	ReadIopsSec   uint64 `xml:"read_iops_sec,omitempty"`
+	WriteIopsSec  uint64 `xml:"write_iops_sec,omitempty"`
+	TotalBytesSec uint64 `xml:"total_bytes_sec,omitempty"`
+	ReadBytesSec  uint64 `xml:"read_bytes_sec,omitempty"`
+	WriteBytesSec uint64 `xml:"write_bytes_sec,omitempty"`
 }
 
 // END Disk -----------------------------
