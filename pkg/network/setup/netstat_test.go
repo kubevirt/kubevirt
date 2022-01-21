@@ -253,9 +253,9 @@ var _ = Describe("netstat", func() {
 		}), "the pod IP/s should be reported in the status")
 	})
 
-	// The reporting of the SR-IOV interface is based on a false source.
+	// The reporting of the SR-IOV interface when no guest-agent exists is missing.
 	// See https://github.com/kubevirt/kubevirt/issues/7050 for more information.
-	It("should report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
+	It("should not report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
 		const (
 			networkName = "sriov-network"
 			ifaceMAC    = "C0:01:BE:E7:15:G0:0D"
@@ -271,9 +271,7 @@ var _ = Describe("netstat", func() {
 
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
-		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(networkName, nil, "", "", ""),
-		}), "the SR-IOV interface should be reported in the status, associated to the network")
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{}), "the SR-IOV interface should not be reported in the status.")
 	})
 
 	// The reporting of the SR-IOV interface when no guest-agent exists is missing.

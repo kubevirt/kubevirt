@@ -49,14 +49,39 @@ func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []
 }
 
 func LookupInterfaceStatusByMac(interfaces []v1.VirtualMachineInstanceNetworkInterface, macAddress string) *v1.VirtualMachineInstanceNetworkInterface {
-	for _, iface := range interfaces {
-		if iface.MAC == macAddress {
-			iface := iface
-			return &iface
+	for index := range interfaces {
+		if interfaces[index].MAC == macAddress {
+			return &interfaces[index]
 		}
 	}
-
 	return nil
+}
+
+func LookupInterfaceStatusByName(interfaces []v1.VirtualMachineInstanceNetworkInterface, name string) *v1.VirtualMachineInstanceNetworkInterface {
+	for index := range interfaces {
+		if interfaces[index].Name == name {
+			return &interfaces[index]
+		}
+	}
+	return nil
+}
+
+func IndexInterfaceSpecByName(interfaces []v1.Interface) map[string]v1.Interface {
+	ifacesByName := map[string]v1.Interface{}
+	for _, ifaceSpec := range interfaces {
+		ifacesByName[ifaceSpec.Name] = ifaceSpec
+	}
+	return ifacesByName
+}
+
+func IndexInterfaceSpecByMac(interfaces []v1.Interface) map[string]v1.Interface {
+	ifacesByMac := map[string]v1.Interface{}
+	for _, ifaceSpec := range interfaces {
+		if mac := ifaceSpec.MacAddress; mac != "" {
+			ifacesByMac[mac] = ifaceSpec
+		}
+	}
+	return ifacesByMac
 }
 
 func lookupInterfaceByNetwork(ifaces []v1.Interface, network *v1.Network) *v1.Interface {
