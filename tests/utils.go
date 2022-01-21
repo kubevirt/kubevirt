@@ -1885,12 +1885,13 @@ func cleanNamespaces() {
 		util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
 
 		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{})
+		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
+		})
 		util2.PanicOnError(err)
 		for _, policy := range migrationPolicyList.Items {
 			util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
 		}
-
 	}
 }
 
@@ -5366,6 +5367,10 @@ func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespac
 	Expect(name).ToNot(BeEmpty())
 
 	policy := kubecli.NewMinimalMigrationPolicy(name)
+	if policy.Labels == nil {
+		policy.Labels = map[string]string{}
+	}
+	policy.Labels[cleanup.TestLabelForNamespace(util2.NamespaceTestDefault)] = ""
 
 	if vmi.Labels == nil {
 		vmi.Labels = make(map[string]string)
