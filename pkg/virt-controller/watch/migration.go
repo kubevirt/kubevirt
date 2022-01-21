@@ -49,6 +49,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -102,6 +103,8 @@ type MigrationController struct {
 
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
+
+	onOpenShift bool
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -164,9 +167,16 @@ func NewMigrationController(templateService services.TemplateService,
 }
 
 func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {
+	var err error
+
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting migration controller.")
+
+	c.onOpenShift, err = clusterutil.IsOnOpenShift(c.clientset)
+	if err != nil {
+		log.Log.Errorf("Error determining cluster type: %v, assuming Kubernetes", err)
+	}
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced, c.pdbInformer.HasSynced)

@@ -31,7 +31,9 @@ import (
 	"sync"
 
 	"kubevirt.io/api/migrations/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/util/pdbs"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
@@ -3539,32 +3541,70 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	Context("On OpenShift", func() {
+		var vmi *v1.VirtualMachineInstance
+
 		BeforeEach(func() {
 			if !tests.IsOpenShift() {
 				Skip("Skip if not running on openshift")
 			}
+
+			By("creating the VMI")
+			vmi = cirrosVMIWithEvictionStrategy()
+			By("Starting the VirtualMachineInstance")
+			vmi = runVMIAndExpectLaunch(vmi, 240)
 		})
 
-		It("[sig-compute]Created PDBs should silence the PodDisruptionBudgetAtLimit alert", func() {
-			By("creating the VMI")
-			vmi := cirrosVMIWithEvictionStrategy()
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		AfterEach(func() {
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+		})
+
+		getPDBForVMI := func(vmi *v1.VirtualMachineInstance) *v1beta1.PodDisruptionBudget {
+			pdbList, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			By("checking that PDB has correct label to silence the PodDisruptionBudgetAtLimit alert")
-			Eventually(func() bool {
-				pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				if len(pdbs.Items) < 1 {
-					return false
-				}
-				for _, pdb := range pdbs.Items {
-					alert := pdb.Labels["alerts.openshift.io/PodDisruptionBudgetAtLimit"]
-					if alert != "disabled" {
-						return false
+			if len(pdbList.Items) < 1 {
+				return nil
+			}
+
+			for _, pdb := range pdbList.Items {
+				for _, ownerRef := range pdb.OwnerReferences {
+					if ownerRef.Name == vmi.Name {
+						alert := pdb.Labels[pdbs.OpenShiftPDBAtLimitAlert]
+						if alert == "disabled" {
+							return &pdb
+						}
 					}
 				}
-				return true
+			}
+			return nil
+		}
+
+		It("[sig-compute]Created PDBs should silence the PodDisruptionBudgetAtLimit alert", func() {
+			By("checking that PDB has correct label to silence the PodDisruptionBudgetAtLimit alert")
+			Eventually(func() bool {
+				return getPDBForVMI(vmi) != nil
+			}, 3*time.Second, 500*time.Millisecond).Should(BeTrue())
+		})
+
+		It("[sig-compute]Expanded PDBs should have the PodDisruptionBudgetAtLimit alert disabled", func() {
+			By("Remove the PodDisruptionBudgetAtLimit alert from PDB")
+			pdb := getPDBForVMI(vmi)
+			Expect(pdb).ToNot(BeNil())
+
+			patch := fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s" }]`, controller.EscapeJSONPointer(pdbs.OpenShiftPDBAtLimitAlert))
+			_, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Migrate the VMI")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			By("checking that the label to silence the PodDisruptionBudgetAtLimit alert has been re-added")
+			Eventually(func() bool {
+				return getPDBForVMI(vmi) != nil
 			}, 3*time.Second, 500*time.Millisecond).Should(BeTrue())
 		})
 	})
