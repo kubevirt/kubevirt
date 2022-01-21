@@ -10,6 +10,10 @@ function main {
   declare -A COMPONENTS_REPOS
   declare -A IMPORT_REPOS
   declare SHOULD_UPDATED
+  declare TARGET_BRANCH
+  declare UPDATE_TYPE
+
+  get_current_branch
 
   echo "INFO: Checking go version"
   go version
@@ -44,6 +48,23 @@ function main {
 
   echo INFO: Executing "build-manifests.sh"...
   ./hack/build-manifests.sh
+}
+
+function get_current_branch() {
+  if TARGET_BRANCH=$(git symbolic-ref --short -q HEAD)
+  then
+    echo on branch "$TARGET_BRANCH"
+  else
+    echo no branch is checked out
+    exit 1
+  fi
+
+  if [ "$TARGET_BRANCH" == "main" ]
+  then
+    UPDATE_TYPE="all"
+  else
+    UPDATE_TYPE="z_release"
+  fi
 }
 
 function get_current_versions {
@@ -83,7 +104,7 @@ function get_updated_versions {
   UPDATED_VERSIONS=()
   if [[ -n ${UPDATED_COMPONENT} ]]; then
     if [[ -z ${UPDATED_VERSION} ]]; then
-      UPDATED_VERSION=$(get_latest_release "${COMPONENTS_REPOS[$UPDATED_COMPONENT]}")
+      UPDATED_VERSION=$(get_latest_release "$UPDATED_COMPONENT")
     fi
     if [[ -v COMPONENTS_REPOS[${UPDATED_COMPONENT}] ]]; then
       HTTP_CODE=$(curl "https://api.github.com/repos/${COMPONENTS_REPOS[$UPDATED_COMPONENT]}/releases/tags/${UPDATED_VERSION}" --write-out '%{http_code}' --silent --output /dev/null)
@@ -99,7 +120,7 @@ function get_updated_versions {
     fi
   else
     for component in "${!COMPONENTS_REPOS[@]}"; do
-      UPDATED_VERSIONS[$component]=$(get_latest_release "${COMPONENTS_REPOS[$component]}");
+      UPDATED_VERSIONS[$component]=$(get_latest_release "$component");
       if [ -z "${UPDATED_VERSIONS[$component]}" ]; then
         echo "ERROR: Unable to get an updated version of $component, aborting..."
         exit 1
@@ -109,16 +130,37 @@ function get_updated_versions {
 }
 
 function get_latest_release() {
-  RELEASES=$(curl -s -L --silent "https://api.github.com/repos/$1/releases" | jq -r '.[].tag_name')
-  semversort "${RELEASES[*]}"
+  repo="${COMPONENTS_REPOS[$1]}"
+  current_version="${CURRENT_VERSIONS[$1]}"
+  short_current=${current_version%.*}
+
+  RELEASES=$(curl -s -L "https://api.github.com/repos/$repo/releases" | jq -r '.[].tag_name')
+  releases=(${RELEASES})
+
+  semversort "${releases[*]}"
+
+  for (( i=${#KEYS_ARR[@]}-1 ; i >= 0 ; i-- )) ; do
+    release=${releases[${KEYS_ARR[$i]}]}
+    short_release=${release%.*}
+
+    if [ "$UPDATE_TYPE" = "all" ]; then
+      break;
+    elif [ "$UPDATE_TYPE" = "z_release" ] && [ "$short_current" = "$short_release" ]; then
+      break;
+    fi
+  done
+
+  echo "${release}"
 }
 
 function compare_versions() {
   # comparing between current (local) components versions and their counterparts in the remote repositories.
   for component in "${!UPDATED_VERSIONS[@]}"; do
-    higher_version=$(semversort ${CURRENT_VERSIONS[$component]} ${UPDATED_VERSIONS[$component]});
+    versions=("${CURRENT_VERSIONS[$component]}" "${UPDATED_VERSIONS[$component]}")
+    semversort "${versions[*]}"
+
     if [ ${CURRENT_VERSIONS[$component]} != ${UPDATED_VERSIONS[$component]} ] \
-     && [ ${higher_version} == ${UPDATED_VERSIONS[$component]} ]; then
+     && [ "${versions[${KEYS_ARR[-1]}]}" == ${UPDATED_VERSIONS[$component]} ]; then
       echo "INFO: $component" is outdated. Current: "${CURRENT_VERSIONS[$component]}", Updated: "${UPDATED_VERSIONS[$component]}"
       SHOULD_UPDATED+=( "$component" )
     fi
@@ -135,8 +177,7 @@ function semversort() {
     printf "%s+%s\n" "${tags_weight[${ix}]}" ${ix}
   done | sort -V | cut -d+ -f2)
 
-  keys_arr=(${keys})
-  echo ${tags_orig[${keys_arr[-1]}]}
+  KEYS_ARR=(${keys})
 }
 
 function version_weight() {
@@ -155,13 +196,17 @@ function version_weight() {
 }
 
 function update_versions() {
+  PR=$(curl -s -L https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/pulls | jq "[.[] | {title: .title, ref: .base.ref}]" )
+
   for component in "${SHOULD_UPDATED[@]}"; do
     echo INFO: Checking update for "$component";
 
     # Check if pull request for that component and version already exists
     search_pattern=$(echo "$component.*${UPDATED_VERSIONS[$component]}" | tr -d '"')
-    if curl -s -L  https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/pulls | jq .[].title | \
-    grep -q "$search_pattern"; then
+
+    search_pr=$(jq "[.[] | select((.title | test(\"${search_pattern}\")) and (.ref == \"${target_branch}\"))] | length" <<< "$PR")
+
+    if [[ $search_pr -ne 0 ]] ; then
       echo "INFO: An existing pull request for bumping $component to version ${UPDATED_VERSIONS[$component]} has been found. \
 Continuing to next component."
       continue

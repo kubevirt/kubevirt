@@ -11,20 +11,47 @@ on:
         description: 'Component version'
         required: false
 jobs:
-  build:
-    name: HCO Release Bump Job
+  set_bump_branches:
+    name: Get Branches to Bump Components Versions
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set_branches.outputs.matrix }}
     steps:
       - uses: actions/checkout@v2
         with:
           ref: main
+          fetch-depth: 0
+
+      - id: set_branches
+        run: |
+          matrix=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -e "origin/main" -e "origin/release-[[:digit:]]\+.[[:digit:]]\+" | sed -r 's/origin\/(.*)/{"branch": "\1"}/g' | jq -s)                
+          echo "::set-output name=matrix::{\"branches\":$(echo $matrix)}"
+
+  bump_components_version:
+    name: Bump Components Versions
+    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
+    runs-on: ubuntu-latest
+    needs: set_bump_branches
+    strategy:
+      matrix: ${{fromJson(needs.set_bump_branches.outputs.matrix)}}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ matrix.branches.branch }}
 
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17' # The Go version to download (if necessary) and use.
 
+      - name: Check file existence
+        id: check_release_bumper
+        uses: andstor/file-existence-action@v1
+        with:
+          files: "automation/release-bumper/release-bumper.sh"
+
       - name: Check for new releases and update
+        if: steps.check_release_bumper.outputs.files_exists == 'true'
         env:
           UPDATED_COMPONENT: ${{ github.event.inputs.component }}
           UPDATED_VERSION: ${{ github.event.inputs.version }}
