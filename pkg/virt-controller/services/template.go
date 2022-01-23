@@ -1191,6 +1191,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		verbosityStr := fmt.Sprint(virtLauncherLogVerbosity)
 		if isSet {
 			verbosityStr = verbosity
+
+			verbosityInt, err := strconv.Atoi(verbosity)
+			if err != nil {
+				return nil, fmt.Errorf("verbosity %s cannot cast to int: %v", verbosity, err)
+			}
+
+			virtLauncherLogVerbosity = uint(verbosityInt)
 		}
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: verbosityStr})
 	}
