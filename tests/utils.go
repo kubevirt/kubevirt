@@ -2999,24 +2999,6 @@ func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Cont
 	return waitForVMIStart(ctx, vmi, 360, wp)
 }
 
-func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) func() *v1.VirtualMachineInstance {
-	var (
-		wg       sync.WaitGroup
-		readyVMI *v1.VirtualMachineInstance
-	)
-	wg.Add(1)
-	go func() {
-		defer GinkgoRecover()
-		defer wg.Done()
-		readyVMI = WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
-	}()
-
-	return func() *v1.VirtualMachineInstance {
-		wg.Wait()
-		return readyVMI
-	}
-}
-
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -3241,25 +3223,6 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 		cmd := NewVirtctlCommand(args...)
 		return cmd.Execute()
 	}
-}
-
-func ExecuteCommandOnCephToolbox(virtCli kubecli.KubevirtClient, command []string) (string, error) {
-	pods, err := virtCli.CoreV1().Pods("rook-ceph").List(context.Background(), metav1.ListOptions{LabelSelector: "app=rook-ceph-tools"})
-	if err != nil {
-		return "", err
-	}
-
-	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, &pods.Items[0], "rook-ceph-tools", command)
-
-	if err != nil {
-		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
-	}
-
-	if len(stderr) > 0 {
-		return "", fmt.Errorf("stderr: %v", stderr)
-	}
-
-	return stdout, nil
 }
 
 func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
@@ -3970,15 +3933,6 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	}
 }
 
-func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
-	curVersion, err := cluster.GetKubernetesVersion()
-	Expect(err).NotTo(HaveOccurred())
-
-	if curVersion >= expectedVersion {
-		Skip(message)
-	}
-}
-
 func SkipIfOpenShift(message string) {
 	if IsOpenShift() {
 		Skip("Openshift detected: " + message)
@@ -4090,16 +4044,6 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return output, nil
-}
-
-// GetNodeLibvirtCapabilities returns node libvirt capabilities
-func GetNodeLibvirtCapabilities(vmi *v1.VirtualMachineInstance) string {
-	return RunCommandOnVmiPod(vmi, []string{"virsh", "-r", "capabilities"})
-}
-
-// GetNodeCPUInfo returns output of lscpu on the pod that runs on the specified node
-func GetNodeCPUInfo(vmi *v1.VirtualMachineInstance) string {
-	return RunCommandOnVmiPod(vmi, []string{"lscpu"})
 }
 
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
@@ -4333,20 +4277,6 @@ func GetRWXBlockStorageClass() (string, bool) {
 	return storageRWXBlock, storageRWXBlock != ""
 }
 
-func GetCephStorageClass() (string, bool) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	storageClassList, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	for _, storageClass := range storageClassList.Items {
-		switch storageClass.Provisioner {
-		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin", "openshift-storage.rbd.csi.ceph.com":
-			return storageClass.Name, true
-		}
-	}
-	return "", false
-}
-
 func HasExperimentalIgnitionSupport() bool {
 	return checks.HasFeature("ExperimentalIgnitionSupport")
 }
@@ -4508,40 +4438,6 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
 
 	return kv
-}
-
-func UpdateCDIConfigMap(cdiConfig *k8sv1.ConfigMap) *k8sv1.ConfigMap {
-	if cdiConfig == nil {
-		return nil
-	}
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	currentConfig, err := virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(context.Background(), cdiConfig.Name, metav1.GetOptions{})
-	util2.PanicOnError(err)
-	old, err := json.Marshal(currentConfig)
-	Expect(err).ToNot(HaveOccurred())
-
-	if reflect.DeepEqual(currentConfig.Data, cdiConfig.Data) {
-		return currentConfig
-	}
-
-	if config.GinkgoConfig.ParallelTotal > 1 {
-		Fail("Tests which alter the global CDI configuration must not be executed in parallel")
-	}
-
-	updatedConfig := currentConfig.DeepCopy()
-	updatedConfig.Data = cdiConfig.Data
-	newJson, err := json.Marshal(updatedConfig)
-	Expect(err).ToNot(HaveOccurred())
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, currentConfig)
-	Expect(err).ToNot(HaveOccurred())
-
-	currentConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Patch(context.Background(), currentConfig.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return currentConfig
 }
 
 // resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
