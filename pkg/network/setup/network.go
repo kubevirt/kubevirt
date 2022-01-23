@@ -49,13 +49,9 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
-	nics := []podNIC{}
+	var nics []podNIC
 
-	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
-		return nics, nil
-	}
-
-	for i, _ := range v.vmi.Spec.Networks {
+	for i := range v.vmi.Spec.Networks {
 		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
 		if err != nil {
 			return nil, err
@@ -63,17 +59,12 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error)
 		nics = append(nics, *nic)
 	}
 	return nics, nil
-
 }
 
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, error) {
-	nics := []podNIC{}
+	var nics []podNIC
 
-	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
-		return nics, nil
-	}
-
-	for i, _ := range v.vmi.Spec.Networks {
+	for i := range v.vmi.Spec.Networks {
 		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, domain)
 		if err != nil {
 			return nil, err
@@ -81,12 +72,10 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, erro
 		nics = append(nics, *nic)
 	}
 	return nics, nil
-
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
-	launcherPID := &pid
-	nics, err := n.getPhase1NICs(launcherPID)
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int) error {
+	nics, err := n.getPhase1NICs(&launcherPID)
 	if err != nil {
 		return err
 	}
