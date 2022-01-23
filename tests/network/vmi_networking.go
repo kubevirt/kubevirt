@@ -40,8 +40,6 @@ import (
 	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
-	api2 "kubevirt.io/client-go/api"
-
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -591,17 +589,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
 		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
-			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			userData := tests.BashHelloScript
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 			net := v1.DefaultPodNetwork()
 			if ipv4NetworkCIDR != "" {
 				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
 			}
-			vmi.Spec.Networks = []v1.Network{*net}
-
-			return vmi
+			return libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+				libvmi.WithNetwork(net),
+			)
 		}
 
 		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
@@ -688,14 +683,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var serverVMI *v1.VirtualMachineInstance
 
 				clientVMI = masqueradeVMI([]v1.Port{}, networkCIDR)
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
+				clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
 
 				serverVMI = masqueradeVMI(ports, networkCIDR)
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
+				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToCirros)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
@@ -732,7 +727,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 
 				vmi := masqueradeVMI([]v1.Port{}, "")
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
@@ -942,8 +937,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
 			})
 			It("Should migrate over that network", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				tests.AddUserData(vmi, "cloud-init", tests.BashHelloScript)
+				vmi := libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
@@ -1001,7 +998,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Create another VMI")
 				anotherVmi = masqueradeVMI([]v1.Port{}, "")
-				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Create(anotherVmi)
+				anotherVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(anotherVmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
@@ -1083,13 +1080,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			setBridgeEnabled(true)
 		})
 		It("[test_id:2964]should reject VMIs with bridge interface when it's not permitted on pod network", func() {
-			var t int64 = 0
-			vmi := api2.NewMinimalVMIWithNS(util.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
-			vmi.Spec.TerminationGracePeriodSeconds = &t
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmi.NewCirros()
 
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
 		})
 	})
