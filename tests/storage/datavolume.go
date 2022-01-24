@@ -749,6 +749,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			AfterEach(func() {
+				if createdVirtualMachine != nil {
+					err := virtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(createdVirtualMachine.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
 				if cloneRole != nil {
 					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -756,11 +761,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				if cloneRoleBinding != nil {
 					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				if createdVirtualMachine != nil {
-					err := virtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(createdVirtualMachine.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
