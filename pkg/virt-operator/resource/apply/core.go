@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -549,7 +548,7 @@ func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue 
 
 	updateBundle := false
 	required.Data = map[string]string{components.CABundleKey: string(bundle)}
-	if !reflect.DeepEqual(required.Data, existing.Data) {
+	if !equality.Semantic.DeepEqual(required.Data, existing.Data) {
 		updateBundle = true
 	}
 

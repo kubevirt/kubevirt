@@ -1,9 +1,9 @@
 package status
 
 import (
-	"reflect"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +49,7 @@ func (u *updater) updateWithoutSubresource(obj runtime.Object) (err error) {
 	if err != nil {
 		return err
 	}
-	if !reflect.DeepEqual(oldStatus, newStatus) {
+	if !equality.Semantic.DeepEqual(oldStatus, newStatus) {
 		u.setSubresource(true)
 		return u.updateStatusUnstructured(obj)
 	}
@@ -70,7 +70,7 @@ func (u *updater) updateWithSubresource(obj runtime.Object) (updateStatusErr err
 			// object does not exist
 			return err
 		}
-		if err == nil && reflect.DeepEqual(oldStatus, newStatus) {
+		if err == nil && equality.Semantic.DeepEqual(oldStatus, newStatus) {
 			u.setSubresource(false)
 		} else if err == nil {
 			return updateStatusErr

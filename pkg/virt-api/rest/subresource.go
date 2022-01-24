@@ -26,12 +26,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/emicklei/go-restful"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -159,7 +159,7 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 	verb := "add"
 	// Special case: if there's no status field at all, add one.
 	newStatus := v1.VirtualMachineStatus{}
-	if reflect.DeepEqual(vm.Status, newStatus) {
+	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
 		for _, change := range changes {
 			newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, change)
 		}

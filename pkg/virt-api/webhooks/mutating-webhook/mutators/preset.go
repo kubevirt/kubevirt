@@ -21,9 +21,9 @@ package mutators
 
 import (
 	"fmt"
-	"reflect"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -78,37 +78,37 @@ func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSp
 		}
 	}
 	if presetSpec.CPU != nil && vmiSpec.CPU != nil {
-		if !reflect.DeepEqual(presetSpec.CPU, vmiSpec.CPU) {
+		if !equality.Semantic.DeepEqual(presetSpec.CPU, vmiSpec.CPU) {
 			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmiSpec.CPU))
 		}
 	}
 	if presetSpec.Firmware != nil && vmiSpec.Firmware != nil {
-		if !reflect.DeepEqual(presetSpec.Firmware, vmiSpec.Firmware) {
+		if !equality.Semantic.DeepEqual(presetSpec.Firmware, vmiSpec.Firmware) {
 			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmiSpec.Firmware))
 		}
 	}
 	if presetSpec.Clock != nil && vmiSpec.Clock != nil {
-		if !reflect.DeepEqual(presetSpec.Clock.ClockOffset, vmiSpec.Clock.ClockOffset) {
+		if !equality.Semantic.DeepEqual(presetSpec.Clock.ClockOffset, vmiSpec.Clock.ClockOffset) {
 			errors = append(errors, fmt.Errorf("spec.clock.clockoffset: %v != %v", presetSpec.Clock.ClockOffset, vmiSpec.Clock.ClockOffset))
 		}
 		if presetSpec.Clock.Timer != nil && vmiSpec.Clock.Timer != nil {
-			if !reflect.DeepEqual(presetSpec.Clock.Timer, vmiSpec.Clock.Timer) {
+			if !equality.Semantic.DeepEqual(presetSpec.Clock.Timer, vmiSpec.Clock.Timer) {
 				errors = append(errors, fmt.Errorf("spec.clock.timer: %v != %v", presetSpec.Clock.Timer, vmiSpec.Clock.Timer))
 			}
 		}
 	}
 	if presetSpec.Features != nil && vmiSpec.Features != nil {
-		if !reflect.DeepEqual(presetSpec.Features, vmiSpec.Features) {
+		if !equality.Semantic.DeepEqual(presetSpec.Features, vmiSpec.Features) {
 			errors = append(errors, fmt.Errorf("spec.features: %v != %v", presetSpec.Features, vmiSpec.Features))
 		}
 	}
 	if presetSpec.Devices.Watchdog != nil && vmiSpec.Devices.Watchdog != nil {
-		if !reflect.DeepEqual(presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog) {
+		if !equality.Semantic.DeepEqual(presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog) {
 			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog))
 		}
 	}
 	if presetSpec.IOThreadsPolicy != nil && vmiSpec.IOThreadsPolicy != nil {
-		if !reflect.DeepEqual(presetSpec.IOThreadsPolicy, vmiSpec.IOThreadsPolicy) {
+		if !equality.Semantic.DeepEqual(presetSpec.IOThreadsPolicy, vmiSpec.IOThreadsPolicy) {
 			errors = append(errors, fmt.Errorf("spec.ioThreadsPolicy: %v != %v", presetSpec.IOThreadsPolicy, vmiSpec.IOThreadsPolicy))
 		}
 	}
@@ -130,7 +130,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 				vmiSpec.Resources.Requests[key] = val
 			}
 		}
-		if reflect.DeepEqual(vmiSpec.Resources.Requests, presetSpec.Resources.Requests) {
+		if equality.Semantic.DeepEqual(vmiSpec.Resources.Requests, presetSpec.Resources.Requests) {
 			applied = true
 		}
 	}
@@ -139,7 +139,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			vmiSpec.CPU = &kubev1.CPU{}
 			presetSpec.CPU.DeepCopyInto(vmiSpec.CPU)
 		}
-		if reflect.DeepEqual(vmiSpec.CPU, presetSpec.CPU) {
+		if equality.Semantic.DeepEqual(vmiSpec.CPU, presetSpec.CPU) {
 			applied = true
 		}
 	}
@@ -148,7 +148,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			vmiSpec.Firmware = &kubev1.Firmware{}
 			presetSpec.Firmware.DeepCopyInto(vmiSpec.Firmware)
 		}
-		if reflect.DeepEqual(vmiSpec.Firmware, presetSpec.Firmware) {
+		if equality.Semantic.DeepEqual(vmiSpec.Firmware, presetSpec.Firmware) {
 			applied = true
 		}
 	}
@@ -157,7 +157,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			vmiSpec.Clock = &kubev1.Clock{}
 			vmiSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
 		}
-		if reflect.DeepEqual(vmiSpec.Clock, presetSpec.Clock) {
+		if equality.Semantic.DeepEqual(vmiSpec.Clock, presetSpec.Clock) {
 			applied = true
 		}
 
@@ -166,7 +166,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 				vmiSpec.Clock.Timer = &kubev1.Timer{}
 				presetSpec.Clock.Timer.DeepCopyInto(vmiSpec.Clock.Timer)
 			}
-			if reflect.DeepEqual(vmiSpec.Clock.Timer, presetSpec.Clock.Timer) {
+			if equality.Semantic.DeepEqual(vmiSpec.Clock.Timer, presetSpec.Clock.Timer) {
 				applied = true
 			}
 		}
@@ -176,7 +176,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			vmiSpec.Features = &kubev1.Features{}
 			presetSpec.Features.DeepCopyInto(vmiSpec.Features)
 		}
-		if reflect.DeepEqual(vmiSpec.Features, presetSpec.Features) {
+		if equality.Semantic.DeepEqual(vmiSpec.Features, presetSpec.Features) {
 			applied = true
 		}
 	}
@@ -185,7 +185,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			vmiSpec.Devices.Watchdog = &kubev1.Watchdog{}
 			presetSpec.Devices.Watchdog.DeepCopyInto(vmiSpec.Devices.Watchdog)
 		}
-		if reflect.DeepEqual(vmiSpec.Devices.Watchdog, presetSpec.Devices.Watchdog) {
+		if equality.Semantic.DeepEqual(vmiSpec.Devices.Watchdog, presetSpec.Devices.Watchdog) {
 			applied = true
 		}
 	}
@@ -194,7 +194,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			ioThreadsPolicy := *presetSpec.IOThreadsPolicy
 			vmiSpec.IOThreadsPolicy = &(ioThreadsPolicy)
 		}
-		if reflect.DeepEqual(vmiSpec.IOThreadsPolicy, presetSpec.IOThreadsPolicy) {
+		if equality.Semantic.DeepEqual(vmiSpec.IOThreadsPolicy, presetSpec.IOThreadsPolicy) {
 			applied = true
 		}
 	}

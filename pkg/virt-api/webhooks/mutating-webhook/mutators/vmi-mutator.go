@@ -23,12 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -180,7 +180,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
-		if !reflect.DeepEqual(newVMI.Status, oldVMI.Status) {
+		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
 			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 				patch = append(patch, utiltypes.PatchOperation{
 					Op:    "replace",

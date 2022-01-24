@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,6 +32,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -207,7 +207,7 @@ func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigratio
 func (c *MigrationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
 	var ops []string
 
-	if !reflect.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
+	if !equality.Semantic.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
 		newState, err := json.Marshal(newVMI.Status.MigrationState)
 		if err != nil {
 			return err
@@ -225,7 +225,7 @@ func (c *MigrationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineIns
 		}
 	}
 
-	if !reflect.DeepEqual(origVMI.Labels, newVMI.Labels) {
+	if !equality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
 		newLabels, err := json.Marshal(newVMI.Labels)
 		if err != nil {
 			return err
@@ -490,12 +490,12 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
-	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) {
+	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
 		if err != nil {
 			return err
 		}
-	} else if !reflect.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
+	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
 		if err != nil {
 			return err
@@ -676,7 +676,7 @@ func (c *MigrationController) handleSignalMigrationAbort(migration *virtv1.Virtu
 	vmiCopy := vmi.DeepCopy()
 
 	vmiCopy.Status.MigrationState.AbortRequested = true
-	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+	if !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) {
 		newStatus, err := json.Marshal(vmiCopy.Status)
 		if err != nil {
 			return err
@@ -1167,7 +1167,7 @@ func (c *MigrationController) updatePod(old, cur interface{}) {
 		return
 	}
 
-	labelChanged := !reflect.DeepEqual(curPod.Labels, oldPod.Labels)
+	labelChanged := !equality.Semantic.DeepEqual(curPod.Labels, oldPod.Labels)
 	if curPod.DeletionTimestamp != nil {
 		// having a pod marked for deletion is enough to count as a deletion expectation
 		c.deletePod(curPod)
@@ -1180,7 +1180,7 @@ func (c *MigrationController) updatePod(old, cur interface{}) {
 
 	curControllerRef := c.getControllerOf(curPod)
 	oldControllerRef := c.getControllerOf(oldPod)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if migration := c.resolveControllerRef(oldPod.Namespace, oldControllerRef); migration != nil {
@@ -1302,7 +1302,7 @@ func (c *MigrationController) updateVMI(old, cur interface{}) {
 		// have different RVs.
 		return
 	}
-	labelChanged := !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels)
+	labelChanged := !equality.Semantic.DeepEqual(curVMI.Labels, oldVMI.Labels)
 	if curVMI.DeletionTimestamp != nil {
 		// having a DataVOlume marked for deletion is enough
 		// to count as a deletion expectation
