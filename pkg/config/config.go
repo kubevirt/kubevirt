@@ -34,8 +34,7 @@ type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc      func(output string, volID string, files []string) error
-	emptyIsoCreationFunc func(output string, size int64) error
+	isoCreationFunc func(output string, volID string, files []string) error
 )
 
 const (

@@ -54,8 +54,6 @@ var UpdateTaintBackoff = wait.Backoff{
 	Jitter:   1.0,
 }
 
-type ResyncPeriodFunc func() time.Duration
-
 // Expectations are a way for controllers to tell the controller manager what they expect. eg:
 //	ControllerExpectations: {
 //		controller1: expects  2 adds in 2 minutes
