@@ -135,7 +135,7 @@ func (g GenerationContext) WriteYAML(itemPath string, objs ...interface{}) error
 		if err != nil {
 			return err
 		}
-		n, err := out.Write(append([]byte("\n---\n"), yamlContent...))
+		n, err := out.Write(append([]byte("---\n"), yamlContent...))
 		if err != nil {
 			return err
 		}

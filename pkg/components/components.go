@@ -995,7 +995,7 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 
 func getReadinessProbe() *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: hcoutil.ReadinessEndpointName,
 				Port: intstr.IntOrString{
@@ -1013,7 +1013,7 @@ func getReadinessProbe() *corev1.Probe {
 
 func getLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: hcoutil.LivenessEndpointName,
 				Port: intstr.IntOrString{

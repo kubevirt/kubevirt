@@ -743,6 +743,9 @@ type QueueConfig struct {
 	MinBackoff string `json:"minBackoff,omitempty"`
 	// MaxBackoff is the maximum retry delay.
 	MaxBackoff string `json:"maxBackoff,omitempty"`
+	// Retry upon receiving a 429 status code from the remote-write storage.
+	// This is experimental feature and might change in the future.
+	RetryOnRateLimit bool `json:"retryOnRateLimit,omitempty"`
 }
 
 // Sigv4 optionally configures AWS's Signature Verification 4 signing process to
@@ -775,6 +778,10 @@ type RemoteReadSpec struct {
 	RequiredMatchers map[string]string `json:"requiredMatchers,omitempty"`
 	// Timeout for requests to the remote read endpoint.
 	RemoteTimeout string `json:"remoteTimeout,omitempty"`
+	// Custom HTTP headers to be sent along with each remote read request.
+	// Be aware that headers that are set by Prometheus itself can't be overwritten.
+	// Only valid in Prometheus versions 2.26.0 and newer.
+	Headers map[string]string `json:"headers,omitempty"`
 	// Whether reads should be made for queries for time ranges that
 	// the local storage should have complete data for.
 	ReadRecent bool `json:"readRecent,omitempty"`
@@ -1410,7 +1417,7 @@ type PrometheusRuleSpec struct {
 // RuleGroup is a list of sequentially evaluated recording and alerting rules.
 // Note: PartialResponseStrategy is only used by ThanosRuler and will
 // be ignored by Prometheus instances.  Valid values for this field are 'warn'
-// or 'abort'.  More info: https://github.com/thanos-io/thanos/blob/master/docs/components/rule.md#partial-response
+// or 'abort'.  More info: https://github.com/thanos-io/thanos/blob/main/docs/components/rule.md#partial-response
 // +k8s:openapi-gen=true
 type RuleGroup struct {
 	Name                    string `json:"name"`

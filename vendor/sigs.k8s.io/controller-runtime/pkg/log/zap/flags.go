@@ -128,3 +128,41 @@ func (ev *stackTraceFlag) String() string {
 func (ev *stackTraceFlag) Type() string {
 	return "level"
 }
+
+type timeEncodingFlag struct {
+	setFunc func(zapcore.TimeEncoder)
+	value   string
+}
+
+var _ flag.Value = &timeEncodingFlag{}
+
+func (ev *timeEncodingFlag) String() string {
+	return ev.value
+}
+
+func (ev *timeEncodingFlag) Type() string {
+	return "time-encoding"
+}
+
+func (ev *timeEncodingFlag) Set(flagValue string) error {
+	val := strings.ToLower(flagValue)
+	switch val {
+	case "rfc3339nano":
+		ev.setFunc(zapcore.RFC3339NanoTimeEncoder)
+	case "rfc3339":
+		ev.setFunc(zapcore.RFC3339TimeEncoder)
+	case "iso8601":
+		ev.setFunc(zapcore.ISO8601TimeEncoder)
+	case "millis":
+		ev.setFunc(zapcore.EpochMillisTimeEncoder)
+	case "nanos":
+		ev.setFunc(zapcore.EpochNanosTimeEncoder)
+	case "epoch":
+		ev.setFunc(zapcore.EpochTimeEncoder)
+	default:
+		return fmt.Errorf("invalid time-encoding value \"%s\"", flagValue)
+	}
+
+	ev.value = flagValue
+	return nil
+}

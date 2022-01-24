@@ -167,6 +167,9 @@ type Options struct {
 	// ZapOpts allows passing arbitrary zap.Options to configure on the
 	// underlying Zap logger.
 	ZapOpts []zap.Option
+	// TimeEncoder specifies the encoder for the timestamps in log messages.
+	// Defaults to EpochTimeEncoder as this is the default in Zap currently.
+	TimeEncoder zapcore.TimeEncoder
 }
 
 // addDefaults adds defaults to the Options.
@@ -212,6 +215,16 @@ func (o *Options) addDefaults() {
 				}))
 		}
 	}
+
+	if o.TimeEncoder == nil {
+		o.TimeEncoder = zapcore.EpochTimeEncoder
+	}
+	f := func(ecfg *zapcore.EncoderConfig) {
+		ecfg.EncodeTime = o.TimeEncoder
+	}
+	// prepend instead of append it in case someone adds a time encoder option in it
+	o.EncoderConfigOptions = append([]EncoderConfigOption{f}, o.EncoderConfigOptions...)
+
 	if o.Encoder == nil {
 		o.Encoder = o.NewEncoder(o.EncoderConfigOptions...)
 	}
@@ -273,6 +286,13 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	}
 	fs.Var(&stackVal, "zap-stacktrace-level",
 		"Zap Level at and above which stacktraces are captured (one of 'info', 'error', 'panic').")
+
+	// Set the time encoding
+	var timeEncoderVal timeEncodingFlag
+	timeEncoderVal.setFunc = func(fromFlag zapcore.TimeEncoder) {
+		o.TimeEncoder = fromFlag
+	}
+	fs.Var(&timeEncoderVal, "zap-time-encoding", "Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'). Defaults to 'epoch'.")
 }
 
 // UseFlagOptions configures the logger to use the Options set by parsing zap option flags from the CLI.

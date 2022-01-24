@@ -73,7 +73,7 @@ func NewTruthyEventHandler(key string, opts Options) (handler.EventHandler, erro
 }
 
 func defaultOptions(opts *Options) {
-	if opts.Log == nil {
+	if opts.Log.GetSink() == nil {
 		opts.Log = logf.Log
 	}
 }
