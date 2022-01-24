@@ -48,12 +48,28 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		virtClient kubecli.KubevirtClient
 		startTime  time.Time
 		endTime    time.Time
+		primed     bool
 	)
 	BeforeEach(func() {
-		startTime = time.Now()
 		skipIfNoPerformanceTests()
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
+
+		if !primed {
+			primerStartTime := time.Now()
+			By("Create primer VMI")
+			createBatchVMIWithRateControl(virtClient, 1)
+
+			By("Waiting for primer VMI to be Running")
+			waitRunningVMI(virtClient, 1, 1*time.Minute)
+
+			time.Sleep(30 * time.Second)
+			primerEndTime := time.Now()
+			runAudit(primerStartTime, primerEndTime)
+			primed = true
+		}
+
+		startTime = time.Now()
 		tests.BeforeTestCleanup()
 	})
 
