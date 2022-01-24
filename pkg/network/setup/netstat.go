@@ -33,7 +33,7 @@ import (
 )
 
 type NetStat struct {
-	ifaceCacheFactory cache.InterfaceCacheFactory
+	cacheCreator cacheCreator
 
 	// In memory cache, storing pod interface information.
 	// key is the file path, value is the contents.
@@ -41,9 +41,13 @@ type NetStat struct {
 	podInterfaceVolatileCache sync.Map
 }
 
-func NewNetStat(ifaceCacheFactory cache.InterfaceCacheFactory) *NetStat {
+func NewNetStat() *NetStat {
+	return NewNetStateWithCustomFactory(cache.CacheCreator{})
+}
+
+func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
 	return &NetStat{
-		ifaceCacheFactory:         ifaceCacheFactory,
+		cacheCreator:              cacheCreator,
 		podInterfaceVolatileCache: sync.Map{},
 	}
 }
@@ -62,7 +66,7 @@ func (c *NetStat) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstanc
 	return exists
 }
 
-func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodCacheInterface) {
+func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *cache.PodIfaceCacheData) {
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), data)
 }
 
@@ -112,16 +116,19 @@ func (c *NetStat) ifacesStatusFromPodCache(vmi *v1.VirtualMachineInstance) ([]v1
 	return ifacesStatus, nil
 }
 
-func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodCacheInterface, error) {
+func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodIfaceCacheData, error) {
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
 	cacheData, exists := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceName))
 	if exists {
-		return cacheData.(*cache.PodCacheInterface), nil
+		return cacheData.(*cache.PodIfaceCacheData), nil
 	}
 
-	//FIXME error handling?
-	podInterface, _ := c.ifaceCacheFactory.CacheForVMI(vmi).Read(ifaceName)
+	podInterface := &cache.PodIfaceCacheData{}
+	if data, err := cache.ReadPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName); err == nil {
+		//FIXME error handling?
+		podInterface = data
+	}
 
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
 

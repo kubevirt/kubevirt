@@ -9,10 +9,14 @@ import (
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 )
 
+type cacheCreator interface {
+	New(filePath string) *cache.Cache
+}
+
 type BridgeConfigGenerator struct {
 	handler          netdriver.NetworkHandler
 	podInterfaceName string
-	cacheFactory     cache.InterfaceCacheFactory
+	cacheCreator     cacheCreator
 	launcherPID      string
 	vmiSpecIfaces    []v1.Interface
 	vmiSpecIface     *v1.Interface
@@ -20,7 +24,7 @@ type BridgeConfigGenerator struct {
 }
 
 func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
-	dhcpConfig, err := d.cacheFactory.CacheDHCPConfigForPid(d.launcherPID).Read(d.podInterfaceName)
+	dhcpConfig, err := cache.ReadDHCPInterfaceCache(d.cacheCreator, d.launcherPID, d.podInterfaceName)
 	if err != nil {
 		return nil, err
 	}

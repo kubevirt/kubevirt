@@ -20,8 +20,6 @@
 package network_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -38,6 +36,8 @@ var _ = Describe("netstat", func() {
 	BeforeEach(func() {
 		setup = newTestSetup()
 	})
+
+	AfterEach(func() { setup.Cleanup() })
 
 	It("run status with no domain", func() {
 		Expect(setup.NetStat.UpdateStatus(setup.Vmi, nil)).To(Succeed())
@@ -465,58 +465,13 @@ var _ = Describe("netstat", func() {
 	})
 })
 
-type interfaceCacheFactoryStatusStub struct {
-	podInterfaceCacheStore podInterfaceCacheStoreStatusStub
-}
-
-func newInterfaceCacheFactoryStub() *interfaceCacheFactoryStatusStub {
-	return &interfaceCacheFactoryStatusStub{
-		podInterfaceCacheStore: podInterfaceCacheStoreStatusStub{
-			data: map[string]*cache.PodCacheInterface{},
-		},
-	}
-}
-
-func (i interfaceCacheFactoryStatusStub) CacheForVMI(vmi *v1.VirtualMachineInstance) cache.PodInterfaceCacheStore {
-	return i.podInterfaceCacheStore
-}
-func (i interfaceCacheFactoryStatusStub) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
-	return nil
-}
-func (i interfaceCacheFactoryStatusStub) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
-	return nil
-}
-
-type podInterfaceCacheStoreStatusStub struct {
-	data       map[string]*cache.PodCacheInterface
-	failRemove bool
-}
-
-func (p podInterfaceCacheStoreStatusStub) Read(iface string) (*cache.PodCacheInterface, error) {
-	if d, exists := p.data[iface]; exists {
-		return d, nil
-	}
-	return &cache.PodCacheInterface{}, nil
-}
-
-func (p podInterfaceCacheStoreStatusStub) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
-	p.data[iface] = cacheInterface
-	return nil
-}
-
-func (p podInterfaceCacheStoreStatusStub) Remove() error {
-	if p.failRemove {
-		return fmt.Errorf("remove failed")
-	}
-	return nil
-}
-
 type testSetup struct {
 	Vmi     *v1.VirtualMachineInstance
 	Domain  *api.Domain
 	NetStat *netsetup.NetStat
 
-	ifaceFSCacheFactory *interfaceCacheFactoryStatusStub
+	cacheCreator  *tempCacheCreator
+	podIfaceCache cache.PodInterfaceCache
 
 	// There are two types of caches used: virt-launcher/pod filesystem & virt-handler in-memory (volatile).
 	// volatileCache flag marks that the setup should also populate the volatile cache when a network interface is added.
@@ -530,14 +485,17 @@ func newTestSetupWithVolatileCache() testSetup {
 }
 
 func newTestSetup() testSetup {
+	var cacheCreator tempCacheCreator
+	const uid = "123"
 	vmi := &v1.VirtualMachineInstance{}
-	vmi.UID = "123"
-	ifaceFSCacheFactory := newInterfaceCacheFactoryStub()
+	vmi.UID = uid
+
 	return testSetup{
-		Vmi:                 vmi,
-		Domain:              &api.Domain{},
-		NetStat:             netsetup.NewNetStat(ifaceFSCacheFactory),
-		ifaceFSCacheFactory: ifaceFSCacheFactory,
+		Vmi:           vmi,
+		Domain:        &api.Domain{},
+		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
+		cacheCreator:  &cacheCreator,
+		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
 	}
 }
 
@@ -590,11 +548,16 @@ func (t *testSetup) addGuestAgentInterfaces(interfaces ...api.InterfaceStatus) {
 }
 
 func (t *testSetup) addFSCacheInterface(name string, podIPs ...string) {
-	t.ifaceFSCacheFactory.CacheForVMI(nil).Write(name, makePodCacheInterface(name, podIPs...))
+	c, _ := t.podIfaceCache.IfaceEntry(name)
+	c.Write(makePodCacheInterface(name, podIPs...))
 }
 
-func makePodCacheInterface(networkName string, podIPs ...string) *cache.PodCacheInterface {
-	return &cache.PodCacheInterface{
+func (t *testSetup) Cleanup() {
+	t.cacheCreator.New("").Delete()
+}
+
+func makePodCacheInterface(networkName string, podIPs ...string) *cache.PodIfaceCacheData {
+	return &cache.PodIfaceCacheData{
 		Iface: &v1.Interface{
 			Name: networkName,
 		},

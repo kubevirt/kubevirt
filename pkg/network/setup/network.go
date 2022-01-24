@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -33,26 +32,26 @@ const primaryPodInterfaceName = "eth0"
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
-	cacheFactory cache.InterfaceCacheFactory
+	cacheCreator cacheCreator
 }
 
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
+func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *VMNetworkConfigurator {
 	return &VMNetworkConfigurator{
 		vmi:          vmi,
 		handler:      handler,
-		cacheFactory: cacheFactory,
+		cacheCreator: cacheCreator,
 	}
 }
 
-func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
+func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator) *VMNetworkConfigurator {
+	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator)
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
 	var nics []podNIC
 
 	for i := range v.vmi.Spec.Networks {
-		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
+		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +64,7 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, erro
 	var nics []podNIC
 
 	for i := range v.vmi.Spec.Networks {
-		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, domain)
+		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, domain)
 		if err != nil {
 			return nil, err
 		}

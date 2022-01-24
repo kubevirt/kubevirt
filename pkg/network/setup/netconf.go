@@ -29,10 +29,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 
+type cacheCreator interface {
+	New(filePath string) *cache.Cache
+}
+
 type NetConf struct {
-	setupCompleted    sync.Map
-	ifaceCacheFactory cache.InterfaceCacheFactory
-	nsFactory         nsFactory
+	setupCompleted sync.Map
+	cacheCreator   cacheCreator
+	nsFactory      nsFactory
 }
 
 type nsFactory func(int) NSExecutor
@@ -41,17 +45,18 @@ type NSExecutor interface {
 	Do(func() error) error
 }
 
-func NewNetConf(ifaceCacheFactory cache.InterfaceCacheFactory) *NetConf {
-	return NewNetConfWithNSFactory(ifaceCacheFactory, func(pid int) NSExecutor {
+func NewNetConf() *NetConf {
+	var cacheFactory cache.CacheCreator
+	return NewNetConfWithCustomFactory(func(pid int) NSExecutor {
 		return netns.New(pid)
-	})
+	}, cacheFactory)
 }
 
-func NewNetConfWithNSFactory(ifaceCacheFactory cache.InterfaceCacheFactory, nsFactory nsFactory) *NetConf {
+func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
 	return &NetConf{
-		setupCompleted:    sync.Map{},
-		ifaceCacheFactory: ifaceCacheFactory,
-		nsFactory:         nsFactory,
+		setupCompleted: sync.Map{},
+		cacheCreator:   cacheCreator,
+		nsFactory:      nsFactory,
 	}
 }
 
@@ -68,7 +73,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.ifaceCacheFactory)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
 
 	ns := c.nsFactory(launcherPid)
 	err := ns.Do(func() error {
@@ -85,7 +90,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.setupCompleted.Delete(vmi.UID)
-	if err := c.ifaceCacheFactory.CacheForVMI(vmi).Remove(); err != nil {
+	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
+	if err := podCache.Remove(); err != nil {
 		return fmt.Errorf("teardown failed, err: %w", err)
 	}
 
