@@ -45,19 +45,14 @@ jobs:
         with:
           go-version: '1.17' # The Go version to download (if necessary) and use.
 
-      - name: Check file existence
-        id: check_release_bumper
-        uses: andstor/file-existence-action@v1
-        with:
-          files: "automation/release-bumper/release-bumper.sh"
-
       - name: Check for new releases and update
         if: steps.check_release_bumper.outputs.files_exists == 'true'
         env:
           UPDATED_COMPONENT: ${{ github.event.inputs.component }}
           UPDATED_VERSION: ${{ github.event.inputs.version }}
         run: |
-          ./automation/release-bumper/release-bumper.sh
+          curl -s https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/automation/release-bumper/release-bumper.sh | bash
+          
           if [[ -f updated_component.txt ]]; then
             echo 'UPDATED_COMPONENT<<EOF' >> $GITHUB_ENV
             cat updated_component.txt >> $GITHUB_ENV
@@ -89,7 +84,7 @@ jobs:
 
             Signed-off-by: HCO Bump Bot <noreply@github.com>
           committer: HCO Bump Bot <noreply@github.com>
-          title: "Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}"
+          title: "[${{ matrix.branches.branch }}] Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}"
           body: |
             Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
             Executed by HCO Release-Bumper Bot.
@@ -99,4 +94,4 @@ jobs:
           assignees: tiraboschi,orenc1,nunnatsa
           reviewers: tiraboschi,orenc1,nunnatsa
           team-reviewers: owners, maintainers
-          branch: bump_${{ env.UPDATED_COMPONENT }}_${{ env.UPDATED_VERSION }}
+          branch: bump_${{ env.UPDATED_COMPONENT }}_${{ env.UPDATED_VERSION }}_${{ matrix.branches.branch }}
