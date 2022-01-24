@@ -21,6 +21,7 @@ package vmispec_test
 
 import (
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -88,6 +89,35 @@ var _ = Describe("VMI network spec", func() {
 			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriov_net1, sriov_net2}))
 		})
 	})
+
+	const iface1, iface2, iface3, iface4, iface5 = "iface1", "iface2", "iface3", "iface4", "iface5"
+
+	table.DescribeTable("return VMI spec interface names, given",
+		func(interfaces []v1.Interface, expectedNames []string) {
+			Expect(netvmispec.InterfacesNames(interfaces)).To(Equal(expectedNames))
+		},
+		table.Entry("no interfaces", nil, nil),
+		table.Entry("single interface", vmiSpecInterfaces(iface1), []string{iface1}),
+		table.Entry("more then one interface", vmiSpecInterfaces(iface1, iface2, iface3), []string{iface1, iface2, iface3}),
+	)
+
+	It("filter status interfaces, given 0 interfaces and 0 names", func() {
+		Expect(netvmispec.FilterStatusInterfacesByNames(nil, nil)).To(BeEmpty())
+	})
+	It("filter status interfaces, given 0 interfaces and 3 names", func() {
+		names := []string{iface1, iface2, iface3}
+		Expect(netvmispec.FilterStatusInterfacesByNames(nil, names)).To(BeEmpty())
+	})
+	It("filter status interfaces, given 3 interfaces and 0 names", func() {
+		statusInterfaces := vmiStatusInterfaces(iface1, iface2, iface3)
+		Expect(netvmispec.FilterStatusInterfacesByNames(statusInterfaces, nil)).To(BeEmpty())
+	})
+	It("filter status interfaces, given 5 interfaces and 2 names", func() {
+		statusInterfaces := vmiStatusInterfaces(iface1, iface4, iface3, iface5, iface2)
+		names := []string{iface4, iface5}
+		expectedInterfaces := vmiStatusInterfaces(names...)
+		Expect(netvmispec.FilterStatusInterfacesByNames(statusInterfaces, names)).To(Equal(expectedInterfaces))
+	})
 })
 
 func podNetwork(name string) v1.Network {
@@ -108,4 +138,21 @@ func interfaceWithMasqueradeBinding(name string) v1.Interface {
 		Name:                   name,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 	}
+}
+
+func vmiStatusInterfaces(names ...string) []v1.VirtualMachineInstanceNetworkInterface {
+	var statusInterfaces []v1.VirtualMachineInstanceNetworkInterface
+	for _, name := range names {
+		iface := v1.VirtualMachineInstanceNetworkInterface{Name: name}
+		statusInterfaces = append(statusInterfaces, iface)
+	}
+	return statusInterfaces
+}
+
+func vmiSpecInterfaces(names ...string) []v1.Interface {
+	var specInterfaces []v1.Interface
+	for _, name := range names {
+		specInterfaces = append(specInterfaces, v1.Interface{Name: name})
+	}
+	return specInterfaces
 }

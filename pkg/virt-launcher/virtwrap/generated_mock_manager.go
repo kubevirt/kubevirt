@@ -230,6 +230,16 @@ func (_mr *_MockDomainManagerRecorder) FinalizeVirtualMachineMigration(arg0 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
 }
 
+func (_m *MockDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "HotplugHostDevices", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) HotplugHostDevices(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", arg0)
+}
+
 func (_m *MockDomainManager) InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus {
 	ret := _m.ctrl.Call(_m, "InterfacesStatus", domainInterfaces)
 	ret0, _ := ret[0].([]api.InterfaceStatus)
