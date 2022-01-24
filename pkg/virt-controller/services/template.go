@@ -1812,9 +1812,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
-	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+	if util.NeedTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
 	}
 	if util.NeedVirtioNetDevice(vmi, allowEmulation) {

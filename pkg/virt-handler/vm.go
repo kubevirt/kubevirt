@@ -503,12 +503,16 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 	rootMount := isolationRes.MountRoot()
-	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
 
 	return d.netConf.Setup(vmi, isolationRes.Pid(), func() error {
-		if requiresDeviceClaim {
+		if virtutil.WantVirtioNetDevice(vmi) {
 			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+			}
+		}
+		if virtutil.NeedTunDevice(vmi) {
+			if err := d.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
+				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
 			}
 		}
 		return nil
@@ -2779,14 +2783,14 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 }
 
 func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount, deviceName string) error {
-	kvmPath := filepath.Join(virtLauncherRootMount, "dev", deviceName)
+	devicePath := filepath.Join(virtLauncherRootMount, "dev", deviceName)
 
-	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.AllowEmulation())
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(devicePath, d.clusterConfig.AllowEmulation())
 	if err != nil || softwareEmulation {
 		return err
 	}
 
-	return diskutils.DefaultOwnershipManager.SetFileOwnership(kvmPath)
+	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
 func nodeHasHostModelLabel(node *k8sv1.Node) bool {
