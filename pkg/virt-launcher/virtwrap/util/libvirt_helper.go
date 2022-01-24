@@ -507,23 +507,21 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 		return err
 	}
 
-	if logFilters, enableDebugLogs := getLibvirtLogFilters(); enableDebugLogs {
+	var libvirtLogVerbosityEnvVar *string
+	if envVarValue, envVarDefined := os.LookupEnv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY); envVarDefined {
+		libvirtLogVerbosityEnvVar = &envVarValue
+	}
+	_, libvirtDebugLogsEnvVarDefined := os.LookupEnv(services.ENV_VAR_LIBVIRT_DEBUG_LOGS)
+
+	if logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined); enableDebugLogs {
 		libvirdDConf, err := os.OpenFile(runtimeLibvirtdConfPath, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
 		defer util.CloseIOAndCheckErr(libvirdDConf, &err)
 
-		var actualLogFilters string
-		if customLogFilters != nil && *customLogFilters != "" {
-			actualLogFilters = *customLogFilters
-		} else {
-			actualLogFilters = logFilters
-		}
-
-		log.Log.Infof("Enabling libvirt log filters: %s", actualLogFilters)
-
-		_, err = libvirdDConf.WriteString(fmt.Sprintf("log_filters=\"%s\"\n", actualLogFilters))
+		log.Log.Infof("Enabling libvirt log filters: %s", logFilters)
+		_, err = libvirdDConf.WriteString(fmt.Sprintf("log_filters=\"%s\"\n", logFilters))
 		if err != nil {
 			return err
 		}
@@ -532,47 +530,60 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	return nil
 }
 
-func getLibvirtLogFilters() (logFilters string, enableDebugLogs bool) {
+// getLibvirtLogFilters returns libvirt debug log filters that should be enabled if enableDebugLogs is true.
+// The decision is based on the following logic:
+// - If custom log filters are defined - they should be enabled and used.
+// - If verbosity is defined and beyond threshold then debug logs would be enabled and determined by verbosity level
+// - If verbosity level is below threshold but debug logs environment variable is defined, debug logs would be enabled
+// 	 and set to the highest verbosity level.
+// - If verbosity level is below threshold and debug logs environment variable is not defined - debug logs are disabled.
+func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) (logFilters string, enableDebugLogs bool) {
 
-	_, envVarExists := os.LookupEnv(services.ENV_VAR_LIBVIRT_DEBUG_LOGS)
-	if !envVarExists {
-		return "", false
-	}
-	launcherVerbosityLevelEnvVar, envVarExists := os.LookupEnv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
-	if !envVarExists {
-		return "", false
+	if customLogFilters != nil && *customLogFilters != "" {
+		return *customLogFilters, true
 	}
 
-	libvirtLogVerbosity, err := strconv.Atoi(launcherVerbosityLevelEnvVar)
-	if err != nil {
-		log.Log.Infof("cannot apply %s value %s - must be a number", services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, launcherVerbosityLevelEnvVar)
-		return "", false
+	var libvirtLogVerbosity int
+	var err error
+
+	if libvirtLogVerbosityEnvVar != nil {
+		libvirtLogVerbosity, err = strconv.Atoi(*libvirtLogVerbosityEnvVar)
+		if err != nil {
+			log.Log.Infof("cannot apply %s value %s - must be a number", services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, *libvirtLogVerbosityEnvVar)
+			libvirtLogVerbosity = -1
+		}
+	} else {
+		libvirtLogVerbosity = -1
 	}
 
 	const verbosityThreshold = services.EXT_LOG_VERBOSITY_THRESHOLD
 
 	if libvirtLogVerbosity < verbosityThreshold {
-		libvirtLogVerbosity = verbosityThreshold
+		if libvirtDebugLogsEnvVarDefined {
+			libvirtLogVerbosity = verbosityThreshold + 5
+		} else {
+			return "", false
+		}
 	}
 
 	// Higher log level means higher verbosity
-	const LogsLevel4 = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access"
-	const LogsLevel3 = LogsLevel4 + " 3:util.threadjob 3:cpu.cpu"
-	const LogsLevel2 = LogsLevel3 + " 3:qemu.qemu_monitor"
-	const LogsLevel1 = LogsLevel2 + " 3:qemu.qemu_monitor_json 3:conf.domain_addr"
+	const logsLevel4 = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access"
+	const logsLevel3 = logsLevel4 + " 3:util.threadjob 3:cpu.cpu"
+	const logsLevel2 = logsLevel3 + " 3:qemu.qemu_monitor"
+	const logsLevel1 = logsLevel2 + " 3:qemu.qemu_monitor_json 3:conf.domain_addr"
 	const allowAllOtherCategories = " 1:*"
 
 	switch libvirtLogVerbosity {
 	case verbosityThreshold:
-		logFilters = LogsLevel1
+		logFilters = logsLevel1
 	case verbosityThreshold + 1:
-		logFilters = LogsLevel2
+		logFilters = logsLevel2
 	case verbosityThreshold + 2:
-		logFilters = LogsLevel3
+		logFilters = logsLevel3
 	case verbosityThreshold + 3:
-		logFilters = LogsLevel4
+		logFilters = logsLevel4
 	default:
-		logFilters = LogsLevel4
+		logFilters = logsLevel4
 	}
 
 	return logFilters + allowAllOtherCategories, true
