@@ -19,10 +19,10 @@
 package agentpoller
 
 import (
-	"reflect"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
@@ -77,7 +77,7 @@ func NewAsyncAgentStore() AsyncAgentStore {
 func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 
 	oldData, _ := s.store.Load(key)
-	updated := (oldData == nil) || !reflect.DeepEqual(oldData, value)
+	updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 
 	s.store.Store(key, value)
 

@@ -3,11 +3,11 @@ package disruptionbudget
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -206,7 +206,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 	}
 
 	if curPodDisruptionBudget.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
 		// having a pdb marked for deletion is enough to count as a deletion expectation
 		c.deletePodDisruptionBudget(curPodDisruptionBudget)
 		if labelChanged {
@@ -218,7 +218,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 
 	curControllerRef := v1.GetControllerOf(curPodDisruptionBudget)
 	oldControllerRef := v1.GetControllerOf(oldPodDisruptionBudget)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPodDisruptionBudget.Namespace, oldControllerRef); vmi != nil {

@@ -63,6 +63,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -4415,7 +4416,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	old, err := json.Marshal(kv)
 	Expect(err).ToNot(HaveOccurred())
 
-	if reflect.DeepEqual(kv.Spec.Configuration, kvConfig) {
+	if equality.Semantic.DeepEqual(kv.Spec.Configuration, kvConfig) {
 		return kv
 	}
 

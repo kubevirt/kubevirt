@@ -22,7 +22,6 @@ package watch
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	gomegaTypes "github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1821,7 +1821,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 
 			result := controller.resolveControllerRef(k8sv1.NamespaceDefault, controllerRef)
-			Expect(reflect.DeepEqual(result, vmi)).To(BeTrue(), "result: %v, should equal %v", result, vmi)
+			Expect(equality.Semantic.DeepEqual(result, vmi)).To(BeTrue(), "result: %v, should equal %v", result, vmi)
 		})
 
 		It("Should find vmi, from attachment pod", func() {
@@ -1833,7 +1833,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			result := controller.resolveControllerRef(k8sv1.NamespaceDefault, controllerRef)
-			Expect(reflect.DeepEqual(result, vmi)).To(BeTrue(), "result: %v, should equal %v", result, vmi)
+			Expect(equality.Semantic.DeepEqual(result, vmi)).To(BeTrue(), "result: %v, should equal %v", result, vmi)
 		})
 
 		It("DeleteAllAttachmentPods should return success if no virt launcher pod exists", func() {
@@ -2138,7 +2138,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			res := controller.getDeletedHotplugVolumes(hotplugPods, hotplugVolumes)
 			Expect(len(res)).To(Equal(len(expected)))
 			for i, volume := range res {
-				Expect(reflect.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
+				Expect(equality.Semantic.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
 			}
 		},
 			table.Entry("should return empty if pods and volumes is empty", make([]*k8sv1.Pod, 0), make([]*virtv1.Volume, 0), make([]k8sv1.Volume, 0)),
@@ -2150,7 +2150,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			res := controller.getNewHotplugVolumes(hotplugPods, hotplugVolumes)
 			Expect(len(res)).To(Equal(len(expected)))
 			for i, volume := range res {
-				Expect(reflect.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
+				Expect(equality.Semantic.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
 			}
 		},
 			table.Entry("should return empty if pods and volumes is empty", make([]*k8sv1.Pod, 0), make([]*virtv1.Volume, 0), make([]*virtv1.Volume, 0)),
@@ -2401,7 +2401,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
 			testutils.ExpectEvents(recorder, expectedEvents...)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(reflect.DeepEqual(expectedStatus, vmi.Status.VolumeStatus)).To(BeTrue(), "status: %v, expected: %v", vmi.Status.VolumeStatus, expectedStatus)
+			Expect(equality.Semantic.DeepEqual(expectedStatus, vmi.Status.VolumeStatus)).To(BeTrue(), "status: %v, expected: %v", vmi.Status.VolumeStatus, expectedStatus)
 		},
 			table.Entry("should not update volume status, if no volumes changed",
 				makeVolumeStatusesForUpdate(),

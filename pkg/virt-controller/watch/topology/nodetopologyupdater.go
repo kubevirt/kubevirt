@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -62,7 +62,7 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 			log.DefaultLogger().Object(node).Reason(err).Error("Could not calculate TSC frequencies for node")
 			continue
 		}
-		if !reflect.DeepEqual(node.Labels, nodeCopy.Labels) {
+		if !equality.Semantic.DeepEqual(node.Labels, nodeCopy.Labels) {
 			if err := patchNode(n.client, node, nodeCopy); err != nil {
 				stats.error++
 				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")

@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 
 	"kubevirt.io/client-go/log"
 
@@ -37,6 +36,7 @@ import (
 	"kubevirt.io/client-go/api"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -187,7 +187,7 @@ var _ = Describe("HotplugVolume", func() {
 		It("getMountTargetRecord should get record from file if not in cache", func() {
 			res, err := m.getMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(reflect.DeepEqual(*res, *record)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(*res, *record)).To(BeTrue())
 		})
 
 		It("getMountTargetRecord should get record from cache if in cache", func() {
@@ -201,7 +201,7 @@ var _ = Describe("HotplugVolume", func() {
 			m.mountRecords[vmi.UID] = cacheRecord
 			res, err := m.getMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(reflect.DeepEqual(*res, *cacheRecord)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(*res, *cacheRecord)).To(BeTrue())
 		})
 
 		It("getMountTargetRecord should error if vmi UID is empty", func() {

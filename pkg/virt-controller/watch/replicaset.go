@@ -21,11 +21,11 @@ package watch
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
 	k8score "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -468,7 +468,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 		return
 	}
 
-	labelChanged := !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels)
+	labelChanged := !equality.Semantic.DeepEqual(curVMI.Labels, oldVMI.Labels)
 	if curVMI.DeletionTimestamp != nil {
 		// when a vmi is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
 		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
@@ -485,7 +485,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 
 	curControllerRef := metav1.GetControllerOf(curVMI)
 	oldControllerRef := metav1.GetControllerOf(oldVMI)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if rs := c.resolveControllerRef(oldVMI.Namespace, oldControllerRef); rs != nil {

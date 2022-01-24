@@ -23,10 +23,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -442,7 +442,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 			}
 
 			vmVolume, ok := vmVolumeMap[name]
-			if ok && !reflect.DeepEqual(newVolume, vmVolume) {
+			if ok && !equality.Semantic.DeepEqual(newVolume, vmVolume) {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on the vmi template.", name),
@@ -451,7 +451,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 			}
 
 			vmiVolume, ok := vmiVolumeMap[name]
-			if ok && !reflect.DeepEqual(newVolume, vmiVolume) {
+			if ok && !equality.Semantic.DeepEqual(newVolume, vmiVolume) {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on currently running vmi", name),
@@ -526,7 +526,7 @@ func validateRestoreStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachi
 		}}
 	}
 
-	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
+	if !equality.Semantic.DeepEqual(oldVM.Spec, vm.Spec) {
 		strategy, _ := vm.RunStrategy()
 		if strategy != v1.RunStrategyHalted {
 			return []metav1.StatusCause{{
@@ -553,7 +553,7 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 		}}
 	}
 
-	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
+	if !equality.Semantic.DeepEqual(oldVM.Spec, vm.Spec) {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Cannot update VM spec until snapshot %q completes", *vm.Status.SnapshotInProgress),

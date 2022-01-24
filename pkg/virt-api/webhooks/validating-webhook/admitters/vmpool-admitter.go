@@ -22,9 +22,9 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -124,7 +124,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 			})
 		}
 
-		if !reflect.DeepEqual(pool.Spec.Selector, oldPool.Spec.Selector) {
+		if !equality.Semantic.DeepEqual(pool.Spec.Selector, oldPool.Spec.Selector) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("selector is immutable after creation."),

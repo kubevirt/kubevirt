@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"reflect"
 	"strings"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -573,7 +573,7 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 		}
 	}
 
-	if !reflect.DeepEqual(vm, vmCopy) {
+	if !equality.Semantic.DeepEqual(vm, vmCopy) {
 		_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
 			return err
@@ -1304,7 +1304,7 @@ func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 		return
 	}
 
-	labelChanged := !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels)
+	labelChanged := !equality.Semantic.DeepEqual(curVMI.Labels, oldVMI.Labels)
 	if curVMI.DeletionTimestamp != nil {
 		// when a vmi is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
 		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
@@ -1321,7 +1321,7 @@ func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 
 	curControllerRef := v1.GetControllerOf(curVMI)
 	oldControllerRef := v1.GetControllerOf(oldVMI)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vm := c.resolveControllerRef(oldVMI.Namespace, oldControllerRef); vm != nil {
@@ -1431,7 +1431,7 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 		// have different RVs.
 		return
 	}
-	labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
+	labelChanged := !equality.Semantic.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
 	if curDataVolume.DeletionTimestamp != nil {
 		// having a DataVOlume marked for deletion is enough
 		// to count as a deletion expectation
@@ -1445,7 +1445,7 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 	}
 	curControllerRef := v1.GetControllerOf(curDataVolume)
 	oldControllerRef := v1.GetControllerOf(oldDataVolume)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vm := c.resolveControllerRef(oldDataVolume.Namespace, oldControllerRef); vm != nil {
@@ -1524,7 +1524,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 	vmiCopy := vmi.DeepCopy()
 	controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
 
-	if reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) {
+	if equality.Semantic.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) {
 		return nil
 	}
 
@@ -1571,7 +1571,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	c.setPrintableStatus(vm, vmi)
 
 	// only update if necessary
-	if !reflect.DeepEqual(vm.Status, vmOrig.Status) {
+	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
 		if err := c.statusUpdater.UpdateStatus(vm); err != nil {
 			return err
 		}

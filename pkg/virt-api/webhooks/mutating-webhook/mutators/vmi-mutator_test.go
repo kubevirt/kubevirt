@@ -22,7 +22,6 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
@@ -31,6 +30,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	v12 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -612,7 +612,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
 		Expect(err).To(BeNil())
 		hyperv := v1.FeatureHyperv{}
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -651,7 +651,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -690,7 +690,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -739,7 +739,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
