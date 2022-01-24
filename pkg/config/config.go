@@ -93,11 +93,6 @@ func setIsoCreationFunction(isoFunc isoCreationFunc) {
 	createISOImage = isoFunc
 }
 
-// The unit test suite uses this function
-func setEmptyIsoCreationFunction(emptyIsoFunc emptyIsoCreationFunc) {
-	createEmptyISOImage = emptyIsoFunc
-}
-
 func getFilesLayout(dirPath string) ([]string, error) {
 	var filesPath []string
 	files, err := os.ReadDir(dirPath)

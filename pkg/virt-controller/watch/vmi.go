@@ -914,10 +914,6 @@ func isPodReady(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodRunning
 }
 
-func isPodPending(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodPending
-}
-
 func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
 	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
 }

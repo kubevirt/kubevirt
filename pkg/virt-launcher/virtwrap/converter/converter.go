@@ -139,13 +139,6 @@ func isAMD64(arch string) bool {
 	return false
 }
 
-func isPPC64(arch string) bool {
-	if arch == "ppc64le" {
-		return true
-	}
-	return false
-}
-
 func isARM64(arch string) bool {
 	if arch == "arm64" {
 		return true
