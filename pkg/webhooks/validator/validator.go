@@ -115,9 +115,11 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 	}
 
 	if wh.isOpenshift {
-		resources = append(resources,
-			operands.NewSSP(requested),
-		)
+		ssp, err := operands.NewSSP(requested)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, ssp)
 	}
 
 	wg.Add(len(resources))
@@ -182,7 +184,10 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *sspv1beta1.SSP:
-		required := operands.NewSSP(hc)
+		required, err := operands.NewSSP(hc)
+		if err != nil {
+			return err
+		}
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	}

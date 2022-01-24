@@ -179,7 +179,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewKubeVirtWithNameOnly(req.Instance),
 		NewCDIWithNameOnly(req.Instance),
 		NewNetworkAddonsWithNameOnly(req.Instance),
-		NewSSP(req.Instance),
+		NewSSPWithNameOnly(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
 	}
 

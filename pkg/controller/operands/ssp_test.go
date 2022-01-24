@@ -39,7 +39,8 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewSSP(hco)
+			expectedResource, err := NewSSP(hco)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newSspHandler(cl, commonTestUtils.GetScheme())
 			res := handler.ensure(req)
@@ -61,7 +62,8 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewSSP(hco)
+			expectedResource, err := NewSSP(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newSspHandler(cl, commonTestUtils.GetScheme())
@@ -83,7 +85,8 @@ var _ = Describe("SSP Operands", func() {
 		It("should reconcile to default", func() {
 			cTNamespace := "nonDefault"
 			hco.Spec.CommonTemplatesNamespace = &cTNamespace
-			expectedResource := NewSSP(hco)
+			expectedResource, err := NewSSP(hco)
+			Expect(err).ToNot(HaveOccurred())
 			existingResource := expectedResource.DeepCopy()
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
@@ -126,7 +129,8 @@ var _ = Describe("SSP Operands", func() {
 		Context("Node placement", func() {
 
 			It("should add node placement if missing", func() {
-				existingResource := NewSSP(hco, commonTestUtils.Namespace)
+				existingResource, err := NewSSP(hco, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				hco.Spec.Workloads.NodePlacement = commonTestUtils.NewNodePlacement()
 				hco.Spec.Infra.NodePlacement = commonTestUtils.NewOtherNodePlacement()
@@ -159,7 +163,8 @@ var _ = Describe("SSP Operands", func() {
 				hcoNodePlacement := commonTestUtils.NewHco()
 				hcoNodePlacement.Spec.Workloads.NodePlacement = commonTestUtils.NewNodePlacement()
 				hcoNodePlacement.Spec.Infra.NodePlacement = commonTestUtils.NewOtherNodePlacement()
-				existingResource := NewSSP(hcoNodePlacement, commonTestUtils.Namespace)
+				existingResource, err := NewSSP(hcoNodePlacement, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := newSspHandler(cl, commonTestUtils.GetScheme())
@@ -188,7 +193,8 @@ var _ = Describe("SSP Operands", func() {
 
 				hco.Spec.Workloads.NodePlacement = commonTestUtils.NewNodePlacement()
 				hco.Spec.Infra.NodePlacement = commonTestUtils.NewOtherNodePlacement()
-				existingResource := NewSSP(hco, commonTestUtils.Namespace)
+				existingResource, err := NewSSP(hco, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				// now, modify HCO's node placement
 				seconds12 := int64(12)
@@ -239,7 +245,8 @@ var _ = Describe("SSP Operands", func() {
 			It("should overwrite node placement if directly set on SSP CR", func() {
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewOtherNodePlacement()}
-				existingResource := NewSSP(hco, commonTestUtils.Namespace)
+				existingResource, err := NewSSP(hco, commonTestUtils.Namespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				// mock a reconciliation triggered by a change in NewKubeVirtNodeLabellerBundle CR
 				req.HCOTriggered = false
@@ -455,12 +462,14 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
-					list := getDataImportCronTemplates(hco)
+					list, err := getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(list).To(HaveLen(2))
 					Expect(list).To(ContainElements(image3, image4))
 
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
-					list = getDataImportCronTemplates(hco)
+					list, err = getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(list).To(BeNil())
 				})
 
@@ -485,10 +494,57 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
-					goldenImageList := getDataImportCronTemplates(hco)
+					goldenImageList, err := getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(4))
 					Expect(goldenImageList).To(HaveCap(4))
 					Expect(goldenImageList).To(ContainElements(image1, image2, image3, image4))
+				})
+
+				It("Should reject if the CR list contain DIC template with the same name as in the hard-coded list", func() {
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+					dataImportCronTemplateHardCodedNames = map[string]struct{}{
+						image1.Name: {},
+						image2.Name: {},
+					}
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
+					image3Modified := image3.DeepCopy()
+					image3Modified.Name = image2.Name
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					_, err := getDataImportCronTemplates(hco)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("Should reject if the CR list contain DIC templates with the same name, when there are also common DIC templates", func() {
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+					dataImportCronTemplateHardCodedNames = map[string]struct{}{
+						image1.Name: {},
+						image2.Name: {},
+					}
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
+					image3Modified := image3.DeepCopy()
+					image3Modified.Name = image4.Name
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					_, err := getDataImportCronTemplates(hco)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("Should reject if the CR list contain DIC templates with the same name", func() {
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
+					image3Modified := image3.DeepCopy()
+					image3Modified.Name = image4.Name
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					_, err := getDataImportCronTemplates(hco)
+					Expect(err).To(HaveOccurred())
 				})
 
 				It("Should not add the CR list to the hard-coded list, if it's empty", func() {
@@ -497,14 +553,16 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = nil
-					goldenImageList := getDataImportCronTemplates(hco)
+					goldenImageList, err := getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(2))
 					Expect(goldenImageList).To(HaveCap(2))
 					Expect(goldenImageList).To(ContainElements(image1, image2))
 
 					By("CR list is empty")
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
-					goldenImageList = getDataImportCronTemplates(hco)
+					goldenImageList, err = getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(2))
 					Expect(goldenImageList).To(ContainElements(image1, image2))
 				})
@@ -516,14 +574,16 @@ var _ = Describe("SSP Operands", func() {
 
 					By("when dataImportCronTemplateHardCodedList is nil")
 					dataImportCronTemplateHardCodedList = nil
-					goldenImageList := getDataImportCronTemplates(hco)
+					goldenImageList, err := getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(2))
 					Expect(goldenImageList).To(HaveCap(2))
 					Expect(goldenImageList).To(ContainElements(image3, image4))
 
 					By("when dataImportCronTemplateHardCodedList is empty")
 					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{}
-					goldenImageList = getDataImportCronTemplates(hco)
+					goldenImageList, err = getDataImportCronTemplates(hco)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(2))
 					Expect(goldenImageList).To(HaveCap(2))
 					Expect(goldenImageList).To(ContainElements(image3, image4))
@@ -535,7 +595,8 @@ var _ = Describe("SSP Operands", func() {
 				It("should return an empty list if there is no file and no list in the HyperConverged CR", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-					ssp := NewSSP(hco)
+					ssp, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(BeNil())
 				})
@@ -553,7 +614,8 @@ var _ = Describe("SSP Operands", func() {
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
-					ssp := NewSSP(hco)
+					ssp, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
@@ -573,11 +635,76 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
-					ssp := NewSSP(hco)
+					ssp, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+				})
+
+				It("Should reject if the CR list contain DIC template with the same name as in the hard-coded list", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
+					Expect(dataImportCronTemplateHardCodedList).ToNot(BeEmpty())
+					image3Modified := image3.DeepCopy()
+					image3Modified.Name = dataImportCronTemplateHardCodedList[0].Name
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					ssp, err := NewSSP(hco)
+					Expect(err).To(HaveOccurred())
+					Expect(ssp).To(BeNil())
+				})
+
+				It("Should reject if the CR list contain DIC template with the same name, and there are also common DIC templates", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
+					Expect(dataImportCronTemplateHardCodedList).ToNot(BeEmpty())
+					image3Modified := image3.DeepCopy()
+					image3Modified.Name = image4.Name
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					ssp, err := NewSSP(hco)
+					Expect(err).To(HaveOccurred())
+					Expect(ssp).To(BeNil())
+				})
+
+				It("Should reject if the CR list contain DIC template with the same name", func() {
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = false
+
+					Expect(dataImportCronTemplateHardCodedList).To(BeEmpty())
+					image3Modified := image3.DeepCopy()
+					image3Modified.Name = image4.Name
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*image3Modified, image4}
+					ssp, err := NewSSP(hco)
+					Expect(err).To(HaveOccurred())
+					Expect(ssp).To(BeNil())
 				})
 
 				It("should return a only the list from the HyperConverged CR, if the file is missing", func() {
@@ -587,7 +714,8 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
-					ssp := NewSSP(hco)
+					ssp, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
@@ -608,7 +736,8 @@ var _ = Describe("SSP Operands", func() {
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = false
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
-					ssp := NewSSP(hco)
+					ssp, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))

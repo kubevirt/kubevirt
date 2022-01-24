@@ -349,7 +349,8 @@ var _ = Describe("webhooks validator", func() {
 		It("should return error if SSP CR is missing", func() {
 			ctx := context.TODO()
 			cli := getFakeClient(hco)
-			Expect(cli.Delete(ctx, operands.NewSSP(hco))).To(BeNil())
+
+			Expect(cli.Delete(ctx, operands.NewSSPWithNameOnly(hco))).To(BeNil())
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
 
 			newHco := &v1beta1.HyperConverged{}
@@ -967,7 +968,10 @@ func getFakeClient(hco *v1beta1.HyperConverged) *commonTestUtils.HcoTestClient {
 	cna, err := operands.NewNetworkAddons(hco)
 	Expect(err).ToNot(HaveOccurred())
 
-	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, operands.NewSSP(hco)})
+	ssp, err := operands.NewSSP(hco)
+	Expect(err).ToNot(HaveOccurred())
+
+	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, ssp})
 }
 
 type fakeFailure int
