@@ -52,7 +52,3 @@ func (*fakeIdentifier) GetName() (string, error) {
 func (*fakeIdentifier) GetUUIDString() (string, error) {
 	return "uuid", nil
 }
-
-func RegisterFakeCollector() {
-	prometheus.MustRegister(fakeCollector{})
-}
