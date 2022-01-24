@@ -167,8 +167,8 @@ func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
 }
 
 func flavorApiServiceDefinitions() []*restful.WebService {
-	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.FlavorResourcePluralName)
-	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterFlavorResourcePluralName)
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralResourceName)
+	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralResourceName)
 
 	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
 	if err != nil {

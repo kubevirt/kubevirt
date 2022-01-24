@@ -526,14 +526,14 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 
 func (f *kubeInformerFactory) VirtualMachineFlavor() cache.SharedIndexInformer {
 	return f.getInformer("vmFlavorInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.FlavorResourcePluralName, k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.PluralResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineFlavor{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
 func (f *kubeInformerFactory) VirtualMachineClusterFlavor() cache.SharedIndexInformer {
 	return f.getInformer("vmClusterFlavorInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.ClusterFlavorResourcePluralName, k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.ClusterPluralResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineClusterFlavor{}, f.defaultResync, cache.Indexers{})
 	})
 }

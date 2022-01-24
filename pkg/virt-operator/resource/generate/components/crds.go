@@ -527,8 +527,8 @@ func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: flavorv1alpha1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     flavor.FlavorResourcePluralName,
-			Singular:   flavor.FlavorResourceSingularName,
+			Plural:     flavor.PluralResourceName,
+			Singular:   flavor.SingularResourceName,
 			ShortNames: []string{"vmflavor", "vmflavors"},
 			Kind:       "VirtualMachineFlavor",
 			Categories: []string{"all"},
@@ -554,8 +554,8 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: flavorv1alpha1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     flavor.ClusterFlavorResourcePluralName,
-			Singular:   flavor.ClusterFlavorResourceSingularName,
+			Plural:     flavor.ClusterPluralResourceName,
+			Singular:   flavor.ClusterSingularResourceName,
 			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
 			Kind:       "VirtualMachineClusterFlavor",
 			Categories: []string{"all"},

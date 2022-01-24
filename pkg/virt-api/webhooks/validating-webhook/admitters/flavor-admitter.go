@@ -24,7 +24,7 @@ func (f *FlavorAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 		metav1.GroupVersionResource{
 			Group:    flavorv1alpha1.SchemeGroupVersion.Group,
 			Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-			Resource: flavor.FlavorResourcePluralName,
+			Resource: flavor.PluralResourceName,
 		},
 		func(raw []byte) ([]flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 			flavorObj := flavorv1alpha1.VirtualMachineFlavor{}
@@ -46,7 +46,7 @@ func (f *ClusterFlavorAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissio
 		metav1.GroupVersionResource{
 			Group:    flavorv1alpha1.SchemeGroupVersion.Group,
 			Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-			Resource: flavor.ClusterFlavorResourcePluralName,
+			Resource: flavor.ClusterPluralResourceName,
 		},
 		func(raw []byte) ([]flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 			clusterFlavorObj := flavorv1alpha1.VirtualMachineClusterFlavor{}

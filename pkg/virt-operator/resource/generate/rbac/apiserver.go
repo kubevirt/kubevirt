@@ -210,8 +210,8 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"flavor.kubevirt.io",
 				},
 				Resources: []string{
-					flavor.FlavorResourcePluralName,
-					flavor.ClusterFlavorResourcePluralName,
+					flavor.PluralResourceName,
+					flavor.ClusterPluralResourceName,
 				},
 				Verbs: []string{
 					"list", "watch",

@@ -554,7 +554,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
 						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{flavor.FlavorResourcePluralName},
+						Resources:   []string{flavor.PluralResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -579,7 +579,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
 						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{flavor.ClusterFlavorResourcePluralName},
+						Resources:   []string{flavor.ClusterPluralResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{

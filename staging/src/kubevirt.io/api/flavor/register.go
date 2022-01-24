@@ -23,9 +23,9 @@ package flavor
 const (
 	GroupName = "flavor.kubevirt.io"
 
-	FlavorResourceSingularName = "virtualmachineflavor"
-	FlavorResourcePluralName   = FlavorResourceSingularName + "s"
+	SingularResourceName = "virtualmachineflavor"
+	PluralResourceName   = SingularResourceName + "s"
 
-	ClusterFlavorResourceSingularName = "virtualmachineclusterflavor"
-	ClusterFlavorResourcePluralName   = ClusterFlavorResourceSingularName + "s"
+	ClusterSingularResourceName = "virtualmachineclusterflavor"
+	ClusterPluralResourceName   = ClusterSingularResourceName + "s"
 )

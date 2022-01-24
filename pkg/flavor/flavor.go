@@ -114,25 +114,25 @@ func getKey(namespace string, name string) string {
 
 func getProfiles(name string, namespace string, kind string, flavorStore, clusterFlavorStore cache.Store) ([]flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 	switch strings.ToLower(kind) {
-	case apiflavor.FlavorResourcePluralName, apiflavor.FlavorResourceSingularName:
+	case apiflavor.PluralResourceName, apiflavor.SingularResourceName:
 		key := getKey(namespace, name)
 		obj, exists, err := flavorStore.GetByKey(key)
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
-			return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.FlavorResourceSingularName), key)
+			return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.SingularResourceName), key)
 		}
 		flavor := obj.(*flavorv1alpha1.VirtualMachineFlavor)
 		return flavor.Profiles, nil
 
-	case "", apiflavor.ClusterFlavorResourcePluralName, apiflavor.ClusterFlavorResourceSingularName:
+	case "", apiflavor.ClusterPluralResourceName, apiflavor.ClusterSingularResourceName:
 		obj, exists, err := clusterFlavorStore.GetByKey(name)
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
-			return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.ClusterFlavorResourceSingularName), name)
+			return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.ClusterSingularResourceName), name)
 		}
 		flavor := obj.(*flavorv1alpha1.VirtualMachineClusterFlavor)
 		return flavor.Profiles, nil
