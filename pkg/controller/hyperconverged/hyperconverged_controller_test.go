@@ -2113,7 +2113,8 @@ var _ = Describe("HyperconvergedController", func() {
 							}
 						]`,
 					}
-					metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
@@ -2166,7 +2167,8 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
@@ -2207,7 +2209,8 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
+					Expect(err).To(BeNil())
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -2270,7 +2273,9 @@ var _ = Describe("HyperconvergedController", func() {
 				]`,
 					}
 
-					metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
+					Expect(err).To(BeNil())
+
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
 
@@ -2326,7 +2331,8 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
@@ -2367,7 +2373,8 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
+					Expect(err).To(BeNil())
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -2422,7 +2429,8 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
@@ -2475,7 +2483,8 @@ var _ = Describe("HyperconvergedController", func() {
 						Reason:  taintedConfigurationReason,
 						Message: taintedConfigurationMessage,
 					})
-					metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
@@ -2513,7 +2522,8 @@ var _ = Describe("HyperconvergedController", func() {
 						// Set bad json
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
-					metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)
@@ -2581,9 +2591,12 @@ var _ = Describe("HyperconvergedController", func() {
 							}
 						]`,
 					}
-					metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
-					metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
-					metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
+					Expect(err).To(BeNil())
+					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
+					Expect(err).To(BeNil())
+					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
+					Expect(err).To(BeNil())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco})
 					r := initReconciler(cl, nil)

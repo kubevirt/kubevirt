@@ -922,7 +922,10 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 				tainted = true
 			}
 		}
-		metrics.HcoMetrics.SetUnsafeModificationCount(NumOfChanges, jpa)
+		err := metrics.HcoMetrics.SetUnsafeModificationCount(NumOfChanges, jpa)
+		if err != nil {
+			req.Logger.Error(err, "couldn't update 'UnsafeModification' metric")
+		}
 	}
 
 	if tainted {
