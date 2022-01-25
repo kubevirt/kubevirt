@@ -1885,6 +1885,33 @@ spec:
               localStorageClassName:
                 description: LocalStorageClassName the name of the local storage class.
                 type: string
+              logVerbosityConfig:
+                description: LogVerbosityConfig configures the verbosity level of
+                  Kubevirt's different components. The higher the value - the higher
+                  the log verbosity.
+                properties:
+                  kubevirt:
+                    description: LogVerbosity sets log verbosity level of  various
+                      components
+                    properties:
+                      nodeVerbosity:
+                        additionalProperties:
+                          type: integer
+                        description: NodeVerbosity represents a map of nodes with
+                          a specific verbosity level
+                        type: object
+                      virtAPI:
+                        type: integer
+                      virtController:
+                        type: integer
+                      virtHandler:
+                        type: integer
+                      virtLauncher:
+                        type: integer
+                      virtOperator:
+                        type: integer
+                    type: object
+                type: object
               mediatedDevicesConfiguration:
                 description: MediatedDevicesConfiguration holds information about
                   MDEV types to be defined on nodes, if available

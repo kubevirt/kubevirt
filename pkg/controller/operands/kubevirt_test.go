@@ -2653,6 +2653,36 @@ Version: 1.2.3`)
 				Expect(handler.hooks.(*kubevirtHooks).cache == crII).To(BeTrue())
 			})
 		})
+
+		Context("Log verbosity", func() {
+
+			It("Should be defined for KubevirtCR if defined in HCO CR", func() {
+				logVerbosity := kubevirtcorev1.LogVerbosity{
+					VirtLauncher:   123,
+					VirtAPI:        456,
+					VirtController: 789,
+				}
+				hco.Spec.LogVerbosityConfig = &hcov1beta1.LogVerbosityConfiguration{Kubevirt: &logVerbosity}
+				devConfig, err := getKVDevConfig(hco)
+
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(devConfig).ToNot(BeNil())
+				Expect(*devConfig.LogVerbosity).To(Equal(logVerbosity))
+			})
+
+			DescribeTable("Should not be defined for KubevirtCR if not defined in HCO CR", func(logConfig *hcov1beta1.LogVerbosityConfiguration) {
+				hco.Spec.LogVerbosityConfig = logConfig
+				devConfig, err := getKVDevConfig(hco)
+
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(devConfig).ToNot(BeNil())
+				Expect(devConfig.LogVerbosity).To(BeNil())
+			},
+				Entry("nil LogVerbosityConfiguration", nil),
+				Entry("nil Kubevirt logs", &hcov1beta1.LogVerbosityConfiguration{Kubevirt: nil}),
+			)
+
+		})
 	})
 
 	Context("Test hcLiveMigrationToKv", func() {

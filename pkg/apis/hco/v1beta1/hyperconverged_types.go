@@ -4,6 +4,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -119,6 +121,11 @@ type HyperConvergedSpec struct {
 	// +kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist
 	// +optional
 	UninstallStrategy *HyperConvergedUninstallStrategy `json:"uninstallStrategy,omitempty"`
+
+	// LogVerbosityConfig configures the verbosity level of Kubevirt's different components. The higher
+	// the value - the higher the log verbosity.
+	// +optional
+	LogVerbosityConfig *LogVerbosityConfiguration `json:"logVerbosityConfig,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -406,6 +413,13 @@ type HyperConvergedStatus struct {
 type Version struct {
 	Name    string `json:"name,omitempty"`
 	Version string `json:"version,omitempty"`
+}
+
+// LogVerbosityConfiguration configures log verbosity for different components
+// +k8s:openapi-gen=true
+type LogVerbosityConfiguration struct {
+	// +optional
+	Kubevirt *v1.LogVerbosity `json:"kubevirt,omitempty"`
 }
 
 const (

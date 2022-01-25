@@ -578,6 +578,34 @@ spec:
       managedDataSource: custom2
 ```
 
+## Log verbosity
+Currently logging verbosity is only supported for Kubevirt.
+
+### Kubevirt
+In order to define logging verbosity for Kubevirt, it's possible to define per-component (e.g. `virt-handler`,
+`virt-launcher`, etc) value, or per-node value. All the log verbosity definitions are optional and would automatically
+set to a default value by Kubevirt if not value is defined. While there is no tight definition on the behavior for each
+component and log verbosity value, the higher the log verbosity value is the higher the verbosity will get.
+
+For example, the following can be configured on HyperConverged CR:
+```yaml
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  logVerbosityConfig:
+    kubevirt:
+      virtLauncher: 8
+      virtHandler: 4
+      virtController: 1
+      nodeVerbosity:
+        node01: 4
+        node02: 3
+```
+
+All the values defined [here](https://kubevirt.io/api-reference/master/definitions.html#_v1_logverbosity)
+can be applied.
+
 ## Workloads protection on uninstall
 
 `UninstallStrategy` defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist:
@@ -691,33 +719,6 @@ metadata:
           "value":"CPUManager"
         }
       ]
-```
-
-
-##### Higher Log Verbosity
-The user wants to configure kubevirt pods to log more verbosely
-```yaml
-metadata:
-  annotations:
-    kubevirt.kubevirt.io/jsonpatch: |-
-      [
-        {
-          "op":"add",
-          "path":"/spec/configuration/developerConfiguration/logVerbosity",
-          "value":{
-            "virtAPI":4,
-            "virtController":4,
-            "virtHandler":4,
-            "virtLauncher":4,
-            "virtOperator":4
-          }
-        }
-      ]
-```
-
-From CLI it will be:
-```bash
-$ patch hco kubevirt-hyperconverged --type=merge -p='{"metadata":{"annotations":{"kubevirt.kubevirt.io/jsonpatch":"[{\"op\":\"add\",\"path\":\"/spec/configuration/developerConfiguration/logVerbosity\",\"value\":{\"virtAPI\":4,\"virtController\":4,\"virtHandler\":4,\"virtLauncher\":4,\"virtOperator\":4}}]"}}}'
 ```
 
 ##### Virt-handler Customization

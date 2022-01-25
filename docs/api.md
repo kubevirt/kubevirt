@@ -18,6 +18,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [HyperConvergedStatus](#hyperconvergedstatus)
 * [HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy)
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
+* [LogVerbosityConfiguration](#logverbosityconfiguration)
 * [MediatedDevicesConfiguration](#mediateddevicesconfiguration)
 * [MediatedHostDevice](#mediatedhostdevice)
 * [NodeMediatedDeviceTypesConfig](#nodemediateddevicetypesconfig)
@@ -139,6 +140,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | workloadUpdateStrategy | WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates | *[HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy) | {"workloadUpdateMethods": {"LiveMigrate"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"} | false |
 | dataImportCronTemplates | DataImportCronTemplates holds list of data import cron templates (golden images) | []sspv1beta1.DataImportCronTemplate |  | false |
 | uninstallStrategy | UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstall. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour. | *HyperConvergedUninstallStrategy | BlockUninstallIfWorkloadsExist | false |
+| logVerbosityConfig | LogVerbosityConfig configures the verbosity level of Kubevirt's different components. The higher the value - the higher the log verbosity. | *[LogVerbosityConfiguration](#logverbosityconfiguration) |  | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -180,6 +182,16 @@ LiveMigrationConfigurations - Live migration limits and timeouts are applied so 
 | completionTimeoutPerGiB | The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included in the calculation. | *int64 | 800 | false |
 | progressTimeout | The migration will be canceled if memory copy fails to make progress in this time, in seconds. | *int64 | 150 | false |
 | network | The migrations will be performed over a dedicated multus network to minimize disruption to tenant workloads due to network saturation when VM live migrations are triggered. | *string |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## LogVerbosityConfiguration
+
+LogVerbosityConfiguration configures log verbosity for different components
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| kubevirt |  | *v1.LogVerbosity |  | false |
 
 [Back to TOC](#table-of-contents)
 

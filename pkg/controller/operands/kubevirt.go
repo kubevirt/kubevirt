@@ -461,6 +461,9 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperCon
 	if useKVMEmulation {
 		devConf.UseEmulation = useKVMEmulation
 	}
+	if lv := hc.Spec.LogVerbosityConfig; lv != nil && lv.Kubevirt != nil {
+		devConf.LogVerbosity = lv.Kubevirt.DeepCopy()
+	}
 
 	return devConf, nil
 }
