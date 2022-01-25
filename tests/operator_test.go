@@ -1744,6 +1744,11 @@ spec:
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
+			// This ensures that we can remove kubevirt while workloads are running
+			By("Starting some vmis")
+			vmis := generateMigratableVMIs(2)
+			startAllVMIs(vmis)
+
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
 
