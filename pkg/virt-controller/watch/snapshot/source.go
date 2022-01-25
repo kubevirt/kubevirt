@@ -296,19 +296,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	vm := s.vm
-	online, err := s.Online()
-	if err != nil {
-		return map[string]string{}, err
-	}
-
-	if online {
-		vm, err = s.getVMRevision()
-		if err != nil {
-			return map[string]string{}, err
-		}
-	}
-	return getPVCsFromVolumes(vm.Spec.Template.Spec.Volumes), nil
+	return getPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes), nil
 }
 
 func (s *vmSnapshotSource) pvcNames() sets.String {

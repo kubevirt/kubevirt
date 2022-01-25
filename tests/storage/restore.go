@@ -437,7 +437,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			doRestore := func(device string, login console.LoginToFactory, onlineSnapshot bool) {
+			doRestore := func(device string, login console.LoginToFactory, onlineSnapshot bool, expectedRestores int) {
 				By("creating 'message with initial value")
 				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
 
@@ -546,7 +546,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
-				Expect(restore.Status.Restores).To(HaveLen(1))
+				Expect(restore.Status.Restores).To(HaveLen(expectedRestores))
 
 				vm = tests.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -623,7 +623,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToCirros, false)
+				doRestore("", console.LoginToCirros, false, 1)
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
@@ -655,7 +655,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false)
+				doRestore("", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
@@ -712,7 +712,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false)
+				doRestore("", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
@@ -780,7 +780,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc", console.LoginToCirros, false)
+				doRestore("/dev/vdc", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
@@ -891,7 +891,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				))
 
-				doRestore("", console.LoginToCirros, true)
+				doRestore("", console.LoginToCirros, true, 1)
 
 			})
 
@@ -944,7 +944,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				doRestore("/dev/vdc", console.LoginToFedora, true)
+				doRestore("/dev/vdc", console.LoginToFedora, true, 1)
 
 			})
 
@@ -959,7 +959,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToFedora, true)
+				doRestore("", console.LoginToFedora, true, 1)
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
@@ -1029,7 +1029,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("Add temporary hotplug disk")
 				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
-				doRestore("", console.LoginToFedora, true)
+				doRestore("", console.LoginToFedora, true, 2)
 
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

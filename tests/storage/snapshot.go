@@ -633,11 +633,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				contentVMTemplate := content.Spec.Source.VirtualMachine.Spec.Template
-				Expect(len(contentVMTemplate.Spec.Volumes)).To(Equal(2))
+				Expect(contentVMTemplate.Spec.Volumes).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
 				foundHotPlug := false
 				foundTempHotPlug := false
 				for _, volume := range contentVMTemplate.Spec.Volumes {
@@ -649,6 +651,36 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 				Expect(foundHotPlug).To(BeTrue())
 				Expect(foundTempHotPlug).To(BeFalse())
+
+				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
+				for _, vol := range updatedVM.Spec.Template.Spec.Volumes {
+					if vol.DataVolume == nil {
+						continue
+					}
+					found := false
+					for _, vb := range content.Spec.VolumeBackups {
+						if vol.DataVolume.Name == vb.PersistentVolumeClaim.Name {
+							found = true
+							Expect(vol.Name).To(Equal(vb.VolumeName))
+
+							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
+
+							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
+							vs, err := virtClient.
+								KubernetesSnapshotClient().
+								SnapshotV1beta1().
+								VolumeSnapshots(vm.Namespace).
+								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
+							Expect(vs.Status.Error).To(BeNil())
+							Expect(*vs.Status.ReadyToUse).To(BeTrue())
+						}
+					}
+					Expect(found).To(BeTrue())
+				}
 			})
 
 			It("Calling Velero hooks should freeze/unfreeze VM", func() {
