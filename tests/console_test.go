@@ -56,8 +56,9 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 	RunVMIAndWaitForStart := func(vmi *v1.VirtualMachineInstance) {
 		By("Creating a new VirtualMachineInstance")
-		vmi.ObjectMeta.Namespace = util.NamespaceTestDefault
-		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+		createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		*vmi = *createdVmi
 
 		By("Waiting until it starts")
 		tests.WaitForSuccessfulVMIStart(vmi)
