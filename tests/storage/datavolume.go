@@ -87,10 +87,30 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		}
 	})
 
-	Context("[rook-ceph]PVC expansion", func() {
+	Context("[storage-req]PVC expansion", func() {
 		table.DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
-			vmi, dataVolume := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, volumeMode)
+			if !tests.HasCDI() {
+				Skip("Skip DataVolume tests when CDI is not present")
+			}
+			var sc string
+			exists := false
+			if volumeMode == k8sv1.PersistentVolumeBlock {
+				sc, exists = tests.GetRWOBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
+			} else {
+				sc, exists = tests.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Skip test when Filesystem storage is not present")
+				}
+			}
+			volumeExpansionAllowed := tests.VolumeExpansionAllowed(sc)
+			if !volumeExpansionAllowed {
+				Skip("Skip when volume expansion storage class not available")
+			}
+			vmi, dataVolume := tests.NewRandomVirtualMachineInstanceWithDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, volumeMode)
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
 
@@ -647,7 +667,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				} else {
 					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
-					vm = tests.NewRandomVMWithRegistryDataVolume(url, util.NamespaceTestDefault)
+					vm = tests.NewRandomVMWithDataVolume(url, util.NamespaceTestDefault)
 				}
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -702,9 +722,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			BeforeEach(func() {
 				var exists bool
-				storageClass, exists = tests.GetCephStorageClass()
+				storageClass, exists = tests.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip OCS tests when Ceph is not present")
+					Skip("Skip test when RWOFileSystem storage class is not present")
 				}
 				var err error
 				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)
@@ -806,7 +826,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
 			})
 
-			table.DescribeTable("[rook-ceph] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
+			table.DescribeTable("[storage-req] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Authorization failed, message is:"))

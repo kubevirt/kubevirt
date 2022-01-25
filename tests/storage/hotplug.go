@@ -566,7 +566,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("[rook-ceph]", func() {
+	Context("[storage-req]", func() {
 		Context("Online VM", func() {
 			var (
 				vm *v1.VirtualMachine
@@ -592,9 +592,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			BeforeEach(func() {
 				exists := false
-				sc, exists = tests.GetCephStorageClass()
+				sc, exists = tests.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip OCS tests when Ceph is not present")
+					Skip("Skip test when RWXBlock storage class is not present")
 				}
 
 				template := libvmi.NewCirros()
@@ -900,9 +900,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			BeforeEach(func() {
 				exists := false
-				sc, exists = tests.GetCephStorageClass()
+				sc, exists = tests.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip OCS tests when Ceph is not present")
+					Skip("Skip test when RWXBlock storage class is not present")
 				}
 
 				// Workaround for the issue with CPU manager and runc prior to version v1.0.0:

@@ -248,7 +248,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		})
 	})
 
-	Context("[rook-ceph]", func() {
+	Context("[storage-req]", func() {
 		Context("With online vm snapshot", func() {
 			var (
 				snapshotStorageClass string
@@ -745,10 +745,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 
 				running := false
-				vm = tests.NewRandomVMWithDataVolumeInStorageClass(
+				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					sc,
+					corev1.ReadWriteOnce,
 				)
 				vm.Spec.Running = &running
 
