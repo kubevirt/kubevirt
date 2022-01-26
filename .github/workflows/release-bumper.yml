@@ -25,7 +25,7 @@ jobs:
 
       - id: set_branches
         run: |
-          matrix=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -e "origin/main" -e "origin/release-1.[0-9]\+$" | sed -r 's/origin\/(.*)/{"branch": "\1"}/g' | jq -s)
+          matrix=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -e "origin/main" -e "origin/release-1.[0-9]\+$" | grep -v "release-1\.[0,1,2,3]$" | sed -r 's/origin\/(.*)/{"branch": "\1"}/g' | jq -s)
           echo "::set-output name=matrix::{\"branches\":$(echo $matrix)}"
 
   bump_components_version:
