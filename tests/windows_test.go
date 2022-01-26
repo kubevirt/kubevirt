@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -119,15 +121,11 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 
 var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	var err error
-	var virtClient kubecli.KubevirtClient
-
+	f := framework.NewDefaultFramework("windows test")
 	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-		tests.BeforeTestCleanup()
-		tests.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
+		tests.SkipIfMissingRequiredImage(f.KubevirtClient, tests.DiskWindows)
 		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
@@ -136,19 +134,19 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	})
 
 	It("[test_id:487]should succeed to start a vmi", func() {
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+		vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 	}, 300)
 
 	It("[test_id:488]should succeed to stop a running vmi", func() {
 		By("Starting the vmi")
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+		vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 		By("Stopping the vmi")
-		err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+		err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
 	}, 300)
 
@@ -172,7 +170,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					},
 				},
 			}
-			winrmcliPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
+			winrmcliPod, err = f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -180,11 +178,11 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				windowsVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
-				cli = winrnLoginCommand(virtClient, windowsVMI)
+				cli = winrnLoginCommand(f.KubevirtClient, windowsVMI)
 			})
 
 			It("[test_id:240]should have correct UUID", func() {
@@ -192,7 +190,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
 					output, err = tests.ExecuteCommandOnPod(
-						virtClient,
+						f.KubevirtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
 						command,
@@ -208,7 +206,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
 					output, err = tests.ExecuteCommandOnPod(
-						virtClient,
+						f.KubevirtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
 						command,
@@ -224,7 +222,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				searchDomain := getPodSearchDomain(windowsVMI)
 				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
-				runCommandAndExpectOutput(virtClient,
+				runCommandAndExpectOutput(f.KubevirtClient,
 					winrmcliPod,
 					cli,
 					"wmic nicconfig get dnsdomain",
@@ -237,11 +235,11 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				windowsVMI.Spec.Subdomain = "subdomain"
 
 				By("Starting the windows VirtualMachineInstance with subdomain")
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				windowsVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
-				cli = winrnLoginCommand(virtClient, windowsVMI)
+				cli = winrnLoginCommand(f.KubevirtClient, windowsVMI)
 			})
 
 			It("should have the domain set properly with subdomain", func() {
@@ -249,7 +247,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
 				expectedSearchDomain := windowsVMI.Spec.Subdomain + "." + searchDomain
-				runCommandAndExpectOutput(virtClient,
+				runCommandAndExpectOutput(f.KubevirtClient,
 					winrmcliPod,
 					cli,
 					"wmic nicconfig get dnsdomain",
@@ -261,25 +259,25 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			BeforeEach(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
 				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)}
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				windowsVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 420)
 
-				cli = winrnLoginCommand(virtClient, windowsVMI)
+				cli = winrnLoginCommand(f.KubevirtClient, windowsVMI)
 			})
 
 			It("should be recognized by other pods in cluster", func() {
 
 				By("Pinging virt-handler Pod from Windows VMI")
 
-				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(windowsVMI.Name, &metav1.GetOptions{})
+				windowsVMI, err = f.KubevirtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(windowsVMI.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
 					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
 					nodeName := winVmiPod.Spec.NodeName
 
-					pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+					pod, err := kubecli.NewVirtHandlerClient(f.KubevirtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 					if err != nil {
 						return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", nodeName, err)
 					}
@@ -296,7 +294,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
 					_, err = tests.ExecuteCommandOnPod(
-						virtClient,
+						f.KubevirtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
 						command,
@@ -347,12 +345,12 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vmi does not exist anymore")
-			result := virtClient.RestClient().Get().Resource(tests.VMIResource).Namespace(k8sv1.NamespaceDefault).Name(windowsVMI.Name).Do(context.Background())
+			result := f.KubevirtClient.RestClient().Get().Resource(tests.VMIResource).Namespace(k8sv1.NamespaceDefault).Name(windowsVMI.Name).Do(context.Background())
 			Expect(result).To(testutils.HaveStatusCode(http.StatusNotFound))
 
 			By("Checking that the vmi pod terminated")
 			Eventually(func() int {
-				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
+				pods, err := f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, 75, 0.5).Should(Equal(0))

@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -37,7 +39,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	pool "kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -161,6 +162,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	var k8sClient string
 	var authClient *authClientV1.AuthorizationV1Client
+	f := framework.NewDefaultFramework("access")
 
 	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected bool) {
 		roleToUser := map[string]string{
@@ -196,14 +198,11 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	}
 
 	BeforeEach(func() {
+		var err error
 		k8sClient = tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
-		virtClient, err := kubecli.GetKubevirtClient()
+		authClient, err = authClientV1.NewForConfig(f.KubevirtClient.Config())
 		Expect(err).ToNot(HaveOccurred())
-		authClient, err = authClientV1.NewForConfig(virtClient.Config())
-		Expect(err).ToNot(HaveOccurred())
-
-		tests.BeforeTestCleanup()
 	})
 
 	Describe("With default kubevirt service accounts", func() {

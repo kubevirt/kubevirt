@@ -22,6 +22,8 @@ package tests_test
 import (
 	"encoding/xml"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -37,24 +39,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[Serial][sig-compute]IOThreads", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi iothreads")
 
 	var vmi *v1.VirtualMachineInstance
 	dedicated := true
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
@@ -62,14 +58,14 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 		var availableCPUs int
 
 		tests.BeforeAll(func() {
-			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+			availableCPUs = tests.GetHighestCPUNumberAmongNodes(f.KubevirtClient)
 		})
 
 		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -77,10 +73,10 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
 
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -102,7 +98,7 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			tests.AddEphemeralDisk(vmi, "shr2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -111,11 +107,11 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -163,7 +159,7 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
 			By("Creating VMI with 2 dedicated and 4 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -172,11 +168,11 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -246,7 +242,7 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
 
 			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -254,11 +250,11 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())

@@ -23,6 +23,8 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -53,25 +55,18 @@ var helloMessageRemote = []byte{
 var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("userdir")
 	var vmi *v1.VirtualMachineInstance
-
-	tests.BeforeAll(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance without usbredir support", func() {
 		tests.BeforeAll(func() {
-			vmi, err = createVMI(virtClient, false)
+			vmi, err = createVMI(f.KubevirtClient, false)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		It("should fail to connect to VMI's usbredir socket", func() {
-			usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
+			usbredirVMI, err := f.KubevirtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
 			Expect(err).To(HaveOccurred())
 			Expect(usbredirVMI).To(BeNil())
 		})
@@ -79,7 +74,7 @@ var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:componen
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
 		tests.BeforeAll(func() {
-			vmi, err = createVMI(virtClient, true)
+			vmi, err = createVMI(f.KubevirtClient, true)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
@@ -98,7 +93,7 @@ var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:componen
 				By("Stablishing communication with usbredir socket from VMI")
 				go func() {
 					defer GinkgoRecover()
-					usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
+					usbredirVMI, err := f.KubevirtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
 					if err != nil {
 						k8ResChan <- err
 						return

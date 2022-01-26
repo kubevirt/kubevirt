@@ -3,13 +3,14 @@ package tests_test
 import (
 	"encoding/xml"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
@@ -17,22 +18,16 @@ import (
 )
 
 var _ = Describe("[sig-compute]Controller devices", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
+	f := framework.NewDefaultFramework("vmi controller")
 
 	Context("with ephemeral disk", func() {
 		table.DescribeTable("a scsi controller", func(enabled bool) {
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			randomVMI.Spec.Domain.Devices.DisableHotplug = !enabled
-			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())

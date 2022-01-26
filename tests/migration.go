@@ -85,10 +85,7 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return vmi
 }
 
-func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-
+func setOrClearDedicatedMigrationNetwork(virtClient kubecli.KubevirtClient, nad string, set bool) *v1.KubeVirt {
 	kv := util.GetCurrentKv(virtClient)
 
 	// Saving the list of virt-handler pods prior to changing migration settings, see comment below.
@@ -137,12 +134,12 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 	return res
 }
 
-func SetDedicatedMigrationNetwork(nad string) *v1.KubeVirt {
-	return setOrClearDedicatedMigrationNetwork(nad, true)
+func SetDedicatedMigrationNetwork(virtClient kubecli.KubevirtClient, nad string) *v1.KubeVirt {
+	return setOrClearDedicatedMigrationNetwork(virtClient, nad, true)
 }
 
-func ClearDedicatedMigrationNetwork() *v1.KubeVirt {
-	return setOrClearDedicatedMigrationNetwork("", false)
+func ClearDedicatedMigrationNetwork(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
+	return setOrClearDedicatedMigrationNetwork(virtClient, "", false)
 }
 
 func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {

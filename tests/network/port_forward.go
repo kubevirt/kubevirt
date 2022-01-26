@@ -25,6 +25,8 @@ import (
 	"os/exec"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -40,17 +42,8 @@ import (
 )
 
 var _ = SIGDescribe("Port-forward", func() {
-	var (
-		err        error
-		virtClient kubecli.KubevirtClient
-	)
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
+	var err error
+	f := framework.NewDefaultFramework("network/port forward")
 
 	Context("VMI With masquerade binding", func() {
 		const localPort = 1500
@@ -62,7 +55,7 @@ var _ = SIGDescribe("Port-forward", func() {
 		)
 
 		JustBeforeEach(func() {
-			vmi = createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
+			vmi = createCirrosVMIWithPortsAndBlockUntilReady(f.KubevirtClient, vmiDeclaredPorts)
 			tests.StartHTTPServer(vmi, vmiHttpServerPort)
 
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)

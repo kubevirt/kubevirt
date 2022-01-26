@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	"kubevirt.io/kubevirt/tests"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -33,8 +35,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -44,12 +44,12 @@ const (
 var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("monitoring/monitoring")
 	var scales map[string]*autoscalingv1.Scale
 
 	backupScale := func(operatorName string) {
 		Eventually(func() error {
-			virtOperatorCurrentScale, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).GetScale(context.TODO(), operatorName, metav1.GetOptions{})
+			virtOperatorCurrentScale, err := f.KubevirtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).GetScale(context.TODO(), operatorName, metav1.GetOptions{})
 			if err == nil {
 				scales[operatorName] = virtOperatorCurrentScale
 			}
@@ -61,7 +61,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		revert := scales[operatorName].DeepCopy()
 		revert.ResourceVersion = ""
 		Eventually(func() error {
-			_, err = virtClient.
+			_, err = f.KubevirtClient.
 				AppsV1().
 				Deployments(flags.KubeVirtInstallNamespace).
 				UpdateScale(context.TODO(), operatorName, revert, metav1.UpdateOptions{})
@@ -73,7 +73,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		scale := scales[operatorName].DeepCopy()
 		scale.Spec.Replicas = replicas
 		Eventually(func() error {
-			_, err = virtClient.
+			_, err = f.KubevirtClient.
 				AppsV1().
 				Deployments(flags.KubeVirtInstallNamespace).
 				UpdateScale(context.TODO(), operatorName, scale, metav1.UpdateOptions{})
@@ -83,7 +83,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 
 	verifyAlertExist := func(alertName string) {
 		Eventually(func() error {
-			alerts, err := getAlerts(virtClient)
+			alerts, err := getAlerts(f.KubevirtClient)
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 
 	waitUntilThereIsNoAlert := func() {
 		Eventually(func() error {
-			alerts, err := getAlerts(virtClient)
+			alerts, err := getAlerts(f.KubevirtClient)
 			if err != nil {
 				return err
 			}
@@ -112,12 +112,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(virtClient).ToNot(BeNil())
-
-		tests.SkipIfPrometheusRuleIsNotEnabled(virtClient)
-		tests.BeforeTestCleanup()
+		tests.SkipIfPrometheusRuleIsNotEnabled(f.KubevirtClient)
 	})
 
 	Context("Up metrics", func() {

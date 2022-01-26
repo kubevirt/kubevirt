@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,7 +17,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -55,13 +56,7 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string) {
 }
 
 var _ = Describe("[Serial][sig-compute]GPU", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
+	f := framework.NewDefaultFramework("vmi gpu")
 
 	Context("with ephemeral disk", func() {
 		It("[test_id:4607]Should create a valid VMI but pod should not go to running state", func() {
@@ -74,7 +69,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.GPUs = gpus
-			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
 			pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -85,7 +80,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 		})
 
 		It("[test_id:4608]Should create a valid VMI and appropriate libvirt domain", func() {
-			nodesList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodesList, err := f.KubevirtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			var gpuName = ""
 			for _, item := range nodesList.Items {
@@ -108,10 +103,10 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.GPUs = gpus
-			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -119,7 +114,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
 			gpuOutput, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				readyPod,
 				"compute",
 				[]string{"printenv", "GPU_PASSTHROUGH_DEVICES_NVIDIA"},

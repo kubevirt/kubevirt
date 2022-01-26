@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v12 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 	virtctlvm "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
@@ -166,7 +167,7 @@ func createCommandWithNSAndRedirect(namespace, cmdName string, args ...string) (
 
 var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VmWatch", func() {
 	var err error
-	var virtCli kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vm watch")
 
 	var vm *v12.VirtualMachine
 
@@ -185,14 +186,10 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 	}
 
 	BeforeEach(func() {
-		virtCli, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
-		tests.BeforeTestCleanup()
 
 		vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
+		vm, err = f.KubevirtClient.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
 		util.PanicOnError(err)
 
 		By("Making sure kubectl cache is updated to contain vm/vmi resources")
@@ -207,14 +204,14 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 	})
 
 	AfterEach(func() {
-		err := virtCli.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &v1.DeleteOptions{})
+		err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &v1.DeleteOptions{})
 		util.PanicOnError(err)
 	})
 
 	It("[test_id:6870]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
-			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
+			_, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
 			return err == nil
 		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
 
@@ -281,10 +278,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 		By("Migrating the VirtualMachine")
 
 		// Verify we have more than one scheduleable node
-		virtClient, err := kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-
-		nodes := util.GetAllSchedulableNodes(virtClient)
+		nodes := util.GetAllSchedulableNodes(f.KubevirtClient)
 		Expect(len(nodes.Items)).To(BeNumerically(">=", 2),
 			"Migration requires at least 2 schedulable nodes")
 
@@ -318,7 +312,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 	It("[test_id:6871]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
-			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
+			_, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
 			return err == nil
 		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
@@ -355,7 +349,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 
 		By("Waiting for the VMI to be created")
 		Eventually(func() bool {
-			list, err := virtCli.VirtualMachineInstance(util.NamespaceTestDefault).List(&v1.ListOptions{})
+			list, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			if len(list.Items) >= 2 {
@@ -399,7 +393,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 			"VMI should be in the Running phase")
 
 		// Restart the VMI
-		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name, &v12.RestartOptions{})
+		err = f.KubevirtClient.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name, &v12.RestartOptions{})
 		Expect(err).ToNot(HaveOccurred(), "VMI should have been restarted")
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, statusChangeTimeout)
@@ -411,7 +405,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 
 		By("Waiting for the second VMI to be created")
 		Eventually(func() bool {
-			list, err := virtCli.VirtualMachineInstance(util.NamespaceTestDefault).List(&v1.ListOptions{})
+			list, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			if len(list.Items) >= 2 {

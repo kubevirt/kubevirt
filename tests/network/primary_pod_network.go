@@ -22,6 +22,8 @@ package network
 import (
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -41,12 +43,7 @@ import (
 )
 
 var _ = SIGDescribe("Primary Pod Network", func() {
-	var virtClient kubecli.KubevirtClient
-	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
-	})
+	f := framework.NewDefaultFramework("network/primary pod network")
 
 	Describe("Status", func() {
 		AssertReportedIP := func(vmi *v1.VirtualMachineInstance) {
@@ -61,11 +58,11 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = setupVMI(virtClient, vmiWithDefaultBinding())
+				vmi = setupVMI(f.KubevirtClient, vmiWithDefaultBinding())
 			})
 
 			AfterEach(func() {
-				cleanupVMI(virtClient, vmi)
+				cleanupVMI(f.KubevirtClient, vmi)
 			})
 
 			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -77,14 +74,14 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					vmi   *v1.VirtualMachineInstance
 					vmiIP = func() string {
 						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IP")
 						return vmi.Status.Interfaces[0].IP
 					}
 
 					vmiIPs = func() []string {
 						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IPs")
 						return vmi.Status.Interfaces[0].IPs
 					}
@@ -95,14 +92,14 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))
 					Expect(err).NotTo(HaveOccurred())
 
-					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
-					tests.WaitAgentConnected(virtClient, vmi)
+					tests.WaitAgentConnected(f.KubevirtClient, vmi)
 				})
 
 				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
+					cleanupVMI(f.KubevirtClient, vmi)
 				})
 
 				It("should report PodIP/s IPv4 as its own on interface status", func() {
@@ -119,11 +116,11 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					vmi = setupVMI(virtClient, vmiWithBridgeBinding())
+					vmi = setupVMI(f.KubevirtClient, vmiWithBridgeBinding())
 				})
 
 				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
+					cleanupVMI(f.KubevirtClient, vmi)
 				})
 
 				It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -138,21 +135,21 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
-					tmpVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(tmpVmi)
+					tmpVmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
 					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
 
-					tests.WaitAgentConnected(virtClient, vmi)
+					tests.WaitAgentConnected(f.KubevirtClient, vmi)
 				})
 
 				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
+					cleanupVMI(f.KubevirtClient, vmi)
 				})
 
 				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Consistently(func() error {
-						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						vmi, err := f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						if err != nil {
 							return err
 						}
@@ -166,11 +163,11 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					vmi = setupVMI(virtClient, vmiWithMasqueradeBinding())
+					vmi = setupVMI(f.KubevirtClient, vmiWithMasqueradeBinding())
 				})
 
 				AfterEach(func() {
-					cleanupVMI(virtClient, vmi)
+					cleanupVMI(f.KubevirtClient, vmi)
 				})
 
 				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })

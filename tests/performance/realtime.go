@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -66,26 +68,23 @@ func byConfiguringTheVMIForRealtime(vmi *v1.VirtualMachineInstance, realtimeMask
 var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", func() {
 
 	var (
-		vmi        *v1.VirtualMachineInstance
-		virtClient kubecli.KubevirtClient
-		err        error
+		vmi *v1.VirtualMachineInstance
+		err error
 	)
+	f := framework.NewDefaultFramework("preformance/realtime")
 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
-		tests.BeforeTestCleanup()
 	})
 
 	It("running cyclictest and collecting results directly from VM", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
 		byConfiguringTheVMIForRealtime(vmi, "")
-		byStartingTheVMI(vmi, virtClient)
+		byStartingTheVMI(vmi, f.KubevirtClient)
 		By("validating VMI is up and running")
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
+		vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(console.LoginToFedora(vmi)).To(Succeed())

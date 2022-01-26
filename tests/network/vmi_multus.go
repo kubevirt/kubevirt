@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -112,7 +114,7 @@ const (
 var _ = SIGDescribe("[Serial]Multus", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/vmi multus")
 
 	var nodes *k8sv1.NodeList
 
@@ -164,20 +166,16 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 	createBridgeNetworkAttachmentDefinition := func(namespace, networkName string, bridgeCNIType string, bridgeName string, vlan int, ipam string, macSpoofCheck bool) error {
 		bridgeNad := fmt.Sprintf(linuxBridgeConfNAD, networkName, namespace, bridgeCNIType, bridgeName, vlan, ipam, macSpoofCheck)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, bridgeNad)
+		return createNetworkAttachmentDefinition(f.KubevirtClient, networkName, namespace, bridgeNad)
 	}
 	createPtpNetworkAttachmentDefinition := func(namespace, networkName, subnet string) error {
 		ptpNad := fmt.Sprintf(ptpConfNAD, networkName, namespace, subnet)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, ptpNad)
+		return createNetworkAttachmentDefinition(f.KubevirtClient, networkName, namespace, ptpNad)
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
-
-		nodes = util.GetAllSchedulableNodes(virtClient)
+		nodes = util.GetAllSchedulableNodes(f.KubevirtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
 		const vlanID100 = 100
@@ -189,9 +187,9 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		// Multus tests need to ensure that old VMIs are gone
 		Eventually(func() int {
-			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
+			list1, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
+			list2, err := f.KubevirtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(list1.Items) + len(list2.Items)
 		}, 6*time.Minute, 1*time.Second).Should(BeZero())
@@ -223,7 +221,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -241,7 +239,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -262,7 +260,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -297,7 +295,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 						}}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+				_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -361,7 +359,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, util.NamespaceTestDefault)
 				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					"compute",
 					[]string{"sh", "-c", "ip a"},
@@ -373,7 +371,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
 			getIfaceIPByNetworkName := func(vmiName, networkName string) (string, error) {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
 				if err != nil {
 					return "", err
 				}
@@ -454,7 +452,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
 
 				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
-				tests.WaitAgentConnected(virtClient, vmiOne)
+				tests.WaitAgentConnected(f.KubevirtClient, vmiOne)
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
 				vmiIfaceStatusByName := libvmi.IndexInterfaceStatusByName(vmiOne)
@@ -464,7 +462,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
 				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					"compute",
 					[]string{"sh", "-c", "ip a"},
@@ -493,7 +491,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
+				updatedVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(2))
@@ -516,7 +514,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				getPodInterfaceMtu := func(vmi *v1.VirtualMachineInstance) string {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					output, err := tests.ExecuteCommandOnPod(
-						virtClient,
+						f.KubevirtClient,
 						vmiPod,
 						"compute",
 						[]string{"cat", "/sys/class/net/net1/mtu"},
@@ -544,7 +542,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -570,7 +568,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					linuxBridgeNetwork,
 				}
 
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
 				testErr := err.(*errors.StatusError)
 				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
@@ -681,23 +679,23 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 				By("Starting a VirtualMachineInstance")
-				agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
+				agentVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(agentVMI)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, agentVMI)
+				tests.WaitAgentConnected(f.KubevirtClient, agentVMI)
 
 				getOptions := &metav1.GetOptions{}
 				Eventually(func() bool {
-					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					updatedVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					if err != nil {
 						return false
 					}
 					return len(updatedVmi.Status.Interfaces) == 4
 				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
@@ -728,7 +726,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 var _ = Describe("[Serial]SRIOV", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/vmi SRIOV")
 
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
 
@@ -738,23 +736,16 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 	createSriovNetworkAttachmentDefinition := func(networkName string, namespace string, networkAttachmentDefinition string) error {
 		sriovNad := fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, sriovNad)
+		return createNetworkAttachmentDefinition(f.KubevirtClient, networkName, namespace, sriovNad)
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.SkipIfNonRoot(virtClient, "SRIOV")
+		tests.SkipIfNonRoot(f.KubevirtClient, "SRIOV")
 
 		// Check if the hardware supports SRIOV
-		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
+		if err := validateSRIOVSetup(f.KubevirtClient, sriovResourceName, 1); err != nil {
 			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--ginkgo.skip=SRIOV'")
 		}
-	})
-
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
 	})
 
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
@@ -779,14 +770,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			return vmi
 		}
 
 		waitVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
@@ -794,7 +785,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// see https://github.com/kubevirt/kubevirt/issues/5027
 			warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
 			tests.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
-			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitAgentConnected(f.KubevirtClient, vmi)
 			return vmi
 		}
 
@@ -803,7 +794,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking default interface is present")
 			_, err = tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				"compute",
 				[]string{"ip", "address", "show", "eth0"},
@@ -812,7 +803,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking default interface is attached to VMI")
 			_, err = tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				"compute",
 				[]string{"ip", "address", "show", "k6t-eth0"},
@@ -850,7 +841,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
 
 			// schedule both VM's on the same node to prevent test from being affected by how the SR-IOV card port's are connected
-			sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+			sriovNodes := getNodesWithAllocatedResource(f.KubevirtClient, sriovResourceName)
 			Expect(sriovNodes).ToNot(BeEmpty())
 			sriovNode := sriovNodes[0].Name
 			vmi1 = tests.CreateVmiOnNode(vmi1, sriovNode)
@@ -859,9 +850,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi1 = waitVmi(vmi1)
 			vmi2 = waitVmi(vmi2)
 
-			vmi1, err = virtClient.VirtualMachineInstance(vmi1.Namespace).Get(vmi1.Name, &metav1.GetOptions{})
+			vmi1, err = f.KubevirtClient.VirtualMachineInstance(vmi1.Namespace).Get(vmi1.Name, &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			vmi2, err = virtClient.VirtualMachineInstance(vmi2.Namespace).Get(vmi2.Name, &metav1.GetOptions{})
+			vmi2, err = f.KubevirtClient.VirtualMachineInstance(vmi2.Namespace).Get(vmi2.Name, &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			return vmi1, vmi2
@@ -883,7 +874,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				Eventually(func() error {
-					_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+					_, err = f.KubevirtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
 					return err
 				}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
 			})
@@ -906,7 +897,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec := &api.DomainSpec{}
@@ -933,7 +924,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 						AlignedCPUs: alignedCPUsInt,
 					},
 				}
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -973,7 +964,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec := &api.DomainSpec{}
@@ -995,7 +986,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 						Tags:    []string{"specialNet"},
 					},
 				}
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -1022,7 +1013,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = waitVmi(vmi)
 
 				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
+				Expect(validatePodKubevirtResourceNameByVMI(f.KubevirtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
 				checkDefaultInterfaceInPod(vmi)
 
@@ -1043,7 +1034,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = waitVmi(vmi)
 
 				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
+				Expect(validatePodKubevirtResourceNameByVMI(f.KubevirtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
 				checkDefaultInterfaceInPod(vmi)
 
@@ -1074,7 +1065,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = waitVmi(vmi)
 
 				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
+				Expect(validatePodKubevirtResourceNameByVMI(f.KubevirtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
 				checkDefaultInterfaceInPod(vmi)
 
@@ -1092,7 +1083,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				var interfaceName string
 				Eventually(func() error {
 					var err error
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
 					return err
@@ -1111,7 +1102,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Context("migration", func() {
 
 				BeforeEach(func() {
-					if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
+					if err := validateSRIOVSetup(f.KubevirtClient, sriovResourceName, 2); err != nil {
 						Skip("Migration tests require at least 2 nodes: " + err.Error())
 					}
 				})
@@ -1142,7 +1133,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					// the guest-agent.
 					Eventually(func() error {
 						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						Expect(err).NotTo(HaveOccurred())
 						interfaceName, err = getInterfaceNameByMAC(vmi, mac)
 						return err
@@ -1154,13 +1145,13 @@ var _ = Describe("[Serial]SRIOV", func() {
 				It("should be successful with a running VMI on the target", func() {
 					By("starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+					migrationUID := tests.RunMigrationAndExpectCompletion(f.KubevirtClient, migration, tests.MigrationWaitTime)
+					tests.ConfirmVMIPostMigration(f.KubevirtClient, vmi, migrationUID)
 
 					// It may take some time for the VMI interface status to be updated with the information reported by
 					// the guest-agent.
 					Eventually(func() error {
-						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						updatedVMI, err := f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						Expect(err).NotTo(HaveOccurred())
 						interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
 						if err != nil {
@@ -1187,7 +1178,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 				for _, name := range sriovNetworks {
-					Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, name, sriovResourceName)).To(Succeed())
+					Expect(validatePodKubevirtResourceNameByVMI(f.KubevirtClient, vmi, name, sriovResourceName)).To(Succeed())
 				}
 
 				checkDefaultInterfaceInPod(vmi)
@@ -1282,25 +1273,18 @@ var _ = Describe("[Serial]SRIOV", func() {
 })
 
 var _ = SIGDescribe("Macvtap", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/vmi Macvtap")
 	var macvtapLowerDevice string
 	var macvtapNetworkName string
 
 	createMacvtapNetworkAttachmentDefinition := func(namespace, networkName, macvtapLowerDevice string) error {
 		macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, networkName, namespace, macvtapLowerDevice, networkName)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, macvtapNad)
+		return createNetworkAttachmentDefinition(f.KubevirtClient, networkName, namespace, macvtapNad)
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"
-
-		// cleanup the environment
-		tests.BeforeTestCleanup()
 	})
 
 	BeforeEach(func() {
@@ -1374,7 +1358,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		var serverIP string
 
 		BeforeEach(func() {
-			nodeList = util.GetAllSchedulableNodes(virtClient)
+			nodeList = util.GetAllSchedulableNodes(f.KubevirtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
 			chosenMACHW, err := tests.GenerateRandomMac()
@@ -1422,10 +1406,10 @@ var _ = SIGDescribe("Macvtap", func() {
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
 			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migrationUID := tests.RunMigrationAndExpectCompletion(f.KubevirtClient, migration, tests.MigrationWaitTime)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migrationUID)
+			tests.ConfirmVMIPostMigration(f.KubevirtClient, clientVMI, migrationUID)
 		})
 
 		Context("with live traffic", func() {
@@ -1438,7 +1422,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 				var vmiIP string
 				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+					vmi, err := f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 					if err != nil {
 						return false, err
 					}
@@ -1463,7 +1447,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			}
 
 			waitForPodCompleted := func(podNamespace string, podName string) error {
-				pod, err := virtClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
+				pod, err := f.KubevirtClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -1481,7 +1465,7 @@ var _ = SIGDescribe("Macvtap", func() {
 				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
+				serverVMIPodName = tests.GetVmPodName(f.KubevirtClient, serverVMI)
 
 				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, macAddress, macvtapIfaceIPReportTimeout)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
@@ -1493,7 +1477,7 @@ var _ = SIGDescribe("Macvtap", func() {
 
 			It("should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
-				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				_ = tests.RunMigrationAndExpectCompletion(f.KubevirtClient, migration, tests.MigrationWaitTime)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
 				// will be reachable only when the original launcher pod terminates.
 				Eventually(func() error {

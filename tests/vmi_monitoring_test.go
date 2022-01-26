@@ -22,6 +22,8 @@ package tests_test
 import (
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -30,26 +32,18 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 )
 
 var _ = Describe("[sig-compute]Health Monitoring", func() {
 
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
-	})
+	f := framework.NewDefaultFramework("vmi monitoring")
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("[test_id:4641]should be shut down when the watchdog expires", func() {
 			vmi := tests.NewRandomVMIWithWatchdog()
-			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			obj, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(obj)
 
@@ -69,7 +63,7 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 
 			By("Checking that the VirtualMachineInstance has Failed status")
 			Eventually(func() v1.VirtualMachineInstancePhase {
-				startedVMI, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
+				startedVMI, err := f.KubevirtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
 
 				Expect(err).ToNot(HaveOccurred())
 				return startedVMI.Status.Phase

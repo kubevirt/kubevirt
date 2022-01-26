@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
 
@@ -74,14 +76,10 @@ const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"
 
 var _ = SIGDescribe("DataVolume Integration", func() {
 
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("storage/datavolume")
 	var err error
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		if !tests.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
@@ -117,12 +115,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			pvc, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expanding PVC")
 			pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("2Gi")
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
+			_, err = f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for notification about size change")
@@ -191,7 +189,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
 				dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
 
@@ -207,7 +205,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		Context("Alpine import", func() {
 			BeforeEach(func() {
-				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
+				cdis, err := f.KubevirtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cdis.Items).To(HaveLen(1))
 				hasWaitForFirstConsumerGate := false
@@ -227,7 +225,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
@@ -245,11 +243,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
-					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+					err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+				err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
 
@@ -263,7 +261,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
-					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+					_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 
 					vmi = tests.RunVMI(vmi, 60)
@@ -276,9 +274,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					By(checkingVMInstanceConsoleExpectedOut)
 					Expect(console.LoginToAlpine(vmis[idx])).To(Succeed())
 
-					err := virtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(vmis[idx].Name, &metav1.DeleteOptions{})
+					err := f.KubevirtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(vmis[idx].Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
-					err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dvs[idx].Namespace).Delete(context.Background(), dvs[idx].Name, metav1.DeleteOptions{})
+					err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dvs[idx].Namespace).Delete(context.Background(), dvs[idx].Name, metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 				}
 			})
@@ -287,7 +285,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
@@ -300,11 +298,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+				err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
 		})
@@ -322,12 +320,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Provisioner:       "afakeone",
 					VolumeBindingMode: &bindMode,
 				}
-				storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
+				storageClass, err = f.KubevirtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 			AfterEach(func() {
 				if storageClass != nil && storageClass.Name != "" {
-					err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
+					err := f.KubevirtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
@@ -335,16 +333,16 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 
 				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
 				defer func(dv *cdiv1.DataVolume) {
 					By(deletingDataVolume)
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
+					ExpectWithOffset(1, f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 				}(dv)
 
 				Eventually(func() (*k8sv1.PersistentVolumeClaim, error) {
-					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					return f.KubevirtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				}, 30).Should(Not(BeNil()))
 
 				vmi := tests.NewRandomVMI()
@@ -376,20 +374,20 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Spec:       dv.Spec,
 				}
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
-				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				_, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
 				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
 				defer func(dv *cdiv1.DataVolume) {
 					By(deletingDataVolume)
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
+					ExpectWithOffset(1, f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 				}(dv)
 				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					_, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 					return err
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
@@ -417,11 +415,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
 				vm := tests.NewRandomVirtualMachine(vmi, true)
-				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				_, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					return vm.Status.Created
@@ -434,7 +432,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		Context("using DataVolume with invalid URL", func() {
 			deleteDataVolume := func(dv *cdiv1.DataVolume) {
 				By(deletingDataVolume)
-				ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
+				ExpectWithOffset(1, f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			}
 
 			It("shold be possible to stop VM if datavolume is crashing", func() {
@@ -448,7 +446,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				By(creatingVMInvalidDataVolume)
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for DV to start crashing")
@@ -467,7 +465,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 
 				By(creatingVMInvalidDataVolume)
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to be created")
@@ -497,7 +495,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				defer deleteDataVolume(dataVolume)
 
 				By("Creating DataVolume with invalid URL")
-				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				dataVolume, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
 				By(creatingVMInvalidDataVolume)
@@ -505,13 +503,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
 				vm := tests.NewRandomVirtualMachine(vmi, true)
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 
 				By("Creating a service which makes the registry reachable")
-				virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
+				f.KubevirtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fakeRegistryName,
 					},
@@ -647,18 +645,18 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
 
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				vm = tests.StartVirtualMachine(vm)
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("discard='unmap'"))
 				vm = tests.StopVirtualMachine(vm)
-				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
+				Expect(f.KubevirtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 
 			table.DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
@@ -669,7 +667,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
 					vm = tests.NewRandomVMWithDataVolume(url, util.NamespaceTestDefault)
 				}
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				num := 2
 				By("Starting and stopping the VirtualMachine number of times")
@@ -680,7 +678,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					// after being restarted multiple times
 					if i == num {
 						By(checkingVMInstanceConsoleExpectedOut)
-						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+						vmi, err := f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
@@ -694,7 +692,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check for owner reference
@@ -702,7 +700,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// Delete the VM with orphan Propagation
 				orphanPolicy := metav1.DeletePropagationOrphan
-				Expect(virtClient.VirtualMachine(vm.Namespace).
+				Expect(f.KubevirtClient.VirtualMachine(vm.Namespace).
 					Delete(vm.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 
 				// Wait for the owner reference to disappear
@@ -729,7 +727,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				var err error
 				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				tests.SetDataVolumeForceBindAnnotation(dv)
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				dataVolume, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisDV(dataVolume), 90).Should(HaveSucceeded())
 
@@ -750,17 +748,17 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			AfterEach(func() {
 				if cloneRole != nil {
-					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
+					err := f.KubevirtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 
 				if cloneRoleBinding != nil {
-					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+					err := f.KubevirtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 
 				if createdVirtualMachine != nil {
-					err := virtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(createdVirtualMachine.Name, &metav1.DeleteOptions{})
+					err := f.KubevirtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(createdVirtualMachine.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
@@ -768,7 +766,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			createVmSuccess := func() {
 				// sometimes it takes a bit for permission to actually be applied so eventually
 				Eventually(func() bool {
-					_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+					_, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Create(vm)
 					if err != nil {
 						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
 						return false
@@ -797,11 +795,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						},
 					},
 				}
-				ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.TODO(), ds, metav1.CreateOptions{})
+				ds, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.TODO(), ds, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				defer func() {
-					err := virtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Delete(context.TODO(), ds.Name, metav1.DeleteOptions{})
+					err := f.KubevirtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Delete(context.TODO(), ds.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
 
@@ -812,7 +810,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				cloneRole, cloneRoleBinding = addClonePermission(
-					virtClient,
+					f.KubevirtClient,
 					explicitCloneRole,
 					tests.AdminServiceAccountName,
 					util.NamespaceTestDefault,
@@ -821,7 +819,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				createVmSuccess()
 
-				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvt.Name, metav1.GetOptions{})
+				dv, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvt.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(dv.Spec.SourceRef).To(BeNil())
 				Expect(dv.Spec.Source.PVC.Namespace).To(Equal(ds.Spec.Source.PVC.Namespace))
@@ -829,7 +827,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			table.DescribeTable("[storage-req] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				_, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Authorization failed, message is:"))
 
@@ -844,7 +842,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				// add permission
-				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, tests.NamespaceTestAlternative)
+				cloneRole, cloneRoleBinding = addClonePermission(f.KubevirtClient, role, saName, saNamespace, tests.NamespaceTestAlternative)
 
 				createVmSuccess()
 
@@ -877,7 +875,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var unused string
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			lsOutput, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				pod,
 				"compute",
 				[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
@@ -919,7 +917,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")
 
-			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
@@ -987,7 +985,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 			}, 120*time.Second).Should(BeTrue())
 
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).To(BeNil())
 		},
 			table.Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true),

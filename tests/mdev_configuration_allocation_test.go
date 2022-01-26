@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,8 +17,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -25,12 +25,8 @@ import (
 
 var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("mdev configuration allocation")
 
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
 	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount int) {
 		By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
 		check := fmt.Sprintf(`set -x
@@ -48,7 +44,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
 		testPod := tests.RenderPod("test-pod", []string{"/bin/bash", "-c"}, []string{check})
-		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
+		testPod, err = f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 	}
@@ -61,7 +57,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		fi
 	        exit 0`)
 		testPod := tests.RenderPod("test-pod", []string{"/bin/bash", "-c"}, []string{check})
-		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
+		testPod, err = f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 	}
@@ -77,8 +73,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		var config v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-			kv := util.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(f.KubevirtClient)
 
 			By("Creating a configuration for mediated devices")
 			config = kv.Spec.Configuration
@@ -106,7 +101,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 
 		cleanupConfiguredMdevs := func() {
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			Expect(f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -130,7 +125,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			createdVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -142,7 +137,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				&expect.BExp{R: console.RetValue("1")},
 			}, 250)).To(Succeed(), "Device not found")
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			// make sure that one mdev has display and ramfb on
 			By("Maiking sure that a boot display is enabled")
@@ -166,12 +161,12 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			createdVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			// make sure that another mdev explicitly turned off its display
 			By("Maiking sure that a boot display is disabled")
@@ -198,7 +193,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
 			// There should be only one node in this lane
-			singleNode := util.GetAllSchedulableNodes(virtClient).Items[0]
+			singleNode := util.GetAllSchedulableNodes(f.KubevirtClient).Items[0]
 			tests.AddLabelToNode(singleNode.Name, "mdevTestLabel1", "true")
 
 			By("Creating a Fedora VMI")
@@ -211,7 +206,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			createdVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			tests.WaitForSuccessfulVMIStart(vmi)

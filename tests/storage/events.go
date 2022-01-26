@@ -23,6 +23,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +33,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -44,11 +45,11 @@ const (
 
 var _ = SIGDescribe("[Serial]K8s IO events", func() {
 	var (
-		nodeName   string
-		virtClient kubecli.KubevirtClient
-		pv         *k8sv1.PersistentVolume
-		pvc        *k8sv1.PersistentVolumeClaim
+		nodeName string
+		pv       *k8sv1.PersistentVolume
+		pvc      *k8sv1.PersistentVolumeClaim
 	)
+	f := framework.NewDefaultFramework("storage/events")
 
 	isExpectedIOEvent := func(e corev1.Event, vmiName string) bool {
 		if e.Type == "Warning" &&
@@ -63,9 +64,6 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 	BeforeEach(func() {
 		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-
 		nodeName = tests.NodeNameWithHandler()
 		tests.CreateFaultyDisk(nodeName, deviceName)
 		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, util.NamespaceTestDefault)
@@ -74,7 +72,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 	AfterEach(func() {
 		tests.RemoveFaultyDisk(nodeName, deviceName)
 
-		err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+		err := f.KubevirtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 	It("[test_id:6225]Should catch the IO error event", func() {
@@ -82,7 +80,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 		Eventually(func() error {
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
@@ -90,7 +88,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 		By("Expecting  paused event on VMI ")
 		Eventually(func() bool {
-			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+			events, err := f.KubevirtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, e := range events.Items {
 				if isExpectedIOEvent(e, vmi.Name) {
@@ -100,7 +98,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 			return false
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
-		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil(), "Failed to delete VMI")
 		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})

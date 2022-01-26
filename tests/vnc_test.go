@@ -29,6 +29,8 @@ import (
 	"os"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	"github.com/mitchellh/go-vnc"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -49,17 +51,13 @@ import (
 var _ = Describe("[Serial][rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vnc test")
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		tests.BeforeAll(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
-
-			tests.BeforeTestCleanup()
 			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+			Expect(f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
@@ -76,7 +74,7 @@ var _ = Describe("[Serial][rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.
 
 				go func() {
 					defer GinkgoRecover()
-					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+					vnc, err := f.KubevirtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 					if err != nil {
 						k8ResChan <- err
 						return

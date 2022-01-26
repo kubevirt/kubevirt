@@ -22,6 +22,8 @@ package tests_test
 import (
 	"context"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -29,7 +31,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -37,18 +38,15 @@ import (
 
 var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]IgnitionData", func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi ignition")
 
 	var LaunchVMI func(*v1.VirtualMachineInstance)
 
 	tests.BeforeAll(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+			obj, err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")
@@ -59,7 +57,6 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 	})
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
 		if !tests.HasExperimentalIgnitionSupport() {
 			Skip("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config")
 		}

@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -19,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -43,26 +44,19 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	pvcSize := "100Mi"
 
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		var err error
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
+	f := framework.NewDefaultFramework("storage/imageupload")
 
 	BeforeEach(func() {
 		By("Getting the disk image provider pod")
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
+		pods, err := f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).ToNot(BeEmpty())
 
-		stderr, err := tests.CopyFromPod(virtClient, &pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
+		stderr, err := tests.CopyFromPod(f.KubevirtClient, &pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
 		log.DefaultLogger().Info(stderr)
 		Expect(err).ToNot(HaveOccurred())
 
-		config, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
+		config, err := f.KubevirtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if config.Status.UploadProxyURL == nil {
 			By("Setting up port forwarding")
@@ -77,19 +71,19 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validateDataVolume := func(targetName string, _ string) {
 		By(getDataVolume)
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deletePVC := func(targetName string) {
-		err := virtClient.CoreV1().PersistentVolumeClaims((util.NamespaceTestDefault)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := f.KubevirtClient.CoreV1().PersistentVolumeClaims((util.NamespaceTestDefault)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -98,7 +92,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		}, 90*time.Second, 2*time.Second).Should(BeTrue())
 
 		Eventually(func() bool {
-			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
+			pvList, err := f.KubevirtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, pv := range pvList.Items {
 				if ref := pv.Spec.ClaimRef; ref != nil {
@@ -112,14 +106,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	}
 
 	deleteDataVolume := func(targetName string) {
-		err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -132,11 +126,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validatePVC := func(targetName string, storageClass string) {
 		By("Don't DataVolume")
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By(getPVC)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		pvc, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
@@ -169,14 +163,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			if startVM {
 				By("Start VM")
 				vmi := tests.NewRandomVMIWithDataVolume(targetName)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
-					err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
 				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
@@ -187,7 +181,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validateDataVolumeForceBind := func(targetName string) {
 		By(getDataVolume)
-		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		dv, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		_, found := dv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
@@ -196,11 +190,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validatePVCForceBind := func(targetName string) {
 		By("Don't DataVolume")
-		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By(getPVC)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		pvc, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		_, found := pvc.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
 		Expect(found).To(BeTrue())
@@ -248,18 +242,18 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		validateArchiveUpload := func(targetName string, uploadDV bool) {
 			if uploadDV {
 				By(getDataVolume)
-				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+				dv, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
 			} else {
 				By("Validate no DataVolume")
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+				_, err := f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			}
 
 			By(getPVC)
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			pvc, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			contentType, found := pvc.Annotations["cdi.kubevirt.io/storage.contentType"]
 			Expect(found).To(BeTrue())

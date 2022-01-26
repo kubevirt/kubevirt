@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -44,17 +46,13 @@ import (
 
 var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
-		err        error
-		virtClient kubecli.KubevirtClient
-		startTime  time.Time
-		endTime    time.Time
+		startTime time.Time
+		endTime   time.Time
 	)
+	f := framework.NewDefaultFramework("performance/density")
 	BeforeEach(func() {
 		startTime = time.Now()
 		skipIfNoPerformanceTests()
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-		tests.BeforeTestCleanup()
 	})
 
 	AfterEach(func() {
@@ -71,10 +69,10 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		Context(fmt.Sprintf("[small] create a batch of %d VMIs", vmCount), func() {
 			It("should sucessfully create all VMIS", func() {
 				By("Creating a batch of VMIs")
-				createBatchVMIWithRateControl(virtClient, vmCount)
+				createBatchVMIWithRateControl(f.KubevirtClient, vmCount)
 
 				By("Waiting a batch of VMIs")
-				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+				waitRunningVMI(f.KubevirtClient, vmCount, vmBatchStartupLimit)
 			})
 		})
 	})

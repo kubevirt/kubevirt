@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -36,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -48,7 +49,7 @@ import (
 var _ = SIGDescribe("Slirp Networking", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/vmi slirp interface")
 	var currentConfiguration v1.KubeVirtConfiguration
 	var container k8sv1.Container
 
@@ -73,12 +74,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 	}
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		kv := util.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(f.KubevirtClient)
 		currentConfiguration = kv.Spec.Configuration
 	})
 
@@ -99,7 +95,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
@@ -120,7 +116,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 			By("start the virtual machine with slirp interface")
 			output, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"cat", "/proc/net/tcp"},
@@ -131,7 +127,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
 			By("return \"Hello World!\" when connecting to localhost on port 80")
 			output, err = tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"nc", "127.0.0.1", "80", "--recv-only"},
@@ -142,7 +138,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 			By("reject connecting to localhost and port different than 80")
 			output, err = tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[1].Name,
 				[]string{"curl", "127.0.0.1:9080"},
@@ -156,7 +152,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
@@ -194,7 +190,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())
 		})
 	})

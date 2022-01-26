@@ -25,6 +25,8 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -36,20 +38,14 @@ import (
 
 var _ = Describe("[sig-compute]PortForward", func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("portforward")
 
 	var (
 		LaunchVMI func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
+		LaunchVMI = tests.VMILauncherIgnoreWarnings(f.KubevirtClient)
 	})
 
 	It("should successfully open connection to guest", func() {
@@ -64,7 +60,7 @@ var _ = Describe("[sig-compute]PortForward", func() {
 			err    error
 		)
 		Eventually(func() error {
-			tunnel, err = virtClient.VirtualMachineInstance(vmi.Namespace).PortForward(vmi.Name, 22, "tcp")
+			tunnel, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).PortForward(vmi.Name, 22, "tcp")
 			if err != nil {
 				return err
 			}

@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -63,30 +65,23 @@ func byConfiguringTheVMIForRealtime(vmi *v1.VirtualMachineInstance, realtimeMask
 
 var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 
-	var (
-		vmi        *v1.VirtualMachineInstance
-		virtClient kubecli.KubevirtClient
-	)
+	var vmi *v1.VirtualMachineInstance
 
+	f := framework.NewDefaultFramework("realtime/realtime")
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
 		checks.SkipTestIfNotRealtimeCapable()
-		tests.BeforeTestCleanup()
-
 	})
 
 	It("should start the realtime VM when no mask is specified", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
 		byConfiguringTheVMIForRealtime(vmi, "")
-		byStartingTheVMI(vmi, virtClient)
+		byStartingTheVMI(vmi, f.KubevirtClient)
 		By("Validating VCPU scheduler placement information")
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 		psOutput, err := tests.ExecuteCommandOnPod(
-			virtClient,
+			f.KubevirtClient,
 			pod,
 			"compute",
 			[]string{tests.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
@@ -99,7 +94,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		}
 		By("Validating that the memory lock limits are higher than the memory requested")
 		psOutput, err = tests.ExecuteCommandOnPod(
-			virtClient,
+			f.KubevirtClient,
 			pod,
 			"compute",
 			[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -u qemu -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
@@ -115,7 +110,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		Expect(canConvert).To(BeTrue())
 		Expect(hardLimit).To(BeNumerically(">", requested))
 		By("checking if the guest is still running")
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
+		vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -124,11 +119,11 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 	It("should start the realtime VM when realtime mask is specified", func() {
 		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime), tuneAdminRealtimeCloudInitData)
 		byConfiguringTheVMIForRealtime(vmi, "0-1,^1")
-		byStartingTheVMI(vmi, virtClient)
+		byStartingTheVMI(vmi, f.KubevirtClient)
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 		By("Validating VCPU scheduler placement information")
 		psOutput, err := tests.ExecuteCommandOnPod(
-			virtClient,
+			f.KubevirtClient,
 			pod,
 			"compute",
 			[]string{tests.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
@@ -140,7 +135,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 
 		By("Validating the VCPU mask matches the scheduler profile for all cores")
 		psOutput, err = tests.ExecuteCommandOnPod(
-			virtClient,
+			f.KubevirtClient,
 			pod,
 			"compute",
 			[]string{tests.BinBash, "-c", "ps -cT -u qemu  |grep -i cpu |awk '{print $3\" \" $8}'"},
@@ -152,7 +147,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		Expect(slice[1]).To(Equal("TS 1/KVM"))
 
 		By("checking if the guest is still running")
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
+		vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		Expect(console.LoginToFedora(vmi)).To(Succeed())

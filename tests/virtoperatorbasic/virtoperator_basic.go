@@ -5,26 +5,22 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 var _ = Describe("virt-operator basic tests", func() {
 
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("infra")
 	BeforeEach(func() {
 		checks.SkipTestIfNoCPUManager()
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	Context("[sig-compute][Serial]Obsolete ConfigMap", func() {
@@ -35,11 +31,11 @@ var _ = Describe("virt-operator basic tests", func() {
 
 		AfterEach(func() {
 			// cleanup the obsolete configMap
-			_ = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Delete(ctx, "kubevirt-config", metav1.DeleteOptions{})
+			_ = f.KubevirtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Delete(ctx, "kubevirt-config", metav1.DeleteOptions{})
 
 			// make sure virt-operators are up before leaving
 			Eventually(func() bool {
-				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, virtOpLabelSelector)
+				pods, err := f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, virtOpLabelSelector)
 				if err != nil {
 					fmt.Fprintln(GinkgoWriter, "can't get the virt-operator pods")
 					return false
@@ -70,14 +66,14 @@ var _ = Describe("virt-operator basic tests", func() {
 				},
 			}
 
-			_, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(ctx, cm, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(ctx, cm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, virtOpLabelSelector)
+			err = f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, virtOpLabelSelector)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {
-				events, err := virtClient.CoreV1().Events(flags.KubeVirtInstallNamespace).List(
+				events, err := f.KubevirtClient.CoreV1().Events(flags.KubeVirtInstallNamespace).List(
 					context.Background(),
 					metav1.ListOptions{
 						FieldSelector: "involvedObject.kind=ConfigMap,involvedObject.name=kubevirt-config,type=Warning,reason=ObsoleteConfigMapExists",

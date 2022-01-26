@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -32,8 +34,6 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -43,27 +43,21 @@ import (
 
 var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 
-	var err error
 	var originalKV *v1.KubeVirt
-	var virtCli kubecli.KubevirtClient
 	var dsInformer cache.SharedIndexInformer
 	var stopCh chan struct{}
 	var lastObservedEvent string
 
 	const e2eCanaryTestAnnotation = "e2e-canary-test"
 
+	f := framework.NewDefaultFramework("canary upgrade")
 	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-
-		virtCli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-
-		originalKV = util.GetCurrentKv(virtCli).DeepCopy()
+		originalKV = util.GetCurrentKv(f.KubevirtClient).DeepCopy()
 
 		stopCh = make(chan struct{})
 		lastObservedEvent = ""
 
-		informerFactory := informers.NewSharedInformerFactoryWithOptions(virtCli, 0, informers.WithNamespace(flags.KubeVirtInstallNamespace), informers.WithTweakListOptions(func(opts *metav1.ListOptions) {
+		informerFactory := informers.NewSharedInformerFactoryWithOptions(f.KubevirtClient, 0, informers.WithNamespace(flags.KubeVirtInstallNamespace), informers.WithTweakListOptions(func(opts *metav1.ListOptions) {
 			opts.LabelSelector = "kubevirt.io=virt-handler"
 		}))
 		dsInformer = informerFactory.Apps().V1().DaemonSets().Informer()
@@ -73,25 +67,25 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 		close(stopCh)
 
 		retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			_, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(originalKV)
+			_, err := f.KubevirtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(originalKV)
 			return err
 		})
 
 		Eventually(func() bool {
-			ds, err := virtCli.AppsV1().DaemonSets(originalKV.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			ds, err := f.KubevirtClient.AppsV1().DaemonSets(originalKV.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady && ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue() == 1
 		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "waiting for virt-handler to be ready")
 	})
 
 	getVirtHandler := func() *appsv1.DaemonSet {
-		daemonSet, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+		daemonSet, err := f.KubevirtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 		ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		return daemonSet
 	}
 
 	updateVirtHandler := func() error {
-		kv := util.GetCurrentKv(virtCli)
+		kv := util.GetCurrentKv(f.KubevirtClient)
 
 		patch := fmt.Sprintf(`{"spec": { "template": {"metadata": {"annotations": {"%s": "test"}}}}}`,
 			e2eCanaryTestAnnotation)
@@ -106,7 +100,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 			},
 		}
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			_, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
+			_, err := f.KubevirtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
 			return err
 		})
 	}
@@ -149,7 +143,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 			eventsQueue = removeExpectedAtHead(eventsQueue, "maxUnavailable=1")
 		}
 		if ds.Status.DesiredNumberScheduled == ds.Status.NumberReady {
-			pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
+			pods, err := f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
 			Expect(err).ToNot(HaveOccurred())
 
 			var updatedPods int32

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
@@ -15,7 +17,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -24,11 +25,11 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 		k8sClient, result string
 		err               error
 	)
-	BeforeEach(func() {
+	f := framework.NewDefaultFramework("kubectl")
 
+	BeforeEach(func() {
 		k8sClient = tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
-		tests.BeforeTestCleanup()
 	})
 
 	table.DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
@@ -77,23 +78,17 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 	})
 
 	Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", func() {
-		var (
-			virtCli kubecli.KubevirtClient
-			vm      *v1.VirtualMachine
-		)
+		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			virtCli, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
-
 			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
-			vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)
 		})
 
 		AfterEach(func() {
-			virtCli.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+			f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 		})
 
 		table.DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
@@ -145,12 +140,6 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 	})
 
 	Describe("VM instance migration", func() {
-		var virtClient kubecli.KubevirtClient
-
-		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
-		})
 
 		Context("'kubectl get vmim'", func() {
 			It("print the expected columns and their corresponding values", func() {
@@ -169,12 +158,12 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				var migrationCreated *v1.VirtualMachineInstanceMigration
 				By("starting migration")
 				Eventually(func() error {
-					migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					migrationCreated, err = f.KubevirtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
 				}, tests.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 				migration = migrationCreated
 
-				tests.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
+				tests.ExpectMigrationSuccess(f.KubevirtClient, migration, tests.MigrationWaitTime)
 
 				k8sClient := tests.GetK8sCmdClient()
 				result, _, err := tests.RunCommand(k8sClient, "get", "vmim", migration.Name)

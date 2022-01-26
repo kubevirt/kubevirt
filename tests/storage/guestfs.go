@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -11,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
@@ -35,18 +36,18 @@ func (f *fakeAttacher) closeChannel() {
 
 var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	var (
-		virtClient kubecli.KubevirtClient
-		pvcClaim   string
+		pvcClaim string
 	)
+	f := framework.NewDefaultFramework("storage/guestfs")
 	execCommandLibguestfsPod := func(podName string, c []string) (string, string, error) {
-		pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
+		pod, err := f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		return tests.ExecuteCommandOnPodV2(virtClient, pod, "libguestfs", c)
+		return tests.ExecuteCommandOnPodV2(f.KubevirtClient, pod, "libguestfs", c)
 	}
 
 	createPVCFilesystem := func(name string) {
 		quantity, _ := resource.ParseQuantity("500Mi")
-		_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
+		_, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -62,10 +63,10 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	}
 
 	createFakeAttacher := func() *fakeAttacher {
-		f := &fakeAttacher{}
-		f.done = make(chan bool, 1)
-		guestfs.SetAttacher(f.fakeCreateAttacher)
-		return f
+		fakeAttacher := &fakeAttacher{}
+		fakeAttacher.done = make(chan bool, 1)
+		guestfs.SetAttacher(fakeAttacher.fakeCreateAttacher)
+		return fakeAttacher
 	}
 
 	runGuestfsOnPVC := func(pvcClaim string) {
@@ -79,7 +80,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		}()
 		// Waiting until the libguestfs pod is running
 		Eventually(func() bool {
-			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
+			pod, _ := f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 			ready := false
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Running != nil {
@@ -101,22 +102,16 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	}
 
 	Context("Run libguestfs on PVCs", func() {
-		BeforeEach(func() {
-			var err error
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
-
-		}, 120)
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Delete(context.Background(), pvcClaim, metav1.DeleteOptions{})
+			err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Delete(context.Background(), pvcClaim, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		// libguestfs-test-tool verifies the setup to run libguestfs-tools
 		It("Should successfully run libguestfs-test-tool", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
+			fakeAttacher := createFakeAttacher()
+			defer fakeAttacher.closeChannel()
 			pvcClaim = "pvc-verify"
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim)
@@ -127,8 +122,8 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		})
 
 		It("[posneg:positive][test_id:6480]Should successfully run guestfs command on a filesystem-based PVC", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
+			fakeAttacher := createFakeAttacher()
+			defer fakeAttacher.closeChannel()
 			pvcClaim = "pvc-fs"
 			podName := libguestsTools + pvcClaim
 			createPVCFilesystem(pvcClaim)
@@ -157,13 +152,13 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		})
 
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
+			fakeAttacher := createFakeAttacher()
+			defer fakeAttacher.closeChannel()
 
 			pvcClaim = "pvc-block"
 			podName := libguestsTools + pvcClaim
 			size, _ := resource.ParseQuantity("500Mi")
-			tests.CreateBlockPVC(virtClient, pvcClaim, size)
+			tests.CreateBlockPVC(f.KubevirtClient, pvcClaim, size)
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))

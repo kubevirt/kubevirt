@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -53,13 +55,13 @@ const (
 )
 
 var _ = SIGDescribe("Services", func() {
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/services")
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, retries int32) *batchv1.Job {
 		job := tests.NewHelloWorldJob(host, port)
 		job.Spec.BackoffLimit = &retries
 		var err error
-		job, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
+		job, err = f.KubevirtClient.BatchV1().Jobs(namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
@@ -73,7 +75,7 @@ var _ = SIGDescribe("Services", func() {
 	}
 
 	readyVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		createdVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		return tests.WaitUntilVMIReady(createdVMI, libnet.WithIPv6(console.LoginToCirros))
@@ -91,7 +93,7 @@ var _ = SIGDescribe("Services", func() {
 	}
 
 	cleanupService := func(namespace string, serviceName string) error {
-		return virtClient.CoreV1().Services(namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})
+		return f.KubevirtClient.CoreV1().Services(namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})
 	}
 
 	assertConnectivityToService := func(serviceName, namespace string, servicePort int) (func() error, error) {
@@ -103,7 +105,7 @@ var _ = SIGDescribe("Services", func() {
 		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		err := tests.WaitForJobToSucceed(job, 90*time.Second)
 		return func() error {
-			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
+			return f.KubevirtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
 		}, err
 	}
 
@@ -116,13 +118,13 @@ var _ = SIGDescribe("Services", func() {
 		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		err := tests.WaitForJobToFail(job, 90*time.Second)
 		return func() error {
-			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
+			return f.KubevirtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
 		}, err
 	}
 
 	BeforeEach(func() {
 		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
+		f.KubevirtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
 	})
 
@@ -158,7 +160,7 @@ var _ = SIGDescribe("Services", func() {
 
 		AfterEach(func() {
 			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
-			cleanupVMI(virtClient, inboundVMI)
+			cleanupVMI(f.KubevirtClient, inboundVMI)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -168,7 +170,7 @@ var _ = SIGDescribe("Services", func() {
 				serviceName = "myservice"
 
 				service := netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				_, err := f.KubevirtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -204,12 +206,12 @@ var _ = SIGDescribe("Services", func() {
 				serviceName = inboundVMI.Spec.Subdomain
 
 				service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				_, err := f.KubevirtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})).To(Succeed())
+				Expect(f.KubevirtClient.CoreV1().Services(inboundVMI.Namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})).To(Succeed())
 			})
 
 			AfterEach(func() {
@@ -253,7 +255,7 @@ var _ = SIGDescribe("Services", func() {
 
 		AfterEach(func() {
 			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
-			cleanupVMI(virtClient, inboundVMI)
+			cleanupVMI(f.KubevirtClient, inboundVMI)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -274,7 +276,7 @@ var _ = SIGDescribe("Services", func() {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
 					if ipFamily == k8sv1.IPv6Protocol {
-						libnet.SkipWhenNotDualStackCluster(virtClient)
+						libnet.SkipWhenNotDualStackCluster(f.KubevirtClient)
 
 						serviceName = serviceName + "v6"
 						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
@@ -282,7 +284,7 @@ var _ = SIGDescribe("Services", func() {
 						service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					}
 
-					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+					_, err := f.KubevirtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 				})
 

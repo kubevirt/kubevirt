@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
@@ -31,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -40,15 +41,10 @@ import (
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi headless")
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
@@ -128,7 +124,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 			It("[test_id:738][posneg:negative]should not connect to VNC", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+				_, err := f.KubevirtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 
 				Expect(err.Error()).To(Equal("No graphics devices are present."), "vnc should not connect on headless VM")
 			})

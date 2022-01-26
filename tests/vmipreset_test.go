@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -48,7 +50,7 @@ import (
 
 var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIPreset", func() {
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi preset")
 
 	var vmi *v1.VirtualMachineInstance
 	var memoryPreset *v1.VirtualMachineInstancePreset
@@ -64,10 +66,6 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	cores := 7
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 		vmi.Labels = map[string]string{flavorKey: memoryFlavor}
 
@@ -100,7 +98,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			// Preset with missing selector should fail CRD validation
 			jsonString := fmt.Sprintf("{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"%s\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}", v1.StorageGroupVersion.String())
 
-			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+			result := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 
 			// Verify validation failed.
 			statusCode := 0
@@ -124,7 +122,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					CDRom: &v1.CDRomTarget{},
 				},
 			})
-			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(preset).Do(context.Background())
+			result := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(preset).Do(context.Background())
 			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
@@ -142,7 +140,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("Preset Matching", func() {
 		It("[test_id:1597]Should be accepted on POST", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).To(BeNil())
 		})
 
@@ -150,10 +148,10 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			// This test requires an explicit name or the resources won't conflict
 			presetName := "test-preset"
 			memoryPreset.Name = presetName
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			b, err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).DoRaw(context.Background())
+			b, err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).DoRaw(context.Background())
 			Expect(err).To(HaveOccurred())
 			status := k8smetav1.Status{}
 			err = json.Unmarshal(b, &status)
@@ -161,7 +159,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("[test_id:1599]Should return 404 if VMIPreset does not exist", func() {
-			b, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Name("wrong").DoRaw(context.Background())
+			b, err := f.KubevirtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Name("wrong").DoRaw(context.Background())
 			Expect(err).To(HaveOccurred())
 			status := k8smetav1.Status{}
 			err = json.Unmarshal(b, &status)
@@ -170,16 +168,16 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("[test_id:1600]Should reject presets that conflict with VirtualMachineInstance settings", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
-			newPreset, err := getPreset(virtClient, memoryPrefix)
+			newPreset, err := getPreset(f.KubevirtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			newVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -193,19 +191,19 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(cpuPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(cpuPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
-			newPreset, err := getPreset(virtClient, cpuPrefix)
+			newPreset, err := getPreset(f.KubevirtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 
-			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			newVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -221,18 +219,18 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("[test_id:1602]Should ignore VMIs that don't match", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
-			newPreset, err := getPreset(virtClient, memoryPrefix)
+			newPreset, err := getPreset(f.KubevirtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
 			// reset the label so it will not match
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			newVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -247,17 +245,17 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:1603]Should not be applied to existing VMIs", func() {
 			// create the VirtualMachineInstance first
-			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			newVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
+			err = f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
-			newPreset, err := getPreset(virtClient, memoryPrefix)
+			newPreset, err := getPreset(f.KubevirtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
 			// check the annotations
@@ -270,13 +268,13 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("Exclusions", func() {
 		It("[test_id:1604]Should not apply presets to VirtualMachineInstance's with the exclusion marking", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(cpuPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(cpuPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
-			newPreset, err := getPreset(virtClient, cpuPrefix)
+			newPreset, err := getPreset(f.KubevirtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -284,7 +282,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 			vmi.Annotations = map[string]string{exclusionMarking: "true"}
 
-			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			newVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -322,10 +320,10 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("[test_id:1605]should denied to start the VMI", func() {
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(conflictPreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(conflictPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
+			err = f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
@@ -333,7 +331,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			vmi.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
 			By("creating the VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -364,7 +362,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:644][rfe_id:609] should override presets", func() {
 			By("Creating preset with 64M")
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(overridePreset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(overridePreset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
@@ -375,7 +373,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmi.Labels = map[string]string{overrideKey: overrideFlavor}
 			vmi.Spec.Domain.Resources.Requests["memory"] = vmiMemory
 
-			newVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			newVmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
@@ -391,7 +389,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
 
 			By("Checking event list")
-			evList, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), k8smetav1.ListOptions{})
+			evList, err := f.KubevirtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), k8smetav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, event := range evList.Items {
 				if event.InvolvedObject.GetObjectKind() == newVmi.GetObjectKind() &&
@@ -425,19 +423,19 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:617][rfe_id:609] should create and delete preset", func() {
 			By("Creating preset")
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(preset).Do(context.Background()).Error()
+			err := f.KubevirtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(preset).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset was created")
-			newPreset, err := getPreset(virtClient, presetNamePrefix)
+			newPreset, err := getPreset(f.KubevirtClient, presetNamePrefix)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting preset")
-			err = virtClient.RestClient().Delete().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Name(newPreset.GetName()).Do(context.Background()).Error()
+			err = f.KubevirtClient.RestClient().Delete().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Name(newPreset.GetName()).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking preset was deleted")
-			waitForPresetDeletion(virtClient, newPreset.GetName())
+			waitForPresetDeletion(f.KubevirtClient, newPreset.GetName())
 		})
 	})
 
@@ -484,18 +482,18 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:726] Should match multiple VMs via MatchExpression", func() {
 			By("Creating preset with MatchExpression")
-			_, err := virtClient.VirtualMachineInstancePreset(util.NamespaceTestDefault).Create(preset)
+			_, err := f.KubevirtClient.VirtualMachineInstancePreset(util.NamespaceTestDefault).Create(preset)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
-			newVmi7, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin7)
+			newVmi7, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin7)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating second VirtualMachineInstance")
-			newVmi10, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin10)
+			newVmi10, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin10)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched bot VMs")
@@ -546,18 +544,18 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:672] Should match multiple VMs via MatchLabel", func() {
 			By("Creating preset with MatchExpression")
-			_, err := virtClient.VirtualMachineInstancePreset(util.NamespaceTestDefault).Create(preset)
+			_, err := f.KubevirtClient.VirtualMachineInstancePreset(util.NamespaceTestDefault).Create(preset)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
-			newVmi7, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin7)
+			newVmi7, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin7)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating second VirtualMachineInstance")
-			newVmi10, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin10)
+			newVmi10, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiWin10)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched the first VMI")

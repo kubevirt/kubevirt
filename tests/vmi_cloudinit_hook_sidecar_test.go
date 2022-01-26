@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -45,7 +47,7 @@ const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi cloudinit hook sidecar")
 
 	var vmi *v1.VirtualMachineInstance
 
@@ -90,10 +92,6 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#FAKE")
 		vmi.ObjectMeta.Annotations = map[string]string{
 			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, flags.KubeVirtUtilityVersionTag),
@@ -104,15 +102,15 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 		Context("with CloudInit hook sidecar", func() {
 			It("[test_id:3167]should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 			}, 300)
 
 			It("[test_id:3168]should call Collect and PreCloudInitIso on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return GetCloudInitHookSidecarLogs(virtClient, vmi) }
+				logs := func() string { return GetCloudInitHookSidecarLogs(f.KubevirtClient, vmi) }
 				tests.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
@@ -125,7 +123,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 			}, 300)
 
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 				By("mouting cloudinit iso")

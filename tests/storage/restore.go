@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -24,7 +26,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -45,14 +46,9 @@ const (
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("storage/restore")
 
 	groupName := "kubevirt.io"
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
 
 	createRestoreDef := func(vm *v1.VirtualMachine, snapshotName string) *snapshotv1.VirtualMachineRestore {
 		return &snapshotv1.VirtualMachineRestore{
@@ -85,13 +81,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			},
 		}
 
-		s, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), s, metav1.CreateOptions{})
+		s, err = f.KubevirtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), s, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
+			s, err = f.KubevirtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vm, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse && vm.Status.SnapshotInProgress == nil
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -105,10 +101,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		vm.Spec.Running = &t
 		var gracePeriod int64 = 10
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+		vm, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Create(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false
 			}
@@ -122,7 +118,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 	waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineRestore {
 		var err error
 		Eventually(func() bool {
-			r, err = virtClient.VirtualMachineRestore(r.Namespace).Get(context.Background(), r.Name, metav1.GetOptions{})
+			r, err = f.KubevirtClient.VirtualMachineRestore(r.Namespace).Get(context.Background(), r.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return r.Status != nil && r.Status.Complete != nil && *r.Status.Complete
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -143,7 +139,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
 		Eventually(func() bool {
 			var err error
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			dv, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return dv.Status.Phase == cdiv1.Succeeded
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -153,7 +149,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 	waitPVCReady := func(pvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 		Eventually(func() bool {
 			var err error
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+			pvc, err = f.KubevirtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return pvc.Annotations["cdi.kubevirt.io/storage.pod.phase"] == string(corev1.PodSucceeded)
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -173,25 +169,25 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 	deleteVM := func(vm *v1.VirtualMachine) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+			return f.KubevirtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 		})
 	}
 
 	deleteSnapshot := func(s *snapshotv1.VirtualMachineSnapshot) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachineSnapshot(s.Namespace).Delete(context.Background(), s.Name, metav1.DeleteOptions{})
+			return f.KubevirtClient.VirtualMachineSnapshot(s.Namespace).Delete(context.Background(), s.Name, metav1.DeleteOptions{})
 		})
 	}
 
 	deleteRestore := func(r *snapshotv1.VirtualMachineRestore) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachineRestore(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
+			return f.KubevirtClient.VirtualMachineRestore(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
 		})
 	}
 
 	deleteWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration) {
 		waitDeleted(func() error {
-			return virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
+			return f.KubevirtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
 		})
 	}
 
@@ -210,11 +206,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 		Context("and no snapshot", func() {
 			It("[test_id:5255]should reject restore", func() {
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				restore := createRestoreDef(vm, "foobar")
 
-				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				_, err := f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VirtualMachineSnapshot \"foobar\" does not exist"))
 			})
@@ -233,13 +229,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("should successfully restore", func() {
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategyHalted
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
@@ -254,7 +250,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
@@ -271,7 +267,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				Eventually(func() bool {
 					var updatedVM *v1.VirtualMachine
-					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					if vm.Status.SnapshotInProgress != nil {
@@ -282,7 +278,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128Mi")))
 
 					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("256Mi")
-					updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+					updatedVM, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Update(vm)
 					if errors.IsConflict(err) {
 						return false
 					}
@@ -294,14 +290,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
 				Expect(restore.Status.Restores).To(HaveLen(0))
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vm, err = f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(vm.Spec).To(Equal(*origSpec))
 
 				deleteRestore(restore)
@@ -309,12 +305,12 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5257]should reject restore if VM running", func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+				vm, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
 			})
@@ -354,17 +350,17 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 						},
 					},
 				}
-				wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+				wh, err := f.KubevirtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					restore, err = f.KubevirtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return restore.Status != nil &&
 						len(restore.Status.Conditions) == 2 &&
@@ -379,7 +375,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					Name: "dummy",
 				}
 
-				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), r2, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), r2, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachineRestore %q in progress", restore.Name)))
 
@@ -388,7 +384,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				restore = waitRestoreComplete(restore, vm)
 
-				r2, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), r2, metav1.CreateOptions{})
+				r2, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), r2, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				r2 = waitRestoreComplete(r2, vm)
@@ -411,7 +407,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			)
 
 			BeforeEach(func() {
-				sc, err := getSnapshotStorageClass(virtClient)
+				sc, err := getSnapshotStorageClass(f.KubevirtClient)
 				Expect(err).ToNot(HaveOccurred())
 
 				if sc == "" {
@@ -492,7 +488,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				if !onlineSnapshot {
 					By("Starting VM")
 					vm = tests.StartVirtualMachine(vm)
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
@@ -542,14 +538,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("Restoring VM")
 				restore = createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
 				Expect(restore.Status.Restores).To(HaveLen(expectedRestores))
 
 				vm = tests.StartVirtualMachine(vm)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
@@ -602,7 +598,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					By(fmt.Sprintf("Restoring VM iteration %d", i))
 					restore = createRestoreDef(vm, snapshot.Name)
 
-					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+					restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					restore = waitRestoreComplete(restore, vm)
@@ -627,7 +623,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
+				_, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
@@ -649,7 +645,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				originalPVCName := dv.Name
 				vm.Spec.DataVolumeTemplates = nil
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				dv = waitDVReady(dv)
 
@@ -659,16 +655,16 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				_, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				_, err = f.KubevirtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, v := range vm.Spec.Template.Spec.Volumes {
 					if v.PersistentVolumeClaim != nil {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						pvc, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
 						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
@@ -701,7 +697,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					},
 				}
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				pvc, err = f.KubevirtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvc = waitPVCReady(pvc)
 
@@ -715,13 +711,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				doRestore("", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				_, err = f.KubevirtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, v := range vm.Spec.Template.Spec.Volumes {
 					if v.PersistentVolumeClaim != nil {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						pvc, err := f.KubevirtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
 						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
@@ -784,7 +780,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+				_, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
@@ -836,19 +832,19 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 						},
 					},
 				}
-				wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+				wh, err := f.KubevirtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					restore, err = f.KubevirtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					updatedVM, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return restore.Status != nil &&
 						len(restore.Status.Conditions) == 2 &&
@@ -861,10 +857,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}, 180*time.Second, 3*time.Second).Should(BeTrue())
 
 				running := true
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				updatedVM, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = &running
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = f.KubevirtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
@@ -874,7 +870,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, vm)
 
 				Eventually(func() bool {
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					updatedVM, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVM.Status.RestoreInProgress == nil
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
@@ -942,7 +938,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 				doRestore("/dev/vdc", console.LoginToFedora, true, 1)
 
@@ -954,7 +950,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
@@ -963,7 +959,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
+				_, err = f.KubevirtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
@@ -973,7 +969,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Updating the VM template spec")
@@ -981,14 +977,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				newMemory := resource.MustParse("2Gi")
 				Expect(newMemory).ToNot(Equal(initialMemory))
 
-				newVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				newVM, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				updatedVM := newVM.DeepCopy()
 				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: newMemory,
 				}
-				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				updatedVM, err = f.KubevirtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 				Expect(err).ToNot(HaveOccurred())
 
 				By(creatingSnapshot)
@@ -996,7 +992,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				newVM = tests.StopVirtualMachine(updatedVM)
 				newVM = tests.StartVirtualMachine(newVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(newMemory))
 
@@ -1004,13 +1000,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				By("Restoring VM")
 				restore = createRestoreDef(newVM, snapshot.Name)
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				restore, err = f.KubevirtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				restore = waitRestoreComplete(restore, newVM)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				newVM = tests.StartVirtualMachine(newVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
@@ -1021,17 +1017,17 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := tests.AddVolumeAndVerify(f.KubevirtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := tests.AddVolumeAndVerify(f.KubevirtClient, snapshotStorageClass, vm, true)
 
 				doRestore("", console.LoginToFedora, true, 2)
 
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(vmi.Spec.Volumes)).To(Equal(2))
 				foundHotPlug := false

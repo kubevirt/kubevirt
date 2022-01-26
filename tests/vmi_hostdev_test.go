@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -15,8 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -28,20 +28,17 @@ const (
 
 var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 	var (
-		err        error
-		virtClient kubecli.KubevirtClient
-		config     v1.KubeVirtConfiguration
+		config v1.KubeVirtConfiguration
 	)
+	f := framework.NewDefaultFramework("vmi hostdev")
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-		kv := util.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(f.KubevirtClient)
 		config = kv.Spec.Configuration
 	})
 
 	AfterEach(func() {
-		kv := util.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(f.KubevirtClient)
 		// Reinitialized the DeveloperConfiguration to avoid to influence the next test
 		config = kv.Spec.Configuration
 		config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
@@ -77,7 +74,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := tests.NewRandomFedoraVMIWithGuestAgent()
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -90,7 +87,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 				}, 15)).To(Succeed(), "Device not found")
 			}
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+			err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 			Expect(err).To(BeNil(), failedDeleteVMI)
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},

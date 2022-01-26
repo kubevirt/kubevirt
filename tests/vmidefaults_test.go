@@ -27,28 +27,23 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
 var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi defaults")
 
 	var vmi *v1.VirtualMachineInstance
 
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
-
 	Context("Disk defaults", func() {
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
@@ -79,10 +74,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create the VMI first
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+			newVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// check defaults
@@ -97,11 +92,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 		var kvConfiguration v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 
-			kv := util.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(f.KubevirtClient)
 			kvConfiguration = kv.Spec.Configuration
 		})
 
@@ -111,7 +105,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -145,7 +139,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 			tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
 
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -185,9 +179,9 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 		It("[test_id:4559]Should not be present in domain ", func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
-			f := false
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &f
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_f := false
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &_f
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -42,15 +44,7 @@ import (
 const dummyInterfaceName = "dummy0"
 
 var _ = SIGDescribe("Infosource", func() {
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
-
-		tests.BeforeTestCleanup()
-	})
+	f := framework.NewDefaultFramework("network/vmi infosource")
 
 	Context("VMI with 3 interfaces", func() {
 		var vmi *kvirtv1.VirtualMachineInstance
@@ -72,7 +66,7 @@ var _ = SIGDescribe("Infosource", func() {
 
 		BeforeEach(func() {
 			By("Create NetworkAttachmentDefinition")
-			Expect(createNAD(virtClient, util.NamespaceTestDefault, nadName)).To(Succeed())
+			Expect(createNAD(f.KubevirtClient, util.NamespaceTestDefault, nadName)).To(Succeed())
 
 			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
@@ -87,10 +81,10 @@ var _ = SIGDescribe("Infosource", func() {
 				libvmi.WithCloudInitNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac), false))
 
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 			Expect(err).NotTo(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitAgentConnected(f.KubevirtClient, vmi)
 		})
 
 		It("should have the expected entries in vmi status", func() {
@@ -127,7 +121,7 @@ var _ = SIGDescribe("Infosource", func() {
 			// and then we can compare the rest of the expected info.
 			Eventually(func() bool {
 				var err error
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				return dummyInterfaceExists(vmi)

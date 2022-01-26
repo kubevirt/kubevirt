@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -62,7 +64,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 
 var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/expose")
 	var err error
 
 	const testPort = 1500
@@ -85,26 +87,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	const xfailError = "Secondary ip on dual stack service is not working. Tracking issue - https://github.com/kubevirt/kubevirt/issues/5477"
 
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-	})
-
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port), metav1.CreateOptions{})
+		job, err := f.KubevirtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobUDP(host, port), metav1.CreateOptions{})
+		job, err := f.KubevirtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobUDP(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobHTTP(host, port), metav1.CreateOptions{})
+		job, err := f.KubevirtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobHTTP(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
@@ -129,7 +125,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
 		if doesSupportIpv6(ipFamily) {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
+			libnet.SkipWhenNotDualStackCluster(f.KubevirtClient)
 			if isDualStack(ipFamily) {
 				tests.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
 			}
@@ -157,7 +153,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	}
 
 	getService := func(namespace, serviceName string) (*k8sv1.Service, error) {
-		svc, err := virtClient.CoreV1().Services(namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+		svc, err := f.KubevirtClient.CoreV1().Services(namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +176,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			tcpVM = newLabeledVMI("vm", virtClient, true)
+			tcpVM = newLabeledVMI("vm", f.KubevirtClient, true)
 			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp")
 		})
 
@@ -246,12 +242,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+					_, err := f.KubevirtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				endpoints, err := f.KubevirtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(endpoints.Subsets)).To(Equal(1))
@@ -296,12 +292,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+					_, err := f.KubevirtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				endpoints, err := f.KubevirtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(endpoints.Subsets)).To(Equal(1))
@@ -335,7 +331,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				tests.SkipIfVersionBelow("IPFamilyPolicy property on a service requires v1.20 and above", "1.20")
 
 				if ipFamiyPolicy == k8sv1.IPFamilyPolicyRequireDualStack {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					libnet.SkipWhenNotDualStackCluster(f.KubevirtClient)
 				}
 
 				calcNumOfClusterIPs := func() int {
@@ -343,7 +339,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					case k8sv1.IPFamilyPolicySingleStack:
 						return 1
 					case k8sv1.IPFamilyPolicyPreferDualStack:
-						isClusterDualStack, err := libnet.IsClusterDualStack(virtClient)
+						isClusterDualStack, err := libnet.IsClusterDualStack(f.KubevirtClient)
 						ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster is dual stack")
 						if isClusterDualStack {
 							return 2
@@ -404,7 +400,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(nodePort).To(BeNumerically(">", 0))
 
 				By("Getting the node IP from all nodes")
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+				nodes, err := f.KubevirtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				for _, node := range nodes.Items {
@@ -420,7 +416,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					}
 					if doesSupportIpv6(ipFamily) {
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
+							f.KubevirtClient,
 							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
 							node,
 							k8sv1.IPv6Protocol)
@@ -445,7 +441,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("Expose UDP service on a VMI", func() {
 		var udpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			udpVM = newLabeledVMI("udp-vm", virtClient, true)
+			udpVM = newLabeledVMI("udp-vm", f.KubevirtClient, true)
 			tests.GenerateHelloWorldServer(udpVM, testPort, "udp")
 		})
 
@@ -525,7 +521,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				runJobsAgainstService(svc, udpVM.Namespace, runHelloWorldJobUDP)
 
 				By("Getting the node IP from all nodes")
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+				nodes, err := f.KubevirtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				for _, node := range nodes.Items {
@@ -535,7 +531,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					var ipv6NodeIP string
 					if doesSupportIpv6(ipFamily) {
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
+							f.KubevirtClient,
 							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
 							node,
 							k8sv1.IPv6Protocol)
@@ -571,17 +567,17 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		BeforeEach(func() {
 			By("Creating a VMRS object with 2 replicas")
-			template := newLabeledVMI("vmirs", virtClient, false)
+			template := newLabeledVMI("vmirs", f.KubevirtClient, false)
 			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
-			vmrs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(vmrs)
+			vmrs, err = f.KubevirtClient.ReplicaSet(util.NamespaceTestDefault).Create(vmrs)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking the number of ready replicas")
 			Eventually(func() int {
-				rs, err := virtClient.ReplicaSet(util.NamespaceTestDefault).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
+				rs, err := f.KubevirtClient.ReplicaSet(util.NamespaceTestDefault).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
 			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
@@ -590,7 +586,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
-			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(&k8smetav1.ListOptions{})
+			vms, err := f.KubevirtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(&k8smetav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
@@ -660,7 +656,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By("Getting the running VMI")
 			var vmi *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
@@ -692,7 +688,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			var serviceName string
 
 			BeforeEach(func() {
-				vm, err = createStoppedVM(virtClient, util.NamespaceTestDefault)
+				vm, err = createStoppedVM(f.KubevirtClient, util.NamespaceTestDefault)
 				Expect(err).NotTo(HaveOccurred(), "should create a stopped VM.")
 			})
 
@@ -711,7 +707,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Exposing the service via virtctl command")
 				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				vmi := startVMWithServer(f.KubevirtClient, "tcp", testPort)
 				Expect(vmi).NotTo(BeNil(), shouldStartVM)
 
 				// This TC also covers:
@@ -738,7 +734,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Exposing the service via virtctl command")
 				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				vmi := startVMWithServer(f.KubevirtClient, "tcp", testPort)
 				Expect(vmi).NotTo(BeNil(), shouldStartVM)
 
 				vmObj := vm
@@ -753,7 +749,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				runJobsAgainstService(svc, vmObj.Namespace, runHelloWorldJob)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
-				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
@@ -764,7 +760,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+					vmi, err = f.KubevirtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -812,7 +808,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Exposing the service via virtctl command")
 				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
 
-				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				vmi := startVMWithServer(f.KubevirtClient, "tcp", testPort)
 				Expect(vmi).NotTo(BeNil(), shouldStartVM)
 
 				By(gettingValidatingClusterIP)
@@ -826,7 +822,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
 				// Get the IP address of the VM pod.
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				vmPodIpv4Address := libnet.GetPodIpByFamily(vmPod, k8sv1.IPv4Protocol)
@@ -836,7 +832,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				// Get the IP address of the service's endpoint.
 				endpointsName := serviceName
-				svcEndpoints, err := virtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
+				svcEndpoints, err := f.KubevirtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// There should be one - and only one - subset for this endpoint,
@@ -863,11 +859,11 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 
 				By("Deleting the VM.")
-				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
+				Expect(f.KubevirtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 				By("Verifying the endpoints' single subset, which points to the VM's pod, is deleted once the VM was deleted.")
-				svcEndpoints, err = virtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
+				svcEndpoints, err = f.KubevirtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(svcEndpoints.Subsets).To(BeNil())
 

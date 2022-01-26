@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -34,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -43,14 +44,10 @@ import (
 
 var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/vmi lifecycle")
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
@@ -65,7 +62,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
 				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bridgeVMI)
+				bridgeVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bridgeVMI)
 				Expect(err).To(BeNil(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance with bridged networking
@@ -76,14 +73,14 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				By("restarting kubelet")
 				pod := renderPkillAllPod("kubelet")
 				pod.Spec.NodeName = nodeName
-				_, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
 				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				Eventually(func() error {
-					newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
+					newVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
 					Expect(err).To(BeNil())
 					return nil
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
@@ -101,7 +98,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
 				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(bridgeVMI)
+				bridgeVMI, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Create(bridgeVMI)
 				Expect(err).To(BeNil(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance with bridged networking
@@ -110,7 +107,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
 
 				// Update the VMI object so we get the IP address
-				bridgeVMI, err = virtClient.VirtualMachineInstance(bridgeVMI.Namespace).Get(bridgeVMI.Name, &metav1.GetOptions{})
+				bridgeVMI, err = f.KubevirtClient.VirtualMachineInstance(bridgeVMI.Namespace).Get(bridgeVMI.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmIP := libnet.GetVmiPrimaryIpByFamily(bridgeVMI, k8sv1.IPv4Protocol)

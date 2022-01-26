@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -49,15 +51,11 @@ const (
 var _ = Describe("[sig-compute]HookSidecars", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi hook sidecar")
 
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
@@ -65,7 +63,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
 		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 			podSelector := tests.UnfinishedVMIPodSelector(vmi)
-			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
+			vmiPods, err := f.KubevirtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
 
 			if err != nil || len(vmiPods.Items) != 1 {
 				return nil, fmt.Errorf("could not retrieve the VMI pod: %v", err)
@@ -76,14 +74,14 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 		Context("with SM BIOS hook sidecar", func() {
 			It("[test_id:3155]should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}, 300)
 
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -91,9 +89,9 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 
 			It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+				logs := func() string { return getHookSidecarLogs(f.KubevirtClient, vmi) }
 				tests.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
@@ -108,9 +106,9 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
 				tests.SkipIfNoCmd("kubectl")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
-				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(f.KubevirtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
@@ -120,7 +118,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
 				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 
 				Eventually(func() bool {
@@ -147,7 +145,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 
 			It("[test_id:2666]should not start with hook sidecar annotation", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
 				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
 			}, 30)

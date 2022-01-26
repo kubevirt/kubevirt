@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -35,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -43,8 +44,7 @@ import (
 
 var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("credentials")
 
 	var (
 		LaunchVMI         func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
@@ -52,10 +52,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 	)
 
 	tests.BeforeAll(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
+		LaunchVMI = tests.VMILauncherIgnoreWarnings(f.KubevirtClient)
 
 		ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
@@ -63,10 +60,6 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-	})
-
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
 	})
 
 	Context("with qemu guest agent", func() {
@@ -111,18 +104,18 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					"my-key3": []byte(key3),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, cond := range vmi.Status.Conditions {
 					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
@@ -186,20 +179,20 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					"fedora": []byte(customPassword),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 			By("Verifying signin with custom password works")
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, cond := range vmi.Status.Conditions {
 					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
@@ -257,21 +250,21 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					"my-key1": []byte(key1),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			getOptions := metav1.GetOptions{}
-			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			freshVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
 			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				freshVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 				return freshVMI.Status.Conditions
 			}, 240*time.Second, 2).Should(
@@ -318,21 +311,21 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					"fedora": []byte(customPassword),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
 
 			By("Waiting for agent to connect")
-			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			getOptions := metav1.GetOptions{}
-			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			freshVMI, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
 			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				freshVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 				return freshVMI.Status.Conditions
 			}, 240*time.Second, 2).Should(
@@ -388,7 +381,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 					"my-key3": []byte(key3),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)

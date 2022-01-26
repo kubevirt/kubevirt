@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -28,13 +30,9 @@ import (
 
 var _ = Describe("[sig-compute][Serial]NUMA", func() {
 
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("numa/numa")
 	BeforeEach(func() {
 		checks.SkipTestIfNoCPUManager()
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-		tests.BeforeTestCleanup()
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", func() {
@@ -53,18 +51,18 @@ var _ = Describe("[sig-compute][Serial]NUMA", func() {
 		}
 
 		By("Starting a VirtualMachineInstance")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
+		cpuVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
 		Expect(err).ToNot(HaveOccurred())
 		tests.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(cpuVMI.Name, &k8smetav1.GetOptions{})
+		cpuVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(cpuVMI.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(cpuVMI.Status.NodeName).Pod()
+		handler, err := kubecli.NewVirtHandlerClient(f.KubevirtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(cpuVMI.Status.NodeName).Pod()
 		Expect(err).ToNot(HaveOccurred())
-		pid := getQEMUPID(virtClient, handler, cpuVMI)
+		pid := getQEMUPID(f.KubevirtClient, handler, cpuVMI)
 
 		By("Checking if the pinned numa memory chunks match the VMI memory size")
-		scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(virtClient, handler, pid)))
+		scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(f.KubevirtClient, handler, pid)))
 		rex := regexp.MustCompile(`bind:([0-9]+) .+memfd:.+N([0-9]+)=([0-9]+).+kernelpagesize_kB=([0-9]+)`)
 		mappings := map[int]mapping{}
 		for scanner.Scan() {

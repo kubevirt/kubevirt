@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -51,7 +52,7 @@ const (
 
 var _ = Describe("[Serial][sig-compute]Templates", func() {
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("template")
 
 	var (
 		templateParams map[string]string
@@ -61,11 +62,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
 		tests.SkipIfNoCmd("oc")
-		tests.BeforeTestCleanup()
 		SetDefaultEventuallyTimeout(120 * time.Second)
 		SetDefaultEventuallyPollingInterval(2 * time.Second)
 
@@ -95,7 +92,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 				ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("CPU_CORES", MatchRegexp(`^[0-9]+$`)), "invalid CPU_CORES parameter: %q is not unsigned integer", templateParams["CPU_CORES"])
 				ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("MEMORY", MatchRegexp(`^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$`)), "invalid MEMORY parameter: %q is not valid quantity", templateParams["MEMORY"])
 				vmName = templateParams["NAME"]
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+				vm, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 				ExpectWithOffset(1, errors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
 			}
 		}
@@ -116,7 +113,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 						case "NAME":
 							ExpectWithOffset(1, value).NotTo(BeEmpty(), "invalid NAME parameter: VirtualMachine name cannot be empty string")
 							vmName = value
-							vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+							vm, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 							ExpectWithOffset(1, errors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
 						case "CPU_CORES":
 							ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("CPU_CORES", MatchRegexp(`^[0-9]+$`)), "invalid CPU_CORES parameter: %q is not unsigned integer", templateParams["CPU_CORES"])
@@ -131,11 +128,11 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 		AssertTestCleanupSuccess := func() func() {
 			return func() {
-				if vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{}); err == nil && vm.ObjectMeta.DeletionTimestamp == nil {
+				if vm, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{}); err == nil && vm.ObjectMeta.DeletionTimestamp == nil {
 					By("Deleting the VirtualMachine")
-					ExpectWithOffset(1, virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vmName, &metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
+					ExpectWithOffset(1, f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vmName, &metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
 					EventuallyWithOffset(1, func() bool {
-						obj, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+						obj, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 						return errors.IsNotFound(err) || obj.ObjectMeta.DeletionTimestamp != nil
 					}).Should(BeTrue(), "VirtualMachine %q still exists and the deletion timestamp was not set", vmName)
 				}
@@ -161,7 +158,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 				ExpectWithOffset(1, out).To(MatchRegexp(`"?%s"? created\n`, vmName), "command \"%s | oc create -f -\" did not print expected message: %s", strings.Join(ocProcessCommand, " "), out+stderr)
 				By("Checking if the VirtualMachine exists")
 				EventuallyWithOffset(1, func() error {
-					_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+					_, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 					return err
 				}).Should(Succeed(), "VirtualMachine %q still does not exist", vmName)
 			}
@@ -188,7 +185,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 				By("Checking if the VM does not exist anymore")
 				EventuallyWithOffset(1, func() bool {
-					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+					vm, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 					return errors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil
 				}).Should(BeTrue(), "the VirtualMachine %q still exists and deletion timestamp was not set", vmName)
 			}
@@ -221,19 +218,19 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 				By("Checking if the VirtualMachineInstance was created")
 				EventuallyWithOffset(1, func() error {
-					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+					_, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 					return err
 				}).Should(Succeed(), "the VirtualMachineInstance %q still does not exist", vmName)
 
 				By("Checking if the VirtualMachine has status ready")
 				EventuallyWithOffset(1, func() bool {
-					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+					vm, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to fetch VirtualMachine %q: %v", vmName, err)
 					return vm.Status.Ready
 				}).Should(BeTrue(), "VirtualMachine %q still does not have status ready", vmName)
 
 				By("Checking if the VirtualMachineInstance specs match Template parameters")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to fetch VirtualMachine %q: %v", vmName, err)
 				vmiCPUCores := vmi.Spec.Domain.CPU.Cores
 				templateParamCPUCores, err := strconv.ParseUint(templateParams["CPU_CORES"], 10, 32)
@@ -272,7 +269,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
-				tests.SkipIfNoRhelImage(virtClient)
+				tests.SkipIfNoRhelImage(f.KubevirtClient)
 				tests.CreatePVC(tests.OSRhel, "15Gi", tests.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})

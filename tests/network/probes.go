@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -30,17 +32,10 @@ const (
 var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	var (
 		err           error
-		virtClient    kubecli.KubevirtClient
 		vmi           *v1.VirtualMachineInstance
 		blankIPFamily = *new(corev1.IPFamily)
 	)
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
+	f := framework.NewDefaultFramework("network/probes")
 
 	buildProbeBackendPodSpec := func(probe *v1.Probe) (*corev1.Pod, func() error) {
 		isHTTPProbe := probe.Handler.HTTPGet != nil
@@ -53,7 +48,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			probeBackendPod = tests.StartTCPServerPod(int(port))
 		}
 		return probeBackendPod, func() error {
-			return virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
+			return f.KubevirtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
 		}
 	}
 
@@ -70,7 +65,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
 		isVMIReady := func() bool {
-			readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			readVmi, err := f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vmiReady(readVmi) == corev1.ConditionTrue
 		}
@@ -83,7 +78,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			}
 
 			if IPFamily == corev1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				libnet.SkipWhenNotDualStackCluster(f.KubevirtClient)
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
 				defer func() {
@@ -95,12 +90,12 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
 
 				By(specifyingVMReadinessProbe)
-				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+				vmi = createReadyCirrosVMIWithReadinessProbe(f.KubevirtClient, readinessProbe)
 			} else if !isExecProbe {
 				By(specifyingVMReadinessProbe)
-				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+				vmi = createReadyCirrosVMIWithReadinessProbe(f.KubevirtClient, readinessProbe)
 
-				assertPodNotReady(virtClient, vmi)
+				assertPodNotReady(f.KubevirtClient, vmi)
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, readinessProbe, 1500)
@@ -108,10 +103,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By(specifyingVMReadinessProbe)
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(f.KubevirtClient)(vmi)
 
 				By("Waiting for agent to connect")
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 			}
 
 			checkStatus(true, corev1.ConditionTrue, 120)
@@ -151,13 +146,13 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(f.KubevirtClient)(vmi)
 			} else {
-				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+				vmi = createReadyCirrosVMIWithReadinessProbe(f.KubevirtClient, readinessProbe)
 			}
 
 			// pod is not ready until our probe contacts the server
-			assertPodNotReady(virtClient, vmi)
+			assertPodNotReady(f.KubevirtClient, vmi)
 
 			By("Checking that the VMI and the pod will consistently stay in a not-ready state")
 			Consistently(isVMIReady).Should(Equal(false))
@@ -184,7 +179,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool) {
 
 			if IPFamily == corev1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				libnet.SkipWhenNotDualStackCluster(f.KubevirtClient)
 
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)
@@ -197,10 +192,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
 
 				By(specifyingVMLivenessProbe)
-				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+				vmi = createReadyCirrosVMIWithLivenessProbe(f.KubevirtClient, livenessProbe)
 			} else if !isExecProbe {
 				By(specifyingVMLivenessProbe)
-				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+				vmi = createReadyCirrosVMIWithLivenessProbe(f.KubevirtClient, livenessProbe)
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, livenessProbe, 1500)
@@ -208,15 +203,15 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By(specifyingVMLivenessProbe)
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(f.KubevirtClient)(vmi)
 
 				By("Waiting for agent to connect")
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 			}
 
 			By("Checking that the VMI is still running after a minute")
 			Consistently(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
@@ -233,14 +228,14 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(f.KubevirtClient)(vmi)
 			} else {
-				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+				vmi = createReadyCirrosVMIWithLivenessProbe(f.KubevirtClient, livenessProbe)
 			}
 
 			By("Checking that the VMI is in a final state after a minute")
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())

@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -32,7 +34,6 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -42,7 +43,7 @@ import (
 )
 
 var _ = SIGDescribe("Subdomain", func() {
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("network/vmi subdomain")
 
 	const (
 		subdomain          = "testsubdomain"
@@ -50,26 +51,18 @@ var _ = SIGDescribe("Subdomain", func() {
 		selectorLabelValue = "this"
 	)
 
-	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
-
-		tests.BeforeTestCleanup()
-	})
-
 	Context("with a headless service given", func() {
 		const servicePort = 22
 
 		BeforeEach(func() {
 			serviceName := subdomain
 			service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-			_, err := virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
+			_, err := f.KubevirtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		table.DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom string) {
-			vmiSpec := f()
+		table.DescribeTable("VMI should have the expected FQDN", func(fun func() *v1.VirtualMachineInstance, subdom string) {
+			vmiSpec := fun()
 			var expectedFQDN string
 			if subdom != "" {
 				vmiSpec.Spec.Subdomain = subdom
@@ -79,7 +72,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			}
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -107,7 +100,7 @@ var _ = SIGDescribe("Subdomain", func() {
 					"svc.cluster.local", "cluster.local", util.NamespaceTestDefault + ".this.is.just.a.very.long.dummy"},
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+			vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -130,7 +123,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			Searches:    []string{"example.com"},
 		}
 
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
+		vmi, err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiSpec)
 		Expect(err).ToNot(HaveOccurred())
 		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 

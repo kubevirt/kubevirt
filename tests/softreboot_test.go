@@ -23,13 +23,14 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 	virtctlsoftreboot "kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/tests"
@@ -53,15 +54,7 @@ func WaitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.Virtu
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Soft reboot", func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
+	f := framework.NewDefaultFramework("softreboot")
 
 	Context("Soft reboot VMI", func() {
 
@@ -86,9 +79,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			It("should succeed", func() {
 				runVMI(true, false)
 
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
-				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
+				err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				WaitForVMIRebooted(vmi, console.LoginToFedora)
@@ -100,9 +93,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				runVMI(false, true)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				tests.WaitAgentDisconnected(virtClient, vmi)
+				tests.WaitAgentDisconnected(f.KubevirtClient, vmi)
 
-				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
+				err := f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				WaitForVMIRebooted(vmi, console.LoginToCirros)
@@ -113,7 +106,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			It("should succeed", func() {
 				runVMI(true, false)
 
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 				command := tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
@@ -127,7 +120,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				runVMI(false, true)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				tests.WaitAgentDisconnected(virtClient, vmi)
+				tests.WaitAgentDisconnected(f.KubevirtClient, vmi)
 
 				command := tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
@@ -141,7 +134,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				runVMI(false, false)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				tests.WaitAgentDisconnected(virtClient, vmi)
+				tests.WaitAgentDisconnected(f.KubevirtClient, vmi)
 
 				command := tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				err := command()
@@ -152,11 +145,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		When("soft reboot vmi after paused and unpaused via virtctl", func() {
 			It("should failed to soft reboot a paused vmi", func() {
 				runVMI(true, true)
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 				command := tests.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				tests.WaitForVMICondition(f.KubevirtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
 				command = tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				err := command()
@@ -164,9 +157,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				command = tests.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_UNPAUSE, "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
-				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				tests.WaitForVMIConditionRemovedOrFalse(f.KubevirtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
-				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitAgentConnected(f.KubevirtClient, vmi)
 
 				command = tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())

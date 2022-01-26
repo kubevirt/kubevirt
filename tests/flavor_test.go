@@ -5,6 +5,8 @@ import (
 	goerrors "errors"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -14,7 +16,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/util"
@@ -25,22 +26,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		namespacedFlavorKind = "VirtualMachineFlavor"
 	)
 
-	var (
-		virtClient kubecli.KubevirtClient
-	)
-
-	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-
-		tests.BeforeTestCleanup()
-	})
+	f := framework.NewDefaultFramework("flavor")
 
 	Context("Flavor validation", func() {
 		It("[test_id:TODO] should allow valid flavor", func() {
 			flavor := newVirtualMachineFlavor()
-			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+			_, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -49,7 +40,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			flavor := newVirtualMachineFlavor()
 			flavor.Profiles = []flavorv1alpha1.VirtualMachineFlavorProfile{}
 
-			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+			_, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 
 			Expect(err).To(HaveOccurred())
@@ -70,7 +61,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Default: true,
 			})
 
-			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+			_, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 
 			Expect(err).To(HaveOccurred())
@@ -93,7 +84,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: "non-existing-cluster-flavor",
 			}
 
-			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			_, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -113,7 +104,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: namespacedFlavorKind,
 			}
 
-			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			_, err := f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -131,7 +122,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				flavor.Profiles[i].Default = false
 			}
 
-			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+			flavor, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -143,7 +134,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: namespacedFlavorKind,
 			}
 
-			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			_, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -158,7 +149,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:TODO] should fail to create VM with non-existing custom flavor profile", func() {
 			flavor := newVirtualMachineFlavor()
 
-			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+			flavor, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -171,7 +162,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Profile: "nonexisting-profile",
 			}
 
-			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			_, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -190,26 +181,26 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			By("Starting the VirtualMachine")
 
 			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				updatedVM, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = nil
 				updatedVM.Spec.RunStrategy = &runStrategyAlways
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = f.KubevirtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 				return err
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+			updatedVM, err := f.KubevirtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Observe the VirtualMachineInstance created
 			Eventually(func() error {
-				_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &k8smetav1.GetOptions{})
+				_, err := f.KubevirtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &k8smetav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
 
 			By("VMI has the running condition")
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(updatedVM.Name, &k8smetav1.GetOptions{})
+				vm, err := f.KubevirtClient.VirtualMachine(updatedVM.Namespace).Get(updatedVM.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -224,7 +215,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				flavor := newVirtualMachineFlavor()
 				flavor.Profiles[0].CPU = cpu
 
-				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				flavor, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 					Create(context.Background(), flavor, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -239,12 +230,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Kind: namespacedFlavorKind,
 				}
 
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				vm, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				startVM(vm)
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.CPU).To(Equal(cpu))
 				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
@@ -255,7 +246,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				flavor := newVirtualMachineFlavor()
 				flavor.Profiles[0].CPU = &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
 
-				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				flavor, err := f.KubevirtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 					Create(context.Background(), flavor, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -268,7 +259,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Kind: namespacedFlavorKind,
 				}
 
-				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				_, err = f.KubevirtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).To(HaveOccurred())
 				var apiStatus errors.APIStatus
 				Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")

@@ -23,30 +23,19 @@ import (
 	"fmt"
 	"runtime"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/util"
-
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 )
 
 var _ = Describe("[sig-compute]Version", func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
+	f := framework.NewDefaultFramework("version")
 
 	Describe("Check that version parameters where loaded by ldflags in build time", func() {
 		It("[test_id:555]Should return a good version information struct", func() {
-			info, err := virtClient.ServerVersion().Get()
+			info, err := f.KubevirtClient.ServerVersion().Get()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.Compiler).To(Equal(runtime.Compiler))
 			Expect(info.Platform).To(Equal(fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)))

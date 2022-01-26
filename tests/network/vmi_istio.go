@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo"
@@ -41,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -73,10 +74,9 @@ const (
 
 var _ = SIGDescribe("[Serial] Istio", func() {
 	var (
-		err        error
-		vmi        *v1.VirtualMachineInstance
-		virtClient kubecli.KubevirtClient
-		vmiPorts   []v1.Port
+		err      error
+		vmi      *v1.VirtualMachineInstance
+		vmiPorts []v1.Port
 		// Istio Envoy treats traffic differently for ports declared and undeclared in an associated k8s service.
 		// Having both, declared and undeclared ports specified for VMIs with explicit ports allows to test both cases.
 		explicitPorts = []v1.Port{
@@ -85,6 +85,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			{Port: sshPort},
 		}
 	)
+	f := framework.NewDefaultFramework("network/vmi istio")
 	BeforeEach(func() {
 		if !istioServiceMeshDeployed() {
 			Skip("Istio service mesh is required for service-mesh tests to run")
@@ -97,45 +98,40 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			tests.StartHTTPServer(vmi, targetPort)
 
 			By("Getting back the VMI IP")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 			vmiIP := vmi.Status.Interfaces[0].IP
 
 			By("Running job to send a request to the server")
-			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Create(
+			return f.KubevirtClient.BatchV1().Jobs(util.NamespaceTestDefault).Create(
 				context.Background(),
 				tests.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
 				metav1.CreateOptions{},
 			)
 		}
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
-
 			By("Create NetworkAttachmentDefinition")
 			nad := generateIstioCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(util.NamespaceTestDefault).Create(context.TODO(), nad, metav1.CreateOptions{})
+			_, err = f.KubevirtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(util.NamespaceTestDefault).Create(context.TODO(), nad, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Creating k8s service for the VMI")
 
 			serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
-			_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
+			_, err = f.KubevirtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
-			Expect(libnet.AddLabelToNamespace(virtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
+			Expect(libnet.AddLabelToNamespace(f.KubevirtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
-				Expect(libnet.RemoveLabelFromNamespace(virtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
+				Expect(libnet.RemoveLabelFromNamespace(f.KubevirtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
 			}()
 
 			By("Creating VMI")
 			vmi = newVMIWithIstioSidecar(vmiPorts)
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
@@ -146,7 +142,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				sourcePodName string
 			)
 			migrationCompleted := func(migration *v1.VirtualMachineInstanceMigration) error {
-				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+				migration, err := f.KubevirtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -156,7 +152,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				return fmt.Errorf("migration is in phase %s", migration.Status.Phase)
 			}
 			allContainersCompleted := func(podName string) error {
-				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+				pod, err := f.KubevirtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -171,9 +167,9 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				tests.SkipIfMigrationIsNotPossible()
 			})
 			JustBeforeEach(func() {
-				sourcePodName = tests.GetVmPodName(virtClient, vmi)
+				sourcePodName = tests.GetVmPodName(f.KubevirtClient, vmi)
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err = f.KubevirtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() error {
 					return migrationCompleted(migration)
@@ -205,7 +201,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 				)
 
-				bastionVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bastionVMI)
+				bastionVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bastionVMI)
 				Expect(err).ToNot(HaveOccurred())
 				bastionVMI = tests.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})
@@ -215,7 +211,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				})
 				It("should ssh to VMI with Istio proxy", func() {
 					By("Getting the VMI IP")
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 					vmiIP := vmi.Status.Interfaces[0].IP
 
@@ -230,7 +226,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				})
 				It("should ssh to VMI with Istio proxy", func() {
 					By("Getting the VMI IP")
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err = f.KubevirtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 					vmiIP := vmi.Status.Interfaces[0].IP
 
@@ -280,7 +276,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				BeforeEach(func() {
 					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: istioApiVersion, Resource: "peerauthentications"}
 					peerAuthentication := generateStrictPeerAuthentication()
-					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(util.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
+					_, err = f.KubevirtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(util.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 				Context("With VMI having explicit ports specified", func() {
@@ -333,11 +329,11 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
 				)
-				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
+				serverVMI, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
-				_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(console.LoginToCirros(serverVMI)).To(Succeed())
@@ -347,23 +343,23 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				By("Creating Istio VirtualService")
 				virtualServicesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}
 				virtualService := generateVirtualService()
-				_, err = virtClient.DynamicClient().Resource(virtualServicesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), virtualService, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.DynamicClient().Resource(virtualServicesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), virtualService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating Istio DestinationRule")
 				destinationRulesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "destinationrules"}
 				destinationRule := generateDestinationRule()
-				_, err = virtClient.DynamicClient().Resource(destinationRulesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), destinationRule, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.DynamicClient().Resource(destinationRulesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), destinationRule, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating Istio Gateway")
 				gatewaysRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "gateways"}
 				gateway := generateGateway()
-				_, err = virtClient.DynamicClient().Resource(gatewaysRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), gateway, metav1.CreateOptions{})
+				_, err = f.KubevirtClient.DynamicClient().Resource(gatewaysRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), gateway, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting Istio ingressgateway IP")
-				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
+				ingressGatewayService, err := f.KubevirtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
 
@@ -410,7 +406,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				BeforeEach(func() {
 					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
 					registryOnlySidecar := generateRegistryOnlySidecar()
-					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
+					_, err = f.KubevirtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				})
 

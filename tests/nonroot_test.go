@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -19,18 +20,13 @@ import (
 
 var _ = Describe("[sig-compute]NonRoot feature", func() {
 
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("nonroot")
 	var err error
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
 		if !checks.HasFeature(virtconfig.NonRoot) {
 			Skip("Test specific to NonRoot featureGate that is not enabled")
 		}
-
-		tests.BeforeTestCleanup()
 	})
 
 	sriovVM := func() *v1.VirtualMachineInstance {
@@ -54,7 +50,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		}
 
 		vmi := createVMI()
-		_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		_, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(And(ContainSubstring(feature), ContainSubstring("nonroot")))
 
@@ -68,13 +64,13 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 
 			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = f.KubevirtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			podOutput, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"id"},

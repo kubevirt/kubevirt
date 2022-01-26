@@ -23,6 +23,8 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,19 +42,12 @@ import (
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", func() {
 
 	var err error
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("vmi sound")
 	var vmi *v1.VirtualMachineInstance
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
 		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "test-model-empty")
+			vmi, err = createSoundVMI(f.KubevirtClient, "test-model-empty")
 			Expect(err).To(BeNil())
 			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 		})
@@ -64,33 +59,33 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support", func() {
 		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "ich9")
+			vmi, err = createSoundVMI(f.KubevirtClient, "ich9")
 			Expect(err).To(BeNil())
 			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 		})
 
 		It("should create ich9 sound device on ich9 model ", func() {
-			checkXMLSoundCard(virtClient, vmi, "ich9")
+			checkXMLSoundCard(f.KubevirtClient, vmi, "ich9")
 			checkAudioDevice(vmi, "ich9")
 		})
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ac97 sound support", func() {
 		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "ac97")
+			vmi, err = createSoundVMI(f.KubevirtClient, "ac97")
 			Expect(err).To(BeNil())
 			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 		})
 
 		It("should create ac97 sound device on ac97 model", func() {
-			checkXMLSoundCard(virtClient, vmi, "ac97")
+			checkXMLSoundCard(f.KubevirtClient, vmi, "ac97")
 			checkAudioDevice(vmi, "ac97")
 		})
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
 		It("should fail to create VMI with unsupported sound device", func() {
-			vmi, err = createSoundVMI(virtClient, "ich7")
+			vmi, err = createSoundVMI(f.KubevirtClient, "ich7")
 			Expect(err).To(HaveOccurred())
 		})
 	})

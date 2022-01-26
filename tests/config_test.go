@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,7 +35,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -43,7 +44,7 @@ import (
 
 var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", func() {
 
-	var virtClient kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("config")
 
 	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -60,7 +61,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 			if len(path) > 0 {
 				cmdCheck := []string{"stat", "--printf='%s'", path}
-				out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+				out, err := tests.ExecuteCommandOnPod(f.KubevirtClient, pod, "compute", cmdCheck)
 				Expect(err).NotTo(HaveOccurred())
 				size, err := strconv.Atoi(strings.Trim(out, "'"))
 				Expect(err).NotTo(HaveOccurred())
@@ -68,15 +69,6 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 		}
 	}
-
-	BeforeEach(func() {
-		var err error
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
 
 	Context("With a ConfigMap defined", func() {
 
@@ -114,7 +106,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				podOutput, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -208,7 +200,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				podOutput, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -280,7 +272,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			By("Checking if ServiceAccount has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			namespace, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"cat",
@@ -292,7 +284,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(namespace).To(Equal(util.NamespaceTestDefault))
 
 			token, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"tail", "-c", "20",
@@ -382,7 +374,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				podOutputCfgMap, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -411,7 +403,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Checking if Secret has also been attached to the same pod")
 				podOutputSecret, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -493,7 +485,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				podOutput1, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -504,7 +496,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
 
 				podOutput2, err := tests.ExecuteCommandOnPod(
-					virtClient,
+					f.KubevirtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -560,7 +552,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			By("Checking if DownwardAPI has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			podOutput, err := tests.ExecuteCommandOnPod(
-				virtClient,
+				f.KubevirtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"grep", testLabelKey,
