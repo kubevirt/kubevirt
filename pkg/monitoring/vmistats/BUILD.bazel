@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "collector.go",
-        "fakecollector.go",
-    ],
+    srcs = ["collector.go"],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/vmistats",
     visibility = ["//visibility:public"],
     deps = [

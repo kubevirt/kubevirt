@@ -34,8 +34,7 @@ type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc      func(output string, volID string, files []string) error
-	emptyIsoCreationFunc func(output string, size int64) error
+	isoCreationFunc func(output string, volID string, files []string) error
 )
 
 const (
@@ -91,11 +90,6 @@ var (
 // The unit test suite uses this function
 func setIsoCreationFunction(isoFunc isoCreationFunc) {
 	createISOImage = isoFunc
-}
-
-// The unit test suite uses this function
-func setEmptyIsoCreationFunction(emptyIsoFunc emptyIsoCreationFunc) {
-	createEmptyISOImage = emptyIsoFunc
 }
 
 func getFilesLayout(dirPath string) ([]string, error) {

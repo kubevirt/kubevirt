@@ -115,7 +115,3 @@ func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 	}
 	return nil
 }
-
-func getInterfaceCacheFile(pattern, id, name string) string {
-	return filepath.Join(fmt.Sprintf(pattern, id, name))
-}

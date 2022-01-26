@@ -108,21 +108,6 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
 	return NewManagerFromPid(isolationRes.Pid())
 }
 
-// NewManagerFromVMAndSocket is similar to NewManagerFromVM but is faster since there is no need
-// to search for the socket.
-func NewManagerFromVMAndSocket(vmi *v1.VirtualMachineInstance, socket string) (Manager, error) {
-	if socket == "" {
-		return nil, fmt.Errorf("socket has to be a non-empty string")
-	}
-
-	isolationRes, err := detectVMIsolation(vmi, socket)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewManagerFromPid(isolationRes.Pid())
-}
-
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
 func GetGlobalCpuSetPath() string {
 	if runc_cgroups.IsCgroup2UnifiedMode() {

@@ -18,14 +18,11 @@ package cert
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"math"
 	"math/big"
@@ -112,23 +109,4 @@ func NewSignedCert(cfg Config, key crypto.Signer, caCert *x509.Certificate, caKe
 		return nil, err
 	}
 	return x509.ParseCertificate(certDERBytes)
-}
-
-// MakeEllipticPrivateKeyPEM creates an ECDSA private key
-func MakeEllipticPrivateKeyPEM() ([]byte, error) {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
-	derBytes, err := x509.MarshalECPrivateKey(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	privateKeyPemBlock := &pem.Block{
-		Type:  ECPrivateKeyBlockType,
-		Bytes: derBytes,
-	}
-	return pem.EncodeToMemory(privateKeyPemBlock), nil
 }
