@@ -59,7 +59,7 @@ var _ = Describe("ContainerDisk", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(expectedVolumeMountDir).To(Equal(volumeMountDir))
 
-		filePath := filepath.Join(volumeMountDir + "/disk_0.img")
+		filePath := filepath.Join(volumeMountDir, "disk_0.img")
 		_, err := os.Create(filePath)
 		Expect(err).ToNot(HaveOccurred())
 	}

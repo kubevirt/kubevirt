@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -66,7 +67,7 @@ var _ = Describe("MigrationProxy", func() {
 	Describe("migration proxy", func() {
 		Context("verify proxy connections work", func() {
 			It("by verifying source proxy works", func() {
-				sourceSock := tmpDir + "/source-sock"
+				sourceSock := filepath.Join(tmpDir, "source-sock")
 
 				listener, err := tls.Listen("tcp", "127.0.0.1:12345", tlsConfig)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -107,8 +108,8 @@ var _ = Describe("MigrationProxy", func() {
 			})
 
 			It("by creating both ends and sending a message", func() {
-				sourceSock := tmpDir + "/source-sock"
-				libvirtdSock := tmpDir + "/libvirtd-sock"
+				sourceSock := filepath.Join(tmpDir, "source-sock")
+				libvirtdSock := filepath.Join(tmpDir, "libvirtd-sock")
 				libvirtdListener, err := net.Listen("unix", libvirtdSock)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -152,10 +153,10 @@ var _ = Describe("MigrationProxy", func() {
 
 			table.DescribeTable("by creating both ends with a manager and sending a message", func(migrationConfig *v1.MigrationConfiguration) {
 				directMigrationPort := "49152"
-				libvirtdSock := tmpDir + "/libvirtd-sock"
+				libvirtdSock := filepath.Join(tmpDir, "libvirtd-sock")
 				libvirtdListener, err := net.Listen("unix", libvirtdSock)
 				Expect(err).ShouldNot(HaveOccurred())
-				directSock := tmpDir + "/mykey-" + directMigrationPort
+				directSock := filepath.Join(tmpDir, "mykey-"+directMigrationPort)
 				directListener, err := net.Listen("unix", directSock)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -219,11 +220,11 @@ var _ = Describe("MigrationProxy", func() {
 				key2 := "key2"
 
 				directMigrationPort := "49152"
-				libvirtdSock := tmpDir + "/libvirtd-sock"
+				libvirtdSock := filepath.Join(tmpDir, "libvirtd-sock")
 				libvirtdListener, err := net.Listen("unix", libvirtdSock)
 				defer libvirtdListener.Close()
 				Expect(err).ShouldNot(HaveOccurred())
-				directSock := tmpDir + "/" + key1 + "-" + directMigrationPort
+				directSock := filepath.Join(tmpDir, key1+"-"+directMigrationPort)
 				directListener, err := net.Listen("unix", directSock)
 				defer directListener.Close()
 

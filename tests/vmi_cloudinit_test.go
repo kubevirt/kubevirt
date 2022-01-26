@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -99,7 +100,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		MountCloudInitConfigDrive = tests.MountCloudInitFunc("config-2")
 
 		CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-			cmdCheck := "cat /mnt/" + testFile + "\n"
+			cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo su -\n"},
 				&expect.BExp{R: console.PromptExpression},

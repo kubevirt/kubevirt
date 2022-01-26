@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
@@ -150,7 +151,7 @@ func main() {
 	pflag.StringVar(&version, "version", "", "hook version to use")
 	pflag.Parse()
 
-	socketPath := hooks.HookSocketsSharedDirectory + "/smbios.sock"
+	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, "smbios.sock")
 	socket, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)

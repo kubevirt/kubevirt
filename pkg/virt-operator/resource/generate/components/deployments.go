@@ -20,6 +20,7 @@ package components
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -318,7 +319,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 					Type:   intstr.Int,
 					IntVal: 8443,
 				},
-				Path: "/apis/subresources.kubevirt.io/" + virtv1.SubresourceGroupVersions[0].Version + "/healthz",
+				Path: path.Join("/apis/subresources.kubevirt.io", virtv1.SubresourceGroupVersions[0].Version, "healthz"),
 			},
 		},
 		InitialDelaySeconds: 15,

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -249,7 +250,7 @@ var _ = Describe("AccessCredentials", func() {
 		}
 
 		// Write the file
-		err = ioutil.WriteFile(secretDirs[0]+"/"+user, []byte(password), 0644)
+		err = ioutil.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)
 		Expect(err).To(BeNil())
 
 		// set the expected command
@@ -301,7 +302,7 @@ var _ = Describe("AccessCredentials", func() {
 		matched = false
 		manager.stopCh = make(chan struct{})
 		password = password + "morefake"
-		err = ioutil.WriteFile(secretDirs[0]+"/"+user, []byte(password), 0644)
+		err = ioutil.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)
 		Expect(err).To(BeNil())
 		base64Str = base64.StdEncoding.EncodeToString([]byte(password))
 		cmdSetPassword = fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)

@@ -208,7 +208,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(cmdclient.IsDisconnected(err)).To(BeTrue())
 
-			_, err = cmdclient.NewClient(shareDir + "/server.sock")
+			_, err = cmdclient.NewClient(filepath.Join(shareDir, "server.sock"))
 			Expect(err).To(HaveOccurred())
 		})
 

@@ -68,7 +68,7 @@ var _ = Describe("Isolation Detector", func() {
 			cmdclient.SetLegacyBaseDir(tmpDir)
 			cmdclient.SetPodsBaseDir(tmpDir)
 
-			os.MkdirAll(tmpDir+"/sockets/", os.ModePerm)
+			os.MkdirAll(filepath.Join(tmpDir, "sockets/"), os.ModePerm)
 			socketFile := cmdclient.SocketFilePathOnHost(podUID)
 			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
 			socket, err = net.Listen("unix", socketFile)

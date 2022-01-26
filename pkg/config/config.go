@@ -56,30 +56,30 @@ const (
 
 var (
 	// ConfigMapSourceDir represents a location where ConfigMap is attached to the pod
-	ConfigMapSourceDir = mountBaseDir + "/config-map"
+	ConfigMapSourceDir = filepath.Join(mountBaseDir, "config-map")
 	// SysprepSourceDir represents a location where a Sysprep is attached to the pod
-	SysprepSourceDir = mountBaseDir + "/sysprep"
+	SysprepSourceDir = filepath.Join(mountBaseDir, "sysprep")
 	// SecretSourceDir represents a location where Secrets is attached to the pod
-	SecretSourceDir = mountBaseDir + "/secret"
+	SecretSourceDir = filepath.Join(mountBaseDir, "secret")
 	// DownwardAPISourceDir represents a location where downwardapi is attached to the pod
-	DownwardAPISourceDir = mountBaseDir + "/downwardapi"
+	DownwardAPISourceDir = filepath.Join(mountBaseDir, "downwardapi")
 	// ServiceAccountSourceDir represents the location where the ServiceAccount token is attached to the pod
 	ServiceAccountSourceDir = "/var/run/secrets/kubernetes.io/serviceaccount/"
 
 	// ConfigMapDisksDir represents a path to ConfigMap iso images
-	ConfigMapDisksDir = mountBaseDir + "/config-map-disks"
+	ConfigMapDisksDir = filepath.Join(mountBaseDir, "config-map-disks")
 	// SecretDisksDir represents a path to Secrets iso images
-	SecretDisksDir = mountBaseDir + "/secret-disks"
+	SecretDisksDir = filepath.Join(mountBaseDir, "secret-disks")
 	// SysprepDisksDir represents a path to Syspreps iso images
-	SysprepDisksDir = mountBaseDir + "/sysprep-disks"
+	SysprepDisksDir = filepath.Join(mountBaseDir, "sysprep-disks")
 	// DownwardAPIDisksDir represents a path to DownwardAPI iso images
-	DownwardAPIDisksDir = mountBaseDir + "/downwardapi-disks"
+	DownwardAPIDisksDir = filepath.Join(mountBaseDir, "downwardapi-disks")
 	// DownwardMetricDisksDir represents a path to DownwardMetric block disk
-	DownwardMetricDisksDir = mountBaseDir + "/downwardmetric-disk"
+	DownwardMetricDisksDir = filepath.Join(mountBaseDir, "downwardmetric-disk")
 	// DownwardMetricDisks represents the disk location for the DownwardMetric disk
 	DownwardMetricDisk = filepath.Join(DownwardAPIDisksDir, "vhostmd0")
 	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
-	ServiceAccountDiskDir = mountBaseDir + "/service-account-disk"
+	ServiceAccountDiskDir = filepath.Join(mountBaseDir, "service-account-disk")
 	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
 	ServiceAccountDiskName = "service-account.iso"
 
