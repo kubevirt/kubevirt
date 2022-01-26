@@ -88,6 +88,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	var allowEmulation *bool
 
+	const fakeLibvirtLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
+
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
@@ -219,12 +221,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Should(ContainSubstring(`"subcomponent":"libvirt"`))
 		})
 
-		It("[test_id:3197]should log libvirtd debug logs when enabled", func() {
+		table.DescribeTable("log libvirtd debug logs should be", func(vmiLabels, vmiAnnotations map[string]string, expectDebugLogs bool) {
 			var err error
 			vmi := tests.NewRandomVMI()
-			vmi.Labels = map[string]string{
-				"debugLogs": "true",
-			}
+			vmi.Labels = vmiLabels
+			vmi.Annotations = vmiAnnotations
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")
@@ -233,13 +234,32 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			By("Getting virt-launcher logs")
 			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
 
+			const totalTestTime = 2 * time.Second
+			const checkIntervalTime = 500 * time.Millisecond
+			const logEntryToSearch = "QEMU_MONITOR_SEND_MSG"
+			const subcomponent = `"subcomponent":"libvirt"`
+
 			// There are plenty of strings we can use to identify the debug logs.
 			// Here we use something we deeply care about when in debug mode.
-			Eventually(logs,
-				2*time.Second,
-				500*time.Millisecond).
-				Should(And(ContainSubstring("QEMU_MONITOR_SEND_MSG"), ContainSubstring(`"subcomponent":"libvirt"`)))
-		})
+			if expectDebugLogs {
+				Eventually(logs,
+					totalTestTime,
+					checkIntervalTime).
+					Should(And(ContainSubstring(logEntryToSearch), ContainSubstring(subcomponent)))
+			} else {
+				Consistently(logs,
+					totalTestTime,
+					checkIntervalTime).
+					ShouldNot(And(ContainSubstring(logEntryToSearch), ContainSubstring(subcomponent)))
+			}
+
+		},
+			table.Entry("[test_id:3197]enabled when debugLogs label defined", map[string]string{"debugLogs": "true"}, nil, true),
+			table.Entry("enabled when customLogFilters defined", nil, map[string]string{v1.CustomLibvirtLogFiltersAnnotation: fakeLibvirtLogFilters}, true),
+			table.Entry("enabled when log verbosity is high", map[string]string{"logVerbosity": "10"}, nil, true),
+			table.Entry("disabled when log verbosity is low", map[string]string{"logVerbosity": "2"}, nil, false),
+			table.Entry("disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
+		)
 
 		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
 

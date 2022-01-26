@@ -359,6 +359,7 @@ func main() {
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
+	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
@@ -415,7 +416,7 @@ func main() {
 	stopChan := make(chan struct{})
 
 	l := util.NewLibvirtWrapper(*runWithNonRoot)
-	err = l.SetupLibvirt()
+	err = l.SetupLibvirt(libvirtLogFilters)
 	if err != nil {
 		panic(err)
 	}
