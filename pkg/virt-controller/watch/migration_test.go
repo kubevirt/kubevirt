@@ -209,6 +209,14 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
+	shouldExpectMigrationDeletion := func(namePrefix string, times int) {
+
+		migrationInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(times).Do(func(arg1 interface{}, arg2 interface{}) interface{} {
+			Expect(arg1.(string)).To(ContainSubstring(namePrefix))
+			return nil
+		})
+	}
+
 	shouldExpectVirtualMachineInstancePatch := func(vmi *virtv1.VirtualMachineInstance, patch string) {
 		vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 	}
@@ -726,6 +734,81 @@ var _ = Describe("Migration watcher", func() {
 			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
 		)
 	})
+
+	Context("Migration garbage collection", func() {
+		table.DescribeTable("should garbage old finalized migration objects", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+
+			phasesToGarbageCollect := []virtv1.VirtualMachineInstanceMigrationPhase{
+				virtv1.MigrationFailed,
+				virtv1.MigrationSucceeded,
+			}
+
+			phasesToKeep := []virtv1.VirtualMachineInstanceMigrationPhase{
+				virtv1.MigrationPhaseUnset,
+				virtv1.MigrationPending,
+				virtv1.MigrationScheduling,
+				virtv1.MigrationPreparingTarget,
+				virtv1.MigrationTargetReady,
+				virtv1.MigrationRunning,
+			}
+
+			for _, curPhase := range phasesToKeep {
+				for i := 0; i < 100; i++ {
+					mCopy := newMigration(fmt.Sprintf("should-keep-%s-%d", curPhase, i), vmi.Name, curPhase)
+					mCopy.Finalizers = []string{}
+
+					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
+
+					migrationInformer.GetStore().Add(mCopy)
+				}
+			}
+
+			finalizedMigrations := 0
+			for _, curPhase := range phasesToGarbageCollect {
+				for i := 0; i < 100; i++ {
+					mCopy := newMigration(fmt.Sprintf("should-delete-%s-%d", curPhase, i), vmi.Name, curPhase)
+
+					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
+
+					migrationInformer.GetStore().Add(mCopy)
+					finalizedMigrations++
+				}
+			}
+
+			keyMigration := newMigration("should-keep-key-migration", vmi.Name, phase)
+			keyMigration.Finalizers = []string{}
+			keyMigration.CreationTimestamp = metav1.Unix(int64(101), int64(0))
+			addMigration(keyMigration)
+
+			sourcePod := newSourcePodForVirtualMachine(vmi)
+			podInformer.GetStore().Add(sourcePod)
+			vmiInformer.GetStore().Add(vmi)
+
+			if keyMigration.IsFinal() {
+				finalizedMigrations++
+				shouldExpectMigrationDeletion("should-delete", finalizedMigrations-defaultFinalizedMigrationGarbageCollectionBuffer)
+			} else {
+				migrationInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes().DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+					return arg, nil
+				})
+			}
+
+			controller.Execute()
+			testutils.IgnoreEvents(recorder)
+		},
+			table.Entry("in failed phase", virtv1.MigrationFailed),
+			table.Entry("in succeeded phase", virtv1.MigrationSucceeded),
+			table.Entry("in unset phase", virtv1.MigrationPhaseUnset),
+			table.Entry("in pending phase", virtv1.MigrationPending),
+			table.Entry("in scheduling phase", virtv1.MigrationScheduling),
+			table.Entry("in preparing target phase", virtv1.MigrationPreparingTarget),
+			table.Entry("in target ready phase", virtv1.MigrationTargetReady),
+			table.Entry("in running phase", virtv1.MigrationRunning),
+		)
+
+	})
+
 	Context("Migration should immediately fail if", func() {
 
 		table.DescribeTable("vmi moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
