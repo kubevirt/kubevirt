@@ -74,7 +74,7 @@ func (iso imageStreamOperand) reset() {
 }
 
 func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, required *imagev1.ImageStream) Operand {
-	h := &imageStreamOperand{
+	return &imageStreamOperand{
 		operand: &genericOperand{
 			Client: Client,
 			Scheme: Scheme,
@@ -83,15 +83,22 @@ func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, require
 			// as the owner of NetworkAddons (scope cluster).
 			// It's not legal, so remove that.
 			removeExistingOwner: false,
-			hooks:               &isHooks{required: required},
+			hooks:               newIsHook(required),
 		},
 	}
-
-	return h
 }
 
 type isHooks struct {
 	required *imagev1.ImageStream
+	tags     map[string]imagev1.TagReference
+}
+
+func newIsHook(required *imagev1.ImageStream) *isHooks {
+	tags := make(map[string]imagev1.TagReference)
+	for _, tag := range required.Spec.Tags {
+		tags[tag.Name] = tag
+	}
+	return &isHooks{required: required, tags: tags}
 }
 
 func (h isHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
@@ -147,12 +154,47 @@ func (h *isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool 
 		modified = true
 	}
 
-	if (len(found.Spec.Tags) != 1) || (found.Spec.Tags[0].Name != "latest") || (found.Spec.Tags[0].From.Name != h.required.Spec.Tags[0].From.Name) {
-		found.Spec.Tags = h.required.Spec.Tags
-		return true
+	newTags := make([]imagev1.TagReference, 0)
+
+	for _, foundTag := range found.Spec.Tags {
+		reqTag, ok := h.tags[foundTag.Name]
+		if !ok {
+			modified = true
+			continue
+		}
+
+		if h.compareOneTag(&foundTag, &reqTag) {
+			modified = true
+		}
+
+		newTags = append(newTags, foundTag)
+	}
+
+	// find and add missing tags
+	newTags, modified = h.addMissingTags(found, newTags, modified)
+
+	if modified {
+		found.Spec.Tags = newTags
 	}
 
 	return modified
+}
+
+func (h *isHooks) addMissingTags(found *imagev1.ImageStream, newTags []imagev1.TagReference, modified bool) ([]imagev1.TagReference, bool) {
+	for reqTagName, reqTag := range h.tags {
+		tagExist := false
+		for _, foundTag := range found.Spec.Tags {
+			if reqTagName == foundTag.Name {
+				tagExist = true
+			}
+		}
+
+		if !tagExist {
+			newTags = append(newTags, reqTag)
+			modified = true
+		}
+	}
+	return newTags, modified
 }
 
 func getImageStreamHandlers(logger log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
@@ -194,6 +236,21 @@ func createImageStreamHandlersFromFiles(logger log.Logger, Client client.Client,
 	return handlers, err
 }
 
+func (h *isHooks) compareOneTag(foundTag, reqTag *imagev1.TagReference) bool {
+	modified := false
+	if reqTag.From.Name != foundTag.From.Name || reqTag.From.Kind != foundTag.From.Kind {
+		foundTag.From = reqTag.From.DeepCopy()
+		modified = true
+	}
+
+	if !reflect.DeepEqual(reqTag.ImportPolicy, foundTag.ImportPolicy) {
+		foundTag.ImportPolicy = *reqTag.ImportPolicy.DeepCopy()
+		modified = true
+	}
+
+	return modified
+}
+
 func processImageStreamFile(path string, info os.FileInfo, logger log.Logger, hc *hcov1beta1.HyperConverged, Client client.Client, Scheme *runtime.Scheme) (Operand, error) {
 	if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") {
 		file, err := os.Open(path)
@@ -206,20 +263,12 @@ func processImageStreamFile(path string, info os.FileInfo, logger log.Logger, hc
 		err = util.UnmarshalYamlFileToObject(file, is)
 		if err != nil {
 			return nil, err
-		} else if err = validateImageStream(is); err != nil {
-			return nil, err
 		}
+
 		is.Labels = getLabels(hc, util.AppComponentCompute)
 		imageStreamNames = append(imageStreamNames, is.Name)
 		return newImageStreamHandler(Client, Scheme, is), nil
 	}
 
 	return nil, nil
-}
-
-func validateImageStream(is *imagev1.ImageStream) error {
-	if len(is.Spec.Tags) != 1 && is.Spec.Tags[0].Name != "latest" {
-		return errors.New("wrong imageFile format; missing latest tag or more than many tags")
-	}
-	return nil
 }

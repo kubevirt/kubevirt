@@ -430,7 +430,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(tag.Name).Should(Equal("latest"))
 				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
 				// check that this tag was changed by the handler, by checking a field that is not controlled by it.
-				Expect(tag.From.UID).Should(BeEmpty())
+				Expect(tag.From.UID).ShouldNot(BeEmpty())
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -463,7 +463,7 @@ var _ = Describe("imageStream tests", func() {
 								Name: "test-registry.io/test/test-image",
 								UID:  types.UID("1234567890"),
 							},
-							ImportPolicy: imagev1.TagImportPolicy{Insecure: true, Scheduled: false},
+							ImportPolicy: imagev1.TagImportPolicy{Scheduled: true},
 							Name:         "latest",
 						},
 					},
@@ -501,7 +501,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
 				// check that this tag was not changed by the handler, by checking a field that is not controlled by it.
 				Expect(tag.From.UID).Should(Equal(types.UID("1234567890")))
-				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: true, Scheduled: false}))
+				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: false, Scheduled: true}))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -604,7 +604,7 @@ var _ = Describe("imageStream tests", func() {
 								Name: "test-registry.io/test/test-image",
 								UID:  types.UID("1234567890"),
 							},
-							ImportPolicy: imagev1.TagImportPolicy{Insecure: true, Scheduled: false},
+							ImportPolicy: imagev1.TagImportPolicy{Insecure: false, Scheduled: true},
 							Name:         "latest",
 						},
 					},
@@ -642,7 +642,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
 				// check that this tag was not changed by the handler, by checking a field that is not controlled by it.
 				Expect(tag.From.UID).Should(Equal(types.UID("1234567890")))
-				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: true, Scheduled: false}))
+				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: false, Scheduled: true}))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -724,4 +724,261 @@ var _ = Describe("imageStream tests", func() {
 			})
 		})
 	})
+
+	Context("test compareAndUpgradeImageStream", func() {
+		required := &imagev1.ImageStream{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testStream",
+			},
+			Spec: imagev1.ImageStreamSpec{
+				Tags: []imagev1.TagReference{
+					{
+						From: &corev1.ObjectReference{
+							Name: "my-image-registry:5000/my-image:v1",
+							Kind: "DockerImage",
+						},
+						ImportPolicy: imagev1.TagImportPolicy{
+							Scheduled: true,
+						},
+						Name: "v1",
+					},
+					{
+						From: &corev1.ObjectReference{
+							Name: "my-image-registry:5000/my-image:v2",
+							Kind: "DockerImage",
+						},
+						ImportPolicy: imagev1.TagImportPolicy{
+							Scheduled: true,
+						},
+						Name: "v2",
+					},
+					{
+						From: &corev1.ObjectReference{
+							Name: "my-image-registry:5000/my-image:v2",
+							Kind: "DockerImage",
+						},
+						ImportPolicy: imagev1.TagImportPolicy{
+							Scheduled: true,
+						},
+						Name: "latest",
+					},
+				},
+			},
+		}
+
+		hook := newIsHook(required)
+
+		It("should do nothing if there is no difference", func() {
+			found := required.DeepCopy()
+
+			Expect(hook.compareAndUpgradeImageStream(found)).To(BeFalse())
+
+			Expect(found.Spec.Tags).To(HaveLen(3))
+
+			validateImageStream(found, hook)
+		})
+
+		It("should add all tag if missing", func() {
+			found := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testStream",
+				},
+			}
+
+			Expect(hook.compareAndUpgradeImageStream(found)).To(BeTrue())
+
+			validateImageStream(found, hook)
+		})
+
+		It("should add missing tags", func() {
+			found := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testStream",
+				},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v2",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "latest",
+						},
+						{
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v1",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "v1",
+						},
+					},
+				},
+			}
+
+			Expect(hook.compareAndUpgradeImageStream(found)).To(BeTrue())
+
+			validateImageStream(found, hook)
+		})
+
+		It("should delete unknown tags", func() {
+			found := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testStream",
+				},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v1",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "v1",
+						},
+						{
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v2",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "v2",
+						},
+						{
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v3",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "v3",
+						},
+						{
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v3",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "latest",
+						},
+					},
+				},
+			}
+			Expect(hook.compareAndUpgradeImageStream(found)).To(BeTrue())
+
+			validateImageStream(found, hook)
+		})
+
+		It("should fix tag from and import policy, but leave the rest", func() {
+			found := &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testStream",
+				},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Annotations: map[string]string{
+								"test-annotation": "should stay here",
+							},
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v45",
+								Kind: "somethingElse",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "v1",
+						},
+						{
+							Annotations: map[string]string{
+								"test-annotation": "should stay here",
+							},
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v2",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: false,
+							},
+							Name: "v2",
+						},
+						{
+							Annotations: map[string]string{
+								"test-annotation": "should stay here",
+							},
+							From: &corev1.ObjectReference{
+								Name: "my-image-registry:5000/my-image:v2",
+								Kind: "DockerImage",
+							},
+							ImportPolicy: imagev1.TagImportPolicy{
+								Scheduled: true,
+							},
+							Name: "latest",
+						},
+					},
+				},
+			}
+			Expect(hook.compareAndUpgradeImageStream(found)).To(BeTrue())
+
+			validateImageStream(found, hook)
+
+			for _, tag := range found.Spec.Tags {
+				Expect(tag.Annotations).Should(HaveLen(1))
+				Expect(tag.Annotations).Should(HaveKeyWithValue("test-annotation", "should stay here"))
+			}
+
+		})
+	})
 })
+
+func validateImageStream(found *imagev1.ImageStream, hook *isHooks) {
+	ExpectWithOffset(1, found.Spec.Tags).To(HaveLen(3))
+
+	validationTagMap := map[string]bool{
+		"v1":     false,
+		"v2":     false,
+		"latest": false,
+	}
+
+	for i := 0; i < 3; i++ {
+		tagName := found.Spec.Tags[i].Name
+		tag := getTagByName(found.Spec.Tags, tagName)
+		Expect(tag).ToNot(BeNil())
+		validationTagMap[tagName] = true
+
+		ExpectWithOffset(1, tag.From).Should(Equal(hook.tags[tagName].From))
+		ExpectWithOffset(1, tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Scheduled: true}))
+	}
+
+	ExpectWithOffset(1, validateAllTags(validationTagMap)).To(BeTrue())
+}
+
+func getTagByName(tags []imagev1.TagReference, name string) *imagev1.TagReference {
+	for _, tag := range tags {
+		if tag.Name == name {
+			return &tag
+		}
+	}
+	return nil
+}
+
+func validateAllTags(m map[string]bool) bool {
+	for _, toughed := range m {
+		if !toughed {
+			return false
+		}
+	}
+	return true
+}
