@@ -46,7 +46,6 @@ jobs:
           go-version: '1.17' # The Go version to download (if necessary) and use.
 
       - name: Check for new releases and update
-        if: steps.check_release_bumper.outputs.files_exists == 'true'
         env:
           UPDATED_COMPONENT: ${{ github.event.inputs.component }}
           UPDATED_VERSION: ${{ github.event.inputs.version }}
