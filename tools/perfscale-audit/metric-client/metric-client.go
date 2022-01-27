@@ -37,7 +37,7 @@ import (
 
 const (
 	vmiCreationTimePercentileQuery   = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
-	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds])`
+	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[5m] offset %ds)`
 )
 
 // Gauge - Using a Gauge doesn't require using an offset because it holds the accurate count
@@ -224,7 +224,11 @@ func (m *MetricClient) getPhaseBreakdown(r *audit_api.Result) error {
 }
 
 func (m *MetricClient) getResourceRequestCountsByOperation(r *audit_api.Result) error {
-	query := fmt.Sprintf(resourceRequestCountsByOperation, int(m.cfg.GetDuration().Seconds()))
+	lookBack := int(time.Now().Sub(*m.cfg.EndTime).Seconds())
+	if lookBack < 1 {
+		lookBack = 1
+	}
+	query := fmt.Sprintf(resourceRequestCountsByOperation, lookBack)
 
 	val, err := m.query(query)
 	if err != nil {
