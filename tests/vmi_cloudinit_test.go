@@ -72,61 +72,58 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		CheckCloudInitIsoSize     func(vmi *v1.VirtualMachineInstance, source cloudinit.DataSourceType)
 	)
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
+		tests.BeforeTestCleanup()
 
 		// from default virt-launcher flag: do we need to make this configurable in some cases?
 		cloudinit.SetLocalDirectoryOnly("/var/run/kubevirt-ephemeral-disks/cloud-init-data")
-
-		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-			Expect(err).To(BeNil())
-
-			By("Waiting the VirtualMachineInstance start")
-			vmi, ok := obj.(*v1.VirtualMachineInstance)
-			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
-			return vmi
-		}
-
-		VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
-		}
-
 		MountCloudInitNoCloud = tests.MountCloudInitFunc("cidata")
 		MountCloudInitConfigDrive = tests.MountCloudInitFunc("config-2")
-
-		CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-			cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
-			err := console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo su -\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: testData},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		}
-		CheckCloudInitIsoSize = func(vmi *v1.VirtualMachineInstance, source cloudinit.DataSourceType) {
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			path := cloudinit.GetIsoFilePath(source, vmi.Name, vmi.Namespace)
-
-			By(fmt.Sprintf("Checking cloud init ISO at '%s' is 4k-block fs compatible", path))
-			cmdCheck := []string{"stat", "--printf='%s'", path}
-
-			out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
-			Expect(err).NotTo(HaveOccurred())
-			size, err := strconv.Atoi(strings.Trim(out, "'"))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(size % 4096).To(Equal(0))
-		}
 	})
 
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
+	LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+		Expect(err).To(BeNil())
+
+		By("Waiting the VirtualMachineInstance start")
+		vmi, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+		return vmi
+	}
+
+	VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
+		Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
+	}
+
+	CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
+		cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "sudo su -\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: cmdCheck},
+			&expect.BExp{R: testData},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	CheckCloudInitIsoSize = func(vmi *v1.VirtualMachineInstance, source cloudinit.DataSourceType) {
+		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		path := cloudinit.GetIsoFilePath(source, vmi.Name, vmi.Namespace)
+
+		By(fmt.Sprintf("Checking cloud init ISO at '%s' is 4k-block fs compatible", path))
+		cmdCheck := []string{"stat", "--printf='%s'", path}
+
+		out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+		Expect(err).NotTo(HaveOccurred())
+		size, err := strconv.Atoi(strings.Trim(out, "'"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(size % 4096).To(Equal(0))
+	}
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with cloudInitNoCloud userDataBase64 source", func() {

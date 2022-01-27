@@ -506,7 +506,7 @@ var _ = SIGDescribe("Storage", func() {
 		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			var isRunOnKindInfra bool
-			tests.BeforeAll(func() {
+			BeforeEach(func() {
 				isRunOnKindInfra = tests.IsRunningOnKindInfra()
 			})
 
