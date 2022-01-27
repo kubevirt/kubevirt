@@ -25,6 +25,8 @@ import (
 	"path"
 	"reflect"
 
+	"kubevirt.io/api/flavor"
+
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -165,8 +167,8 @@ func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
 }
 
 func flavorApiServiceDefinitions() []*restful.WebService {
-	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineflavors")
-	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterflavors")
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralResourceName)
+	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralResourceName)
 
 	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
 	if err != nil {

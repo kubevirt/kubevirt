@@ -22,4 +22,10 @@ package flavor
 // GroupName is the group name used in this package
 const (
 	GroupName = "flavor.kubevirt.io"
+
+	SingularResourceName = "virtualmachineflavor"
+	PluralResourceName   = SingularResourceName + "s"
+
+	ClusterSingularResourceName = "virtualmachineclusterflavor"
+	ClusterPluralResourceName   = ClusterSingularResourceName + "s"
 )
