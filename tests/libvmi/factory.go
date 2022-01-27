@@ -89,3 +89,16 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts = append(cirrosOpts, opts...)
 	return New(RandName(DefaultVmiName), cirrosOpts...)
 }
+
+// NewAlpine instantiates a new Alpine based VMI configuration
+func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	alpineOpts := []Option{
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		WithResourceMemory("128Mi"),
+		WithRng(),
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
+	}
+	alpineOpts = append(alpineOpts, opts...)
+	return New(RandName(DefaultVmiName), alpineOpts...)
+}

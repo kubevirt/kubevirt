@@ -40,8 +40,6 @@ import (
 	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
-	api2 "kubevirt.io/client-go/api"
-
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -301,7 +299,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Context("VirtualMachineInstance with unsupported interface model", func() {
 				It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
 					// Create a virtual machine with an unsupported interface model
-					customIfVMI := NewRandomVMIWithInvalidNetworkInterface()
+					masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+					masqIface.Model = "gibberish"
+					customIfVMI := libvmi.NewAlpine(
+						libvmi.WithInterface(masqIface),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(customIfVMI)
 					Expect(err).To(HaveOccurred())
 				})
@@ -313,8 +316,15 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
-			e1000VMI := tests.NewRandomVMIWithe1000NetworkInterface()
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(e1000VMI)
+			// Use alpine because cirros dhcp client starts prematurely before link is ready
+			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			masqIface.Model = "e1000"
+			e1000VMI := libvmi.NewAlpine(
+				libvmi.WithInterface(masqIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			e1000VMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
@@ -326,8 +336,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address", func() {
 		It("[test_id:1771]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
+			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			masqIface.MacAddress = "de:ad:00:00:be:af"
+			deadbeafVMI := libvmi.NewAlpine(
+				libvmi.WithInterface(masqIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			deadbeafVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
@@ -338,9 +353,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
 		It("[test_id:1772]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
-			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
+			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			masqIface.MacAddress = "BE-AF-00-00-DE-AD"
+			beafdeadVMI := libvmi.NewAlpine(
+				libvmi.WithInterface(masqIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			beafdeadVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(beafdeadVMI, console.LoginToAlpine)
@@ -351,8 +370,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with invalid MAC address", func() {
 		It("[test_id:700]should failed to start with invalid MAC address", func() {
 			By("Start VMI")
-			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
-			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:00c:00c:00:00:de:abc"
+			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			masqIface.MacAddress = "de:00c:00c:00:00:de:abc"
+			beafdeadVMI := libvmi.NewAlpine(
+				libvmi.WithInterface(masqIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).To(HaveOccurred())
 			testErr := err.(*errors.StatusError)
@@ -363,9 +386,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		It("[test_id:1773]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript, []v1.Port{})
-			deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
+			slirpIface := libvmi.InterfaceDeviceWithSlirpBinding(libvmi.DefaultInterfaceName)
+			slirpIface.MacAddress = "de:ad:00:00:be:af"
+			deadbeafVMI := libvmi.NewAlpine(
+				libvmi.WithInterface(slirpIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			deadbeafVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
@@ -399,13 +426,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1775]should not request a tun device", func() {
 			By("Creating random VirtualMachineInstance")
 			autoAttach := false
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			// Remove the masquerade interface to use the default bridge one
-			vmi.Spec.Domain.Devices.Interfaces = nil
-			vmi.Spec.Networks = nil
+			vmi := libvmi.NewAlpine()
 			vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
 
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			waitUntilVMIReady(vmi, console.LoginToAlpine)
 
@@ -467,11 +491,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
 		It("[test_id:1777]should disable learning on pod iface", func() {
 			By("checking learning flag")
-			learningDisabledVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
-			// Remove the masquerade interface to use the default bridge one
-			learningDisabledVMI.Spec.Domain.Devices.Interfaces = nil
-			learningDisabledVMI.Spec.Networks = nil
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(learningDisabledVMI)
+			learningDisabledVMI := libvmi.NewAlpine()
+			learningDisabledVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(learningDisabledVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
@@ -568,17 +589,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
 		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
-			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			userData := tests.BashHelloScript
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 			net := v1.DefaultPodNetwork()
 			if ipv4NetworkCIDR != "" {
 				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
 			}
-			vmi.Spec.Networks = []v1.Network{*net}
-
-			return vmi
+			return libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+				libvmi.WithNetwork(net),
+			)
 		}
 
 		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
@@ -665,14 +683,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var serverVMI *v1.VirtualMachineInstance
 
 				clientVMI = masqueradeVMI([]v1.Port{}, networkCIDR)
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
+				clientVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
 
 				serverVMI = masqueradeVMI(ports, networkCIDR)
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
+				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToCirros)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
@@ -709,7 +727,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 
 				vmi := masqueradeVMI([]v1.Port{}, "")
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
@@ -919,8 +937,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
 			})
 			It("Should migrate over that network", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				tests.AddUserData(vmi, "cloud-init", tests.BashHelloScript)
+				vmi := libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
@@ -978,7 +998,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Create another VMI")
 				anotherVmi = masqueradeVMI([]v1.Port{}, "")
-				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Create(anotherVmi)
+				anotherVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(anotherVmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
@@ -1038,10 +1058,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with TX offload disabled", func() {
 		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho")
+			vmi := libvmi.NewAlpine()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 			output := tests.RunCommandOnVmiPod(
@@ -1060,13 +1080,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			setBridgeEnabled(true)
 		})
 		It("[test_id:2964]should reject VMIs with bridge interface when it's not permitted on pod network", func() {
-			var t int64 = 0
-			vmi := api2.NewMinimalVMIWithNS(util.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
-			vmi.Spec.TerminationGracePeriodSeconds = &t
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmi.NewCirros()
 
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
 		})
 	})
@@ -1084,14 +1100,6 @@ func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 
 	// Lets make sure that the OS is up by waiting until we can login
 	Expect(loginTo(vmi)).To(Succeed())
-	return vmi
-}
-
-func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
-	// Use alpine because cirros dhcp client starts prematurely before link is ready
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-	tests.AddExplicitPodNetworkInterface(vmi)
-	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"
 	return vmi
 }
 
