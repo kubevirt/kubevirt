@@ -47,14 +47,13 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
 		tests.BeforeTestCleanup()
 	})
 
 	Context("Check virt-launcher securityContext", func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			kv := util.GetCurrentKv(virtClient)
 			kubevirtConfiguration = &kv.Spec.Configuration
 		})
