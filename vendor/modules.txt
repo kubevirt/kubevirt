@@ -82,7 +82,6 @@ github.com/fsnotify/fsnotify
 github.com/ghodss/yaml
 # github.com/go-kit/kit v0.9.0
 ## explicit
-github.com/go-kit/kit/endpoint
 github.com/go-kit/kit/log
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt

@@ -26,6 +26,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/coreos/go-iptables/iptables"
 	lmf "github.com/subgraph/libmacouflage"
@@ -44,7 +49,6 @@ import (
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
 	"kubevirt.io/kubevirt/pkg/network/dns"
 	"kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
 const (
@@ -82,7 +86,7 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(proto iptables.Protocol) error
 	GetNFTIPString(proto iptables.Protocol) string
-	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
+	CreateTapDevice(tapName string, queueNumber uint32, mtu int, tapOwner string) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
 }
@@ -385,31 +389,66 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 	return nil
 }
 
-func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
-	tapDeviceSELinuxCmdExecutor, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID, mtu, tapOwner)
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, mtu int, tapOwner string) error {
+	owner, err := strconv.ParseUint(tapOwner, 10, 64)
 	if err != nil {
 		return err
 	}
-	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
-		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
+	return createTapDevice(tapName, uint(owner), uint(owner), int(queueNumber), mtu)
+}
+
+func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu int) error {
+	tapDevice := &netlink.Tuntap{
+		LinkAttrs:  netlink.LinkAttrs{Name: name},
+		Mode:       unix.IFF_TAP,
+		NonPersist: false,
+		Queues:     queueNumber,
+		Owner:      uint32(owner),
+		Group:      uint32(group),
 	}
 
-	log.Log.Infof("Created tap device: %s in PID: %d", tapName, launcherPID)
+	// when netlink receives a request for a tap device with 1 queue, it uses
+	// the MULTI_QUEUE flag, which differs from libvirt; as such, we need to
+	// manually request the single queue flags, enabling libvirt to consume
+	// the tap device.
+	// See https://github.com/vishvananda/netlink/issues/574
+	if queueNumber == 1 {
+		tapDevice.Flags = netlink.TUNTAP_DEFAULTS
+	}
+
+	// Device creation is retried due to https://bugzilla.redhat.com/1933627
+	// which has been observed on multiple occasions on CI runs.
+	const retryAttempts = 5
+	attempt, err := retry(retryAttempts, func() error {
+		return netlink.LinkAdd(tapDevice)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create tap device named %s. Reason: %v", name, err)
+	}
+
+	if err := netlink.LinkSetMTU(tapDevice, mtu); err != nil {
+		return fmt.Errorf("failed to set MTU on tap device named %s. Reason: %v", name, err)
+	}
+
+	log.Log.V(6).Infof("successfully created tap device %s, attempt %d", name, attempt)
 	return nil
 }
 
-func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int, tapOwner string) (*selinux.ContextExecutor, error) {
-	createTapDeviceArgs := []string{
-		"create-tap",
-		"--tap-name", tapName,
-		"--uid", tapOwner,
-		"--gid", tapOwner,
-		"--queue-number", fmt.Sprintf("%d", queueNumber),
-		"--mtu", fmt.Sprintf("%d", mtu),
+func retry(retryAttempts uint, f func() error) (uint, error) {
+	var errorsString []string
+	for attemptID := uint(0); attemptID < retryAttempts; attemptID++ {
+		if err := f(); err != nil {
+			errorsString = append(errorsString, fmt.Sprintf("[%d]: %v", attemptID, err))
+			time.Sleep(time.Second)
+		} else {
+			if len(errorsString) > 0 {
+				log.Log.Warningf("warning: Tap device creation has been retried: %v", strings.Join(errorsString, "\n"))
+			}
+			return attemptID, nil
+		}
 	}
-	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
-	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
-	return selinux.NewContextExecutor(virtLauncherPID, cmd)
+
+	return retryAttempts, fmt.Errorf(strings.Join(errorsString, "\n"))
 }
 
 func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {

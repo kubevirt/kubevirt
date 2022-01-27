@@ -116,7 +116,7 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		tapOwner = strconv.Itoa(util.NonRootUID)
 	}
 	tapDeviceName := virtnetlink.GenerateTapDeviceName(b.podNicLink.Attrs().Name)
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, b.vmi)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.podNicLink.Attrs().MTU, tapOwner, b.vmi)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
