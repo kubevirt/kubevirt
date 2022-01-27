@@ -43,7 +43,7 @@ var _ = Describe("netstat", func() {
 		Expect(setup.NetStat.UpdateStatus(setup.Vmi, nil)).To(Succeed())
 	})
 
-	It("volatile cache is updated based on non-volotile cache", func() {
+	It("volatile cache is updated based on non-volatile cache", func() {
 		const (
 			primaryNetworkName = "primary"
 			primaryPodIPv4     = "1.1.1.1"
