@@ -24,11 +24,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"reflect"
 	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -194,7 +194,7 @@ func skipNode(node *v1.Node) bool {
 
 func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 	p := make([]utiltype.PatchOperation, 0)
-	if !reflect.DeepEqual(originalNode.Labels, node.Labels) {
+	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
 		p = append(p, utiltype.PatchOperation{
 			Op:    "test",
 			Path:  "/metadata/labels",
@@ -206,7 +206,7 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 		})
 	}
 
-	if !reflect.DeepEqual(originalNode.Annotations, node.Annotations) {
+	if !equality.Semantic.DeepEqual(originalNode.Annotations, node.Annotations) {
 		p = append(p, utiltype.PatchOperation{
 			Op:    "test",
 			Path:  "/metadata/annotations",

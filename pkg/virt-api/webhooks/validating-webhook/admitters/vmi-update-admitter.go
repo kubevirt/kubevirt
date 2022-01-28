@@ -21,9 +21,9 @@ package admitters
 
 import (
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -50,7 +50,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	}
 
 	// Reject VMI update if VMI spec changed
-	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
+	if !equality.Semantic.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
 		if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 			hotplugResponse := admitHotplug(newVMI.Spec.Volumes, oldVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus, newVMI, admitter.ClusterConfig)
@@ -116,7 +116,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 	for k, v := range newHotplugVolumeMap {
 		if _, ok := oldHotplugVolumeMap[k]; ok {
 			// New and old have same volume, ensure they are the same
-			if !reflect.DeepEqual(v, oldHotplugVolumeMap[k]) {
+			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -132,7 +132,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					},
 				})
 			}
-			if !reflect.DeepEqual(newDisks[k], oldDisks[k]) {
+			if !equality.Semantic.DeepEqual(newDisks[k], oldDisks[k]) {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -196,7 +196,7 @@ func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[str
 				},
 			})
 		}
-		if !reflect.DeepEqual(v, oldPermanentVolumeMap[k]) {
+		if !equality.Semantic.DeepEqual(v, oldPermanentVolumeMap[k]) {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -204,7 +204,7 @@ func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[str
 				},
 			})
 		}
-		if !reflect.DeepEqual(newDisks[k], oldDisks[k]) {
+		if !equality.Semantic.DeepEqual(newDisks[k], oldDisks[k]) {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -270,7 +270,7 @@ func admitVMILabelsUpdate(
 	oldLabels := filterKubevirtLabels(oldVMI.ObjectMeta.Labels)
 	newLabels := filterKubevirtLabels(newVMI.ObjectMeta.Labels)
 
-	if !reflect.DeepEqual(oldLabels, newLabels) {
+	if !equality.Semantic.DeepEqual(oldLabels, newLabels) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,

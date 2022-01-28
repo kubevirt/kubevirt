@@ -22,13 +22,13 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -348,7 +348,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.ReadyToUse = &ready
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
-	if !reflect.DeepEqual(content, contentCpy) {
+	if !equality.Semantic.DeepEqual(content, contentCpy) {
 		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
 			return 0, err
 		}
@@ -662,7 +662,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
 
-	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
+	if !equality.Semantic.DeepEqual(vmSnapshot, vmSnapshotCpy) {
 		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}

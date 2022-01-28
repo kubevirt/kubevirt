@@ -26,7 +26,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -2849,7 +2849,7 @@ var _ = Describe("Converter", func() {
 				{IOThread: 5, CPUSet: "17,18"},
 				{IOThread: 6, CPUSet: "19,20"},
 			}
-			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
+			isExpectedThreadsLayout := equality.Semantic.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
 
 		})
@@ -2882,7 +2882,7 @@ var _ = Describe("Converter", func() {
 				{IOThread: 5, CPUSet: "6"},
 				{IOThread: 6, CPUSet: "5"},
 			}
-			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
+			isExpectedThreadsLayout := equality.Semantic.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
 		})
 	})

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +18,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -170,7 +170,7 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 	defer m.mountRecordsLock.Unlock()
 
 	existingRecord, ok := m.mountRecords[vmi.UID]
-	if ok && fileExists && reflect.DeepEqual(existingRecord, record) {
+	if ok && fileExists && equality.Semantic.DeepEqual(existingRecord, record) {
 		// already done
 		return nil
 	}

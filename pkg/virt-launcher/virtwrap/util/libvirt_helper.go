@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -19,6 +18,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
@@ -202,7 +202,7 @@ func GetDomainSpec(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSp
 		}
 	}
 
-	if !reflect.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
+	if !equality.Semantic.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
 		// Metadata is updated on offline config only. As a result,
 		// We have to merge updates to metadata into the domain spec.
 		metadata := &inactiveSpec.Metadata

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -35,6 +34,7 @@ import (
 
 	api2 "kubevirt.io/client-go/api"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -118,7 +118,7 @@ var _ = Describe("Notify", func() {
 					newDomain, ok := event.Object.(*api.Domain)
 					newDomain.Spec.XMLName = xml.Name{}
 					Expect(ok).To(BeTrue(), "should typecase domain")
-					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
 					Expect(event.Type).To(Equal(kubeEventType))
 				}
 				Expect(timedOut).To(BeFalse(), "should not time out")
@@ -194,7 +194,7 @@ var _ = Describe("Notify", func() {
 					newDomain, _ := event.Object.(*api.Domain)
 					newInterfaceStatuses := newDomain.Status.Interfaces
 					Expect(len(newInterfaceStatuses)).To(Equal(2))
-					Expect(reflect.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
 			})
@@ -226,7 +226,7 @@ var _ = Describe("Notify", func() {
 				case event := <-eventChan:
 					newDomain, _ := event.Object.(*api.Domain)
 					newOSStatus := newDomain.Status.OSInfo
-					Expect(reflect.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
 			})
@@ -258,7 +258,7 @@ var _ = Describe("Notify", func() {
 				case event := <-eventChan:
 					newDomain, _ := event.Object.(*api.Domain)
 					newFSFreezeStatus := newDomain.Status.FSFreezeStatus
-					Expect(reflect.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
 			})
