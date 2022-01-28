@@ -157,23 +157,14 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-// updatePermittedHostDevicePlugins will return a map of device plugins for permitted devices which are present on the node
-// and a map of restricted devices that should be removed
-func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Device, map[string]struct{}) {
-	devicePluginsToRun := make(map[string]Device)
-	devicePluginsToStop := make(map[string]struct{})
-	// generate a map of currently started device plugins
-	for resourceName := range c.startedPlugins {
-		_, isPermanent := c.permanentPlugins[resourceName]
-		if !isPermanent {
-			devicePluginsToStop[resourceName] = struct{}{}
-		}
-	}
+// updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
+func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	hostDevs := c.virtConfig.GetPermittedHostDevices()
 	if hostDevs == nil {
-		return devicePluginsToRun, devicePluginsToStop
+		return nil
 	}
 
+	var permittedDevices []Device
 	if len(hostDevs.PciHostDevices) != 0 {
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range hostDevs.PciHostDevices {
@@ -186,15 +177,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Device
 				supportedPCIDeviceMap[strings.ToLower(pciDev.PCIVendorSelector)] = pciDev.ResourceName
 			}
 		}
-		pciHostDevicesPerResourceName := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-		for pciResourceName, pciDevices := range pciHostDevicesPerResourceName {
+		for pciResourceName, pciDevices := range discoverPermittedHostPCIDevices(supportedPCIDeviceMap) {
 			log.Log.V(4).Infof("Discovered PCIs %d devices on the node for the resource: %s", len(pciDevices), pciResourceName)
 			// add a device plugin only for new devices
-			if _, isRunning := c.startedPlugins[pciResourceName]; !isRunning {
-				devicePluginsToRun[pciResourceName] = NewPCIDevicePlugin(pciDevices, pciResourceName)
-			} else {
-				delete(devicePluginsToStop, pciResourceName)
-			}
+			permittedDevices = append(permittedDevices, NewPCIDevicePlugin(pciDevices, pciResourceName))
 		}
 	}
 	if len(hostDevs.MediatedDevices) != 0 {
@@ -209,21 +195,15 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Device
 				supportedMdevsMap[selector] = supportedMdev.ResourceName
 			}
 		}
-
-		hostMdevs := discoverPermittedHostMediatedDevices(supportedMdevsMap)
-		for mdevTypeName, mdevUUIDs := range hostMdevs {
+		for mdevTypeName, mdevUUIDs := range discoverPermittedHostMediatedDevices(supportedMdevsMap) {
 			mdevResourceName := supportedMdevsMap[mdevTypeName]
 			log.Log.V(4).Infof("Discovered mediated device on the node, type: %s, resourceName: %s", mdevTypeName, mdevResourceName)
-			// add a device plugin only for new devices
-			if _, isRunning := c.startedPlugins[mdevResourceName]; !isRunning {
-				devicePluginsToRun[mdevResourceName] = NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName)
-			} else {
-				delete(devicePluginsToStop, mdevResourceName)
-			}
+
+			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
 		}
 	}
 
-	return devicePluginsToRun, devicePluginsToStop
+	return permittedDevices
 }
 
 func removeSelectorSpaces(selectorName string) string {
@@ -233,6 +213,29 @@ func removeSelectorSpaces(selectorName string) string {
 	typeNameStr = strings.TrimSpace(typeNameStr)
 	return typeNameStr
 
+}
+
+func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {
+	devicePluginsToRun := make(map[string]Device)
+	devicePluginsToStop := make(map[string]struct{})
+
+	// generate a map of currently started device plugins
+	for resourceName := range c.startedPlugins {
+		_, isPermanent := c.permanentPlugins[resourceName]
+		if !isPermanent {
+			devicePluginsToStop[resourceName] = struct{}{}
+		}
+	}
+
+	for _, device := range devices {
+		if _, isRunning := c.startedPlugins[device.GetDeviceName()]; !isRunning {
+			devicePluginsToRun[device.GetDeviceName()] = device
+		} else {
+			delete(devicePluginsToStop, device.GetDeviceName())
+		}
+	}
+
+	return devicePluginsToRun, devicePluginsToStop
 }
 
 func (c *DeviceController) RefreshMediatedDevicesTypes() {
@@ -271,7 +274,9 @@ func (c *DeviceController) refreshPermittedDevices() {
 	c.startedPluginsMutex.Lock()
 	defer c.startedPluginsMutex.Unlock()
 
-	enabledDevicePlugins, disabledDevicePlugins := c.updatePermittedHostDevicePlugins()
+	enabledDevicePlugins, disabledDevicePlugins := c.splitPermittedDevices(
+		c.updatePermittedHostDevicePlugins(),
+	)
 
 	// start device plugin for newly permitted devices
 	for resourceName, dev := range enabledDevicePlugins {

@@ -60,7 +60,6 @@ type MediatedDevicePlugin struct {
 	stop           <-chan struct{}
 	health         chan deviceHealth
 	devicePath     string
-	deviceName     string
 	resourceName   string
 	done           chan struct{}
 	deviceRoot     string
@@ -83,7 +82,6 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 		devs:           devs,
 		socketPath:     serverSock,
 		health:         make(chan deviceHealth),
-		deviceName:     resourceName,
 		resourceName:   resourceName,
 		devicePath:     vfioDevicePath,
 		deviceRoot:     util.HostRootMount,
@@ -157,7 +155,7 @@ func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	}()
 
 	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.deviceName)
+	logger.Infof("%s device plugin started", dpi.resourceName)
 	err = <-errChan
 
 	return err
@@ -168,14 +166,13 @@ func (dpi *MediatedDevicePlugin) GetDevicePath() string {
 }
 
 func (dpi *MediatedDevicePlugin) GetDeviceName() string {
-	return dpi.deviceName
+	return dpi.resourceName
 }
 
 func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	resourceName := dpi.deviceName
-	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.deviceName)
+	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
-	resourceNameEnvVar := util.ResourceNameToEnvVar(MDEV_RESOURCE_PREFIX, resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(MDEV_RESOURCE_PREFIX, dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: resourceNameEnvVar: %s", resourceNameEnvVar)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
@@ -203,7 +200,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 		log.DefaultLogger().Infof("Allocate: Devices: %v", deviceSpecs)
 		resp.ContainerResponses = append(resp.ContainerResponses, containerResponse)
 		if len(deviceSpecs) == 0 {
-			return resp, fmt.Errorf("failed to allocate resource for resourceName: %s", resourceName)
+			return resp, fmt.Errorf("failed to allocate resource for resourceName: %s", dpi.resourceName)
 		}
 	}
 	return resp, nil
@@ -283,7 +280,7 @@ func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.De
 	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
 	// There exists no explicit way to deregister devices
 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
+		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
 	}
 	close(dpi.deregistered)
 	return nil
@@ -410,20 +407,20 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 			if monDevId, exist := monitoredDevices[event.Name]; exist {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.deviceName)
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Healthy,
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.deviceName)
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
 					}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
 		}

@@ -152,7 +152,9 @@ pciHostDevices:
 		Expect(len(permittedDevices.PciHostDevices)).To(Equal(1), "the fake device was not found")
 
 		By("ensuring a device plugin gets created for our fake device")
-		enabledDevicePlugins, disabledDevicePlugins := deviceController.updatePermittedHostDevicePlugins()
+		enabledDevicePlugins, disabledDevicePlugins := deviceController.splitPermittedDevices(
+			deviceController.updatePermittedHostDevicePlugins(),
+		)
 		Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
 		Expect(len(disabledDevicePlugins)).To(Equal(0))
 		Ω(enabledDevicePlugins).Should(HaveKey(fakeName))
@@ -167,7 +169,9 @@ pciHostDevices:
 		Expect(len(permittedDevices.PciHostDevices)).To(Equal(0), "the fake device was not deleted")
 
 		By("ensuring the device plugin gets stopped")
-		enabledDevicePlugins, disabledDevicePlugins = deviceController.updatePermittedHostDevicePlugins()
+		enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
+			deviceController.updatePermittedHostDevicePlugins(),
+		)
 		Expect(len(enabledDevicePlugins)).To(Equal(0))
 		Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))

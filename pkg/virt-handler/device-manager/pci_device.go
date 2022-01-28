@@ -60,7 +60,6 @@ type PCIDevicePlugin struct {
 	stop          <-chan struct{}
 	health        chan deviceHealth
 	devicePath    string
-	deviceName    string
 	resourceName  string
 	done          chan struct{}
 	deviceRoot    string
@@ -80,7 +79,6 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	dpi := &PCIDevicePlugin{
 		devs:          devs,
 		socketPath:    serverSock,
-		deviceName:    resourceName,
 		resourceName:  resourceName,
 		devicePath:    vfioDevicePath,
 		deviceRoot:    util.HostRootMount,
@@ -154,7 +152,7 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	}()
 
 	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.deviceName)
+	logger.Infof("%s device plugin started", dpi.resourceName)
 	err = <-errChan
 
 	return err
@@ -191,15 +189,14 @@ func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DeviceP
 	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
 	// There exists no explicit way to deregister devices
 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
+		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
 	}
 	close(dpi.deregistered)
 	return nil
 }
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	resourceName := dpi.deviceName
-	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
@@ -283,20 +280,20 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 			if monDevId, exist := monitoredDevices[event.Name]; exist {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.deviceName)
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Healthy,
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.deviceName)
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
 					}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
 		}
@@ -308,7 +305,7 @@ func (dpi *PCIDevicePlugin) GetDevicePath() string {
 }
 
 func (dpi *PCIDevicePlugin) GetDeviceName() string {
-	return dpi.deviceName
+	return dpi.resourceName
 }
 
 // Stop stops the gRPC server
