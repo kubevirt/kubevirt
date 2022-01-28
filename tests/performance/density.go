@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+var PrometheusScrapeInterval = time.Duration(30 * time.Second)
 var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
 		err        error
@@ -56,16 +57,15 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		util.PanicOnError(err)
 
 		if !primed {
-			primerStartTime := time.Now()
 			By("Create primer VMI")
 			createBatchVMIWithRateControl(virtClient, 1)
 
 			By("Waiting for primer VMI to be Running")
 			waitRunningVMI(virtClient, 1, 1*time.Minute)
 
-			time.Sleep(30 * time.Second)
-			primerEndTime := time.Now()
-			runAudit(primerStartTime, primerEndTime)
+			// Leave a two scrape buffer between tests
+			time.Sleep(2 * PrometheusScrapeInterval)
+
 			primed = true
 		}
 
@@ -75,9 +75,12 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 
 	AfterEach(func() {
 		// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s
-		time.Sleep(30 * time.Second)
+		time.Sleep(PrometheusScrapeInterval)
 		endTime = time.Now()
 		runAudit(startTime, endTime)
+
+		// Leave two Prometheus scrapes of time between tests.
+		time.Sleep(2 * PrometheusScrapeInterval)
 	})
 
 	Describe("Density test", func() {
@@ -100,10 +103,11 @@ func runAudit(startTime time.Time, endTime time.Time) {
 	prometheusPort := 30007
 	duration := audit_api.Duration(endTime.Sub(startTime))
 	inputCfg := &audit_api.InputConfig{
-		PrometheusURL: fmt.Sprintf("http://127.0.0.1:%v", prometheusPort),
-		StartTime:     &startTime,
-		EndTime:       &endTime,
-		Duration:      &duration,
+		PrometheusURL:            fmt.Sprintf("http://127.0.0.1:%v", prometheusPort),
+		StartTime:                &startTime,
+		EndTime:                  &endTime,
+		Duration:                 &duration,
+		PrometheusScrapeInterval: PrometheusScrapeInterval,
 	}
 
 	metricClient, err := metric_client.NewMetricClient(inputCfg)
