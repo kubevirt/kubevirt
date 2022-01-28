@@ -1,6 +1,6 @@
 package main
 
-// This tool maintain the deploy/images.csv and the deploy/images.env files, to be used to generate the HCO CSV
+// This tool maintains the deploy/images.csv and the deploy/images.env files, to be used to generate the HCO CSV
 // the csv (comma separated) file structure is:
 // - environment variable name, to be place in the env file
 // - name - the image name with no tag or digest
@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	docker "github.com/docker/docker/client"
+	"github.com/containers/image/v5/docker"
 )
 
 const (
@@ -96,21 +96,18 @@ func init() {
 	}
 }
 func main() {
-	cli, err := docker.NewEnvClient()
-	exitOnError(err, "can't create docker client")
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
 	// Single image use-case
 	if singleImageMode {
-		querySingleImage(ctx, imageToDigest, cli, digestOnly)
+		querySingleImage(ctx, imageToDigest, digestOnly)
 	} else {
-		updateImages(ctx, cli)
+		updateImages(ctx)
 	}
 }
 
-func updateImages(ctx context.Context, cli *docker.Client) {
+func updateImages(ctx context.Context) {
 	fmt.Println("Checking image digests")
 	err, images := getCurrentImageList()
 
@@ -126,7 +123,7 @@ func updateImages(ctx context.Context, cli *docker.Client) {
 
 	start := time.Now()
 	for i, image := range images[1:] {
-		go readOneDigest(ctx, cli, image, i+1, wg, ch)
+		go readOneDigest(ctx, image, i+1, wg, ch)
 	}
 
 	changed := checkForChanges(ch, images)
@@ -176,27 +173,32 @@ func getCurrentImageList() (error, []*Image) {
 	return err, images
 }
 
-func querySingleImage(ctx context.Context, imageToDigest string, cli *docker.Client, digestOnly bool) {
+func querySingleImage(ctx context.Context, imageToDigest string, digestOnly bool) {
 	if strings.Contains(imageToDigest, digestPrefix) {
 		fmt.Printf("%s is already in a digest format\n", imageToDigest)
 		os.Exit(1)
 	}
-	inspect, err := cli.DistributionInspect(ctx, imageToDigest, "")
+
+	imgRef, err := docker.ParseReference("//" + imageToDigest)
+	exitOnError(err, "failed to parse container reference")
+
+	digest, err := docker.GetDigest(ctx, nil, imgRef)
+	exitOnError(err, "failed to get digest from image")
+
 	if err != nil {
 		fmt.Printf("Error while trying to get digest for %s; %s\n", imageToDigest, err)
 		os.Exit(1)
 	}
 
-	digest := inspect.Descriptor.Digest.Hex()
 	if digestOnly {
 		fmt.Println(digest)
 	} else {
 		loc := strings.LastIndex(imageToDigest, ":")
 		var imageName string
 		if loc == -1 {
-			imageName = buildImageDigestName(imageToDigest, digest)
+			imageName = buildImageDigestName(imageToDigest, digest.Hex())
 		} else {
-			imageName = buildImageDigestName(imageToDigest[:loc], digest)
+			imageName = buildImageDigestName(imageToDigest[:loc], digest.Hex())
 		}
 
 		fmt.Println(imageName)
@@ -265,14 +267,17 @@ func exitOnError(err error, msg string, fmtParams ...interface{}) {
 	}
 }
 
-func readOneDigest(ctx context.Context, cli *docker.Client, image *Image, index int, wg *sync.WaitGroup, ch chan message) {
-	fullName := fmt.Sprintf("%s:%s", image.Name, os.Getenv(image.Tag))
+func readOneDigest(ctx context.Context, image *Image, index int, wg *sync.WaitGroup, ch chan message) {
+	fullName := fmt.Sprintf("//%s:%s", image.Name, os.Getenv(image.Tag))
 	fmt.Println("Reading digest for", fullName)
-	inspect, err := cli.DistributionInspect(ctx, fullName, "")
-	exitOnError(err, "Error while trying to get digest for %s", fullName)
 
-	digest := inspect.Descriptor.Digest.Hex()
-	ch <- message{index: index, digest: digest, fullName: fullName}
+	imgRef, err := docker.ParseReference(fullName)
+	exitOnError(err, "failed to parse container reference")
+
+	digest, err := docker.GetDigest(ctx, nil, imgRef)
+	exitOnError(err, "failed to get digest from image")
+
+	ch <- message{index: index, digest: digest.Hex(), fullName: fullName}
 	wg.Done()
 }
 
