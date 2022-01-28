@@ -124,10 +124,14 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 
 	// Ensure all virt-handlers are ready
 	Eventually(func() bool {
-		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+		newVirtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+		if len(newVirtHandlerPods.Items) != len(virtHandlerPods.Items) {
+			return false
+		}
 		Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
-		for _, pod := range virtHandlerPods.Items {
-			if pod.Status.Phase != k8sv1.PodRunning {
+		for _, pod := range newVirtHandlerPods.Items {
+			podReady := PodReady(&pod)
+			if podReady != k8sv1.ConditionTrue {
 				return false
 			}
 		}
