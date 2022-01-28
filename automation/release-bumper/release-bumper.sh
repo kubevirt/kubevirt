@@ -132,7 +132,9 @@ function get_updated_versions {
 function get_latest_release() {
   repo="${COMPONENTS_REPOS[$1]}"
   current_version="${CURRENT_VERSIONS[$1]}"
-  short_current=${current_version%.*}
+
+  major=$(echo $current_version | cut -d. -f1)
+  minor=$(echo $current_version | cut -d. -f2)
 
   RELEASES=$(curl -s -L "https://api.github.com/repos/$repo/releases" | jq -r '.[].tag_name')
   releases=(${RELEASES})
@@ -141,11 +143,13 @@ function get_latest_release() {
 
   for (( i=${#KEYS_ARR[@]}-1 ; i >= 0 ; i-- )) ; do
     release=${releases[${KEYS_ARR[$i]}]}
-    short_release=${release%.*}
+
+    new_major=$(echo $release | cut -d. -f1)
+    new_minor=$(echo $release | cut -d. -f2)
 
     if [ "$UPDATE_TYPE" = "all" ]; then
       break;
-    elif [ "$UPDATE_TYPE" = "z_release" ] && [ "$short_current" = "$short_release" ]; then
+    elif [ "$UPDATE_TYPE" = "z_release" ] && [ "$major" = "$new_major" ] && [ "$minor" = "$new_minor" ]; then
       break;
     fi
   done
