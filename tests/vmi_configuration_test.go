@@ -41,7 +41,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -1909,15 +1911,26 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", func() {
+		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
 			// create a new PV and PVC (PVs can't be reused)
-			tests.CreateBlockVolumePvAndPvc("1Gi")
+			dataVolume = tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 		}, 60)
+
+		AfterEach(func() {
+			err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
 			vmi := tests.NewRandomVMI()
@@ -1976,7 +1989,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 
 			// disk[1]:  Block, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
+			tests.AddPVCDisk(vmi, "block-pvc", "virtio", dataVolume.Name)
 
 			// disk[2]: File, not-sparsed, no user-input, cache=none
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
@@ -2027,11 +2040,16 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", func() {
+		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", func() {
 			By("creating a block volume")
-			tests.CreateBlockVolumePvAndPvc("1Gi")
+			dataVolume := tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
-			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+
+			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 			By("setting the disk to use custom block sizes")
 			logicalSize := uint(16384)
@@ -2059,11 +2077,16 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", func() {
+		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", func() {
 			By("creating a block volume")
-			tests.CreateBlockVolumePvAndPvc("1Gi")
+			dataVolume := tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
-			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+
+			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
