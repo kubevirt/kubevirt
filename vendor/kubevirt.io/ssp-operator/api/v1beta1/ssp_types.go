@@ -73,7 +73,7 @@ type DataImportCronTemplate struct {
 }
 
 // AsDataImportCron converts the DataImportCronTemplate to a cdiv1beta1.DataImportCron
-func (t DataImportCronTemplate) AsDataImportCron() cdiv1beta1.DataImportCron {
+func (t *DataImportCronTemplate) AsDataImportCron() cdiv1beta1.DataImportCron {
 	return cdiv1beta1.DataImportCron{
 		ObjectMeta: t.ObjectMeta,
 		Spec:       t.Spec,
