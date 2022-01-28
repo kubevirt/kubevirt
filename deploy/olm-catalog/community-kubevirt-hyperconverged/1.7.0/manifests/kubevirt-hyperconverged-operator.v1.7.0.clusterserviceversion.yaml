@@ -4,12 +4,12 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-example"},"spec":{"nodeName":"node02","reason":"Test
-      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}}]'
+      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":"ReadWriteOnce","resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}}]'
     capabilities: Deep Insights
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
-    createdAt: "2022-01-28 05:13:12"
+    createdAt: "2022-01-28 13:37:15"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2206,7 +2206,7 @@ spec:
                 - name: NMO_VERSION
                   value: v0.10.0
                 - name: HPPO_VERSION
-                  value: v0.12.0
+                  value: v0.12.1
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -2744,25 +2744,25 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner-operator:latest
+                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:4b1a5fdcb41ae0ae9360374ae9f9830441f60d0c088beb02c614dc26315ae194
                 - name: PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner:latest
+                  value: quay.io/kubevirt/hostpath-provisioner@sha256:4cb822e4bf8f4a60fc93a6b86321bf4bb595408f5e6efb3ee8a00f2c5be126fe
                 - name: CSI_PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-csi-driver:latest
+                  value: quay.io/kubevirt/hostpath-csi-driver@sha256:c4c57725f677e0413e5b2c1b1e8e2dd473dd7f1d88cdaf76106708056ef3a78d
                 - name: NODE_DRIVER_REG_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
+                  value: k8s.gcr.io/sig-storage/csi-node-driver-registrar@sha256:2dee3fe5fe861bb66c3a4ac51114f3447a4cd35870e0f2e2b558c7a400d89589
                 - name: LIVENESS_PROBE_IMAGE
-                  value: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
+                  value: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
                 - name: CSI_SNAPSHOT_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-snapshotter:v4.2.1
+                  value: k8s.gcr.io/sig-storage/csi-snapshotter@sha256:818f35653f2e214db81d655063e81995de9073328a3430498624c140881026a3
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1
+                  value: k8s.gcr.io/sig-storage/csi-provisioner@sha256:4e74c0492bceddc598de1c90cc5bc14dcda94cb49fa9c5bad9d117c4834b5e08
                 - name: VERBOSITY
-                  value: "3"
+                  value: "1"
                 - name: MONITORING_NAMESPACE
                 - name: PRIORITY_CLASS
                   value: kubevirt-cluster-critical
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:cf85c4baf3fa1f9c5f209ef2cd53abd4393d7d49a00f412103f68345d7ac7091
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:4b1a5fdcb41ae0ae9360374ae9f9830441f60d0c088beb02c614dc26315ae194
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -3173,7 +3173,7 @@ spec:
     name: hostpath-csi-driver
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:4cb822e4bf8f4a60fc93a6b86321bf4bb595408f5e6efb3ee8a00f2c5be126fe
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:cf85c4baf3fa1f9c5f209ef2cd53abd4393d7d49a00f412103f68345d7ac7091
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:4b1a5fdcb41ae0ae9360374ae9f9830441f60d0c088beb02c614dc26315ae194
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
     name: hyperconverged-cluster-operator
