@@ -64,6 +64,18 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 		testPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), testPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(ThisPod(testPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+		Eventually(func() bool {
+			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, node := range nodes.Items {
+				for key, amount := range node.Status.Capacity {
+					if strings.HasPrefix(string(key), "nvidia.com/") && !amount.IsZero() {
+						return true
+					}
+				}
+			}
+			return false
+		}, 60).Should(BeFalse(), "wait for the kubelet to stop promoting unconfigured devices")
 	}
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
