@@ -345,15 +345,21 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		)
 	})
 
-	Describe("[Serial][rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
+	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
+
+		var testUser string
+
 		BeforeEach(func() {
+			// Generate unique usernames based on the test namespace which is unique per ginkgo node
+			testUser = "testuser-" + util.NamespaceTestDefault
 			tests.SkipIfNoCmd("oc")
 			if !tests.IsOpenShift() {
 				Skip("Skip tests which require an openshift managed test user if not running on openshift")
 			}
+			By("Ensuring the cluster has new test user")
+			stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
+			Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 		})
-
-		const testUser = "testuser"
 
 		testAction := func(resource, verb string, right string) {
 			// AS A TEST USER
@@ -372,11 +378,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("should fail without admin rights for the project", func() {
 			BeforeEach(func() {
-				By("Ensuring the cluster has new test user")
-				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 			})
 
@@ -412,13 +414,9 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("should succeed with admin rights for the project", func() {
 			BeforeEach(func() {
-				By("Ensuring the cluster has new test user")
-				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
 				By("Ensuring user has the admin rights for the test namespace project")
 				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
 				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
