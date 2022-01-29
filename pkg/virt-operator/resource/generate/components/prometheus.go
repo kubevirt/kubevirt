@@ -85,7 +85,10 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 		return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
 	}
-
+	getErrorRatio := func(ns string, podName string, errorCodeRegex string, durationInMinutes int) string {
+		errorRatioQuery := "sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  /  sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
+		return fmt.Sprintf(errorRatioQuery, ns, podName, errorCodeRegex, durationInMinutes, ns, podName, durationInMinutes)
+	}
 	ruleSpec := &v1.PrometheusRuleSpec{
 		Groups: []v1.RuleGroup{
 			{
@@ -203,32 +206,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-controller", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-controller", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
 						Alert: "VirtControllerRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-controller", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-controller", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsHigh",
@@ -239,7 +218,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "VirtControllerRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-controller", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(80, "virt-controller", durationFiveMinutes),
@@ -280,32 +259,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-operator", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-operator", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
 						Alert: "VirtOperatorRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_hour / vec_by_virt_operators_all_client_rest_requests_in_last_hour) >= 0.05"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-operator", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-operator", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsHigh",
@@ -316,7 +271,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "VirtOperatorRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_5m / vec_by_virt_operators_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-operator", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(80, "virt-operator", durationFiveMinutes),
@@ -394,32 +349,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-handler", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-handler", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
 						Alert: "VirtHandlerRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-handler", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-handler", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsHigh",
@@ -430,7 +361,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "VirtHandlerRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-handler", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(80, "virt-handler", durationFiveMinutes),
@@ -441,32 +372,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						},
 					},
 					{
-						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns, "")),
-						),
-					},
-					{
-						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							generateValueDifferenceInFiveMinutesQuery(generateAllPodRequestsQuery("virt-api", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
-						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							generateValueDifferenceInHourQuery(generateAllPodRequestsQuery("virt-api", ns, "(4|5)[0-9][0-9]")),
-						),
-					},
-					{
 						Alert: "VirtApiRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_hour / vec_by_virt_apis_all_client_rest_requests_in_last_hour) >= 0.05"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
 						},
@@ -476,7 +383,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "VirtApiRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_5m / vec_by_virt_apis_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
