@@ -6,7 +6,7 @@ package virtwrap
 import (
 	gomock "github.com/golang/mock/gomock"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmd_client "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -65,14 +65,14 @@ func (_mr *_MockDomainManagerRecorder) UnpauseVMI(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVMI", arg0)
 }
 
-func (_m *MockDomainManager) FreezeVMI(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "FreezeVMI", _param0)
+func (_m *MockDomainManager) FreezeVMI(_param0 *v1.VirtualMachineInstance, _param1 int32) error {
+	ret := _m.ctrl.Call(_m, "FreezeVMI", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockDomainManagerRecorder) FreezeVMI(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVMI", arg0)
+func (_mr *_MockDomainManagerRecorder) FreezeVMI(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVMI", arg0, arg1)
 }
 
 func (_m *MockDomainManager) UnfreezeVMI(_param0 *v1.VirtualMachineInstance) error {
@@ -83,6 +83,16 @@ func (_m *MockDomainManager) UnfreezeVMI(_param0 *v1.VirtualMachineInstance) err
 
 func (_mr *_MockDomainManagerRecorder) UnfreezeVMI(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVMI", arg0)
+}
+
+func (_m *MockDomainManager) SoftRebootVMI(_param0 *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SoftRebootVMI", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) SoftRebootVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftRebootVMI", arg0)
 }
 
 func (_m *MockDomainManager) KillVMI(_param0 *v1.VirtualMachineInstance) error {
@@ -218,6 +228,16 @@ func (_m *MockDomainManager) FinalizeVirtualMachineMigration(_param0 *v1.Virtual
 
 func (_mr *_MockDomainManagerRecorder) FinalizeVirtualMachineMigration(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
+}
+
+func (_m *MockDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "HotplugHostDevices", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) HotplugHostDevices(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", arg0)
 }
 
 func (_m *MockDomainManager) InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus {

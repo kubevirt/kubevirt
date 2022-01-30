@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/api/flavor"
+
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -42,23 +44,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	kubev1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	"kubevirt.io/api/core"
+	"kubevirt.io/api/migrations"
+
+	kubev1 "kubevirt.io/api/core/v1"
+	flavorv1 "kubevirt.io/api/flavor/v1alpha1"
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 const (
-	OperatorLabel = kubev1.ManagedByLabel + "=" + kubev1.ManagedByLabelOperatorValue
+	/*
+		TODO: replace the assignment to expression that accepts only kubev1.ManagedByLabelOperatorValue after few releases (after 0.47)
+		The new assignment is to avoid error on update
+		(operator can't recognize components with the old managed-by label's value)
+	*/
+	OperatorLabel = kubev1.ManagedByLabel + " in (" + kubev1.ManagedByLabelOperatorValue + "," + kubev1.ManagedByLabelOperatorOldValue + " )"
 )
 
 var unexpectedObjectError = errors.New("unexpected object")
@@ -86,6 +98,9 @@ type KubeInformerFactory interface {
 	// Watches for VirtualMachineInstanceReplicaSet objects
 	VMIReplicaSet() cache.SharedIndexInformer
 
+	// Watches for VirtualMachinePool objects
+	VMPool() cache.SharedIndexInformer
+
 	// Watches for VirtualMachineInstancePreset objects
 	VirtualMachinePreset() cache.SharedIndexInformer
 
@@ -110,6 +125,15 @@ type KubeInformerFactory interface {
 	// Watches VirtualMachineRestore objects
 	VirtualMachineRestore() cache.SharedIndexInformer
 
+	// Watches VirtualMachineFlavor objects
+	VirtualMachineFlavor() cache.SharedIndexInformer
+
+	// Watches VirtualMachineClusterFlavor objects
+	VirtualMachineClusterFlavor() cache.SharedIndexInformer
+
+	// Watches MigrationPolicy objects
+	MigrationPolicy() cache.SharedIndexInformer
+
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
 
@@ -118,9 +142,6 @@ type KubeInformerFactory interface {
 
 	// ConfigMaps which are managed by the operator
 	OperatorConfigMap() cache.SharedIndexInformer
-
-	// Watches for ConfigMap objects
-	ConfigMap() cache.SharedIndexInformer
 
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
@@ -142,6 +163,18 @@ type KubeInformerFactory interface {
 
 	// Fake CDI DataSource informer used when feature gate is disabled
 	DummyDataSource() cache.SharedIndexInformer
+
+	// Watches for CDI objects
+	CDI() cache.SharedIndexInformer
+
+	// Fake CDI informer used when feature gate is disabled
+	DummyCDI() cache.SharedIndexInformer
+
+	// Watches for CDIConfig objects
+	CDIConfig() cache.SharedIndexInformer
+
+	// Fake CDIConfig informer used when feature gate is disabled
+	DummyCDIConfig() cache.SharedIndexInformer
 
 	// CRD
 	CRD() cache.SharedIndexInformer
@@ -376,6 +409,13 @@ func (f *kubeInformerFactory) VMIReplicaSet() cache.SharedIndexInformer {
 	})
 }
 
+func (f *kubeInformerFactory) VMPool() cache.SharedIndexInformer {
+	return f.getInformer("vmpool", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().PoolV1alpha1().RESTClient(), "virtualmachinepools", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &poolv1.VirtualMachinePool{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
 func (f *kubeInformerFactory) VirtualMachinePreset() cache.SharedIndexInformer {
 	return f.getInformer("vmiPresetInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancepresets", k8sv1.NamespaceAll, fields.Everything())
@@ -413,7 +453,7 @@ func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
@@ -424,20 +464,13 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 			"vm": func(obj interface{}) ([]string, error) {
 				vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
 				if !ok {
-
 					return nil, unexpectedObjectError
 				}
 
-				if vms.Spec.Source.APIGroup != nil {
-					gv, err := schema.ParseGroupVersion(*vms.Spec.Source.APIGroup)
-					if err != nil {
-						return nil, err
-					}
-
-					if gv.Group == kubev1.GroupName &&
-						vms.Spec.Source.Kind == "VirtualMachine" {
-						return []string{vms.Spec.Source.Name}, nil
-					}
+				if vms.Spec.Source.APIGroup != nil &&
+					*vms.Spec.Source.APIGroup == core.GroupName &&
+					vms.Spec.Source.Kind == "VirtualMachine" {
+					return []string{fmt.Sprintf("%s/%s", vms.Namespace, vms.Spec.Source.Name)}, nil
 				}
 
 				return nil, nil
@@ -458,7 +491,8 @@ func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexI
 				var volumeSnapshots []string
 				for _, v := range vmsc.Spec.VolumeBackups {
 					if v.VolumeSnapshotName != nil {
-						volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
+						k := fmt.Sprintf("%s/%s", vmsc.Namespace, *v.VolumeSnapshotName)
+						volumeSnapshots = append(volumeSnapshots, k)
 					}
 				}
 				return volumeSnapshots, nil
@@ -478,21 +512,36 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 					return nil, unexpectedObjectError
 				}
 
-				if vmr.Spec.Target.APIGroup != nil {
-					gv, err := schema.ParseGroupVersion(*vmr.Spec.Target.APIGroup)
-					if err != nil {
-						return nil, err
-					}
-
-					if gv.Group == kubev1.GroupName &&
-						vmr.Spec.Target.Kind == "VirtualMachine" {
-						return []string{vmr.Spec.Target.Name}, nil
-					}
+				if vmr.Spec.Target.APIGroup != nil &&
+					*vmr.Spec.Target.APIGroup == core.GroupName &&
+					vmr.Spec.Target.Kind == "VirtualMachine" {
+					return []string{fmt.Sprintf("%s/%s", vmr.Namespace, vmr.Spec.Target.Name)}, nil
 				}
 
 				return nil, nil
 			},
 		})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineFlavor() cache.SharedIndexInformer {
+	return f.getInformer("vmFlavorInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.PluralResourceName, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineFlavor{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineClusterFlavor() cache.SharedIndexInformer {
+	return f.getInformer("vmClusterFlavorInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), flavor.ClusterPluralResourceName, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineClusterFlavor{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
+	return f.getInformer("migrationPolicyInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().MigrationsV1alpha1().RESTClient(), migrations.ResourceMigrationPolicies, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &migrationsv1.MigrationPolicy{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
@@ -524,6 +573,38 @@ func (f *kubeInformerFactory) DummyDataSource() cache.SharedIndexInformer {
 	})
 }
 
+func (f *kubeInformerFactory) CDI() cache.SharedIndexInformer {
+	return f.getInformer("cdiInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CdiClient().CdiV1beta1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "cdis", k8sv1.NamespaceAll, fields.Everything())
+
+		return cache.NewSharedIndexInformer(lw, &cdiv1.CDI{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyCDI() cache.SharedIndexInformer {
+	return f.getInformer("fakeCdiInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.CDI{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) CDIConfig() cache.SharedIndexInformer {
+	return f.getInformer("cdiConfigInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CdiClient().CdiV1beta1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "cdiconfigs", k8sv1.NamespaceAll, fields.Everything())
+
+		return cache.NewSharedIndexInformer(lw, &cdiv1.CDIConfig{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyCDIConfig() cache.SharedIndexInformer {
+	return f.getInformer("fakeCdiConfigInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		return informer
+	})
+}
+
 func (f *kubeInformerFactory) ApiAuthConfigMap() cache.SharedIndexInformer {
 	return f.getInformer("extensionsConfigMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
@@ -537,15 +618,6 @@ func (f *kubeInformerFactory) KubeVirtCAConfigMap() cache.SharedIndexInformer {
 	return f.getInformer("extensionsKubeVirtCAConfigMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-ca")
-		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
-		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
-func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
-	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.CoreV1().RESTClient()
-		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
 		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
@@ -619,7 +691,7 @@ func (f *kubeInformerFactory) OperatorServiceAccount() cache.SharedIndexInformer
 func (f *kubeInformerFactory) OperatorConfigMap() cache.SharedIndexInformer {
 	// filter out install strategies
 	return f.getInformer("OperatorConfigMapInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(fmt.Sprintf("!%s, %s=%s", kubev1.InstallStrategyLabel, kubev1.ManagedByLabel, kubev1.ManagedByLabelOperatorValue))
+		labelSelector, err := labels.Parse(fmt.Sprintf("!%s, %s", kubev1.InstallStrategyLabel, OperatorLabel))
 		if err != nil {
 			panic(err)
 		}

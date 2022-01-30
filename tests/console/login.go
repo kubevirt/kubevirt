@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
@@ -15,8 +15,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
-// LoginToFactory represents the LogIn* functions signature
-type LoginToFactory func(*v1.VirtualMachineInstance) error
+// LoginToFunction represents any of the LoginTo* functions
+type LoginToFunction func(*v1.VirtualMachineInstance) error
 
 // LoginToCirros performs a console login to a Cirros base VM
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {

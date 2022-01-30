@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"github.com/golang/mock/gomock"
@@ -44,7 +45,7 @@ import (
 
 	testutils2 "kubevirt.io/client-go/testutils"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -95,7 +96,7 @@ var _ = Describe("Template", func() {
 
 	BeforeEach(func() {
 		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, TemplateService) {
-			config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
+			config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
@@ -153,7 +154,7 @@ var _ = Describe("Template", func() {
 	Describe("Rendering", func() {
 
 		newMinimalWithContainerDisk := func(name string) *v1.VirtualMachineInstance {
-			vmi := v1.NewMinimalVMI(name)
+			vmi := api.NewMinimalVMI(name)
 			vmi.Annotations = map[string]string{v1.NonRootVMIAnnotation: ""}
 
 			volumes := []v1.Volume{
@@ -869,7 +870,7 @@ var _ = Describe("Template", func() {
 		Context("migration over unix sockets", func() {
 			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -2062,11 +2063,22 @@ var _ = Describe("Template", func() {
 				err := pvcCache.Add(&pvc)
 				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
 				volumeName := "pvc-volume"
+				ephemeralVolumeName := "ephemeral-volume"
 				volumes := []v1.Volume{
 					{
 						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
 							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
+						},
+					},
+					{
+						Name: ephemeralVolumeName,
+						VolumeSource: v1.VolumeSource{
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
 						},
 					},
 				}
@@ -2085,14 +2097,15 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
 				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found some devices for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(1), "Found 1 device for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(2), "Found 1 device for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
+				Expect(pod.Spec.Containers[0].VolumeDevices[1].Name).To(Equal(ephemeralVolumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "Found 6 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(9), "Found 9 volumes in manifest")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -2976,7 +2989,7 @@ var _ = Describe("Template", func() {
 		Context("Ephemeral storage request", func() {
 
 			table.DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 
 				ephemeralStorageRequests := resource.MustParse("30M")
 				ephemeralStorageLimit := resource.MustParse("70M")
@@ -3044,10 +3057,11 @@ var _ = Describe("Template", func() {
 				Expect(pod).ToNot(BeNil())
 
 				containers := pod.Spec.Containers
-				Expect(containers).Should(HaveLen(2))
+				initContainers := pod.Spec.InitContainers
 
+				Expect(hasContainerWithName(initContainers, "container-disk-binary")).To(BeTrue())
+				Expect(hasContainerWithName(initContainers, "kernel-boot")).To(BeTrue())
 				Expect(hasContainerWithName(containers, "kernel-boot")).To(BeTrue())
-				Expect(hasContainerWithName(pod.Spec.InitContainers, "container-disk-binary")).To(BeTrue())
 			})
 		})
 
@@ -3091,7 +3105,7 @@ var _ = Describe("Template", func() {
 		})
 
 		table.DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			switch interfaceType {
 			case "bridge":
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
@@ -3118,7 +3132,7 @@ var _ = Describe("Template", func() {
 		)
 
 		It("should not require NET_BIND_SERVICE", func() {
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface("test")}
 
 			pod, err := svc.RenderLaunchManifest(vmi)
@@ -3239,6 +3253,34 @@ var _ = Describe("Template", func() {
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
 		})
 
+	})
+
+	Context("AMD SEV LaunchSecurity", func() {
+		It("should not run privileged with SEV device resource", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						LaunchSecurity: &v1.LaunchSecurity{
+							SEV: &v1.SEV{},
+						},
+					},
+				},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(pod.Spec.Containers)).To(Equal(1))
+			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
+
+			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
+			Expect(ok).To(BeTrue())
+			Expect(int(sev.Value())).To(Equal(1))
+		})
 	})
 })
 

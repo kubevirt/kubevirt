@@ -23,17 +23,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	"kubevirt.io/api/core"
+
+	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -90,10 +92,10 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			}
 		} else {
 			switch *vmRestore.Spec.Target.APIGroup {
-			case v1.GroupName:
+			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes, targetUID, err = admitter.validateCreateVM(targetField.Child("name"), ar.Request.Namespace, vmRestore.Spec.Target.Name)
+					causes, targetUID, err = admitter.validateCreateVM(targetField, ar.Request.Namespace, vmRestore.Spec.Target.Name)
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
@@ -134,12 +136,12 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 
 		for _, obj := range objects {
 			r := obj.(*snapshotv1.VirtualMachineRestore)
-			if reflect.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
+			if equality.Semantic.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
 				(r.Status == nil || r.Status.Complete == nil || !*r.Status.Complete) {
 				cause := metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("VirtualMachineRestore %q in progress", r.Name),
-					Field:   targetField.Child("name").String(),
+					Field:   targetField.String(),
 				}
 				causes = append(causes, cause)
 			}
@@ -154,7 +156,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if !reflect.DeepEqual(prevObj.Spec, vmRestore.Spec) {
+		if !equality.Semantic.DeepEqual(prevObj.Spec, vmRestore.Spec) {
 			causes = []metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -201,10 +203,19 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 	}
 
 	if rs != v1.RunStrategyHalted {
-		cause := metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("VirtualMachine %q is running", name),
-			Field:   field.String(),
+		var cause metav1.StatusCause
+		if vm.Spec.Running != nil && *vm.Spec.Running {
+			cause = metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("VirtualMachine %q is not stopped", name),
+				Field:   field.String(),
+			}
+		} else {
+			cause = metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", name, v1.RunStrategyHalted),
+				Field:   field.String(),
+			}
 		}
 		causes = append(causes, cause)
 	}

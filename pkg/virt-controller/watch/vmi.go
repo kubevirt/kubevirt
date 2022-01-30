@@ -23,12 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,16 +36,24 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/trace"
 
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+)
+
+const (
+	deleteNotifFailed        = "Failed to process delete notification"
+	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
 // Reasons for vmi events
@@ -107,6 +115,8 @@ const (
 	FailedMigrationReason = "FailedMigration"
 	// SuccessfulAbortMigrationReason is added when an attempt to abort migration completes successfully
 	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
+	// MigrationTargetPodUnschedulable is added a migration target pod enters Unschedulable phase
+	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
 	// FailedAbortMigrationReason is added when an attempt to abort migration fails
 	FailedAbortMigrationReason = "FailedAbortMigration"
 	// MissingAttachmentPodReason is set when we have a hotplugged volume, but the attachment pod is missing
@@ -120,9 +130,14 @@ const (
 	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
+	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
+	// is suitable for migration (since CPU model / required features are not supported)
+	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
+
+var failedToFindCdi error = errors.New("No CDIConfig named config")
 
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
@@ -132,6 +147,9 @@ func NewVMIController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
+	cdiInformer cache.SharedIndexInformer,
+	cdiConfigInformer cache.SharedIndexInformer,
+	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 ) *VMIController {
 
@@ -147,6 +165,9 @@ func NewVMIController(templateService services.TemplateService,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeInformer: dataVolumeInformer,
+		cdiInformer:        cdiInformer,
+		cdiConfigInformer:  cdiConfigInformer,
+		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
 	}
 
@@ -166,6 +187,10 @@ func NewVMIController(templateService services.TemplateService,
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
+	})
+
+	c.pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePVC,
 	})
 
 	return c
@@ -202,6 +227,9 @@ type VMIController struct {
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
+	cdiInformer        cache.SharedIndexInformer
+	cdiConfigInformer  cache.SharedIndexInformer
+	clusterConfig      *virtconfig.ClusterConfig
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -210,7 +238,7 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.cdiConfigInformer.HasSynced, c.cdiInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -226,11 +254,17 @@ func (c *VMIController) runWorker() {
 	}
 }
 
+var virtControllerVMIWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
+
 func (c *VMIController) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
 	}
+
+	virtControllerVMIWorkQueueTracer.StartTrace(key.(string), "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMIWorkQueueTracer.StopTrace(key.(string))
+
 	defer c.Queue.Done(key)
 	err := c.execute(key.(string))
 
@@ -315,30 +349,6 @@ func (c *VMIController) execute(key string) error {
 
 }
 
-// verifies all conditions match even if they are not in the same order
-func conditionsEqual(a []virtv1.VirtualMachineInstanceCondition, b []virtv1.VirtualMachineInstanceCondition) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, aVal := range a {
-		found := false
-
-		for _, bVal := range b {
-			if reflect.DeepEqual(aVal, bVal) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
 
 	if curPodImage != "" && curPodImage != c.templateService.GetLauncherImage() {
@@ -378,6 +388,8 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
+	key := controller.VirtualMachineInstanceKey(vmi)
+	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
 	hasFailedDataVolume := false
 	for _, dataVolume := range dataVolumes {
@@ -397,6 +409,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	podConditionManager := controller.NewPodConditionManager()
 	vmiCopy := vmi.DeepCopy()
 	vmiPodExists := podExists(pod) && !isTempPod(pod)
 	tempPodExists := podExists(pod) && isTempPod(pod)
@@ -407,6 +420,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	c.syncReadyConditionFromPod(vmiCopy, pod)
+	if vmiPodExists {
+		err := c.syncPausedConditionToPod(vmiCopy, pod)
+		if err != nil {
+			return fmt.Errorf("error syncing paused condition to pod: %v", err)
+		}
+	}
 
 	switch {
 	case vmi.IsUnprocessed():
@@ -434,8 +453,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 				if tempPodExists {
 					// Add PodScheduled False condition to the VM
-					if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
-						conditionManager.AddPodCondition(vmiCopy, cond)
+					if podConditionManager.HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse) {
+						conditionManager.AddPodCondition(vmiCopy, podConditionManager.GetCondition(pod, k8sv1.PodScheduled))
 					} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
 						// Remove PodScheduling condition from the VM
 						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
@@ -475,8 +494,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			}
 
 			// Add PodScheduled False condition to the VM
-			if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
-				conditionManager.AddPodCondition(vmiCopy, cond)
+			if podConditionManager.HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse) {
+				conditionManager.AddPodCondition(vmiCopy, podConditionManager.GetCondition(pod, k8sv1.PodScheduled))
 			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
 				// Remove PodScheduling condition from the VM
 				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
@@ -579,13 +598,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
-		patchBytes, err := preparePatch(vmi, vmiCopy)
+		patchBytes, err := prepareVMIPatch(vmi, vmiCopy)
 		if err != nil {
 			return fmt.Errorf("error preparing VMI patch: %v", err)
 		}
 
 		if len(patchBytes) > 0 {
-			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patchBytes))
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patchBytes), &v1.PatchOptions{})
 			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 			// So just retry like with any other errors
 			if err != nil {
@@ -606,7 +625,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	controller.SetVMIPhaseTransitionTimestamp(vmi, vmiCopy)
 
 	// If we detect a change on the vmi we update the vmi
-	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels)
+	vmiChanged := !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) || !equality.Semantic.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !equality.Semantic.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !equality.Semantic.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
@@ -620,10 +639,35 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	return nil
 }
 
-func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error) {
+func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
 	var patchOps []string
 
-	if !reflect.DeepEqual(newVMI.Status.VolumeStatus, oldVMI.Status.VolumeStatus) {
+	podConditions := controller.NewPodConditionManager()
+	if !podConditions.ConditionsEqual(oldPod, newPod) {
+
+		newConditions, err := json.Marshal(newPod.Status.Conditions)
+		if err != nil {
+			return nil, err
+		}
+		oldConditions, err := json.Marshal(oldPod.Status.Conditions)
+		if err != nil {
+			return nil, err
+		}
+
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions)))
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
+	}
+
+	if len(patchOps) == 0 {
+		return nil, nil
+	}
+	return controller.GeneratePatchBytes(patchOps), nil
+}
+
+func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error) {
+	var patchOps []string
+
+	if !equality.Semantic.DeepEqual(newVMI.Status.VolumeStatus, oldVMI.Status.VolumeStatus) {
 		// VolumeStatus changed which means either removed or added volumes.
 		newVolumeStatus, err := json.Marshal(newVMI.Status.VolumeStatus)
 		if err != nil {
@@ -642,7 +686,8 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 		log.Log.V(3).Object(oldVMI).Infof("Patching Volume Status")
 	}
 	// We don't own the object anymore, so patch instead of update
-	if !conditionsEqual(newVMI.Status.Conditions, oldVMI.Status.Conditions) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	if !vmiConditions.ConditionsEqual(oldVMI, newVMI) {
 
 		newConditions, err := json.Marshal(newVMI.Status.Conditions)
 		if err != nil {
@@ -659,7 +704,7 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI conditions")
 	}
 
-	if !reflect.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
+	if !equality.Semantic.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
 		newPods, err := json.Marshal(newVMI.Status.ActivePods)
 		if err != nil {
 			return nil, err
@@ -684,7 +729,7 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 		}
 	}
 
-	if !reflect.DeepEqual(oldVMI.Labels, newVMI.Labels) {
+	if !equality.Semantic.DeepEqual(oldVMI.Labels, newVMI.Labels) {
 		newLabelBytes, err := json.Marshal(newVMI.Labels)
 		if err != nil {
 			return nil, err
@@ -711,11 +756,12 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 }
 
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
-	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	podConditions := controller.NewPodConditionManager()
 
 	now := v1.Now()
 	if pod == nil || isTempPod(pod) {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.PodNotExistsReason,
@@ -725,7 +771,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		})
 
 	} else if isPodDownOrGoingDown(pod) {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.PodTerminatingReason,
@@ -735,7 +781,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		})
 
 	} else if !vmi.IsRunning() {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.GuestNotRunningReason,
@@ -744,8 +790,8 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 
-	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+	} else if podReadyCond := podConditions.GetCondition(pod, k8sv1.PodReady); podReadyCond != nil {
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             podReadyCond.Status,
 			Reason:             podReadyCond.Reason,
@@ -755,7 +801,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		})
 
 	} else {
-		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
 			Reason:             virtv1.PodConditionMissingReason,
@@ -764,6 +810,58 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 	}
+}
+
+func (c *VMIController) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	podConditions := controller.NewPodConditionManager()
+
+	podCopy := pod.DeepCopy()
+	now := v1.Now()
+	if vmiConditions.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
+		if podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+				Type:               virtv1.VirtualMachineUnpaused,
+				Status:             k8sv1.ConditionFalse,
+				Reason:             "Paused",
+				Message:            "the virtual machine is paused",
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+			})
+		}
+	} else {
+		if !podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+				Type:               virtv1.VirtualMachineUnpaused,
+				Status:             k8sv1.ConditionTrue,
+				Reason:             "NotPaused",
+				Message:            "the virtual machine is not paused",
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+			})
+		}
+	}
+
+	// Patch pod
+	patchBytes, err := preparePodPatch(pod, podCopy)
+	if err != nil {
+		return fmt.Errorf("error preparing pod patch: %v", err)
+	}
+
+	if len(patchBytes) > 0 {
+		log.Log.V(3).Object(pod).Infof("Patching pod conditions")
+
+		_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{}, "status")
+		// We could not retry if the "test" fails but we have no sane way to detect that right now:
+		// https://github.com/kubernetes/kubernetes/issues/68202 for details
+		// So just retry like with any other errors
+		if err != nil {
+			log.Log.Object(pod).Errorf("Patching of pod conditions failed: %v", err)
+			return fmt.Errorf("patching of pod conditions failed: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // checkForContainerImageError checks if an error has occured while handling the image of any of the pod's containers
@@ -874,6 +972,9 @@ func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, vir
 }
 
 func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
+	key := controller.VirtualMachineInstanceKey(vmi)
+	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMI Name", Value: vmi.Name})
+
 	if vmi.DeletionTimestamp != nil {
 		err := c.deleteAllMatchingPods(vmi)
 		if err != nil {
@@ -1018,6 +1119,34 @@ func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer, dataVolu
 	}
 }
 
+func (c *VMIController) updatePVC(old, cur interface{}) {
+	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
+	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
+	if curPVC.ResourceVersion == oldPVC.ResourceVersion {
+		// Periodic resync will send update events for all known PVCs.
+		// Two different versions of the same PVC will always
+		// have different RVs.
+		return
+	}
+	if curPVC.DeletionTimestamp != nil {
+		return
+	}
+	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
+		// We only do something when the capacity changes
+		return
+	}
+
+	vmis, err := c.listVMIsMatchingPVC(curPVC.Namespace, curPVC.Name)
+	if err != nil {
+		log.Log.V(4).Object(curPVC).Errorf("Error encountered during pvc update: %v", err)
+		return
+	}
+	for _, vmi := range vmis {
+		log.Log.V(4).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
+		c.enqueueVirtualMachine(vmi)
+	}
+}
+
 func (c *VMIController) addDataVolume(obj interface{}) {
 	dataVolume := obj.(*cdiv1.DataVolume)
 	if dataVolume.DeletionTimestamp != nil {
@@ -1025,7 +1154,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1044,7 +1173,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 	if curDataVolume.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
 		// having a DataVOlume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteDataVolume(curDataVolume)
@@ -1056,7 +1185,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(curDataVolume.Namespace, curDataVolume.Name)
 	if err != nil {
 		log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
 		return
@@ -1075,16 +1204,16 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error(deleteNotifFailed)
 			return
 		}
 	}
-	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1132,7 +1261,7 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 	}
 
 	if curPod.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curPod.Labels, oldPod.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curPod.Labels, oldPod.Labels)
 		// having a pod marked for deletion is enough to count as a deletion expectation
 		c.deletePod(curPod)
 		if labelChanged {
@@ -1144,7 +1273,7 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 
 	curControllerRef := controller.GetControllerOf(curPod)
 	oldControllerRef := controller.GetControllerOf(oldPod)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPod.Namespace, oldControllerRef); vmi != nil {
@@ -1173,12 +1302,12 @@ func (c *VMIController) deletePod(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		pod, ok = tombstone.Obj.(*k8sv1.Pod)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pod %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pod %#v", obj)).Error(deleteNotifFailed)
 			return
 		}
 	}
@@ -1210,12 +1339,12 @@ func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error(deleteNotifFailed)
 			return
 		}
 	}
@@ -1283,8 +1412,8 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 	return vmi.(*virtv1.VirtualMachineInstance)
 }
 
-// takes a namespace and returns all Pods from the pod cache which run in this namespace
-func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeName string) ([]*virtv1.VirtualMachineInstance, error) {
+// takes a PVC name and namespace and returns all VMIs from the VMI cache which use this PVC
+func (c *VMIController) listVMIsMatchingPVC(namespace string, pvcName string) ([]*virtv1.VirtualMachineInstance, error) {
 	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -1293,12 +1422,8 @@ func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeN
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
 		for _, volume := range vmi.Spec.Volumes {
-			// Always check persistent volume claims to see if they match a DV, can't filter any more since
-			// VolumeSource.PersistentVolumeClaim doesn't list any ownerRef for the PVC. So in order to detect
-			// if the PVC is owned by a DV, I would have to look up the PVC, and find the ownerRef and determine if
-			// it is a DV. TODO: determine if it is slower to do the above or run through a reconcile of a VMI.
-			if volume.VolumeSource.PersistentVolumeClaim != nil ||
-				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolumeName {
+			if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == pvcName ||
+				volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == pvcName {
 				vmis = append(vmis, vmi)
 			}
 		}
@@ -1927,8 +2052,18 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					AccessModes:  pvc.Spec.AccessModes,
 					VolumeMode:   pvc.Spec.VolumeMode,
 					Capacity:     pvc.Status.Capacity,
+					Requests:     pvc.Spec.Resources.Requests,
 					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
+				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
+				if errors.Is(err, failedToFindCdi) {
+					filesystemOverhead = cdiv1.Percent("0.055")
+					log.Log.V(3).Object(pvc).Infof("Didn't find CDI, continuing normally with filesystem overhead of 5.5%%")
+				} else if err != nil {
+					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
+					return err
+				}
+				status.PersistentVolumeClaimInfo.FilesystemOverhead = &filesystemOverhead
 			}
 		}
 
@@ -1957,6 +2092,33 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	})
 	vmi.Status.VolumeStatus = newStatus
 	return nil
+}
+
+func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
+	_, cdiExists, _ := c.cdiInformer.GetStore().GetByKey("cdi")
+	if !cdiExists {
+		return "0", failedToFindCdi
+	}
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
+	if !cdiConfigExists || err != nil {
+		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
+	}
+	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
+	if !ok {
+		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
+	}
+	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+		return "0", nil
+	}
+	scName := pvc.Spec.StorageClassName
+	if scName == nil {
+		return cdiConfig.Status.FilesystemOverhead.Global, nil
+	}
+	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*scName]
+	if !ok {
+		return cdiConfig.Status.FilesystemOverhead.Global, nil
+	}
+	return fsOverhead, nil
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {

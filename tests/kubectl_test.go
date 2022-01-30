@@ -2,6 +2,10 @@ package tests_test
 
 import (
 	"strings"
+	"time"
+
+	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -10,7 +14,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -138,6 +142,67 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 		)
 
+	})
+
+	Describe("VM instance migration", func() {
+		var virtClient kubecli.KubevirtClient
+
+		BeforeEach(func() {
+			virtClient, err = kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Context("'kubectl get vmim'", func() {
+			It("print the expected columns and their corresponding values", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, tests.MigrationWaitTime, false)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+				By("creating the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				var migrationCreated *v1.VirtualMachineInstanceMigration
+				By("starting migration")
+				Eventually(func() error {
+					migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					return err
+				}, tests.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+				migration = migrationCreated
+
+				tests.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
+
+				k8sClient := tests.GetK8sCmdClient()
+				result, _, err := tests.RunCommand(k8sClient, "get", "vmim", migration.Name)
+				// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
+				if err != nil {
+					result, _, err = tests.RunCommand(k8sClient, "get", "vmim", migration.Name)
+				}
+
+				expectedHeader := []string{"NAME", "PHASE", "VMI"}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(result)).ToNot(Equal(0))
+				resultFields := strings.Fields(result)
+
+				By("Verify that only Header is not present")
+				Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
+
+				columnHeaders := resultFields[:len(expectedHeader)]
+				By("Verify the generated header is same as expected")
+				Expect(columnHeaders).To(Equal(expectedHeader))
+
+				By("Verify VMIM name")
+				Expect(resultFields[len(expectedHeader)]).To(Equal(migration.Name), "should match VMIM object name")
+				By("Verify VMIM phase")
+				Expect(resultFields[len(expectedHeader)+1]).To(Equal(string(v1.MigrationSucceeded)), "should have successful state")
+				By("Verify VMI name related to the VMIM")
+				Expect(resultFields[len(expectedHeader)+2]).To(Equal(vmi.Name), "should match the VMI name")
+			})
+		})
 	})
 
 })

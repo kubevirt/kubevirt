@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	"net/http"
+	"path"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,7 +38,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 	var server *ghttp.Server
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"
-	migrationPath := basePath + "/testmigration"
+	migrationPath := path.Join(basePath, "testmigration")
 
 	BeforeEach(func() {
 		var err error
@@ -91,7 +92,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, migration),
 		))
-		createdMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Create(migration)
+		createdMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Create(migration, &k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

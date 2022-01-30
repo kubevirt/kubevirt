@@ -32,7 +32,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	mount "github.com/moby/sys/mountinfo"
 
 	"kubevirt.io/client-go/log"
@@ -41,8 +40,6 @@ import (
 
 // IsolationResult is the result of a successful PodIsolationDetector.Detect
 type IsolationResult interface {
-	// cgroup slice
-	Slice() string
 	// process ID
 	Pid() int
 	// parent process ID
@@ -53,41 +50,21 @@ type IsolationResult interface {
 	MountRoot() string
 	// full path to the mount namespace
 	MountNamespace() string
-	// full path to the network namespace
-	NetNamespace() string
-	// execute a function in the process network namespace
-	DoNetNS(func() error) error
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 }
 
 type RealIsolationResult struct {
-	pid        int
-	ppid       int
-	slice      string
-	controller []string
+	pid  int
+	ppid int
 }
 
-func NewIsolationResult(pid, ppid int, slice string, controller []string) IsolationResult {
-	return &RealIsolationResult{pid: pid, ppid: ppid, slice: slice, controller: controller}
-}
-
-func (r *RealIsolationResult) DoNetNS(f func() error) error {
-	netns, err := ns.GetNS(r.NetNamespace())
-	if err != nil {
-		return fmt.Errorf("failed to get launcher pod network namespace: %v", err)
-	}
-	return netns.Do(func(_ ns.NetNS) error {
-		return f()
-	})
+func NewIsolationResult(pid, ppid int) IsolationResult {
+	return &RealIsolationResult{pid: pid, ppid: ppid}
 }
 
 func (r *RealIsolationResult) PIDNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/pid", r.pid)
-}
-
-func (r *RealIsolationResult) Slice() string {
-	return r.slice
 }
 
 func (r *RealIsolationResult) MountNamespace() string {
@@ -135,10 +112,6 @@ func (r *RealIsolationResult) IsBlockDevice(path string) (bool, error) {
 	return true, nil
 }
 
-func (r *RealIsolationResult) NetNamespace() string {
-	return fmt.Sprintf("/proc/%d/ns/net", r.pid)
-}
-
 func (r *RealIsolationResult) MountRoot() string {
 	return fmt.Sprintf("/proc/%d/root", r.pid)
 }
@@ -149,10 +122,6 @@ func (r *RealIsolationResult) Pid() int {
 
 func (r *RealIsolationResult) PPid() int {
 	return r.ppid
-}
-
-func (r *RealIsolationResult) Controller() []string {
-	return r.controller
 }
 
 func NodeIsolationResult() *RealIsolationResult {

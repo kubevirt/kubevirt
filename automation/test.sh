@@ -43,6 +43,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
   fi
@@ -57,6 +58,9 @@ elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}
+elif [[ $TARGET =~ sig-monitoring ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -72,11 +76,11 @@ if [[ $TARGET =~ sriov.* ]]; then
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
-  export KUBEVIRT_NUM_NODES=2
+  export KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-2}
 fi
 
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
-export KUBEVIRT_MEMORY_SIZE=9216M
+export KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
 
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
@@ -354,7 +358,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-network ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]"
+    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
   elif [[ $TARGET =~ vgpu.* ]]; then
     export KUBEVIRT_E2E_FOCUS=MediatedDevices
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
@@ -362,6 +366,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+  elif [[ $TARGET =~ sig-monitoring ]]; then
+      export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
@@ -376,7 +382,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
 
   if ! [[ $TARGET =~ sig-storage ]]; then
     if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
-        export KUBEVIRT_E2E_FOCUS=rook-ceph
+        export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
     fi
   fi
 fi
@@ -402,10 +408,6 @@ if [ -z "$KUBEVIRT_QUARANTINE" ]; then
         export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
     else
         export KUBEVIRT_E2E_SKIP="QUARANTINE"
-    fi
-    # quarantine test_id:3145 only for nonroot lanes
-    if [[ $KUBEVIRT_NONROOT =~ true ]]; then
-        export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|test_id:3145"
     fi
 fi
 

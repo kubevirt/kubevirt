@@ -26,12 +26,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
-	k8sDNSServiceName = "kube-dns"
-	k8sDNSNamespace   = "kube-system"
-
 	openshiftDNSServiceName = "dns-default"
 	openshiftDNSNamespace   = "openshift-dns"
 )
@@ -49,7 +47,7 @@ func ClusterDNSServiceIP() (string, error) {
 		return "", err
 	}
 
-	service, err := virtClient.CoreV1().Services(k8sDNSNamespace).Get(context.Background(), k8sDNSServiceName, metav1.GetOptions{})
+	service, err := virtClient.CoreV1().Services(flags.DNSServiceNamespace).Get(context.Background(), flags.DNSServiceName, metav1.GetOptions{})
 	if err != nil {
 		prevErr := err
 		service, err = virtClient.CoreV1().Services(openshiftDNSNamespace).Get(context.Background(), openshiftDNSServiceName, metav1.GetOptions{})

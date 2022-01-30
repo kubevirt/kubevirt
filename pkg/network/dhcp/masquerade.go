@@ -22,7 +22,7 @@ package dhcp
 import (
 	"github.com/coreos/go-iptables/iptables"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -34,6 +34,7 @@ type MasqueradeConfigGenerator struct {
 	vmiSpecIface     *v1.Interface
 	vmiSpecNetwork   *v1.Network
 	podInterfaceName string
+	subdomain        string
 }
 
 func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
@@ -44,6 +45,7 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	}
 
 	dhcpConfig.Name = podNicLink.Attrs().Name
+	dhcpConfig.Subdomain = d.subdomain
 	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
 
 	ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv4)

@@ -148,10 +148,10 @@ Travis cares for this on every release.
 - check that the marketplace operator is running in the `marketplace` namespace
 ## Sources
 
-[CSV description](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/design/building-your-csv.md)  
-[CSV required fields](https://github.com/operator-framework/community-operators/blob/master/docs/required-fields.md)  
+[CSV description](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/building-your-csv.md)  
+[CSV required fields](https://github.com/operator-framework/community-operators/blob/master/docs/packaging-required-fields.md)  
 [Publish bundles](https://github.com/operator-framework/community-operators/blob/master/docs/testing-operators.md)  
-[Install OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md)  
+[Install OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/install/install.md)  
 [Install and use Marketplace](https://github.com/operator-framework/operator-marketplace)  
 
 ## Important

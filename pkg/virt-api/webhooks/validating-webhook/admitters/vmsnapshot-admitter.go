@@ -22,15 +22,16 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	"kubevirt.io/api/core"
+
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -86,7 +87,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 		}
 
 		switch *vmSnapshot.Spec.Source.APIGroup {
-		case v1.GroupName:
+		case core.GroupName:
 			switch vmSnapshot.Spec.Source.Kind {
 			case "VirtualMachine":
 				causes, err = admitter.validateCreateVM(sourceField.Child("name"), ar.Request.Namespace, vmSnapshot.Spec.Source.Name)
@@ -119,7 +120,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if !reflect.DeepEqual(prevObj.Spec, vmSnapshot.Spec) {
+		if !equality.Semantic.DeepEqual(prevObj.Spec, vmSnapshot.Spec) {
 			causes = []metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,

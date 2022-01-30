@@ -3,10 +3,13 @@ package isolation
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
-	"strconv"
+	"path/filepath"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -20,10 +23,12 @@ func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVeri
 	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
 
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
-	out, err := virt_chroot.ExecChroot(
+	cmd := virt_chroot.ExecChroot(
 		"--user", "qemu", "--memory", memoryLimit, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
-	).Output()
+	)
+	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())
+	out, err := cmd.Output()
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
 			if len(e.Stderr) > 0 {
@@ -41,16 +46,11 @@ func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVeri
 	return info, err
 }
 
-func GetFileSize(imagePath string, context IsolationResult, config *v1.DiskVerification) (int, error) {
-	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
-
-	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
-	out, err := virt_chroot.ExecChroot(
-		"--user", "qemu", "--memory", memoryLimit, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
-		"/usr/bin/stat", "--printf=%s", imagePath,
-	).Output()
-	if err == nil {
-		return strconv.Atoi(string(out))
+func GetFileSize(imagePath string, context IsolationResult) (int64, error) {
+	path := filepath.Join(context.MountRoot(), imagePath)
+	info, err := os.Stat(path)
+	if err != nil {
+		return -1, err
 	}
-	return -1, err
+	return info.Size(), nil
 }

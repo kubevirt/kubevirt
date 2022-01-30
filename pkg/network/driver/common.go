@@ -37,11 +37,12 @@ import (
 
 	netutils "k8s.io/utils/net"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
+	"kubevirt.io/kubevirt/pkg/network/dns"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
@@ -341,6 +342,11 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
 		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
+	}
+
+	domain := dns.DomainNameWithSubdomain(searchDomains, nic.Subdomain)
+	if domain != "" {
+		searchDomains = append([]string{domain}, searchDomains...)
 	}
 
 	// panic in case the DHCP server failed during the vm creation

@@ -10,6 +10,7 @@ go_library(
         "fake_prometheus.go",
         "fake_prometheusrule.go",
         "fake_servicemonitor.go",
+        "fake_thanosruler.go",
     ],
     importpath = "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1/fake",
     visibility = ["//visibility:public"],

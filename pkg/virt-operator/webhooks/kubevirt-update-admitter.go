@@ -23,16 +23,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -67,18 +67,22 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 
-	if !reflect.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
+	if !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
 		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
 			results = append(results,
 				validateInfraPlacement(newKV.Namespace, newKV.Spec.Infra.NodePlacement, admitter.Client)...)
 		}
 	}
 
-	if !reflect.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
+	if !equality.Semantic.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
 		if newKV.Spec.Workloads != nil && newKV.Spec.Workloads.NodePlacement != nil {
 			results = append(results,
 				validateWorkloadPlacement(newKV.Namespace, newKV.Spec.Workloads.NodePlacement, admitter.Client)...)
 		}
+	}
+
+	if newKV.Spec.Infra != nil {
+		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
 	return validating_webhooks.NewAdmissionResponse(results)
@@ -287,6 +291,19 @@ func validateInfraPlacement(namespace string, placementConfig *v1.NodePlacement,
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: err.Error(),
+		})
+	}
+
+	return statuses
+}
+
+func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	if replicas != nil && *replicas == 0 {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "infra replica count can't be 0",
 		})
 	}
 

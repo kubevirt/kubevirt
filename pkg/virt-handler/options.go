@@ -1,7 +1,7 @@
 package virthandler
 
 import (
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
@@ -13,12 +13,14 @@ func virtualMachineOptions(
 	preallocatedVolumes []string,
 	capabilities *api.Capabilities,
 	disksInfo map[string]*containerdisk.DiskInfo,
+	expandDisksEnabled bool,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
-		Topology:              topologyToTopology(capabilities),
+		Topology:              capabilitiesToTopology(capabilities),
 		DisksInfo:             disksInfoToDisksInfo(disksInfo),
+		ExpandDisksEnabled:    expandDisksEnabled,
 	}
 	if smbios != nil {
 		options.VirtualMachineSMBios = &cmdv1.SMBios{
@@ -32,7 +34,7 @@ func virtualMachineOptions(
 	return options
 }
 
-func topologyToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
+func capabilitiesToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
 	if capabilities == nil {
 		return topology

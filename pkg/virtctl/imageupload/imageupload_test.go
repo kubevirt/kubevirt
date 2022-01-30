@@ -26,16 +26,18 @@ import (
 
 	fakecdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/tests"
 )
 
 const (
-	commandName             = "image-upload"
-	uploadRequestAnnotation = "cdi.kubevirt.io/storage.upload.target"
-	podPhaseAnnotation      = "cdi.kubevirt.io/storage.pod.phase"
-	podReadyAnnotation      = "cdi.kubevirt.io/storage.pod.ready"
+	commandName                     = "image-upload"
+	uploadRequestAnnotation         = "cdi.kubevirt.io/storage.upload.target"
+	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
+	contentTypeAnnotation           = "cdi.kubevirt.io/storage.contentType"
+	podPhaseAnnotation              = "cdi.kubevirt.io/storage.pod.phase"
+	podReadyAnnotation              = "cdi.kubevirt.io/storage.pod.ready"
 )
 
 const (
@@ -57,7 +59,8 @@ var _ = Describe("ImageUpload", func() {
 		pvcCreateCalled = &atomicBool{lock: &sync.Mutex{}}
 		updateCalled    = &atomicBool{lock: &sync.Mutex{}}
 
-		imagePath string
+		imagePath       string
+		archiveFilePath string
 	)
 
 	BeforeEach(func() {
@@ -73,11 +76,14 @@ var _ = Describe("ImageUpload", func() {
 		defer imageFile.Close()
 
 		imagePath = imageFile.Name()
+
+		archiveFilePath = tests.ArchiveFiles("archive", os.TempDir(), imagePath)
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
 		os.Remove(imagePath)
+		os.Remove(archiveFilePath)
 	})
 
 	pvcSpec := func() *v1.PersistentVolumeClaim {
@@ -192,6 +198,9 @@ var _ = Describe("ImageUpload", func() {
 		time.Sleep(10 * time.Millisecond)
 		pvc := pvcSpecWithUploadAnnotation()
 
+		if dv.Spec.ContentType == cdiv1.DataVolumeArchive {
+			pvc.Annotations[contentTypeAnnotation] = string(cdiv1.DataVolumeArchive)
+		}
 		pvc.Spec.VolumeMode = getVolumeMode(dv.Spec)
 		pvc.Spec.AccessModes = append([]v1.PersistentVolumeAccessMode(nil), getAccessModes(dv.Spec)...)
 		pvc.Spec.StorageClassName = getStorageClassName(dv.Spec)
@@ -291,6 +300,19 @@ var _ = Describe("ImageUpload", func() {
 		validatePVCSpec(&pvc.Spec, mode)
 	}
 
+	validateArchivePVC := func() {
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		_, ok := pvc.Annotations[uploadRequestAnnotation]
+		Expect(ok).To(BeTrue())
+		contentType, ok := pvc.Annotations[contentTypeAnnotation]
+		Expect(ok).To(BeTrue())
+		Expect(contentType).To(Equal(string(cdiv1.DataVolumeArchive)))
+
+		validatePVCSpec(&pvc.Spec, v1.PersistentVolumeFilesystem)
+	}
+
 	validatePVC := func() {
 		validatePVCArgs(v1.PersistentVolumeFilesystem)
 	}
@@ -299,19 +321,39 @@ var _ = Describe("ImageUpload", func() {
 		validatePVCArgs(v1.PersistentVolumeBlock)
 	}
 
-	validateDataVolumeArgs := func(mode v1.PersistentVolumeMode) {
-		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
-		Expect(err).To(BeNil())
-
+	validateDataVolumeArgs := func(dv *cdiv1.DataVolume, mode v1.PersistentVolumeMode) {
 		validateDvStorageSpec(dv.Spec, mode)
 	}
 
+	validateArchiveDataVolume := func() {
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		validateDvStorageSpec(dv.Spec, v1.PersistentVolumeFilesystem)
+		Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
+	}
+
 	validateDataVolume := func() {
-		validateDataVolumeArgs(v1.PersistentVolumeFilesystem)
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		validateDataVolumeArgs(dv, v1.PersistentVolumeFilesystem)
 	}
 
 	validateBlockDataVolume := func() {
-		validateDataVolumeArgs(v1.PersistentVolumeBlock)
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		validateDataVolumeArgs(dv, v1.PersistentVolumeBlock)
+	}
+
+	validateDataVolumeWithForceBind := func() {
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+		_, ok := dv.Annotations[forceImmediateBindingAnnotation]
+		Expect(ok).To(BeTrue(), "storage.bind.immediate.requested annotation")
+
+		validateDataVolumeArgs(dv, v1.PersistentVolumeFilesystem)
 	}
 
 	expectedStorageClassMatchesActual := func(storageClass string) {
@@ -431,6 +473,16 @@ var _ = Describe("ImageUpload", func() {
 			Entry("DV does not exist sync", false),
 		)
 
+		It("upload archive file DV doest not exist", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--archive-path", archiveFilePath)
+			Expect(cmd()).To(BeNil())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
+			validateArchivePVC()
+			validateArchiveDataVolume()
+		})
+
 		It("DV does not exist --pvc-size", func() {
 			testInit(http.StatusOK)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--pvc-size", pvcSize,
@@ -439,6 +491,16 @@ var _ = Describe("ImageUpload", func() {
 			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
+		})
+
+		It("DV does not exist --force-bind", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--pvc-size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--force-bind")
+			Expect(cmd()).To(BeNil())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+			validateDataVolumeWithForceBind()
 		})
 
 		It("DV does not exist and --no-create", func() {
@@ -506,6 +568,26 @@ var _ = Describe("ImageUpload", func() {
 			Entry("PVC without upload annotation and no annotation map", pvcSpecNoAnnotationMap()),
 		)
 
+		It("Archive upload PVC does not exist", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--archive-path", archiveFilePath)
+			Expect(cmd()).To(BeNil())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+			validateArchivePVC()
+		})
+
+		It("Archive upload PVC exist", func() {
+			pvc := pvcSpecWithUploadAnnotation()
+			pvc.Annotations[contentTypeAnnotation] = string(cdiv1.DataVolumeArchive)
+			testInit(http.StatusOK, pvc)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName,
+				"--uploadproxy-url", server.URL, "--no-create", "--insecure", "--archive-path", archiveFilePath)
+			Expect(cmd()).To(BeNil())
+			Expect(pvcCreateCalled.IsTrue()).To(BeFalse())
+			validateArchivePVC()
+		})
+
 		It("Show error when uploading to ReadOnly volume", func() {
 			testInit(http.StatusOK)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
@@ -529,6 +611,15 @@ var _ = Describe("ImageUpload", func() {
 			err := cmd()
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).Should(ContainSubstring("No DataVolume is associated with the existing PVC"))
+		})
+
+		It("PVC exists without archive contentType for archive upload", func() {
+			testInit(http.StatusOK, pvcSpecWithUploadAnnotation())
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName,
+				"--uploadproxy-url", server.URL, "--no-create", "--insecure", "--archive-path", archiveFilePath)
+			err := cmd()
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).Should(ContainSubstring("doesn't have archive contentType annotation"))
 		})
 
 		It("DV in phase WaitForFirstConsumer", func() {
@@ -571,7 +662,7 @@ var _ = Describe("ImageUpload", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).Should(Equal(errString))
 		},
-			Entry("No args", "required flag(s) \"image-path\" not set", []string{}),
+			Entry("No args", "either image-path or archive-path most be provided", []string{}),
 			Entry("Missing arg", "expecting two args",
 				[]string{"targetName", "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("No name", "expecting two args",
@@ -580,8 +671,12 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"dv", targetName, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Size invalid", "validation failed for size=500Zb: quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'",
 				[]string{"dv", targetName, "--size", "500Zb", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
-			Entry("No image path", "required flag(s) \"image-path\" not set",
+			Entry("No image path nor archive-path", "either image-path or archive-path most be provided",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure"}),
+			Entry("Image path and archive path provided", "cannot handle both image-path and archive-path, provide only one",
+				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--archive-path", "/dev/null.tar"}),
+			Entry("Archive path and block volume true provided", "In archive upload the volume mode should always be filesystem",
+				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume"}),
 			Entry("PVC name and args", "cannot use --pvc-name and args",
 				[]string{"foo", "--pvc-name", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Unexpected resource type", "invalid resource type foo",

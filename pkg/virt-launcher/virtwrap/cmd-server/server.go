@@ -30,7 +30,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/json"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
@@ -225,13 +225,13 @@ func (l *Launcher) UnpauseVirtualMachine(_ context.Context, request *cmdv1.VMIRe
 	return response, nil
 }
 
-func (l *Launcher) FreezeVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) FreezeVirtualMachine(_ context.Context, request *cmdv1.FreezeRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if err := l.domainManager.FreezeVMI(vmi); err != nil {
+	if err := l.domainManager.FreezeVMI(vmi, request.UnfreezeTimeoutSeconds); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to freeze vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -256,6 +256,23 @@ func (l *Launcher) UnfreezeVirtualMachine(_ context.Context, request *cmdv1.VMIR
 	}
 
 	log.Log.Object(vmi).Info("Unfreezed vmi")
+	return response, nil
+}
+
+func (l *Launcher) SoftRebootVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.SoftRebootVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to soft reboot vmi")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Soft rebooted vmi")
 	return response, nil
 }
 
@@ -327,6 +344,22 @@ func (l *Launcher) FinalizeVirtualMachineMigration(_ context.Context, request *c
 	}
 
 	log.Log.Object(vmi).Info("migration finalized successfully")
+	return response, nil
+}
+
+func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.HotplugHostDevices(vmi); err != nil {
+		log.Log.Object(vmi).Errorf(err.Error())
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
 	return response, nil
 }
 

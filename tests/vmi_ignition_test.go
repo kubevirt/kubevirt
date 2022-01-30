@@ -28,42 +28,40 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]IgnitionData", func() {
+var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]IgnitionData", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var LaunchVMI func(*v1.VirtualMachineInstance)
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
-		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
-			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-			Expect(err).To(BeNil())
-
-			By("Waiting the VirtualMachineInstance start")
-			_, ok := obj.(*v1.VirtualMachineInstance)
-			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
-		}
-	})
-
-	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+
 		if !tests.HasExperimentalIgnitionSupport() {
 			Skip("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config")
 		}
 	})
+
+	LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+		Expect(err).To(BeNil())
+
+		By("Waiting the VirtualMachineInstance start")
+		_, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+	}
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with IgnitionData annotation", func() {

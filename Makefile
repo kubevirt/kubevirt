@@ -10,13 +10,13 @@ all:
 	    hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 go-all:
-	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} GO_BUILD=true ./hack/build-manifests.sh"
+	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
 bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
-	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && hack/bazel-build.sh"
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && export DOCKER_TAG=${DOCKER_TAG} && hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 bazel-build-image-bundle:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PREFIX=${IMAGE_PREFIX} hack/bazel-build-image-bundle.sh"
@@ -89,7 +89,7 @@ functest-image-push: functest-image-build
 	hack/func-tests-image.sh push
 
 conformance:
-	hack/dockerized "export SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} && hack/conformance.sh"
+	hack/dockerized "export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} KUBEVIRT_E2E_FOCUS=${KUBEVIRT_E2E_FOCUS} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} && hack/conformance.sh"
 
 perftest: build-functests
 	hack/perftests.sh
@@ -120,7 +120,7 @@ deps-sync:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 rpm-deps:
-	SYNC_VENDOR=true hack/dockerized " ./hack/rpm-deps.sh"
+	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} ./hack/rpm-deps.sh"
 
 verify-rpm-deps:
 	SYNC_VENDOR=true hack/dockerized " ./hack/verify-rpm-deps.sh"
@@ -174,6 +174,7 @@ prom-rules-verify: build-prom-spec-dumper
 	./hack/prom-rule-ci/verify-rules.sh \
 		"${current-dir}/${rule-spec-dumper-executable}" \
 		"${current-dir}/hack/prom-rule-ci/prom-rules-tests.yaml"
+	rm ${rule-spec-dumper-executable}
 
 olm-push:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} \

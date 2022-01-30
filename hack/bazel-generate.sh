@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 
-source hack/common.sh
-source hack/bootstrap.sh
-source hack/config.sh
-
-# remove libvirt BUILD file to regenerate it each time
-rm -f vendor/libvirt.org/go/libvirt/BUILD.bazel
-
+# first ensure this file, so that sandbox bootstrapping has a working nogo setup
+# without this sourcin hack/bootstraph.sh will fail
 cat >vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign/BUILD.bazel <<EOT
 # gazelle:ignore
 load("@io_bazel_rules_go//go:def.bzl", "go_tool_library")
@@ -20,6 +15,13 @@ go_tool_library(
     deps = ["@org_golang_x_tools//go/analysis:go_tool_library"],
 )
 EOT
+
+source hack/common.sh
+source hack/bootstrap.sh
+source hack/config.sh
+
+# remove libvirt BUILD file to regenerate it each time
+rm -f vendor/libvirt.org/go/libvirt/BUILD.bazel
 
 # generate BUILD files
 bazel run \

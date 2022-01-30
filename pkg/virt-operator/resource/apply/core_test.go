@@ -47,7 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Apply", func() {
@@ -461,7 +461,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "",
+							"prometheus.kubevirt.io": "true",
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -490,7 +490,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "",
+							"prometheus.kubevirt.io": "true",
 						},
 						Ports: []corev1.ServicePort{
 							{

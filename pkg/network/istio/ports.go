@@ -29,6 +29,7 @@ const (
 	EnvoyMergedPrometheusTelemetryPort = 15020
 	EnvoyHealthCheckPort               = 15021
 	EnvoyPrometheusTelemetryPort       = 15090
+	SshPort                            = 22
 )
 
 func ReservedPorts() []string {
@@ -40,5 +41,11 @@ func ReservedPorts() []string {
 		fmt.Sprint(EnvoyMergedPrometheusTelemetryPort),
 		fmt.Sprint(EnvoyHealthCheckPort),
 		fmt.Sprint(EnvoyPrometheusTelemetryPort),
+	}
+}
+
+func NonProxiedPorts() []int {
+	return []int{
+		SshPort,
 	}
 }

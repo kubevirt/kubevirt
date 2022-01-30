@@ -20,9 +20,12 @@
 package rest
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -40,7 +43,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -71,7 +74,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		},
 	}
 
-	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
@@ -140,7 +143,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			table.Entry("stop function", app.StopClusterProfilerHandler),
 			table.Entry("dump function", app.DumpClusterProfilerHandler),
 		)
-		table.DescribeTable("should return successr when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
+		table.DescribeTable("start/stop should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
 
 			results := v1.ClusterProfilerResults{
 				ComponentResults: make(map[string]v1.ProfilerResult),
@@ -160,6 +163,30 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		},
 			table.Entry("start function", app.StartClusterProfilerHandler, "start"),
 			table.Entry("stop function", app.StopClusterProfilerHandler, "stop"),
+		)
+
+		table.DescribeTable("dump should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
+
+			results := v1.ClusterProfilerResults{
+				ComponentResults: make(map[string]v1.ProfilerResult),
+			}
+
+			b, err := json.Marshal(&v1.ClusterProfilerRequest{})
+			Expect(err).To(BeNil())
+			request.Request.Body = ioutil.NopCloser(bytes.NewBuffer(b))
+
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", fmt.Sprintf("/%s-profiler", cmd)),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, results),
+				),
+			)
+
+			enableFeatureGate(virtconfig.ClusterProfiler)
+			expectPodList()
+			fn(request, response)
+			Expect(recorder.Code).To(Equal(http.StatusOK))
+		},
 			table.Entry("dump function", app.DumpClusterProfilerHandler, "dump"),
 		)
 	})

@@ -78,7 +78,7 @@ func (_mr *_MockCmdClientRecorder) UnpauseVirtualMachine(arg0, arg1 interface{},
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", _s...)
 }
 
-func (_m *MockCmdClient) FreezeVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+func (_m *MockCmdClient) FreezeVirtualMachine(ctx context.Context, in *FreezeRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
 		_s = append(_s, _x)
@@ -108,6 +108,22 @@ func (_m *MockCmdClient) UnfreezeVirtualMachine(ctx context.Context, in *VMIRequ
 func (_mr *_MockCmdClientRecorder) UnfreezeVirtualMachine(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", _s...)
+}
+
+func (_m *MockCmdClient) SoftRebootVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "SoftRebootVirtualMachine", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) SoftRebootVirtualMachine(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftRebootVirtualMachine", _s...)
 }
 
 func (_m *MockCmdClient) ShutdownVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
@@ -236,6 +252,22 @@ func (_m *MockCmdClient) FinalizeVirtualMachineMigration(ctx context.Context, in
 func (_mr *_MockCmdClientRecorder) FinalizeVirtualMachineMigration(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", _s...)
+}
+
+func (_m *MockCmdClient) HotplugHostDevices(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "HotplugHostDevices", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) HotplugHostDevices(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", _s...)
 }
 
 func (_m *MockCmdClient) GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error) {
@@ -420,7 +452,7 @@ func (_mr *_MockCmdServerRecorder) UnpauseVirtualMachine(arg0, arg1 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", arg0, arg1)
 }
 
-func (_m *MockCmdServer) FreezeVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+func (_m *MockCmdServer) FreezeVirtualMachine(_param0 context.Context, _param1 *FreezeRequest) (*Response, error) {
 	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", _param0, _param1)
 	ret0, _ := ret[0].(*Response)
 	ret1, _ := ret[1].(error)
@@ -440,6 +472,17 @@ func (_m *MockCmdServer) UnfreezeVirtualMachine(_param0 context.Context, _param1
 
 func (_mr *_MockCmdServerRecorder) UnfreezeVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", arg0, arg1)
+}
+
+func (_m *MockCmdServer) SoftRebootVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SoftRebootVirtualMachine", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) SoftRebootVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftRebootVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockCmdServer) ShutdownVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
@@ -528,6 +571,17 @@ func (_m *MockCmdServer) FinalizeVirtualMachineMigration(_param0 context.Context
 
 func (_mr *_MockCmdServerRecorder) FinalizeVirtualMachineMigration(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0, arg1)
+}
+
+func (_m *MockCmdServer) HotplugHostDevices(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "HotplugHostDevices", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) HotplugHostDevices(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", arg0, arg1)
 }
 
 func (_m *MockCmdServer) GetDomain(_param0 context.Context, _param1 *EmptyRequest) (*DomainResponse, error) {

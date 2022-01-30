@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -39,7 +40,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"libvirt.org/go/libvirt"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -249,7 +250,7 @@ var _ = Describe("AccessCredentials", func() {
 		}
 
 		// Write the file
-		err = ioutil.WriteFile(secretDirs[0]+"/"+user, []byte(password), 0644)
+		err = ioutil.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)
 		Expect(err).To(BeNil())
 
 		// set the expected command
@@ -301,7 +302,7 @@ var _ = Describe("AccessCredentials", func() {
 		matched = false
 		manager.stopCh = make(chan struct{})
 		password = password + "morefake"
-		err = ioutil.WriteFile(secretDirs[0]+"/"+user, []byte(password), 0644)
+		err = ioutil.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)
 		Expect(err).To(BeNil())
 		base64Str = base64.StdEncoding.EncodeToString([]byte(password))
 		cmdSetPassword = fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)

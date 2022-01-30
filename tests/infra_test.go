@@ -65,7 +65,7 @@ import (
 	v1ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
@@ -122,7 +122,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			return duration
 		}
 
-		It("[QUARANTINE]on the controller rate limiter should lead to delayed VMI starts", func() {
+		It("on the controller rate limiter should lead to delayed VMI starts", func() {
 			By("first getting the basetime for a replicaset")
 			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
@@ -258,7 +258,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				secret.Data = map[string][]byte{
-					"random": []byte("nonsense"),
+					"tls.crt": []byte(""),
+					"tls.key": []byte(""),
 				}
 
 				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
@@ -308,7 +309,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			By("checking that we can still start virtual machines and connect to the VMI")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi = tests.RunVMI(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		})
 
@@ -324,7 +325,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 			Eventually(func() (rotated bool) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi = tests.RunVMI(vmi, 60)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -344,7 +345,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					return err
 				}
 				secret.Data = map[string][]byte{
-					"random": []byte("nonsense"),
+					"tls.crt": []byte(""),
+					"tls.key": []byte(""),
 				}
 				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
 
@@ -823,7 +825,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			l, err := labels.Parse("prometheus.kubevirt.io")
+			l, err := labels.Parse("prometheus.kubevirt.io=true")
 			Expect(err).ToNot(HaveOccurred())
 			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())
@@ -1561,10 +1563,10 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				err = virtClient.ClusterProfiler().Stop()
 				Expect(err).ToNot(BeNil())
 
-				_, err = virtClient.ClusterProfiler().Dump()
+				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 				Expect(err).ToNot(BeNil())
 			})
-			It("is enabled it should allow subresource access", func() {
+			It("[QUARANTINE] is enabled it should allow subresource access", func() {
 				tests.EnableFeatureGate("ClusterProfiler")
 
 				err := virtClient.ClusterProfiler().Start()
@@ -1573,7 +1575,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				err = virtClient.ClusterProfiler().Stop()
 				Expect(err).To(BeNil())
 
-				_, err = virtClient.ClusterProfiler().Dump()
+				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 				Expect(err).To(BeNil())
 			})
 		})

@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -150,13 +150,17 @@ func (f *fakeDeviceController) Initialized() bool {
 	return f.initialized
 }
 
+func (f *fakeDeviceController) RefreshMediatedDevicesTypes() {
+	return
+}
+
 func config(featuregates ...string) *virtconfig.ClusterConfig {
 	cfg := &virtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
 			FeatureGates: featuregates,
 		},
 	}
-	clusterConfig, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(cfg)
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(cfg)
 	return clusterConfig
 }
 
@@ -175,6 +179,10 @@ func (f *probeCountingDeviceController) Initialized() bool {
 	defer f.lock.Unlock()
 	f.probed++
 	return f.probes[f.probed-1]
+}
+
+func (f *probeCountingDeviceController) RefreshMediatedDevicesTypes() {
+	return
 }
 
 func newProbeCountingDeviceController(probes ...probe) device_manager.DeviceControllerInterface {

@@ -16,7 +16,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute][serial]NUMA", func() {
+var _ = Describe("[sig-compute][Serial]NUMA", func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
@@ -37,9 +37,9 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	It("topology should be mapped to the guest and hugepages should be allocated", func() {
+	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
-		checks.SkipTestIfNoCPUManagerWith2MiHugepages()
+		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
 		cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")

@@ -37,7 +37,13 @@ import (
 
 const (
 	vmiCreationTimePercentileQuery   = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
-	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds])`
+	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[5m] offset %ds)`
+)
+
+// Gauge - Using a Gauge doesn't require using an offset because it holds the accurate count
+//         at all times.
+const (
+	vmiPhaseCount = `sum by (phase) (kubevirt_vmi_phase_count{})`
 )
 
 type transport struct {
@@ -99,7 +105,6 @@ func (m *MetricClient) query(query string) (model.Value, error) {
 		return val, err
 	}
 	return val, nil
-
 }
 
 type metric struct {
@@ -181,8 +186,49 @@ func (m *MetricClient) getCreationToRunningTimePercentiles(r *audit_api.Result) 
 	return nil
 }
 
+func (m *MetricClient) getPhaseBreakdown(r *audit_api.Result) error {
+	query := vmiPhaseCount
+
+	val, err := m.query(query)
+	if err != nil {
+		return err
+	}
+
+	results, err := parseVector(val)
+	if err != nil {
+		return err
+	}
+
+	for _, result := range results {
+		if result.value < 1 {
+			continue
+		}
+		phase, ok := result.labels["phase"]
+		if !ok {
+			continue
+		}
+
+		key := audit_api.ResultType(fmt.Sprintf(audit_api.ResultTypePhaseCountFormat, phase))
+
+		val, ok := r.Values[key]
+		if ok {
+			val.Value = val.Value + result.value
+			r.Values[key] = val
+		} else {
+			r.Values[key] = audit_api.ResultValue{
+				Value: result.value,
+			}
+		}
+	}
+	return nil
+}
+
 func (m *MetricClient) getResourceRequestCountsByOperation(r *audit_api.Result) error {
-	query := fmt.Sprintf(resourceRequestCountsByOperation, int(m.cfg.GetDuration().Seconds()))
+	lookBack := int(time.Now().Sub(*m.cfg.EndTime).Seconds())
+	if lookBack < 1 {
+		lookBack = 1
+	}
+	query := fmt.Sprintf(resourceRequestCountsByOperation, lookBack)
 
 	val, err := m.query(query)
 	if err != nil {
@@ -234,6 +280,11 @@ func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 	}
 
 	err = m.getResourceRequestCountsByOperation(r)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.getPhaseBreakdown(r)
 	if err != nil {
 		return nil, err
 	}

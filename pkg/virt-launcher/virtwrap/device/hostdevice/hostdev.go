@@ -22,16 +22,19 @@ package hostdevice
 import (
 	"fmt"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-type HostDeviceMetaData struct {
-	AliasPrefix  string
-	Name         string
-	ResourceName string
+const failedCreateHostDeviceFmt = "failed to create hostdevice for %s: %v"
 
+type HostDeviceMetaData struct {
+	AliasPrefix       string
+	Name              string
+	ResourceName      string
+	VirtualGPUOptions *v1.VGPUOptions
 	// DecorateHook is a function pointer that may be used to mutate the domain host-device
 	// with additional specific parameters. E.g. guest PCI address.
 	DecorateHook func(hostDevice *api.HostDevice) error
@@ -47,7 +50,10 @@ func CreatePCIHostDevices(hostDevicesData []HostDeviceMetaData, pciAddrPool Addr
 	return createHostDevices(hostDevicesData, pciAddrPool, createPCIHostDevice)
 }
 
-func CreateMDEVHostDevices(hostDevicesData []HostDeviceMetaData, mdevAddrPool AddressPooler) ([]api.HostDevice, error) {
+func CreateMDEVHostDevices(hostDevicesData []HostDeviceMetaData, mdevAddrPool AddressPooler, enableDefaultDisplay bool) ([]api.HostDevice, error) {
+	if enableDefaultDisplay {
+		return createHostDevices(hostDevicesData, mdevAddrPool, createMDEVHostDeviceWithDisplay)
+	}
 	return createHostDevices(hostDevicesData, mdevAddrPool, createMDEVHostDevice)
 }
 
@@ -57,7 +63,7 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 	for _, hostDeviceData := range hostDevicesData {
 		address, err := addrPool.Pop(hostDeviceData.ResourceName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
+			return nil, fmt.Errorf(failedCreateHostDeviceFmt, hostDeviceData.Name, err)
 		}
 
 		// if pop succeeded but the address is empty, ignore the device and let the caller
@@ -68,11 +74,11 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 
 		hostDevice, err := createHostDev(hostDeviceData, address)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
+			return nil, fmt.Errorf(failedCreateHostDeviceFmt, hostDeviceData.Name, err)
 		}
 		if hostDeviceData.DecorateHook != nil {
 			if err := hostDeviceData.DecorateHook(hostDevice); err != nil {
-				return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
+				return nil, fmt.Errorf(failedCreateHostDeviceFmt, hostDeviceData.Name, err)
 			}
 		}
 		hostDevices = append(hostDevices, *hostDevice)
@@ -93,6 +99,28 @@ func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress strin
 		Managed: "no",
 	}
 	return domainHostDevice, nil
+}
+
+func createMDEVHostDeviceWithDisplay(hostDeviceData HostDeviceMetaData, mdevUUID string) (*api.HostDevice, error) {
+	mdev, err := createMDEVHostDevice(hostDeviceData, mdevUUID)
+	if err != nil {
+		return mdev, err
+	}
+	if hostDeviceData.VirtualGPUOptions != nil {
+		if hostDeviceData.VirtualGPUOptions.Display != nil {
+			displayEnabled := hostDeviceData.VirtualGPUOptions.Display.Enabled
+			if displayEnabled == nil || *displayEnabled {
+				mdev.Display = "on"
+				if hostDeviceData.VirtualGPUOptions.Display.RamFB == nil || *hostDeviceData.VirtualGPUOptions.Display.RamFB.Enabled {
+					mdev.RamFB = "on"
+				}
+			}
+		}
+	} else {
+		mdev.Display = "on"
+		mdev.RamFB = "on"
+	}
+	return mdev, nil
 }
 
 func createMDEVHostDevice(hostDeviceData HostDeviceMetaData, mdevUUID string) (*api.HostDevice, error) {

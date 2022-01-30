@@ -36,7 +36,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -112,7 +114,7 @@ var _ = Describe("HostDisk", func() {
 			tmpDiskImg := createTempDiskImg("volume1")
 
 			By("Creating a new minimal vmi")
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 
 			By("Adding a HostDisk volume for existing disk.img")
 			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
@@ -128,7 +130,7 @@ var _ = Describe("HostDisk", func() {
 		})
 		It("Should not create a disk.img when it does not exist", func() {
 			By("Creating a new minimal vmi")
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 
 			By("Adding a HostDisk volume")
 			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
@@ -148,7 +150,7 @@ var _ = Describe("HostDisk", func() {
 			Context("With non existing disk.img", func() {
 				It("Should create disk.img if there is enough space", func() {
 					By("Creating a new minimal vmi")
-					vmi := v1.NewMinimalVMI("fake-vmi")
+					vmi := api.NewMinimalVMI("fake-vmi")
 
 					By("Adding a HostDisk volumes")
 					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
@@ -174,7 +176,7 @@ var _ = Describe("HostDisk", func() {
 				})
 				It("Should stop creating disk images if there is not enough space and should return err", func() {
 					By("Creating a new minimal vmi")
-					vmi := v1.NewMinimalVMI("fake-vmi")
+					vmi := api.NewMinimalVMI("fake-vmi")
 
 					By("Adding a HostDisk volumes")
 					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
@@ -201,7 +203,7 @@ var _ = Describe("HostDisk", func() {
 
 				It("Should NOT subtract reserve if there is enough space on storage for requested size", func(done Done) {
 					By("Creating a new minimal vmi")
-					vmi := v1.NewMinimalVMI("fake-vmi")
+					vmi := api.NewMinimalVMI("fake-vmi")
 
 					By("Adding HostDisk volumes")
 					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
@@ -218,7 +220,7 @@ var _ = Describe("HostDisk", func() {
 
 				It("Should subtract reserve if there is NOT enough space on storage for requested size", func(done Done) {
 					By("Creating a new minimal vmi")
-					vmi := v1.NewMinimalVMI("fake-vmi")
+					vmi := api.NewMinimalVMI("fake-vmi")
 					dirAvailable := uint64(64 << 20)
 
 					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
@@ -240,7 +242,7 @@ var _ = Describe("HostDisk", func() {
 
 				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func(done Done) {
 					By("Creating a new minimal vmi")
-					vmi := v1.NewMinimalVMI("fake-vmi")
+					vmi := api.NewMinimalVMI("fake-vmi")
 					dirAvailable := uint64(64 << 20)
 
 					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
@@ -264,7 +266,7 @@ var _ = Describe("HostDisk", func() {
 
 				It("Should take lessPVCSpaceToleration into account when creating disk images", func(done Done) {
 					By("Creating a new minimal vmi")
-					vmi := v1.NewMinimalVMI("fake-vmi")
+					vmi := api.NewMinimalVMI("fake-vmi")
 
 					toleration := 5
 					hostDiskCreator.setlessPVCSpaceToleration(5)
@@ -324,7 +326,7 @@ var _ = Describe("HostDisk", func() {
 				tmpDiskImg := createTempDiskImg("volume1")
 
 				By("Creating a new minimal vmi")
-				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi := api.NewMinimalVMI("fake-vmi")
 
 				By("Adding a HostDisk volume")
 				addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "128Mi")
@@ -349,7 +351,7 @@ var _ = Describe("HostDisk", func() {
 	Describe("HostDisk with unknown type", func() {
 		It("Should not create a disk.img", func() {
 			By("Creating a new minimal vmi")
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 
 			By("Adding a HostDisk volume with unknown type")
 			addHostDisk(vmi, "volume1", "UnknownType", "")

@@ -41,14 +41,14 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", func() {
+var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -277,8 +277,6 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 	})
 
 	It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
-		// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-		tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)

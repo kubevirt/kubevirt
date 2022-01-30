@@ -19,10 +19,10 @@
 package agentpoller
 
 import (
-	"reflect"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
@@ -77,7 +77,7 @@ func NewAsyncAgentStore() AsyncAgentStore {
 func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 
 	oldData, _ := s.store.Load(key)
-	updated := (oldData == nil) || !reflect.DeepEqual(oldData, value)
+	updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 
 	s.store.Store(key, value)
 
@@ -228,21 +228,20 @@ type PollerWorker struct {
 
 type agentCommandsExecutor func(commands []AgentCommand)
 
-// Poll is the call to the guestagent
+// Poll is the call to the guestagent.
 func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan chan struct{}, initialInterval time.Duration) {
 	log.Log.Infof("Polling command: %v", p.AgentCommands)
 
-	// do the first round to fill the cache immediately
+	// Do the first round to fill the cache immediately.
 	execAgentCommands(p.AgentCommands)
 
-	pollMaxInterval := p.CallTick * time.Second
+	pollMaxInterval := p.CallTick
 	pollInterval := pollMaxInterval
-
 	if initialInterval < pollMaxInterval {
 		pollInterval = initialInterval
 	}
-	ticker := time.NewTicker(pollInterval)
 
+	ticker := time.NewTicker(pollInterval)
 	for {
 		select {
 		case <-closeChan:
@@ -253,14 +252,9 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 		}
 		if pollInterval < pollMaxInterval {
 			pollInterval = incrementPollInterval(pollInterval, pollMaxInterval)
-			ticker = replaceTicker(ticker, pollInterval)
+			ticker.Reset(pollInterval)
 		}
 	}
-}
-
-func replaceTicker(ticker *time.Ticker, interval time.Duration) *time.Ticker {
-	ticker.Stop()
-	return time.NewTicker(interval)
 }
 
 func incrementPollInterval(interval time.Duration, maxInterval time.Duration) time.Duration {

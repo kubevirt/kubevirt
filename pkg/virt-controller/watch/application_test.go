@@ -27,6 +27,8 @@ import (
 	"net/url"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -44,10 +46,10 @@ import (
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/rest"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
@@ -85,17 +87,22 @@ var _ = Describe("Application", func() {
 		nodeInformer, _ := testutils.NewFakeInformerFor(&kubev1.Node{})
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
-		config, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
 		pdbInformer, _ := testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		flavorMethods := testutils.NewMockFlavorMethods()
 
 		var qemuGid int64 = 107
 
@@ -113,10 +120,20 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			cdiInformer,
+			cdiConfigInformer,
+			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
 		)
 		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, crInformer, recorder, virtClient)
+		app.vmController = NewVMController(vmiInformer,
+			vmInformer,
+			dataVolumeInformer,
+			pvcInformer,
+			crInformer,
+			flavorMethods,
+			recorder,
+			virtClient)
 		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
 			podInformer,
@@ -124,6 +141,7 @@ var _ = Describe("Application", func() {
 			nodeInformer,
 			pvcInformer,
 			pdbInformer,
+			migrationPolicyInformer,
 			recorder,
 			virtClient,
 			config,
@@ -191,7 +209,7 @@ var _ = Describe("Application", func() {
 
 			app := VirtControllerApp{}
 
-			clusterConfig, _, crdInformer, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+			clusterConfig, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			app.clusterConfig = clusterConfig
 			app.reInitChan = make(chan string, 10)
 			app.hasCDI = hasCDIAtInit

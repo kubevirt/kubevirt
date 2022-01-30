@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	"net/http"
+	"path"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,7 +38,7 @@ var _ = Describe("Kubevirt Client", func() {
 	var server *ghttp.Server
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/kubevirts"
-	kubevirtPath := basePath + "/testkubevirt"
+	kubevirtPath := path.Join(basePath, "testkubevirt")
 
 	BeforeEach(func() {
 		var err error
@@ -122,7 +123,7 @@ var _ = Describe("Kubevirt Client", func() {
 		))
 
 		_, err := client.KubeVirt(k8sv1.NamespaceDefault).Patch(kubevirt.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"))
+			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"), &k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

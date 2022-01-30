@@ -22,6 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -31,7 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -79,7 +80,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 	}
 
 	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-		cmdCheck := "cat /mnt/" + testFile + "\n"
+		cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
 			&expect.BExp{R: console.PromptExpression},

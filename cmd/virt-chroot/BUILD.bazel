@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "cgroup.go",
         "main.go",
         "mdev-handler.go",
         "selinux.go",
@@ -11,6 +12,10 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-chroot",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/virt-handler/cgroup:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",

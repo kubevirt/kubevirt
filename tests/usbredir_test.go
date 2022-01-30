@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
@@ -50,13 +50,12 @@ var helloMessageRemote = []byte{
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00,
 }
 
-var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection", func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
@@ -64,7 +63,9 @@ var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:componen
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance without usbredir support", func() {
-		tests.BeforeAll(func() {
+
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
 			vmi, err = createVMI(virtClient, false)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -78,7 +79,9 @@ var _ = Describe("[Serial][crit:medium][vendor:cnv-qe@redhat.com][level:componen
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
-		tests.BeforeAll(func() {
+
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
 			vmi, err = createVMI(virtClient, true)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)

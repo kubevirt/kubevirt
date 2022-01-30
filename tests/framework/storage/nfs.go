@@ -8,7 +8,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -59,7 +60,13 @@ func RenderNFSServerWithPVC(generateName string, pvcName string) *k8sv1.Pod {
 	return pod
 }
 
-func RenderNFSServer(generateName string, hostPath string) *k8sv1.Pod {
+func InitNFS(targetImage, nodeName string) *k8sv1.Pod {
+	nfsPod := renderNFSServer("nfsserver", targetImage)
+	nfsPod.Spec.NodeName = nodeName
+	return tests.RunPod(nfsPod)
+}
+
+func renderNFSServer(generateName string, hostPath string) *k8sv1.Pod {
 	image := fmt.Sprintf("%s/nfs-server:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
 	resources := k8sv1.ResourceRequirements{}
 	resources.Requests = make(k8sv1.ResourceList)

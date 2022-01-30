@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"os"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
@@ -49,22 +49,32 @@ type ConfigGenerator interface {
 	Generate() (*cache.DHCPConfig, error)
 }
 
-func NewBridgeConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, podInterfaceName string,
-	vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface) *configurator {
+func NewBridgeConfigurator(cacheCreator cacheCreator, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, podInterfaceName string,
+	vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface, subdomain string) *configurator {
 	return &configurator{
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
-		configGenerator:      &BridgeConfigGenerator{handler: handler, cacheFactory: cacheFactory, podInterfaceName: podInterfaceName, launcherPID: launcherPID, vmiSpecIfaces: vmiSpecIfaces, vmiSpecIface: vmiSpecIface},
+		configGenerator: &BridgeConfigGenerator{
+			handler:          handler,
+			podInterfaceName: podInterfaceName,
+			cacheCreator:     cacheCreator,
+			launcherPID:      launcherPID,
+			vmiSpecIfaces:    vmiSpecIfaces,
+			vmiSpecIface:     vmiSpecIface,
+			subdomain:        subdomain,
+		},
 	}
 }
 
-func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.NetworkHandler, vmiSpecIface *v1.Interface, vmiSpecNetwork *v1.Network, podInterfaceName string) *configurator {
+func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.NetworkHandler, vmiSpecIface *v1.Interface, vmiSpecNetwork *v1.Network, podInterfaceName string,
+	subdomain string) *configurator {
 	return &configurator{
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
-		configGenerator:      &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork, podInterfaceName: podInterfaceName},
+		configGenerator: &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork,
+			subdomain: subdomain, podInterfaceName: podInterfaceName},
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 	}

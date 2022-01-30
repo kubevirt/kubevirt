@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/api/core"
+
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -19,13 +21,12 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -71,7 +72,7 @@ var _ = Describe("Restore controlleer", func() {
 		r := createRestore()
 		r.OwnerReferences = []metav1.OwnerReference{
 			{
-				APIVersion:         kubevirtv1.GroupVersion.String(),
+				APIVersion:         v1.GroupVersion.String(),
 				Kind:               "VirtualMachine",
 				Name:               vmName,
 				UID:                vmUID,
@@ -232,9 +233,9 @@ var _ = Describe("Restore controlleer", func() {
 				"vm": func(obj interface{}) ([]string, error) {
 					vmr := obj.(*snapshotv1.VirtualMachineRestore)
 					if vmr.Spec.Target.APIGroup != nil &&
-						*vmr.Spec.Target.APIGroup == v1.GroupName &&
+						*vmr.Spec.Target.APIGroup == core.GroupName &&
 						vmr.Spec.Target.Kind == "VirtualMachine" {
-						return []string{vmr.Spec.Target.Name}, nil
+						return []string{vmr.Namespace + "/" + vmr.Spec.Target.Name}, nil
 					}
 					return nil, nil
 				},

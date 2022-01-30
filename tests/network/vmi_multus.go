@@ -45,12 +45,14 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -60,19 +62,24 @@ import (
 )
 
 const (
-	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	linuxBridgeConfCRD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": %d, \"ipam\": {%s}, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
-	ptpConfCRD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
-	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
-	macvtapNetworkConf     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
-	sriovConfVlanCRD       = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 200, \"ipam\":{}}"}}`
+	shouldCreateNetwork = "should successfully create the network"
+	ipLinkSetDev        = "ip link set dev "
 )
 
 const (
-	sriovnet1 = "sriov"
-	sriovnet2 = "sriov2"
-	sriovnet3 = "sriov3"
+	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
+	linuxBridgeConfNAD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\", \"vlan\": %d, \"ipam\": {%s}, \"macspoofchk\": %t, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
+	ptpConfNAD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
+	macvtapNetworkConfNAD  = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
+	sriovConfNAD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	sriovLinkEnableConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	sriovVlanConfNAD       = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 200, \"ipam\":{}}"}}`
+)
+
+const (
+	sriovnet1           = "sriov"
+	sriovnet2           = "sriov2"
+	sriovnetLinkEnabled = "sriov-linked"
 )
 
 const (
@@ -91,12 +98,15 @@ const (
 )
 
 const (
-	linuxBridgeVlan100Network         = "linux-bridge-net-vlan100"
-	linuxBridgeVlan100WithIPAMNetwork = "linux-bridge-net-ipam"
+	linuxBridgeVlan100Network           = "linux-bridge-net-vlan100"
+	linuxBridgeVlan100WithIPAMNetwork   = "linux-bridge-net-ipam"
+	linuxBridgeWithMACSpoofCheckNetwork = "linux-br-msc"
 )
 
 const (
-	helloWorldCloudInitData = "#!/bin/bash\necho 'hello'\n"
+	bridge10CNIType       = "bridge"
+	bridge10Name          = "br10"
+	bridge10MacSpoofCheck = false
 )
 
 var _ = SIGDescribe("[Serial]Multus", func() {
@@ -152,16 +162,16 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		},
 	}
 
-	createBridgeNetworkAttachmentDefinition := func(namespace, networkName string, vlan int, ipam string) error {
-		bridgeNad := fmt.Sprintf(linuxBridgeConfCRD, networkName, namespace, vlan, ipam)
+	createBridgeNetworkAttachmentDefinition := func(namespace, networkName string, bridgeCNIType string, bridgeName string, vlan int, ipam string, macSpoofCheck bool) error {
+		bridgeNad := fmt.Sprintf(linuxBridgeConfNAD, networkName, namespace, bridgeCNIType, bridgeName, vlan, ipam, macSpoofCheck)
 		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, bridgeNad)
 	}
 	createPtpNetworkAttachmentDefinition := func(namespace, networkName, subnet string) error {
-		ptpNad := fmt.Sprintf(ptpConfCRD, networkName, namespace, subnet)
+		ptpNad := fmt.Sprintf(ptpConfNAD, networkName, namespace, subnet)
 		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, ptpNad)
 	}
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
@@ -170,18 +180,14 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		nodes = util.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
-		const vlanId = 100
-		Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, vlanId, "")).To(Succeed())
+		const vlanID100 = 100
+		Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, bridge10CNIType, bridge10Name, vlanID100, "", bridge10MacSpoofCheck)).To(Succeed())
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
 		Expect(createPtpNetworkAttachmentDefinition(util.NamespaceTestDefault, ptpConf1, ptpSubnet)).To(Succeed())
 		Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
-	})
 
-	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(util.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Eventually(func() int {
 			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -192,7 +198,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), helloWorldCloudInitData)
+		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
 		vmi.Spec.Domain.Devices.Interfaces = interfaces
 		vmi.Spec.Networks = networks
 
@@ -209,7 +215,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -227,7 +233,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
 				tests.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -244,7 +250,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
@@ -281,7 +287,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -388,7 +394,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			table.DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
 				if staticIPVm2 == "" || staticIPVm1 == "" {
 					ipam := generateIPAMConfig("host-local", ptpSubnet)
-					Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100WithIPAMNetwork, 0, ipam)).To(Succeed())
+					Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100WithIPAMNetwork, bridge10CNIType, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -552,7 +558,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Start VMI")
 				linuxBridgeIfIdx := 1
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), helloWorldCloudInitData)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), tests.BashHelloScript)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
 					linuxBridgeInterface,
@@ -568,6 +574,70 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				Expect(err).To(HaveOccurred())
 				testErr := err.(*errors.StatusError)
 				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
+			})
+		})
+
+		Context("Security", func() {
+			BeforeEach(func() {
+				const (
+					bridge11CNIType       = "cnv-bridge"
+					bridge11Name          = "br11"
+					bridge11MACSpoofCheck = true
+				)
+
+				Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault,
+					linuxBridgeWithMACSpoofCheckNetwork,
+					bridge11CNIType,
+					bridge11Name,
+					0,
+					"",
+					bridge11MACSpoofCheck)).To(Succeed())
+			})
+
+			It("Should allow outbound communication from VM under test - only if original MAC address is unchanged", func() {
+				const (
+					vmUnderTestIPAddress = "10.2.1.1"
+					targetVMIPAddress    = "10.2.1.2"
+					bridgeSubnetMask     = "/24"
+				)
+
+				initialMacAddress, err := tests.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				initialMacAddressStr := initialMacAddress.String()
+
+				spoofedMacAddress, err := tests.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				spoofedMacAddressStr := spoofedMacAddress.String()
+
+				linuxBridgeInterfaceWithMACSpoofCheck := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithMACSpoofCheckNetwork)
+
+				By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
+				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
+				libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
+
+				vmiUnderTest := libvmi.NewTestToolingFedora(
+					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask), false))
+				vmiUnderTest = tests.CreateVmiOnNode(vmiUnderTest, nodes.Items[0].Name)
+
+				By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
+				targetVmi := libvmi.NewTestToolingFedora(
+					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask), false))
+				targetVmi = tests.CreateVmiOnNode(targetVmi, nodes.Items[0].Name)
+
+				vmiUnderTest = tests.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
+				tests.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
+
+				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
+
+				Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, spoofedMacAddressStr)).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).NotTo(Succeed(), "Ping target IP with modified MAC should fail")
+
+				Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, initialMacAddressStr)).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with restored original MAC should succeed")
 			})
 		})
 	})
@@ -671,7 +741,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, sriovNad)
 	}
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
@@ -702,7 +772,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			for _, name := range networks {
 				withVmiOptions = append(withVmiOptions,
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
-					libvmi.WithNetwork(libvmi.MultusNetwork(name)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 				)
 			}
 			return libvmi.NewSriovFedora(withVmiOptions...)
@@ -756,202 +826,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}
 		}
 
-		It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
-			defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
-
-			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			Eventually(func() error {
-				_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
-				return err
-			}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
-		})
-		It("should have cloud-init meta_data with tagged sriov nics", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			noCloudInitNetworkData := ""
-			vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
-
-			tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
-
-			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
-				if iface.Name == sriovnet1 {
-					iface.Tag = "specialNet"
-					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
-				}
-			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
-			nic := domSpec.Devices.HostDevices[0]
-			// find the SRIOV interface
-			for _, iface := range domSpec.Devices.HostDevices {
-				if iface.Alias.GetName() == sriovnet1 {
-					nic = iface
-				}
-			}
-			address := nic.Address
-			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
-			deviceData := []cloudinit.DeviceData{
-				{
-					Type:    cloudinit.NICMetadataType,
-					Bus:     nic.Address.Type,
-					Address: pciAddrStr,
-					Tags:    []string{"specialNet"},
-				},
-			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			metadataStruct := cloudinit.ConfigDriveMetadata{
-				InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
-				Hostname:   dns.SanitizeHostname(vmi),
-				UUID:       string(vmi.UID),
-				Devices:    &deviceData,
-			}
-
-			buf, err := json.Marshal(metadataStruct)
-			Expect(err).To(BeNil())
-			By("mouting cloudinit iso")
-			mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
-			mountCloudInitConfigDrive(vmi)
-
-			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
-		})
-
-		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
-
-			checkDefaultInterfaceInPod(vmi)
-
-			By("checking virtual machine instance has two interfaces")
-			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
-
-			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
-			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
-			// it's hard to match them.
-		})
-
-		It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi.Annotations = map[string]string{
-				v1.PlacePCIDevicesOnRootComplex: "true",
-			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
-
-			checkDefaultInterfaceInPod(vmi)
-
-			By("checking virtual machine instance has two interfaces")
-			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
-
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			rootPortController := []api.Controller{}
-			for _, c := range domSpec.Devices.Controllers {
-				if c.Model == "pcie-root-port" {
-					rootPortController = append(rootPortController, c)
-				}
-			}
-			Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
-		})
-
-		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			checks.SkipTestIfNoCPUManager()
-			// In addition to verifying that we can start a VMI with CPU pinning
-			// this also tests if we've correctly calculated the overhead for VFIO devices.
-			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 2,
-				DedicatedCPUPlacement: true,
-			}
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
-
-			checkDefaultInterfaceInPod(vmi)
-
-			By("checking virtual machine instance has two interfaces")
-			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
-		})
-
-		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			const mac = "de:ad:00:00:be:ef"
-			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
-
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			var interfaceName string
-			Eventually(func() error {
-				var err error
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				interfaceName, err = getInterfaceNameByMAC(vmi, mac)
-				return err
-			}, 140*time.Second, 5*time.Second).Should(Succeed())
-
-			By("checking virtual machine instance has an interface with the requested MAC address")
-			Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
-			By("checking virtual machine instance reports the expected network name")
-			Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovnet1))
-		})
-
-		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
-			sriovNetworks := []string{sriovnet1, sriovnet2}
-			vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
-			for _, name := range sriovNetworks {
-				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, name, sriovResourceName)).To(Succeed())
-			}
-
-			checkDefaultInterfaceInPod(vmi)
-
-			By("checking virtual machine instance has three interfaces")
-			checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
-
-			// there is little we can do beyond just checking three devices are present: PCI slots are different inside
-			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
-			// it's hard to match them.
-		})
-
 		// createSriovVMs instantiates two VMs on the same node connected through SR-IOV.
 		createSriovVMs := func(networkNameA, networkNameB, cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
 			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
@@ -993,160 +867,428 @@ var _ = Describe("[Serial]SRIOV", func() {
 			return vmi1, vmi2
 		}
 
-		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To(Succeed(), "should successfully create the network")
-
-			cidrA := "192.168.1.1/24"
-			cidrB := "192.168.1.2/24"
-			ipA, err := cidrToIP(cidrA)
-			Expect(err).ToNot(HaveOccurred())
-			ipB, err := cidrToIP(cidrB)
-			Expect(err).ToNot(HaveOccurred())
-
-			//create two vms on the same sriov network
-			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
-
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi1, ipB)
-			}, 15*time.Second, time.Second).Should(Succeed())
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi2, ipA)
-			}, 15*time.Second, time.Second).Should(Succeed())
-		})
-
-		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To(Succeed(), "should successfully create the network")
-
-			vmi1CIDR := "fc00::1/64"
-			vmi2CIDR := "fc00::2/64"
-			vmi1IP, err := cidrToIP(vmi1CIDR)
-			Expect(err).ToNot(HaveOccurred())
-			vmi2IP, err := cidrToIP(vmi2CIDR)
-			Expect(err).ToNot(HaveOccurred())
-
-			//create two vms on the same sriov network
-			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, vmi1CIDR, vmi2CIDR)
-
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi1, vmi2IP)
-			}, 15*time.Second, time.Second).Should(Succeed())
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi2, vmi1IP)
-			}, 15*time.Second, time.Second).Should(Succeed())
-		})
-
-		Context("With VLAN", func() {
-			const (
-				cidrVlaned1          = "192.168.0.1/24"
-				sriovVlanNetworkName = "sriov-vlan"
-			)
-			var ipVlaned1 string
-
+		Context("Connected to single SRIOV network", func() {
 			BeforeEach(func() {
-				var err error
-				ipVlaned1, err = cidrToIP(cidrVlaned1)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(createSriovNetworkAttachmentDefinition(sriovVlanNetworkName, util.NamespaceTestDefault, sriovConfVlanCRD)).To(Succeed())
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).
+					To(Succeed(), shouldCreateNetwork)
 			})
 
-			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
-				_, vlanedVMI2 := createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.2/24")
+			It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
+				tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
+				defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
 
-				By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
+				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				Eventually(func() error {
-					return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
-				}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+					_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+					return err
+				}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
 			})
-
-			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To(Succeed(), "should successfully create the network")
-
-				_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
-
-				By("pinging between nonVlanedVMIand the anonymous vmi")
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
-				}, 15*time.Second, time.Second).Should(HaveOccurred())
-			})
-		})
-
-		Context("migration", func() {
-
-			BeforeEach(func() {
-				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
-					Skip("Migration tests require at least 2 nodes: " + err.Error())
+			It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", func() {
+				checks.SkipTestIfNoCPUManager()
+				noCloudInitNetworkData := ""
+				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
+				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 4,
+					DedicatedCPUPlacement: true,
 				}
+
+				for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
+					if iface.Name == sriovnet1 {
+						iface.Tag = "specialNet"
+						vmi.Spec.Domain.Devices.Interfaces[idx] = iface
+					}
+				}
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				domSpec := &api.DomainSpec{}
+				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+				nic := domSpec.Devices.HostDevices[0]
+				// find the SRIOV interface
+				for _, iface := range domSpec.Devices.HostDevices {
+					if iface.Alias.GetName() == sriovnet1 {
+						nic = iface
+					}
+				}
+				address := nic.Address
+				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				srcAddr := nic.Source.Address
+				sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
+				alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
+				Expect(err).ToNot(HaveOccurred())
+				deviceData := []cloudinit.DeviceData{
+					{
+						Type:        cloudinit.NICMetadataType,
+						Bus:         nic.Address.Type,
+						Address:     pciAddrStr,
+						Tags:        []string{"specialNet"},
+						AlignedCPUs: alignedCPUsInt,
+					},
+				}
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				metadataStruct := cloudinit.ConfigDriveMetadata{
+					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					Hostname:   dns.SanitizeHostname(vmi),
+					UUID:       string(vmi.UID),
+					Devices:    &deviceData,
+				}
+
+				buf, err := json.Marshal(metadataStruct)
+				Expect(err).To(BeNil())
+				By("mouting cloudinit iso")
+				mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
+				mountCloudInitConfigDrive(vmi)
+
+				By("checking cloudinit meta-data")
+				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+
 			})
 
-			BeforeEach(func() {
-				tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+			It("should have cloud-init meta_data with tagged sriov nics", func() {
+				noCloudInitNetworkData := ""
+				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
+				testFlavor := "testFlavor"
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
+				tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
+
+				for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
+					if iface.Name == sriovnet1 {
+						iface.Tag = "specialNet"
+						vmi.Spec.Domain.Devices.Interfaces[idx] = iface
+					}
+				}
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				domSpec := &api.DomainSpec{}
+				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+				nic := domSpec.Devices.HostDevices[0]
+				// find the SRIOV interface
+				for _, iface := range domSpec.Devices.HostDevices {
+					if iface.Alias.GetName() == sriovnet1 {
+						nic = iface
+					}
+				}
+				address := nic.Address
+				pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				deviceData := []cloudinit.DeviceData{
+					{
+						Type:    cloudinit.NICMetadataType,
+						Bus:     nic.Address.Type,
+						Address: pciAddrStr,
+						Tags:    []string{"specialNet"},
+					},
+				}
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				metadataStruct := cloudinit.ConfigDriveMetadata{
+					InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					InstanceType: testFlavor,
+					Hostname:     dns.SanitizeHostname(vmi),
+					UUID:         string(vmi.UID),
+					Devices:      &deviceData,
+				}
+
+				buf, err := json.Marshal(metadataStruct)
+				Expect(err).To(BeNil())
+				By("mouting cloudinit iso")
+				mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
+				mountCloudInitConfigDrive(vmi)
+
+				By("checking cloudinit meta-data")
+				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
 			})
 
-			AfterEach(func() {
-				tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+			It("[test_id:1754]should create a virtual machine with sriov interface", func() {
+				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
+
+				checkDefaultInterfaceInPod(vmi)
+
+				By("checking virtual machine instance has two interfaces")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+
+				// there is little we can do beyond just checking two devices are present: PCI slots are different inside
+				// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
+				// it's hard to match them.
 			})
 
-			var vmi *v1.VirtualMachineInstance
+			It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
+				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi.Annotations = map[string]string{
+					v1.PlacePCIDevicesOnRootComplex: "true",
+				}
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
 
-			const mac = "de:ad:00:00:be:ef"
+				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
-			BeforeEach(func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
+				checkDefaultInterfaceInPod(vmi)
 
-				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
-				vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				By("checking virtual machine instance has two interfaces")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				rootPortController := []api.Controller{}
+				for _, c := range domSpec.Devices.Controllers {
+					if c.Model == "pcie-root-port" {
+						rootPortController = append(rootPortController, c)
+					}
+				}
+				Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
+			})
+
+			It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
+				checks.SkipTestIfNoCPUManager()
+				// In addition to verifying that we can start a VMI with CPU pinning
+				// this also tests if we've correctly calculated the overhead for VFIO devices.
+				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 2,
+					DedicatedCPUPlacement: true,
+				}
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
+
+				checkDefaultInterfaceInPod(vmi)
+
+				By("checking virtual machine instance has two interfaces")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+			})
+			It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
+				const mac = "de:ad:00:00:be:ef"
+				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
 				var interfaceName string
-
-				// It may take some time for the VMI interface status to be updated with the information reported by
-				// the guest-agent.
 				Eventually(func() error {
 					var err error
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
 					return err
-				}, 30*time.Second, 5*time.Second).Should(Succeed())
+				}, 140*time.Second, 5*time.Second).Should(Succeed())
 
-				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+				By("checking virtual machine instance has an interface with the requested MAC address")
+				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
+				By("checking virtual machine instance reports the expected network name")
+				Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovnet1))
+				By("checking virtual machine instance reports the expected info source")
+				networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, mac)
+				Expect(networkInterface).NotTo(BeNil(), "interface not found")
+				Expect(networkInterface.InfoSource).To(Equal(netvmispec.InfoSourceGuestAgent))
 			})
 
-			It("should be successful with a running VMI on the target", func() {
-				By("starting the migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			Context("migration", func() {
 
-				// It may take some time for the VMI interface status to be updated with the information reported by
-				// the guest-agent.
-				Eventually(func() error {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
-					if err != nil {
-						return err
+				BeforeEach(func() {
+					if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
+						Skip("Migration tests require at least 2 nodes: " + err.Error())
 					}
-					return checkMacAddress(updatedVMI, interfaceName, mac)
-				}, 30*time.Second, 5*time.Second).Should(Succeed(),
-					"SR-IOV VF is expected to exist in the guest after migration")
+				})
+
+				BeforeEach(func() {
+					tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+				})
+
+				AfterEach(func() {
+					tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+				})
+
+				var vmi *v1.VirtualMachineInstance
+
+				const mac = "de:ad:00:00:be:ef"
+
+				BeforeEach(func() {
+					// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
+					vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+					vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
+					vmi = startVmi(vmi)
+					vmi = waitVmi(vmi)
+
+					var interfaceName string
+
+					// It may take some time for the VMI interface status to be updated with the information reported by
+					// the guest-agent.
+					Eventually(func() error {
+						var err error
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						interfaceName, err = getInterfaceNameByMAC(vmi, mac)
+						return err
+					}, 30*time.Second, 5*time.Second).Should(Succeed())
+
+					Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+				})
+
+				It("should be successful with a running VMI on the target", func() {
+					By("starting the migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+					// It may take some time for the VMI interface status to be updated with the information reported by
+					// the guest-agent.
+					Eventually(func() error {
+						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
+						if err != nil {
+							return err
+						}
+						return checkMacAddress(updatedVMI, interfaceName, mac)
+					}, 30*time.Second, 5*time.Second).Should(Succeed(),
+						"SR-IOV VF is expected to exist in the guest after migration")
+				})
 			})
 		})
 
+		Context("Connected to two SRIOV networks", func() {
+			BeforeEach(func() {
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+			})
+
+			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
+				sriovNetworks := []string{sriovnet1, sriovnet2}
+				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
+				for _, name := range sriovNetworks {
+					Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, name, sriovResourceName)).To(Succeed())
+				}
+
+				checkDefaultInterfaceInPod(vmi)
+
+				By("checking virtual machine instance has three interfaces")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
+
+				// there is little we can do beyond just checking three devices are present: PCI slots are different inside
+				// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
+				// it's hard to match them.
+			})
+		})
+
+		Context("Connected to link-enabled SRIOV network", func() {
+			BeforeEach(func() {
+				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfNAD)).
+					To(Succeed(), shouldCreateNetwork)
+			})
+
+			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
+				cidrA := "192.168.1.1/24"
+				cidrB := "192.168.1.2/24"
+				ipA, err := cidrToIP(cidrA)
+				Expect(err).ToNot(HaveOccurred())
+				ipB, err := cidrToIP(cidrB)
+				Expect(err).ToNot(HaveOccurred())
+
+				//create two vms on the same sriov network
+				vmi1, vmi2 := createSriovVMs(sriovnetLinkEnabled, sriovnetLinkEnabled, cidrA, cidrB)
+
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi1, ipB)
+				}, 15*time.Second, time.Second).Should(Succeed())
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi2, ipA)
+				}, 15*time.Second, time.Second).Should(Succeed())
+			})
+
+			It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
+				vmi1CIDR := "fc00::1/64"
+				vmi2CIDR := "fc00::2/64"
+				vmi1IP, err := cidrToIP(vmi1CIDR)
+				Expect(err).ToNot(HaveOccurred())
+				vmi2IP, err := cidrToIP(vmi2CIDR)
+				Expect(err).ToNot(HaveOccurred())
+
+				//create two vms on the same sriov network
+				vmi1, vmi2 := createSriovVMs(sriovnetLinkEnabled, sriovnetLinkEnabled, vmi1CIDR, vmi2CIDR)
+
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi1, vmi2IP)
+				}, 15*time.Second, time.Second).Should(Succeed())
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi2, vmi1IP)
+				}, 15*time.Second, time.Second).Should(Succeed())
+			})
+
+			Context("With VLAN", func() {
+				const (
+					cidrVlaned1     = "192.168.0.1/24"
+					sriovnetVlanned = "sriov-vlan"
+				)
+				var ipVlaned1 string
+
+				BeforeEach(func() {
+					var err error
+					ipVlaned1, err = cidrToIP(cidrVlaned1)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(createSriovNetworkAttachmentDefinition(sriovnetVlanned, util.NamespaceTestDefault, sriovVlanConfNAD)).To(Succeed())
+				})
+
+				It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
+					_, vlanedVMI2 := createSriovVMs(sriovnetVlanned, sriovnetVlanned, cidrVlaned1, "192.168.0.2/24")
+
+					By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
+					Eventually(func() error {
+						return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
+					}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+				})
+
+				It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
+					_, nonVlanedVMI := createSriovVMs(sriovnetVlanned, sriovnetLinkEnabled, cidrVlaned1, "192.168.0.3/24")
+
+					By("pinging between nonVlanedVMIand the anonymous vmi")
+					Eventually(func() error {
+						return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
+					}, 15*time.Second, time.Second).Should(HaveOccurred())
+				})
+			})
+		})
 	})
 })
 
-var _ = SIGDescribe("[Serial]Macvtap", func() {
+var _ = SIGDescribe("Macvtap", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var macvtapLowerDevice string
 	var macvtapNetworkName string
 
 	createMacvtapNetworkAttachmentDefinition := func(namespace, networkName, macvtapLowerDevice string) error {
-		macvtapNad := fmt.Sprintf(macvtapNetworkConf, networkName, namespace, macvtapLowerDevice, networkName)
+		macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, networkName, namespace, macvtapLowerDevice, networkName)
 		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, macvtapNad)
 	}
 
@@ -1162,23 +1304,15 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 	})
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.MacvtapGate)
-	})
-
-	BeforeEach(func() {
 		Expect(createMacvtapNetworkAttachmentDefinition(util.NamespaceTestDefault, macvtapNetworkName, macvtapLowerDevice)).
 			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
-	})
-
-	AfterEach(func() {
-		tests.DisableFeatureGate(virtconfig.MacvtapGate)
 	})
 
 	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
 		return libvmi.NewCirros(
 			libvmi.WithInterface(
 				*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
 	newCirrosVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
@@ -1186,7 +1320,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			libvmi.WithInterface(
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
 	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
@@ -1196,7 +1330,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
 	createCirrosVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
@@ -1243,10 +1377,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			nodeList = util.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
-			chosenMAC = "de:ad:00:00:be:af"
+			chosenMACHW, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+			chosenMAC = chosenMACHW.String()
 			serverCIDR := "192.0.2.102/24"
 
-			var err error
 			serverIP, err = cidrToIP(serverCIDR)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1277,7 +1412,9 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		})
 
 		BeforeEach(func() {
-			macAddress := "02:03:04:05:06:07"
+			macAddressHW, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+			macAddress := macAddressHW.String()
 			clientVMI, err = createCirrosVMIRandomNode(macvtapNetworkName, macAddress)
 			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
 		})
@@ -1296,9 +1433,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			var serverVMIPodName string
 			var serverIP string
 
-			getVMMacvtapIfaceIP := func(vmi *v1.VirtualMachineInstance, macAddress string) (string, error) {
+			macvtapIfaceIPReportTimeout := 4 * time.Minute
+
+			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 				var vmiIP string
-				err := wait.PollImmediate(time.Second, 2*time.Minute, func() (done bool, err error) {
+				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 					if err != nil {
 						return false, err
@@ -1335,14 +1474,16 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			}
 
 			BeforeEach(func() {
-				macAddress := "02:03:04:05:06:aa"
+				macAddressHW, err := tests.GenerateRandomMac()
+				Expect(err).ToNot(HaveOccurred())
+				macAddress := macAddressHW.String()
 
 				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
 				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
 
-				serverIP, err = getVMMacvtapIfaceIP(serverVMI, macAddress)
+				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, macAddress, macvtapIfaceIPReportTimeout)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
 			})
 
@@ -1363,6 +1504,25 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		})
 	})
 })
+
+func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName string, newMACAddress string) error {
+	const maxCommandTimeout = 5 * time.Second
+
+	commands := []string{
+		ipLinkSetDev + interfaceName + " down",
+		ipLinkSetDev + interfaceName + " address " + newMACAddress,
+		ipLinkSetDev + interfaceName + " up",
+	}
+
+	for _, cmd := range commands {
+		err := console.RunCommand(vmi, cmd, maxCommandTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to run command: %q on VMI %s, error: %v", cmd, vmi.Name, err)
+		}
+	}
+
+	return nil
+}
 
 func createNetworkAttachmentDefinition(virtClient kubecli.KubevirtClient, name, namespace, nad string) error {
 	return virtClient.RestClient().
@@ -1414,7 +1574,7 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 
@@ -1442,7 +1602,7 @@ func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: command},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }
@@ -1566,7 +1726,7 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }

@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -109,8 +109,6 @@ func processWorkItem(queue workqueue.RateLimitingInterface, handler func(string)
 			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
-
-		log.Log.V(3).Infof("processing key [%s]", key)
 
 		if requeueAfter, err := handler(key); requeueAfter > 0 || err != nil {
 			if requeueAfter > 0 {

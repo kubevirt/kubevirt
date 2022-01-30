@@ -27,15 +27,14 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc      func(output string, volID string, files []string) error
-	emptyIsoCreationFunc func(output string, size int64) error
+	isoCreationFunc func(output string, volID string, files []string) error
 )
 
 const (
@@ -57,30 +56,30 @@ const (
 
 var (
 	// ConfigMapSourceDir represents a location where ConfigMap is attached to the pod
-	ConfigMapSourceDir = mountBaseDir + "/config-map"
+	ConfigMapSourceDir = filepath.Join(mountBaseDir, "config-map")
 	// SysprepSourceDir represents a location where a Sysprep is attached to the pod
-	SysprepSourceDir = mountBaseDir + "/sysprep"
+	SysprepSourceDir = filepath.Join(mountBaseDir, "sysprep")
 	// SecretSourceDir represents a location where Secrets is attached to the pod
-	SecretSourceDir = mountBaseDir + "/secret"
+	SecretSourceDir = filepath.Join(mountBaseDir, "secret")
 	// DownwardAPISourceDir represents a location where downwardapi is attached to the pod
-	DownwardAPISourceDir = mountBaseDir + "/downwardapi"
+	DownwardAPISourceDir = filepath.Join(mountBaseDir, "downwardapi")
 	// ServiceAccountSourceDir represents the location where the ServiceAccount token is attached to the pod
 	ServiceAccountSourceDir = "/var/run/secrets/kubernetes.io/serviceaccount/"
 
 	// ConfigMapDisksDir represents a path to ConfigMap iso images
-	ConfigMapDisksDir = mountBaseDir + "/config-map-disks"
+	ConfigMapDisksDir = filepath.Join(mountBaseDir, "config-map-disks")
 	// SecretDisksDir represents a path to Secrets iso images
-	SecretDisksDir = mountBaseDir + "/secret-disks"
+	SecretDisksDir = filepath.Join(mountBaseDir, "secret-disks")
 	// SysprepDisksDir represents a path to Syspreps iso images
-	SysprepDisksDir = mountBaseDir + "/sysprep-disks"
+	SysprepDisksDir = filepath.Join(mountBaseDir, "sysprep-disks")
 	// DownwardAPIDisksDir represents a path to DownwardAPI iso images
-	DownwardAPIDisksDir = mountBaseDir + "/downwardapi-disks"
+	DownwardAPIDisksDir = filepath.Join(mountBaseDir, "downwardapi-disks")
 	// DownwardMetricDisksDir represents a path to DownwardMetric block disk
-	DownwardMetricDisksDir = mountBaseDir + "/downwardmetric-disk"
+	DownwardMetricDisksDir = filepath.Join(mountBaseDir, "downwardmetric-disk")
 	// DownwardMetricDisks represents the disk location for the DownwardMetric disk
 	DownwardMetricDisk = filepath.Join(DownwardAPIDisksDir, "vhostmd0")
 	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
-	ServiceAccountDiskDir = mountBaseDir + "/service-account-disk"
+	ServiceAccountDiskDir = filepath.Join(mountBaseDir, "service-account-disk")
 	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
 	ServiceAccountDiskName = "service-account.iso"
 
@@ -91,11 +90,6 @@ var (
 // The unit test suite uses this function
 func setIsoCreationFunction(isoFunc isoCreationFunc) {
 	createISOImage = isoFunc
-}
-
-// The unit test suite uses this function
-func setEmptyIsoCreationFunction(emptyIsoFunc emptyIsoCreationFunc) {
-	createEmptyISOImage = emptyIsoFunc
 }
 
 func getFilesLayout(dirPath string) ([]string, error) {
@@ -111,15 +105,16 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	return filesPath, nil
 }
 
-func defaultCreateIsoImage(output string, volID string, files []string) error {
-
+func defaultCreateIsoImage(iso string, volID string, files []string) error {
 	if volID == "" {
 		volID = "cfgdata"
 	}
 
+	isoStaging := fmt.Sprintf("%s.staging", iso)
+
 	var args []string
 	args = append(args, "-output")
-	args = append(args, output)
+	args = append(args, isoStaging)
 	args = append(args, "-follow-links")
 	args = append(args, "-volid")
 	args = append(args, volID)
@@ -138,19 +133,28 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	err = os.Rename(isoStaging, iso)
+
+	return err
 }
 
-func defaultCreateEmptyIsoImage(output string, size int64) error {
-	f, err := os.Create(output)
+func defaultCreateEmptyIsoImage(iso string, size int64) error {
+	isoStaging := fmt.Sprintf("%s.staging", iso)
+
+	f, err := os.Create(isoStaging)
 	if err != nil {
-		return fmt.Errorf("failed to create empty iso: '%s'", output)
+		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
 	}
 	err = util.WriteBytes(f, 0, size)
 	if err != nil {
 		return err
 	}
 	util.CloseIOAndCheckErr(f, &err)
+	if err != nil {
+		return err
+	}
+	err = os.Rename(isoStaging, iso)
+
 	return err
 }
 

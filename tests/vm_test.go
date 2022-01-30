@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,12 +44,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
@@ -183,12 +185,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
-		newVirtualMachineInstanceWithOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
-		newVirtualMachineInstanceWithOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
+		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
 		deleteDataVolume := func(dv *cdiv1.DataVolume) {
@@ -420,8 +422,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -438,15 +440,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
-
-			// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-			tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
-
 			newVM := newVirtualMachine(true)
 
 			By("Getting owner references")
@@ -566,8 +564,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -843,22 +841,49 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).Should(Equal(status))
 		},
 			table.Entry(
-				"missing PVC",
+				"[test_id:7596]missing PVC",
 				func() *v1.VirtualMachineInstance {
-					vmi := tests.NewRandomVMIWithEphemeralDisk("vmi-with-missing-pvc")
-					return tests.AddPVCDisk(vmi, "disk1", "virtio", "missing-pvc")
+					return tests.NewRandomVMIWithPVC("missing-pvc")
 				},
 				v1.VirtualMachineStatusPvcNotFound,
 			),
 			table.Entry(
-				"missing DataVolume",
+				"[test_id:7597]missing DataVolume",
 				func() *v1.VirtualMachineInstance {
-					vmi, _ := newVirtualMachineInstanceWithOCSFileDisk()
-					return vmi
+					return tests.NewRandomVMIWithDataVolume("missing-datavolume")
 				},
 				v1.VirtualMachineStatusDataVolumeNotFound,
 			),
 		)
+
+		It("[test_id:7679]should report an error status when data volume error occurs", func() {
+			By("Verifying that required StorageClass is configured")
+			storageClassName := tests.Config.StorageRWOFileSystem
+
+			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				Skip("Skipping since required StorageClass is not configured")
+			}
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating a VM with a DataVolume cloned from an invalid source")
+			// Registry URL scheme validated in CDI
+			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
+				util.NamespaceTestDefault, storageClassName, k8sv1.ReadWriteOnce)
+			vm.Spec.Running = pointer.BoolPtr(true)
+			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return updatedVm.Status.PrintableStatus
+			}
+
+			By("Verifying that the VM status eventually gets set to DataVolumeError")
+			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+				Should(Equal(v1.VirtualMachineStatusDataVolumeError))
+		})
 
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
@@ -936,7 +961,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(func() bool {
 					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return newVM.Status.Ready
+					return newVM.Status.Created
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Getting running VirtualMachineInstance with paused condition")
@@ -1197,6 +1222,32 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return nextVMI.Status.MigrationState != nil && nextVMI.Status.MigrationState.Completed
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})
+
+				It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
+					nodes := util.GetAllSchedulableNodes(virtClient)
+					if len(nodes.Items) < 2 {
+						Skip("Migration tests require at least 2 nodes")
+					}
+					By("creating a VM with RunStrategyAlways")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Invoking virtctl migrate with dry-run option")
+					migrateCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_MIGRATE, "--dry-run", "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					Expect(migrateCommand()).To(Succeed())
+
+					By("Check that no migration was actually created")
+					Consistently(func() bool {
+						_, err = virtClient.VirtualMachineInstanceMigration(virtualMachine.Namespace).Get(virtualMachine.Name, &metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 60*time.Second, 5*time.Second).Should(BeTrue(), "migration should not be created in a dry run mode")
+				})
 			})
 
 			Context("Using RunStrategyRerunOnFailure", func() {
@@ -1436,7 +1487,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Eventually(func() bool {
 						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						return virtualMachine.Status.Ready
+						return virtualMachine.Status.Created
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 					By("Getting running VirtualMachineInstance with paused condition")
@@ -1597,9 +1648,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return virtualMachine.Status.Ready
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 				})
-				table.DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string, podPhase k8sv1.PodPhase) {
+				table.DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
 					// The estimated execution time of one test is 400 seconds.
-					By("creating a Kernel Boot VMI with a mismatched disk")
+					By("Creating a Kernel Boot VMI with a mismatched disk")
 					vmi := utils.GetVMIKernelBoot()
 					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
 
@@ -1630,16 +1681,30 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						newVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return newVMI.Status.Phase == v1.Failed
-					}, 400*time.Second, 1*time.Second).Should(BeTrue())
+					}, 480*time.Second, 1*time.Second).Should(BeTrue())
 
-					// Virt launcher should be in the Running phase if the Annotation v1.KeepLauncherAfterFailureAnnotation is set to true
-					By(fmt.Sprintf("Verify that the VMI VirtLauncher Pod is in the expected state as %v", podPhase))
+					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to true, the containerStatus of the
+					//   compute container of the virt-launcher pod is kept in the running state.
+					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to false or not set, the virt-launcher pod will become failed.
+					By("Verify that the virt-launcher pod or its container is in the expected state")
 					newVMI, _ := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 					launcherPod := libvmi.GetPodByVirtualMachineInstance(newVMI, newVM.Namespace)
-					Expect(launcherPod.Status.Phase).To(Equal(podPhase))
+
+					if toKeep, _ := strconv.ParseBool(keepLauncher); toKeep {
+						Consistently(func() bool {
+							for _, status := range launcherPod.Status.ContainerStatuses {
+								if status.Name == "compute" && status.State.Running != nil {
+									return true
+								}
+							}
+							return false
+						}, 10*time.Second, 1*time.Second).Should(BeTrue())
+					} else {
+						Eventually(Expect(launcherPod.Status.Phase).To(Equal(k8sv1.PodFailed)), 160*time.Second, 1*time.Second).Should(BeTrue())
+					}
 				},
-					table.Entry("[test_id:7164]VMI launcher pod should fail", "false", k8sv1.PodFailed),
-					table.Entry("[test_id:6993]VMI launcher pod should keep running", "true", k8sv1.PodRunning),
+					table.Entry("[test_id:7164]VMI launcher pod should fail", "false"),
+					table.Entry("[test_id:6993]VMI launcher pod compute container should keep running", "true"),
 				)
 			})
 		})
@@ -1768,6 +1833,124 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying pod gets deleted")
 			expectedPodName := getExpectedPodName(thisVm)
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
+		})
+
+		Context("should not change anything if dry-run option is passed", func() {
+			It("[test_id:7530]in start command", func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewRandomVirtualMachine(vmi, false)
+
+				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+				By("Creating VM using k8s client binary")
+				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Invoking virtctl start with dry-run option")
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.VirtualMachineInstance(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			table.DescribeTable("in stop command", func(flags ...string) {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewRandomVirtualMachine(vmi, true)
+
+				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+				By("Creating VM using k8s client binary")
+				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				waitForVMIStart(virtClient, vmi)
+
+				By("Getting current vmi instance")
+				originalVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Getting current vm instance")
+				originalVM, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				var args = []string{vm.COMMAND_STOP, "--namespace", thisVm.Namespace, thisVm.Name, "--dry-run"}
+				if flags != nil {
+					args = append(args, flags...)
+				}
+				By("Invoking virtctl stop with dry-run option")
+				virtctl := tests.NewRepeatableVirtctlCommand(args...)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking that VM is still running")
+				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+
+				By("Checking VM Running spec does not change")
+				actualVm, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualVm.Spec.Running).To(BeEquivalentTo(originalVM.Spec.Running))
+				actualRunStrategy, err := actualVm.RunStrategy()
+				Expect(err).ToNot(HaveOccurred())
+				originalRunStrategy, err := originalVM.RunStrategy()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
+
+				By("Checking VMI TerminationGracePeriodSeconds does not change")
+				actualVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
+				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
+			},
+
+				table.Entry("[test_id:7529]with no other flags"),
+				table.Entry("[test_id:7604]with grace period", "--grace-period=10", "--force"),
+			)
+
+			It("[test_id:7528]in restart command", func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewRandomVirtualMachine(vmi, true)
+
+				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+				By("Creating VM using k8s client binary")
+				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				waitForVMIStart(virtClient, vmi)
+
+				By("Getting current vmi instance")
+				currentVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				creationTime := currentVmi.ObjectMeta.CreationTimestamp
+				VMIUuid := currentVmi.ObjectMeta.UID
+
+				By("Invoking virtctl restart with dry-run option")
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
+				newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(creationTime).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
+				Expect(VMIUuid).To(Equal(newVMI.ObjectMeta.UID))
+				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
+
+				By("Checking that VM is running")
+				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+			})
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {

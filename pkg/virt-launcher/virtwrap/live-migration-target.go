@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -38,10 +38,6 @@ import (
 )
 
 func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance) error {
-	if err := l.hotPlugHostDevices(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Error("failed to hot-plug host-devices")
-	}
-
 	if err := l.setGuestTime(vmi); err != nil {
 		return err
 	}

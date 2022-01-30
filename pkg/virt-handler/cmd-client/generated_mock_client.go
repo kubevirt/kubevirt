@@ -6,7 +6,7 @@ package cmdclient
 import (
 	gomock "github.com/golang/mock/gomock"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -63,14 +63,14 @@ func (_mr *_MockLauncherClientRecorder) UnpauseVirtualMachine(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", vmi)
+func (_m *MockLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
+	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", vmi, unfreezeTimeoutSeconds)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) FreezeVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVirtualMachine", arg0)
+func (_mr *_MockLauncherClientRecorder) FreezeVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockLauncherClient) UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
@@ -91,6 +91,16 @@ func (_m *MockLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance
 
 func (_mr *_MockLauncherClientRecorder) SyncMigrationTarget(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncMigrationTarget", arg0, arg1)
+}
+
+func (_m *MockLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SoftRebootVirtualMachine", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SoftRebootVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftRebootVirtualMachine", arg0)
 }
 
 func (_m *MockLauncherClient) SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error {
@@ -151,6 +161,16 @@ func (_m *MockLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMac
 
 func (_mr *_MockLauncherClientRecorder) FinalizeVirtualMachineMigration(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
+}
+
+func (_m *MockLauncherClient) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "HotplugHostDevices", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) HotplugHostDevices(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", arg0)
 }
 
 func (_m *MockLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {

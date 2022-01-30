@@ -124,14 +124,14 @@ func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
 }
 
 func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
-	sourceFile := "/" + policyName + ".cil"
+	sourceFile := filepath.Join("/", policyName+".cil")
 	// #nosec No risk for path injection. Using static string path
 	input, err := ioutil.ReadFile(sourceFile)
 	if err != nil {
 		return fmt.Errorf("failed to read a policy file %v: %v ", sourceFile, err)
 	}
 
-	destinationFile := dir + "/" + sourceFile
+	destinationFile := filepath.Join(dir, sourceFile)
 	err = ioutil.WriteFile(destinationFile, input, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
@@ -141,7 +141,7 @@ func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 
 func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
 	for _, policyName := range POLICY_FILES {
-		fileDest := dir + "/" + policyName + ".cil"
+		fileDest := filepath.Join(dir, policyName+".cil")
 		err := se.copyPolicyFunc(policyName, dir)
 		if err != nil {
 			return fmt.Errorf("failed to copy policy %v - err: %v", fileDest, err)

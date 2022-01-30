@@ -30,6 +30,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,51 +40,72 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	v1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, configMapInformer, crdInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var ctrl *gomock.Controller
 	var vmsAdmitter *VMsAdmitter
 	var vmiInformer cache.SharedIndexInformer
 	var dataSourceInformer cache.SharedIndexInformer
+	var flavorMethods *testutils.MockFlavorMethods
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featureGate},
+					},
+				},
+			},
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: make([]string, 0),
+					},
+				},
+			},
+		})
 	}
 
 	notRunning := false
+	runStrategyManual := v1.RunStrategyManual
+	runStrategyHalted := v1.RunStrategyHalted
 
 	BeforeEach(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		flavorMethods = testutils.NewMockFlavorMethods()
+
 		ctrl = gomock.NewController(GinkgoT())
 		vmsAdmitter = &VMsAdmitter{
 			DataSourceInformer: dataSourceInformer,
 			VMIInformer:        vmiInformer,
 			ClusterConfig:      config,
+			FlavorMethods:      flavorMethods,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 				return true, "", nil
 			},
 		}
-
 	})
 	AfterEach(func() {
 		ctrl.Finish()
 	})
 
 	It("reject invalid VirtualMachineInstance spec", func() {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -94,25 +117,15 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
 
 	It("should accept valid vmi spec", func() {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -131,24 +144,14 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	table.DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
 		now := metav1.Now()
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			MigrationState: &v1.VirtualMachineInstanceMigrationState{
 				StartTimestamp: &now,
@@ -226,7 +229,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	table.DescribeTable("should validate VolumeRequest on running vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -288,7 +291,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Ready:          true,
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
 		// add some additional volumes to the running VMI so we can simulate
 		// more advanced validation scenarios where VM and VMI specs drift.
@@ -305,18 +307,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
 		vmsAdmitter.VMIInformer.GetIndexer().Add(vmi)
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
 		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
@@ -458,7 +450,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	table.DescribeTable("should validate VolumeRequest on offline vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -495,18 +487,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				VolumeRequests: requests,
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
 		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
@@ -665,7 +647,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	It("should accept valid DataVolumeTemplate", func() {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -696,24 +678,13 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		vmBytes, _ := json.Marshal(&vm)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
 		testutils.AddDataVolumeAPI(crdInformer)
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -745,19 +716,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		vmBytes, _ := json.Marshal(&vm)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
 		testutils.AddDataVolumeAPI(crdInformer)
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
@@ -775,7 +735,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		table.DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {
-				vmi := v1.NewMinimalVMI("testvmi")
+				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name:         "testvolume",
 					VolumeSource: volumeSource,
@@ -797,7 +757,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			table.Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
 		)
 		It("should reject DataVolume when feature gate is disabled", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name:         "testvolume",
@@ -810,7 +770,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject DataVolume when DataVolume name is not set", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name:         "testvolume",
@@ -825,7 +785,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Message).To(Equal("DataVolume 'name' must be set"))
 		})
 		It("should reject volume with no volume source set", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -836,7 +796,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volume with multiple volume sources set", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -851,7 +811,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volumes with duplicate names", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -871,7 +831,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 		It("should reject volume count > arrayLenMax", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			for i := 0; i <= arrayLenMax; i++ {
 				name := strconv.Itoa(i)
 
@@ -891,7 +851,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			// generate fake userdata
 			userdata := ""
@@ -922,7 +882,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		)
 
 		table.DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int, base64Encode bool) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			// generate fake networkdata
 			networkdata := ""
@@ -954,7 +914,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		)
 
 		It("should reject cloud-init with invalid base64 userdata", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -970,7 +930,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject cloud-init with invalid base64 networkdata", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -987,7 +947,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject cloud-init with multiple userdata sources", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1006,7 +966,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject cloud-init with multiple networkdata sources", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1026,7 +986,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk without required parameters", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{},
@@ -1040,7 +1000,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk without given 'path'", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{
@@ -1055,7 +1015,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk with invalid type", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{
@@ -1071,7 +1031,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk when the capacity is specified with a `DiskExists` type", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{
@@ -1088,7 +1048,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject a configMap without the configMapName field", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1102,7 +1062,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject a secret without the secretName field", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1116,7 +1076,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject a serviceAccount without the serviceAccountName field", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1130,7 +1090,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject multiple serviceAccounts", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "sa1",
@@ -1341,7 +1301,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	table.DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: &[]bool{false}[0],
@@ -1393,11 +1353,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		}),
 	)
 
-	table.DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
-		vmi := v1.NewMinimalVMI("testvmi")
+	table.DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool, updateRunStrategy bool) {
+		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: &[]bool{false}[0],
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -1405,6 +1364,11 @@ var _ = Describe("Validating VM Admitter", func() {
 			Status: v1.VirtualMachineStatus{
 				RestoreInProgress: &[]string{"testrestore"}[0],
 			},
+		}
+		if updateRunStrategy {
+			vm.Spec.RunStrategy = &runStrategyHalted
+		} else {
+			vm.Spec.Running = &[]bool{false}[0]
 		}
 		oldObjectBytes, _ := json.Marshal(vm)
 
@@ -1435,21 +1399,118 @@ var _ = Describe("Validating VM Admitter", func() {
 		table.Entry("reject update to running true", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Running = &[]bool{true}[0]
 			return false
-		}),
+		}, false),
+		table.Entry("reject update of runStrategy", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.RunStrategy = &runStrategyManual
+			return false
+		}, true),
 		table.Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 			return true
-		}),
+		}, false),
 		table.Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
 			vm.Annotations = map[string]string{"foo": "bar"}
 			return true
-		}),
+		}, false),
 		table.Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
 			vm.Status.Ready = true
 			return true
-		}),
+		}, false),
 	)
+
+	Context("Flavor", func() {
+		var (
+			vm *v1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+				return &flavorv1alpha1.VirtualMachineFlavorProfile{
+					CPU: &v1.CPU{
+						Sockets: 2,
+						Cores:   1,
+						Threads: 1,
+					},
+				}, nil
+			}
+
+			vmi := api.NewMinimalVMI("testvmi")
+			vm = &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: &notRunning,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+		})
+
+		It("should reject if flavor is not found", func() {
+			flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+				return nil, fmt.Errorf("flavor not found")
+			}
+
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
+		})
+
+		It("should reject if flavor fails to apply to VMI", func() {
+			var (
+				basePath = k8sfield.NewPath("spec", "template", "spec")
+				path1    = basePath.Child("example", "path")
+				path2    = basePath.Child("domain", "example", "path")
+			)
+			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachine, _ *v1.VirtualMachineInstance) flavor.Conflicts {
+				return flavor.Conflicts{path1, path2}
+			}
+
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(2))
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(path1.String()))
+			Expect(response.Result.Details.Causes[1].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(response.Result.Details.Causes[1].Field).To(Equal(path2.String()))
+		})
+
+		It("should apply flavor to VMI before validating VMI", func() {
+			// Test that VMI without flavor application is valid
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeTrue())
+
+			// Flavor application sets invalid memory value
+			flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) flavor.Conflicts {
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
+				return nil
+			}
+
+			// Test that VMI fails
+			response = admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Field).
+				To(Equal("spec.template.spec.domain.resources.requests.memory"))
+		})
+	})
 })
+
+func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+	vmBytes, _ := json.Marshal(vm)
+
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.VirtualMachineGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: vmBytes,
+			},
+		},
+	}
+
+	return admitter.Admit(ar)
+}
 
 func makeCloneAdmitFunc(expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {
 	return func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {

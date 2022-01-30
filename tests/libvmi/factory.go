@@ -20,7 +20,7 @@
 package libvmi
 
 import (
-	kvirtv1 "kubevirt.io/client-go/api/v1"
+	kvirtv1 "kubevirt.io/api/core/v1"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -51,6 +51,19 @@ func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 
+// NewSEVFedora instantiates a new Fedora based VMI configuration,
+// building its extra properties based on the specified With* options, the
+// image used is configured for UEFI boot and it supports AMD SEV.
+func NewSEVFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	const secureBoot = false
+	sevOptions := []Option{
+		WithUefi(secureBoot),
+		WithSEV(),
+	}
+	opts = append(sevOptions, opts...)
+	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
+}
+
 // NewFedora instantiates a new Fedora based VMI configuration with specified
 // containerDisk, building its extra properties based on the specified With*
 // options.
@@ -75,4 +88,17 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return New(RandName(DefaultVmiName), cirrosOpts...)
+}
+
+// NewAlpine instantiates a new Alpine based VMI configuration
+func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	alpineOpts := []Option{
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		WithResourceMemory("128Mi"),
+		WithRng(),
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
+	}
+	alpineOpts = append(alpineOpts, opts...)
+	return New(RandName(DefaultVmiName), alpineOpts...)
 }

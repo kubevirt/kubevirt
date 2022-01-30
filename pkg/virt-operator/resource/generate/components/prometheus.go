@@ -9,9 +9,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
-const prometheusLabelKey = "prometheus.kubevirt.io"
-const runbookUrlBasePath = "https://kubevirt.io/monitoring/runbooks/"
+const (
+	KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
+	prometheusLabelKey            = "prometheus.kubevirt.io"
+	prometheusLabelValue          = "true"
+	runbookUrlBasePath            = "https://kubevirt.io/monitoring/runbooks/"
+	severityAlertLabelKey         = "severity"
+	partOfAlertLabelKey           = "kubernetes_operator_part_of"
+	partOfAlertLabelValue         = "kubevirt"
+	componentAlertLabelKey        = "kubernetes_operator_component"
+	componentAlertLabelValue      = "kubevirt"
+	durationFiveMinutes           = "5 minutes"
+)
 
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *v1.ServiceMonitor {
 	return &v1.ServiceMonitor{
@@ -24,14 +33,14 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Labels: map[string]string{
 				"openshift.io/cluster-monitoring": "",
-				prometheusLabelKey:                "",
+				prometheusLabelKey:                prometheusLabelValue,
 				"k8s-app":                         "kubevirt",
 			},
 		},
 		Spec: v1.ServiceMonitorSpec{
 			Selector: v12.LabelSelector{
 				MatchLabels: map[string]string{
-					prometheusLabelKey: "",
+					prometheusLabelKey: prometheusLabelValue,
 				},
 			},
 			NamespaceSelector: v1.NamespaceSelector{
@@ -44,12 +53,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 					TLSConfig: &v1.TLSConfig{
 						InsecureSkipVerify: insecureSkipVerify,
 					},
-					RelabelConfigs: []*v1.RelabelConfig{
-						{
-							Regex:  "namespace",
-							Action: "labeldrop",
-						},
-					},
+					HonorLabels: true,
 				},
 			},
 		},
@@ -67,7 +71,7 @@ func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.Prom
 			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Namespace: namespace,
 			Labels: map[string]string{
-				prometheusLabelKey: "",
+				prometheusLabelKey: prometheusLabelValue,
 				"k8s-app":          "kubevirt",
 			},
 		},
@@ -81,7 +85,10 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 		return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
 	}
-
+	getErrorRatio := func(ns string, podName string, errorCodeRegex string, durationInMinutes int) string {
+		errorRatioQuery := "sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  /  sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
+		return fmt.Sprintf(errorRatioQuery, ns, podName, errorCodeRegex, durationInMinutes, ns, podName, durationInMinutes)
+	}
 	ruleSpec := &v1.PrometheusRuleSpec{
 		Groups: []v1.RuleGroup{
 			{
@@ -90,19 +97,19 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "kubevirt_virt_api_up_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'})", ns),
+							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'}) or vector(0)", ns),
 						),
 					},
 					{
 						Alert: "VirtAPIDown",
 						Expr:  intstr.FromString("kubevirt_virt_api_up_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "All virt-api servers are down.",
 							"runbook_url": runbookUrlBasePath + "VirtAPIDown",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -118,7 +125,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowVirtAPICount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -131,17 +138,17 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						For:   "5m",
 						Annotations: map[string]string{
 							"description": "Low number of nodes with KVM resource available.",
-							"summary":     "At least two nodes with kvm resource required for VM life migration.",
+							"summary":     "At least two nodes with kvm resource required for VM live migration.",
 							"runbook_url": runbookUrlBasePath + "LowKVMNodesCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Record: "kubevirt_virt_controller_up_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'})", ns),
+							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'}) or vector(0)", ns),
 						),
 					},
 					{
@@ -153,115 +160,90 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "LowReadyVirtControllersCount",
 						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total <  kubevirt_virt_controller_up_total"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "Some virt controllers are running but not ready.",
 							"runbook_url": runbookUrlBasePath + "LowReadyVirtControllersCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Alert: "NoReadyVirtController",
 						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No ready virt-controller was detected for the last 5 min.",
+							"summary":     "No ready virt-controller was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "NoReadyVirtController",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
 						Alert: "VirtControllerDown",
 						Expr:  intstr.FromString("kubevirt_virt_controller_up_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No running virt-controller was detected for the last 5 min.",
+							"summary":     "No running virt-controller was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "VirtControllerDown",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
 						Alert: "LowVirtControllersCount",
 						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_controller_ready_total < 2)"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "More than one virt-controller should be ready if more than one worker node.",
 							"runbook_url": runbookUrlBasePath + "LowVirtControllersCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
-						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
 						Alert: "VirtControllerRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-controller", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-controller", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Alert: "VirtControllerRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-controller", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     getRestCallsFailedWarning(80, "virt-controller", "5 minutes"),
+							"summary":     getRestCallsFailedWarning(80, "virt-controller", durationFiveMinutes),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
 						Record: "kubevirt_virt_operator_up_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'})", ns),
+							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'}) or vector(0)", ns),
 						),
 					},
 					{
 						Alert: "VirtOperatorDown",
 						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "All virt-operator servers are down.",
 							"runbook_url": runbookUrlBasePath + "VirtOperatorDown",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -273,55 +255,30 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "LowVirtOperatorCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
-						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
 						Alert: "VirtOperatorRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_hour / vec_by_virt_operators_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-operator", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-operator", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsHigh",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Alert: "VirtOperatorRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_5m / vec_by_virt_operators_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-operator", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     getRestCallsFailedWarning(80, "virt-operator", "5 minutes"),
+							"summary":     getRestCallsFailedWarning(80, "virt-operator", durationFiveMinutes),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsBurst",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
@@ -339,42 +296,42 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "LowReadyVirtOperatorsCount",
 						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total <  kubevirt_virt_operator_up_total"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "Some virt-operators are running but not ready.",
 							"runbook_url": runbookUrlBasePath + "LowReadyVirtOperatorsCount",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Alert: "NoReadyVirtOperator",
-						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
-						For:   "5m",
+						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total == 0"),
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No ready virt-operator was detected for the last 5 min.",
+							"summary":     "No ready virt-operator was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "NoReadyVirtOperator",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
 						Alert: "NoLeadingVirtOperator",
 						Expr:  intstr.FromString("kubevirt_virt_operator_leading_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No leading virt-operator was detected for the last 5 min.",
+							"summary":     "No leading virt-operator was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "NoLeadingVirtOperator",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
 						Record: "kubevirt_virt_handler_up_total",
-						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'})", ns)),
+						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'}) or vector(0)", ns)),
 					},
 					{
 						Alert: "VirtHandlerDaemonSetRolloutFailing",
@@ -388,106 +345,60 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VirtHandlerDaemonSetRolloutFailing",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
-						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
 						Alert: "VirtHandlerRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-handler", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary":     getRestCallsFailedWarning(5, "virt-handler", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Alert: "VirtHandlerRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-handler", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     getRestCallsFailedWarning(80, "virt-handler", "5 minutes"),
+							"summary":     getRestCallsFailedWarning(80, "virt-handler", durationFiveMinutes),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
-						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_apis_all_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s'}[60m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_5m",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
-						),
-					},
-					{
-						Record: "vec_by_virt_apis_failed_client_rest_requests_in_last_hour",
-						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-api-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
-						),
-					},
-					{
 						Alert: "VirtApiRESTErrorsHigh",
-						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_hour / vec_by_virt_apis_all_client_rest_requests_in_last_hour) >= 0.05"),
-						For:   "5m",
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
 						Annotations: map[string]string{
 							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
 						Alert: "VirtApiRESTErrorsBurst",
-						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_5m / vec_by_virt_apis_all_client_rest_requests_in_last_5m) >= 0.8"),
+						Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": getRestCallsFailedWarning(80, "virt-api", "5 minutes"),
+							"summary": getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
 						},
 						Labels: map[string]string{
-							"severity": "critical",
+							severityAlertLabelKey: "critical",
 						},
 					},
 					{
+						Record: "kubevirt_vmi_memory_used_bytes",
+						Expr:   intstr.FromString("kubevirt_vmi_memory_available_bytes-kubevirt_vmi_memory_usable_bytes"),
+					},
+					{
 						Record: "kubevirt_vm_container_free_memory_bytes",
-						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits_memory_bytes{pod=~'virt-launcher-.*', container='compute'} - on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
+						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
 					},
 					{
 						Alert: "KubevirtVmHighMemoryUsage",
@@ -499,7 +410,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "KubevirtVmHighMemoryUsage",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -507,15 +418,15 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:   intstr.FromString("count by(node)(node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} ) * on (node) group_left(pod) (1*(kube_pod_container_status_ready{pod=~'virt-handler-.*'} + on (pod) group_left(node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-handler-.*'} ))) or on (node) (0 * node_namespace_pod:kube_pod_info:{pod=~'virt-launcher-.*'} )"),
 					},
 					{
-						Alert: "OrphanedVirtualMachineImages",
+						Alert: "OrphanedVirtualMachineInstances",
 						Expr:  intstr.FromString("(kubevirt_num_virt_handlers_by_node_running_virt_launcher) == 0"),
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary":     "No virt-handler pod detected on node {{ $labels.node }} with running vmis for more than an hour",
-							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineImages",
+							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineInstances",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -528,7 +439,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "VMCannotBeEvicted",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -541,7 +452,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "KubeVirtComponentExceedsRequestedMemory",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 					{
@@ -556,7 +467,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							"runbook_url": runbookUrlBasePath + "KubeVirtComponentExceedsRequestedCPU",
 						},
 						Labels: map[string]string{
-							"severity": "warning",
+							severityAlertLabelKey: "warning",
 						},
 					},
 				},
@@ -574,7 +485,20 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				"summary":     "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
 				"runbook_url": runbookUrlBasePath + "OutdatedVirtualMachineInstanceWorkloads",
 			},
+			Labels: map[string]string{
+				severityAlertLabelKey: "warning",
+			},
 		})
+	}
+
+	for _, group := range ruleSpec.Groups {
+		for _, rule := range group.Rules {
+			if rule.Alert == "" {
+				continue
+			}
+			rule.Labels[partOfAlertLabelKey] = partOfAlertLabelValue
+			rule.Labels[componentAlertLabelKey] = componentAlertLabelValue
+		}
 	}
 
 	return ruleSpec

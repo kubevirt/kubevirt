@@ -32,7 +32,9 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
@@ -49,7 +51,7 @@ var _ = Describe("Virt remote commands", func() {
 	podUID := "poduid123"
 
 	BeforeEach(func() {
-		vmi = v1.NewMinimalVMI("testvmi")
+		vmi = api.NewMinimalVMI("testvmi")
 		vmi.UID = types.UID("1234")
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			ActivePods: map[types.UID]string{
@@ -144,13 +146,13 @@ var _ = Describe("Virt remote commands", func() {
 			legacy := IsLegacySocket("/some/path/something_sock")
 			Expect(legacy).To(BeTrue())
 
-			legacy = IsLegacySocket("/some/path/" + StandardLauncherSocketFileName)
+			legacy = IsLegacySocket(filepath.Join("/some/path", StandardLauncherSocketFileName))
 			Expect(legacy).To(BeFalse())
 
 			monEnabled := SocketMonitoringEnabled("/some/path/something_sock")
 			Expect(monEnabled).To(BeFalse())
 
-			monEnabled = SocketMonitoringEnabled("/some/path/" + StandardLauncherSocketFileName)
+			monEnabled = SocketMonitoringEnabled(filepath.Join("/some/path", StandardLauncherSocketFileName))
 			Expect(monEnabled).To(BeTrue())
 		})
 

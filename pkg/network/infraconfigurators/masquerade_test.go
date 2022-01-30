@@ -30,10 +30,12 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -61,7 +63,7 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 	)
 
 	newVMIMasqueradeInterface := func(namespace string, name string, ports ...int) *v1.VirtualMachineInstance {
-		vmi := v1.NewMinimalVMIWithNS(namespace, name)
+		vmi := api.NewMinimalVMIWithNS(namespace, name)
 		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 		var portList []v1.Port
 		for i, port := range ports {
@@ -417,7 +419,10 @@ func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.
 			handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(skipPorts, ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 		}
 	}
-
+	if isIstioAware(vmiAnnotations) {
+		handler.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+			"tcp", "dport", strconv.Itoa(istio.SshPort), "counter", "dnat", "to", vmIP)
+	}
 	if len(portList) > 0 {
 		mockNFTablesBackendSpecificPorts(handler, proto, nftIPString, vmIP, gwIP, portList)
 	} else {

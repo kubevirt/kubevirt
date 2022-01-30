@@ -23,13 +23,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	testutils "kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	restful "github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	kubev1 "k8s.io/api/core/v1"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = BeforeSuite(func() {
@@ -37,8 +36,10 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("profiler manager http handler callbacks", func() {
 	It("should deny request when ClusterProfiler feature gate is not enabled", func() {
-		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: "MadeUpGate"},
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{"MadeUpGate"},
+			},
 		})
 
 		manager := &ProfileManager{

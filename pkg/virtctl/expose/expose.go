@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v12 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -139,7 +139,7 @@ func (o *Command) RunE(args []string) error {
 		return err
 	}
 
-	ipFamilyPolicy, err := convertIPFamilyPolicy(strIPFamilyPolicy)
+	ipFamilyPolicy, err := convertIPFamilyPolicy(strIPFamilyPolicy, ipFamilies)
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func (o *Command) RunE(args []string) error {
 	}
 
 	if len(serviceSelector) == 0 {
-		return fmt.Errorf("missing label information for %s: %s", vmType, vmName)
+		return fmt.Errorf("cannot expose %s without any label: %s", vmType, vmName)
 	}
 
 	if port == 0 && len(ports) == 0 {
@@ -291,9 +291,12 @@ func convertIPFamily(strIPFamily string) ([]v1.IPFamily, error) {
 	}
 }
 
-func convertIPFamilyPolicy(strIPFamilyPolicy string) (v1.IPFamilyPolicyType, error) {
+func convertIPFamilyPolicy(strIPFamilyPolicy string, ipFamilies []v1.IPFamily) (v1.IPFamilyPolicyType, error) {
 	switch strings.ToLower(strIPFamilyPolicy) {
 	case "":
+		if len(ipFamilies) > 1 {
+			return v1.IPFamilyPolicyPreferDualStack, nil
+		}
 		return "", nil
 	case "singlestack":
 		return v1.IPFamilyPolicySingleStack, nil

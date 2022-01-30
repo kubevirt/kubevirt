@@ -27,9 +27,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("DownwardAPI", func() {
@@ -53,7 +55,7 @@ var _ = Describe("DownwardAPI", func() {
 	})
 
 	It("Should create a new downwardapi iso disk", func() {
-		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi := api.NewMinimalVMI("fake-vmi")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "downwardapi-volume",
 			VolumeSource: v1.VolumeSource{

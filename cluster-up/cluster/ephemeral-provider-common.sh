@@ -72,7 +72,7 @@ function _registry_volume() {
 
 function _add_common_params() {
     # shellcheck disable=SC2155
-    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [[ $TARGET =~ windows_sysprep.* ]] && [ -n "$WINDOWS_SYSPREP_NFS_DIR" ]; then
         params=" --nfs-data $WINDOWS_SYSPREP_NFS_DIR $params"
     elif [[ $TARGET =~ windows.* ]] && [ -n "$WINDOWS_NFS_DIR" ]; then
@@ -112,7 +112,7 @@ function _add_common_params() {
         params=" --enable-prometheus $params"
 
         if [[ $KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER == "true" ]] &&
-            [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-grafana"* ]]; then
+            [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-prometheus-alertmanager"* ]]; then
             params=" --enable-prometheus-alertmanager $params"
         fi
 

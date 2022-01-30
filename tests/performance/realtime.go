@@ -13,7 +13,7 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
@@ -76,7 +76,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
-		checks.SkipTestIfNoCPUManagerWith2MiHugepages()
+		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		tests.BeforeTestCleanup()
 	})
 

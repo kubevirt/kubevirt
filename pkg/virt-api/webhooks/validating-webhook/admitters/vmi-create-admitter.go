@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -41,6 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+const requiredFieldFmt = "%s is a required field"
 
 const (
 	arrayLenMax = 256
@@ -201,6 +203,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateSoundDevices(field, spec)...)
+	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 
 	return causes
 }
@@ -757,6 +761,65 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 			Message: fmt.Sprintf("Host Devices feature gate is not enabled in kubevirt-config"),
 			Field:   field.Child("HostDevices").String(),
 		})
+	}
+	return causes
+}
+
+func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Devices.Sound != nil {
+		model := spec.Domain.Devices.Sound.Model
+		if model != "" && model != "ich9" && model != "ac97" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Sound device type is not supported. Options: 'ich9' or 'ac97'"),
+				Field:   field.Child("Sound").String(),
+			})
+		}
+		name := spec.Domain.Devices.Sound.Name
+		if name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Sound device requires a name field."),
+				Field:   field.Child("Sound").String(),
+			})
+		}
+	}
+	return causes
+}
+
+func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	launchSecurity := spec.Domain.LaunchSecurity
+	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV requires OVMF (UEFI)"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV does not work along with SecureBoot"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
 	}
 	return causes
 }
@@ -2018,7 +2081,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ConfigMap.LocalObjectReference.Name == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("configMap", "name").String()),
 					Field:   field.Index(idx).Child("configMap", "name").String(),
 				})
 			}
@@ -2028,7 +2091,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.Secret.SecretName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("secret", "secretName").String()),
 					Field:   field.Index(idx).Child("secret", "secretName").String(),
 				})
 			}
@@ -2038,7 +2101,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ServiceAccount.ServiceAccountName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
 					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
 				})
 			}
@@ -2250,7 +2313,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 
 		// Verify if cache mode is valid
-		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough {
+		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),

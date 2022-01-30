@@ -35,17 +35,24 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Services", func() {
+const (
+	cleaningK8sv1ServiceShouldSucceed  = "cleaning up the k8sv1.Service entity should have succeeded."
+	cleaningK8sv1JobFuncShouldExist    = "a k8sv1.Job cleaning up function should exist"
+	cleaningK8sv1JobShouldSucceed      = "cleaning up the k8sv1.Job entity should have succeeded."
+	expectConnectivityToExposedService = "connectivity is expected to the exposed service"
+)
+
+var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, retries int32) *batchv1.Job {
@@ -131,7 +138,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 
 		createVMISpecWithBridgeInterface := func() *v1.VirtualMachineInstance {
 			return libvmi.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()))
 		}
 
@@ -160,18 +167,18 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			BeforeEach(func() {
 				serviceName = "myservice"
 
-				service := buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				service := netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
-				Expect(cleanupService(inboundVMI.GetNamespace(), serviceName)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(cleanupService(inboundVMI.GetNamespace(), serviceName)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
 			AfterEach(func() {
-				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				Expect(jobCleanup).NotTo(BeNil(), cleaningK8sv1JobFuncShouldExist)
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1JobShouldSucceed)
 				jobCleanup = nil
 			})
 
@@ -179,7 +186,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
-				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
@@ -196,7 +203,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			BeforeEach(func() {
 				serviceName = inboundVMI.Spec.Subdomain
 
-				service := buildHeadlessServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -206,7 +213,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			})
 
 			AfterEach(func() {
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
@@ -214,7 +221,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
 
 				jobCleanup, err = assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
-				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			})
 		})
 	})
@@ -254,13 +261,13 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			var service *k8sv1.Service
 
 			AfterEach(func() {
-				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				Expect(jobCleanup).NotTo(BeNil(), cleaningK8sv1JobFuncShouldExist)
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1JobShouldSucceed)
 				jobCleanup = nil
 			})
 
 			AfterEach(func() {
-				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
 			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
@@ -270,9 +277,9 @@ var _ = SIGDescribe("[Serial]Services", func() {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 
 						serviceName = serviceName + "v6"
-						service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					} else {
-						service = buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+						service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					}
 
 					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
@@ -283,7 +290,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
-				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			},
 				table.Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
 				table.Entry("when the service is exposed by an IPv6 address.", k8sv1.IPv6Protocol),
@@ -295,8 +302,8 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			var serviceName string
 
 			AfterEach(func() {
-				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				Expect(jobCleanup).NotTo(BeNil(), cleaningK8sv1JobFuncShouldExist)
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1JobShouldSucceed)
 				jobCleanup = nil
 			})
 
@@ -310,33 +317,3 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 	})
 })
-
-func buildHeadlessServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
-	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
-	service.Spec.ClusterIP = k8sv1.ClusterIPNone
-	return service
-}
-
-func buildIPv6ServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
-	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
-	ipv6Family := k8sv1.IPv6Protocol
-	service.Spec.IPFamilies = []k8sv1.IPFamily{ipv6Family}
-
-	return service
-}
-
-func buildServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
-	return &k8sv1.Service{
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: serviceName,
-		},
-		Spec: k8sv1.ServiceSpec{
-			Selector: map[string]string{
-				selectorKey: selectorValue,
-			},
-			Ports: []k8sv1.ServicePort{
-				{Protocol: k8sv1.ProtocolTCP, Port: int32(portToExpose), TargetPort: intstr.FromInt(exposedPort)},
-			},
-		},
-	}
-}

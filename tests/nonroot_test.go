@@ -8,7 +8,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
@@ -37,7 +37,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		name := "test"
 		withVmiOptions := []libvmi.Option{
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(name)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 		}
 
 		return libvmi.NewSriovFedora(withVmiOptions...)

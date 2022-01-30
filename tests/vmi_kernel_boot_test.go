@@ -20,8 +20,19 @@
 package tests_test
 
 import (
+	"context"
+	"fmt"
+	"time"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -33,26 +44,66 @@ import (
 var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 
 	var virtClient kubecli.KubevirtClient
+	var err error
 
 	BeforeEach(func() {
-		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		tests.BeforeTestCleanup()
 	})
 
 	Context("with external alpine-based kernel & initrd images", func() {
-		It("ensure successful boot", func() {
+		It("[test_id:7748]ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 		})
+
+		It("ensure successful boot and deletion when VMI has a disk defined", func() {
+			By("Creating VMI with disk and kernel boot")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+			utils.AddKernelBootToVMI(vmi)
+
+			Expect(vmi.Spec.Volumes).ToNot(BeEmpty())
+			Expect(vmi.Spec.Domain.Devices.Disks).ToNot(BeEmpty())
+
+			By("Ensuring VMI can boot")
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Fetching virt-launcher pod")
+			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+
+			By("Ensuring VMI is deleted")
+			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &v1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() (isVmiDeleted bool) {
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return false
+			}, 60*time.Second, 3*time.Second).Should(BeTrue(), "VMI Should be successfully deleted")
+
+			By("Ensuring virt-launcher is deleted")
+			Eventually(func() (isVmiDeleted bool) {
+				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return false
+			}, 60*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
+		})
 	})
 
 	Context("with illegal definition ensure rejection of", func() {
 
-		It("VMI defined without an image", func() {
+		It("[test_id:7750]VMI defined without an image", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
@@ -61,7 +112,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
 		})
 
-		It("VMI defined with image but without initrd & kernel paths", func() {
+		It("[test_id:7751]VMI defined with image but without initrd & kernel paths", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""

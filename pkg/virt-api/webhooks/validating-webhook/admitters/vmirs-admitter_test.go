@@ -26,17 +26,18 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 var _ = Describe("Validating VMIRS Admitter", func() {
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
@@ -164,7 +165,7 @@ func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuil
 
 func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
 
-	vmi := v1.NewMinimalVMI("testvmi")
+	vmi := api.NewMinimalVMI("testvmi")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, b.disks...)
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, b.volumes...)
 	vmi.Labels = b.labels

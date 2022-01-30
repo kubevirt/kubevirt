@@ -11,7 +11,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
@@ -26,23 +26,26 @@ var _ = Describe("DHCP configurator", func() {
 		fakeDhcpStartedDir = "/tmp/dhcpStartedPath"
 	)
 
+	var cacheCreator tempCacheCreator
+
 	BeforeEach(func() {
 		// make sure the test can write a file in the whatever dir ensure uses.
 		Expect(os.MkdirAll(fakeDhcpStartedDir, 0755)).To(Succeed())
 	})
 
 	AfterEach(func() {
+		cacheCreator.New("").Delete()
 		Expect(os.RemoveAll(fakeDhcpStartedDir)).To(Succeed())
 	})
 
 	newBridgeConfigurator := func(launcherPID string, advertisingIfaceName string) Configurator {
-		configurator := NewBridgeConfigurator(cache.NewInterfaceCacheFactoryWithBasePath(fakeDhcpStartedDir), launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil)
+		configurator := NewBridgeConfigurator(&cacheCreator, launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil, "")
 		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}
 
 	newMasqueradeConfigurator := func(advertisingIfaceName string) Configurator {
-		configurator := NewMasqueradeConfigurator(advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), nil, nil, "")
+		configurator := NewMasqueradeConfigurator(advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), nil, nil, "", "")
 		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}

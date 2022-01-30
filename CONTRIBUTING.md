@@ -90,7 +90,7 @@ and will be assigned by Prow.
 Contributors that frequently contribute to the project may ask to join the
 KubeVirt organization.
 
-Please have a look at our [membership guidelines](https://github.com/kubevirt/community/blob/master/membership_policy.md).
+Please have a look at our [membership guidelines](https://github.com/kubevirt/community/blob/main/membership_policy.md).
 
 ## Projects & Communities
 
@@ -117,7 +117,7 @@ Please have a look at our [membership guidelines](https://github.com/kubevirt/co
   * [Documentation - The Go Programming Language](https://golang.org/doc/)
   * [Getting Started - The Go Programming Language](https://golang.org/doc/install)
 * Patterns
-  * [Introducing Operators: Putting Operational Knowledge into Software](https://coreos.com/blog/introducing-operators.html)
+  * [Introducing Operators: Putting Operational Knowledge into Software](https://web.archive.org/web/20210210032403/https://coreos.com/blog/introducing-operators.html)
   * [Microservices](https://martinfowler.com/articles/microservices.html) nice
     content by Martin Fowler
 * Testing

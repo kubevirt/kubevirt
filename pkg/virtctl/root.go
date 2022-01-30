@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
+	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
@@ -81,6 +82,7 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewStopCommand(clientConfig),
 		vm.NewRestartCommand(clientConfig),
 		vm.NewMigrateCommand(clientConfig),
+		vm.NewMigrateCancelCommand(clientConfig),
 		vm.NewGuestOsInfoCommand(clientConfig),
 		vm.NewUserListCommand(clientConfig),
 		vm.NewFSListCommand(clientConfig),
@@ -88,6 +90,7 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewRemoveVolumeCommand(clientConfig),
 		pause.NewPauseCommand(clientConfig),
 		pause.NewUnpauseCommand(clientConfig),
+		softreboot.NewSoftRebootCommand(clientConfig),
 		expose.NewExposeCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
@@ -114,7 +117,7 @@ func Execute() {
 	log.InitializeLogging(programName)
 	cmd := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintln(cmd.Root().OutOrStdout(), strings.TrimSpace(err.Error()))
+		fmt.Fprintln(cmd.Root().ErrOrStderr(), strings.TrimSpace(err.Error()))
 		os.Exit(1)
 	}
 }

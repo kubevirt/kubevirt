@@ -5,7 +5,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"strings"
+
+	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/go-kit/kit/log"
 	"github.com/golang/mock/gomock"
@@ -220,5 +226,53 @@ var _ = Describe("LibvirtHelper", func() {
 		domainSpec, err = GetDomainSpecWithRuntimeInfo(domain)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainSpec.Metadata.KubeVirt).NotTo(BeNil())
+	})
+
+	Context("getLibvirtLogFilters()", func() {
+
+		table.DescribeTable("should return customLogFilters if defined and not empty with", func(libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) {
+			customLogFilters := pointer.String("3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access")
+
+			logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined)
+			Expect(enableDebugLogs).To(BeTrue())
+			Expect(logFilters).To(Equal(*customLogFilters))
+		},
+			table.Entry("libvirtLogVerbosityEnvVar not defined, libvirtDebugLogsEnvVarDefined false", nil, false),
+			table.Entry("libvirtLogVerbosityEnvVar defined, libvirtDebugLogsEnvVarDefined false", pointer.String("2"), false),
+			table.Entry("libvirtLogVerbosityEnvVar not defined, libvirtDebugLogsEnvVarDefined true", nil, true),
+			table.Entry("libvirtLogVerbosityEnvVar defined, libvirtDebugLogsEnvVarDefined true", pointer.String("1"), true),
+		)
+
+		Context("with customLogFilters not defined", func() {
+
+			const verbosityThreshold = services.EXT_LOG_VERBOSITY_THRESHOLD
+
+			table.DescribeTable("logs should be enabled if debugLogs env var is defined when", func(libvirtLogVerbosityEnvVar *string) {
+				_, enableDebugLogs := getLibvirtLogFilters(nil, libvirtLogVerbosityEnvVar, true)
+				Expect(enableDebugLogs).To(BeTrue())
+			},
+				table.Entry("libvirtLogVerbosityEnvVar defined to 8", pointer.String("8")),
+				table.Entry("libvirtLogVerbosityEnvVar defined to 3", pointer.String("3")),
+				table.Entry("libvirtLogVerbosityEnvVar is not defined", nil),
+			)
+
+			table.DescribeTable("with debugLogs not defined logs should", func(libvirtLogVerbosity *int, expectedEnableDebugLogs bool) {
+
+				var libvirtLogVerbosityEnvVar *string
+				if libvirtLogVerbosity != nil {
+					libvirtLogVerbosityEnvVar = pointer.String(fmt.Sprintf("%d", *libvirtLogVerbosity))
+				}
+
+				_, enableDebugLogs := getLibvirtLogFilters(nil, libvirtLogVerbosityEnvVar, false)
+				Expect(enableDebugLogs).To(Equal(expectedEnableDebugLogs))
+			},
+				table.Entry("be disabled when libvirt log verbosity is below threshold", pointer.Int(verbosityThreshold-1), false),
+				table.Entry("be disabled when libvirt log verbosity is equal to threshold", pointer.Int(verbosityThreshold), true),
+				table.Entry("be enabled when libvirt log verbosity is above threshold", pointer.Int(verbosityThreshold+1), true),
+				table.Entry("be disabled when libvirt log verbosity is not defined", nil, false),
+			)
+
+		})
+
 	})
 })
