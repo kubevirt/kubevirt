@@ -208,7 +208,7 @@ function update_versions() {
     # Check if pull request for that component and version already exists
     search_pattern=$(echo "$component.*${UPDATED_VERSIONS[$component]}" | tr -d '"')
 
-    search_pr=$(jq "[.[] | select((.title | test(\"${search_pattern}\")) and (.ref == \"${target_branch}\"))] | length" <<< "$PR")
+    search_pr=$(jq "[.[] | select((.title | test(\"${search_pattern}\")) and (.ref == \"${TARGET_BRANCH}\"))] | length" <<< "$PR")
 
     if [[ $search_pr -ne 0 ]] ; then
       echo "INFO: An existing pull request for bumping $component to version ${UPDATED_VERSIONS[$component]} has been found. \
