@@ -69,6 +69,7 @@ var _ = Describe("netstat", func() {
 			primaryGaIPv4      = "2.2.2.1"
 			primaryGaIPv6      = "fd20:244::8c4c"
 			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
 
 			secondaryNetworkName = "secondary"
 			secondaryPodIPv4     = "1.1.1.2"
@@ -76,6 +77,7 @@ var _ = Describe("netstat", func() {
 			secondaryGaIPv4      = "2.2.2.2"
 			secondaryGaIPv6      = "fd20:244::8c4e"
 			secondaryMAC         = "1C:CE:C0:01:BE:E9"
+			secondaryIfaceName   = "eth1"
 		)
 
 		BeforeEach(func() {
@@ -122,15 +124,15 @@ var _ = Describe("netstat", func() {
 			)
 
 			setup.addGuestAgentInterfaces(
-				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, ""),
-				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, ""),
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
+				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName),
 			)
 
 			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
 			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-				newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, "", netvmispec.InfoSourceDomainAndGA),
-				newVMIStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, "", netvmispec.InfoSourceDomainAndGA),
+				newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName, netvmispec.InfoSourceDomainAndGA),
+				newVMIStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName, netvmispec.InfoSourceDomainAndGA),
 			}), "the guest-agent IP/s should be reported in the status")
 
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
@@ -218,6 +220,7 @@ var _ = Describe("netstat", func() {
 	It("should update existing interface status with IP from the guest-agent", func() {
 		const (
 			primaryNetworkName = "primary"
+			primaryIfaceName   = "eth0"
 
 			origIPv4 = "1.1.1.1"
 			origIPv6 = "fd10:1111::1111"
@@ -243,13 +246,13 @@ var _ = Describe("netstat", func() {
 		}
 
 		setup.addGuestAgentInterfaces(
-			newDomainStatusIface([]string{newGaIPv4, newGaIPv6}, origMAC, ""),
+			newDomainStatusIface([]string{newGaIPv4, newGaIPv6}, origMAC, primaryIfaceName),
 		)
 
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, "", netvmispec.InfoSourceDomainAndGA),
+			newVMIStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, primaryIfaceName, netvmispec.InfoSourceDomainAndGA),
 		}), "the pod IP/s should be reported in the status")
 	})
 
@@ -405,6 +408,57 @@ var _ = Describe("netstat", func() {
 			Expect(setup.Vmi.Status.Interfaces).To(ConsistOf([]v1.VirtualMachineInstanceNetworkInterface{
 				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, "", netvmispec.InfoSourceDomain),
 				newVMIStatusIface(secondaryNetworkName, []string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, "", netvmispec.InfoSourceDomain),
+			}))
+		})
+	})
+
+	Context("backward compatability", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryGaIPv4      = "2.2.2.1"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+		)
+
+		It("reports no infoSource when virt-launcher is old and only the domain data exists (but GA is active)", func() {
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4,
+			)
+
+			// The existence of an empty interfaceName is the outcome of an old virt-launcher merging the domain and
+			// GA data, including the domain-only data in.
+			primaryIface := newDomainStatusIface(nil, primaryMAC, "")
+			setup.addGuestAgentInterfaces(primaryIface)
+
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, nil, primaryMAC, "", netvmispec.InfoSourceDomain),
+			}))
+		})
+
+		It("reports no infoSource when virt-launcher is old and both the domain & GA data exists", func() {
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4,
+			)
+
+			// The existence of an interfaceName is the outcome of an old virt-launcher merging the domain and
+			// GA data, where an association could be made between the domain and the guest agent report.
+			// Note: This is correct for new virt-launchers as well.
+			primaryIface := newDomainStatusIface([]string{primaryGaIPv4}, primaryMAC, primaryIfaceName)
+			setup.addGuestAgentInterfaces(primaryIface)
+
+			setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4}, primaryMAC, primaryIfaceName, netvmispec.InfoSourceDomainAndGA),
 			}))
 		})
 	})
