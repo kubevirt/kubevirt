@@ -2783,11 +2783,11 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				livenessProbe := pod.Spec.Containers[0].LivenessProbe
 				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
-				Expect(livenessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
-				Expect(readinessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
+				Expect(livenessProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
+				Expect(readinessProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
 
-				Expect(livenessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
-				Expect(readinessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
+				Expect(livenessProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
+				Expect(readinessProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
 
 				Expect(livenessProbe.PeriodSeconds).To(Equal(vmi.Spec.LivenessProbe.PeriodSeconds))
 				Expect(livenessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay))

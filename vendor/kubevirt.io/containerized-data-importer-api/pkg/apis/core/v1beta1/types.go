@@ -196,6 +196,12 @@ type DataVolumeSourceHTTP struct {
 	// CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
 	// +optional
 	CertConfigMap string `json:"certConfigMap,omitempty"`
+	// ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests
+	// +optional
+	ExtraHeaders []string `json:"extraHeaders,omitempty"`
+	// SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information
+	// +optional
+	SecretExtraHeaders []string `json:"secretExtraHeaders,omitempty"`
 }
 
 // DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source
@@ -436,16 +442,26 @@ type DataSourceStatus struct {
 
 // DataSourceCondition represents the state of a data source condition
 type DataSourceCondition struct {
-	Type               DataSourceConditionType `json:"type" description:"type of condition ie. Ready"`
-	Status             corev1.ConditionStatus  `json:"status" description:"status of the condition, one of True, False, Unknown"`
-	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
-	LastHeartbeatTime  metav1.Time             `json:"lastHeartbeatTime,omitempty"`
-	Reason             string                  `json:"reason,omitempty" description:"reason for the condition's last transition"`
-	Message            string                  `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+	Type           DataSourceConditionType `json:"type" description:"type of condition ie. Ready"`
+	ConditionState `json:",inline"`
 }
 
 // DataSourceConditionType is the string representation of known condition types
 type DataSourceConditionType string
+
+const (
+	// DataSourceReady is the condition that indicates if the data source is ready to be consumed
+	DataSourceReady DataSourceConditionType = "Ready"
+)
+
+// ConditionState represents the state of a condition
+type ConditionState struct {
+	Status             corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	LastTransitionTime metav1.Time            `json:"lastTransitionTime,omitempty"`
+	LastHeartbeatTime  metav1.Time            `json:"lastHeartbeatTime,omitempty"`
+	Reason             string                 `json:"reason,omitempty" description:"reason for the condition's last transition"`
+	Message            string                 `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
 
 // DataSourceList provides the needed parameters to do request a list of Data Sources from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -472,17 +488,23 @@ type DataImportCron struct {
 
 // DataImportCronSpec defines specification for DataImportCron
 type DataImportCronSpec struct {
-	// Source specifies where to poll disk images from
-	Source DataImportCronSource `json:"source"`
+	// Template specifies template for the DVs to be created
+	Template DataVolume `json:"template"`
 	// Schedule specifies in cron format when and how often to look for new imports
 	Schedule string `json:"schedule"`
 	// GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported.
-	// Options are currently "Never" and "Outdated", defaults to "Never".
+	// Options are currently "Outdated" and "Never", defaults to "Outdated".
 	// +optional
 	GarbageCollect *DataImportCronGarbageCollect `json:"garbageCollect,omitempty"`
+	// Number of import PVCs to keep when garbage collecting. Default is 3.
+	// +optional
+	ImportsToKeep *int32 `json:"importsToKeep,omitempty"`
 	// ManagedDataSource specifies the name of the corresponding DataSource this cron will manage.
 	// DataSource has to be in the same namespace.
 	ManagedDataSource string `json:"managedDataSource"`
+	// RetentionPolicy specifies whether the created DataVolumes and DataSources are retained when their DataImportCron is deleted. Default is RatainAll.
+	// +optional
+	RetentionPolicy *DataImportCronRetentionPolicy `json:"retentionPolicy,omitempty"`
 }
 
 // DataImportCronGarbageCollect represents the DataImportCron garbage collection mode
@@ -495,13 +517,20 @@ const (
 	DataImportCronGarbageCollectOutdated DataImportCronGarbageCollect = "Outdated"
 )
 
-// DataImportCronSource defines where to poll and import disk images from
-type DataImportCronSource struct {
-	Registry *DataVolumeSourceRegistry `json:"registry"`
-}
+// DataImportCronRetentionPolicy represents the DataImportCron retention policy
+type DataImportCronRetentionPolicy string
+
+const (
+	// DataImportCronRetainNone specifies that the created DataVolumes and DataSources are deleted when their DataImportCron is deleted
+	DataImportCronRetainNone DataImportCronRetentionPolicy = "None"
+	// DataImportCronRetainAll specifies that the created DataVolumes and DataSources are retained when their DataImportCron is deleted
+	DataImportCronRetainAll DataImportCronRetentionPolicy = "All"
+)
 
 // DataImportCronStatus provides the most recently observed status of the DataImportCron
 type DataImportCronStatus struct {
+	// CurrentImports are the imports in progress. Currently only a single import is supported.
+	CurrentImports []ImportStatus `json:"currentImports,omitempty"`
 	// LastImportedPVC is the last imported PVC
 	LastImportedPVC *DataVolumeSourcePVC `json:"lastImportedPVC,omitempty"`
 	// LastExecutionTimestamp is the time of the last polling
@@ -511,18 +540,30 @@ type DataImportCronStatus struct {
 	Conditions          []DataImportCronCondition `json:"conditions,omitempty" optional:"true"`
 }
 
+// ImportStatus of a currently in progress import
+type ImportStatus struct {
+	// DataVolumeName is the currently in progress import DataVolume
+	DataVolumeName string `json:"DataVolumeName"`
+	// Digest of the currently imported image
+	Digest string `json:"Digest"`
+}
+
 // DataImportCronCondition represents the state of a data import cron condition
 type DataImportCronCondition struct {
-	Type               DataImportCronConditionType `json:"type" description:"type of condition ie. Progressing, UpToDate"`
-	Status             corev1.ConditionStatus      `json:"status" description:"status of the condition, one of True, False, Unknown"`
-	LastTransitionTime metav1.Time                 `json:"lastTransitionTime,omitempty"`
-	LastHeartbeatTime  metav1.Time                 `json:"lastHeartbeatTime,omitempty"`
-	Reason             string                      `json:"reason,omitempty" description:"reason for the condition's last transition"`
-	Message            string                      `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+	Type           DataImportCronConditionType `json:"type" description:"type of condition ie. Progressing, UpToDate"`
+	ConditionState `json:",inline"`
 }
 
 // DataImportCronConditionType is the string representation of known condition types
 type DataImportCronConditionType string
+
+const (
+	// DataImportCronProgressing is the condition that indicates import is progressing
+	DataImportCronProgressing DataImportCronConditionType = "Progressing"
+
+	// DataImportCronUpToDate is the condition that indicates latest import is up to date
+	DataImportCronUpToDate DataImportCronConditionType = "UpToDate"
+)
 
 // DataImportCronList provides the needed parameters to do request a list of DataImportCrons from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

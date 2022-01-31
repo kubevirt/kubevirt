@@ -1,4 +1,4 @@
-// +build amd64
+//go:build amd64
 
 /*
  * This file is part of the KubeVirt project
