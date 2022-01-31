@@ -8,7 +8,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -326,9 +326,9 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.clientset.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
 
-	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
+	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
 
 	if podDisruptionBudget.Spec.MinAvailable.IntValue() == 0 {
@@ -352,7 +352,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		return nil
 	}
 
-	cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
+	cachedPodDisruptionBudget = obj.(*policyv1.PodDisruptionBudget)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedPodDisruptionBudget.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)

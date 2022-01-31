@@ -6,7 +6,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -174,7 +174,7 @@ func (c *DisruptionBudgetController) enqueueVMI(obj interface{}) {
 
 // When a pdb is created, enqueue the vmi that manages it and update its pdbExpectations.
 func (c *DisruptionBudgetController) addPodDisruptionBudget(obj interface{}) {
-	pdb := obj.(*v1beta1.PodDisruptionBudget)
+	pdb := obj.(*policyv1.PodDisruptionBudget)
 
 	if pdb.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new pdb shows up in a state that
@@ -201,8 +201,8 @@ func (c *DisruptionBudgetController) addPodDisruptionBudget(obj interface{}) {
 // up. If the labels of the pdb have changed we need to awaken both the old
 // and new vmi. old and cur must be *v1.PodDisruptionBudget types.
 func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interface{}) {
-	curPodDisruptionBudget := cur.(*v1beta1.PodDisruptionBudget)
-	oldPodDisruptionBudget := old.(*v1beta1.PodDisruptionBudget)
+	curPodDisruptionBudget := cur.(*policyv1.PodDisruptionBudget)
+	oldPodDisruptionBudget := old.(*policyv1.PodDisruptionBudget)
 	if curPodDisruptionBudget.ResourceVersion == oldPodDisruptionBudget.ResourceVersion {
 		// Periodic resync will send update events for all known pdbs.
 		// Two different versions of the same pdb will always have different RVs.
@@ -242,7 +242,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 // When a pdb is deleted, enqueue the vmi that manages the pdb and update its pdbExpectations.
 // obj could be an *v1.PodDisruptionBudget, or a DeletionFinalStateUnknown marker item.
 func (c *DisruptionBudgetController) deletePodDisruptionBudget(obj interface{}) {
-	pdb, ok := obj.(*v1beta1.PodDisruptionBudget)
+	pdb, ok := obj.(*policyv1.PodDisruptionBudget)
 
 	// When a delete is dropped, the relist will notice a pdb in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -254,7 +254,7 @@ func (c *DisruptionBudgetController) deletePodDisruptionBudget(obj interface{}) 
 			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
-		pdb, ok = tombstone.Obj.(*v1beta1.PodDisruptionBudget)
+		pdb, ok = tombstone.Obj.(*policyv1.PodDisruptionBudget)
 		if !ok {
 			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
@@ -420,7 +420,7 @@ func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMach
 	return runningPods == 1, nil
 }
 
-func (c *DisruptionBudgetController) isVMIMCompletedForPDB(pdb *v1beta1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance) (bool, error) {
+func (c *DisruptionBudgetController) isVMIMCompletedForPDB(pdb *policyv1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance) (bool, error) {
 	migrationName := pdb.ObjectMeta.Labels[virtv1.MigrationNameLabel]
 	if migrationName == "" {
 		return false, nil
@@ -429,14 +429,14 @@ func (c *DisruptionBudgetController) isVMIMCompletedForPDB(pdb *v1beta1.PodDisru
 	return c.isMigrationComplete(vmi, migrationName)
 }
 
-func (c *DisruptionBudgetController) deletePDB(key string, pdb *v1beta1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance) error {
+func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance) error {
 	if pdb != nil && pdb.DeletionTimestamp == nil {
 		pdbKey, err := cache.MetaNamespaceKeyFunc(pdb)
 		if err != nil {
 			return err
 		}
 		c.podDisruptionBudgetExpectations.ExpectDeletions(key, []string{pdbKey})
-		err = c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, v1.DeleteOptions{})
+		err = c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, v1.DeleteOptions{})
 		if err != nil {
 			c.podDisruptionBudgetExpectations.DeletionObserved(key, pdbKey)
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
@@ -447,12 +447,12 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *v1beta1.PodDisru
 	return nil
 }
 
-func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
 	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable.IntValue() != 1 {
 		patch := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
 			controller.EscapeJSONPointer(virtv1.MigrationNameLabel)))
 
-		_, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patch, v1.PatchOptions{})
+		_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 		if err != nil {
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
@@ -466,14 +466,14 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
 	minAvailable := intstr.FromInt(1)
 
 	c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
-	createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &v1beta1.PodDisruptionBudget{
+	createdPDB, err := c.clientset.PolicyV1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
 		ObjectMeta: v1.ObjectMeta{
 			OwnerReferences: []v1.OwnerReference{
 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
 			},
 			GenerateName: "kubevirt-disruption-budget-",
 		},
-		Spec: v1beta1.PodDisruptionBudgetSpec{
+		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -491,7 +491,7 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
 	return nil
 }
 
-func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) bool {
+func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) bool {
 	// The pdb might be from an old vmi with a different uid, delete and later create the correct one
 	// The VMI always has a minimum grace period, so normally this should not happen, therefore no optimizations
 	if pdb == nil {
@@ -501,7 +501,7 @@ func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisrupt
 	return ownerRef != nil && ownerRef.UID != vmi.UID
 }
 
-func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
 	migratableOnDrain := c.vmiMigratableOnDrain(vmiExists, vmi)
 
 	// check for deletions if pod exists
