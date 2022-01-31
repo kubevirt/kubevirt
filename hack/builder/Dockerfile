@@ -35,11 +35,15 @@ RUN dnf install -y dnf-plugins-core && \
         redhat-rpm-config \
         jq \
         wget \
+        rubygems \
         diffutils && \
     dnf -y clean all
 
 # Avoids the need to install sssd-client by disabling lookups
 COPY nsswitch.conf /etc/nsswitch.conf
+
+# Necessary for generation of HTML-formatted API docs (.adoc)
+RUN gem install asciidoctor
 
 # Necessary for Bazel to find Python inside the container
 #
