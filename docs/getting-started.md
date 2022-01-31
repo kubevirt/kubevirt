@@ -3,6 +3,9 @@
 A quick start guide to get KubeVirt up and running inside our container-based
 development cluster.
 
+**Note**: Docker is used as default container runtime. If you want to use
+podman see [PODMAN.md](https://github.com/kubevirt/kubevirtci/blob/main/PODMAN.md).
+
 ## I just want it built and run it on my cluster
 
 First, point the `Makefile` to the Docker registry of your choice:
