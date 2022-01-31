@@ -147,15 +147,7 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 		if res.Created {
 			h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Created", fmt.Sprintf("Created %s %s", res.Type, res.Name))
 		} else if res.Updated {
-			if !res.Overwritten {
-				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", res.Type, res.Name))
-			} else {
-				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
-				err := metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
-				if err != nil {
-					req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
-				}
-			}
+			h.handleUpdatedOperand(req, res)
 		} else if res.Deleted {
 			h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", res.Type, res.Name))
 		}
@@ -164,6 +156,18 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 	}
 	return nil
 
+}
+
+func (h OperandHandler) handleUpdatedOperand(req *common.HcoRequest, res *EnsureResult) {
+	if !res.Overwritten {
+		h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", res.Type, res.Name))
+	} else {
+		h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
+		err := metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
+		if err != nil {
+			req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
+		}
+	}
 }
 
 func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {

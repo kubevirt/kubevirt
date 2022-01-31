@@ -87,8 +87,6 @@ func main() {
 	cfg, err := config.GetConfig()
 	cmdHelper.ExitOnError(err, "can't load configuration")
 
-	// a lock is not needed in webhook mode
-	// TODO: remove this once we will move to OLM operator conditions
 	ci := hcoutil.GetClusterInfo()
 	needLeaderElection := !ci.IsRunningLocally()
 

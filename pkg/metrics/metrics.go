@@ -94,7 +94,7 @@ func (hm *hcoMetrics) GetMetricValue(metricName string, label prometheus.Labels)
 	var res = &dto.Metric{}
 	metric, found := hm.metricList[metricName]
 	if !found {
-		return 0, fmt.Errorf("unknown metric name %s", metricName)
+		return 0, unknownMetricNameError(metricName)
 	}
 	switch m := metric.(type) {
 	case *prometheus.CounterVec:
@@ -110,14 +110,14 @@ func (hm *hcoMetrics) GetMetricValue(metricName string, label prometheus.Labels)
 		}
 		return res.Gauge.GetValue(), nil
 	default:
-		return 0, fmt.Errorf("%s is with unknown metric type", metricName)
+		return 0, unknownMetricTypeError(metricName)
 	}
 }
 
 func (hm *hcoMetrics) IncMetric(metricName string, label prometheus.Labels) error {
 	metric, found := hm.metricList[metricName]
 	if !found {
-		return fmt.Errorf("unknown metric name %s", metricName)
+		return unknownMetricNameError(metricName)
 	}
 	switch m := metric.(type) {
 	case *prometheus.CounterVec:
@@ -127,21 +127,21 @@ func (hm *hcoMetrics) IncMetric(metricName string, label prometheus.Labels) erro
 		m.With(label).Inc()
 		return nil
 	default:
-		return fmt.Errorf("%s is with unknown metric type", metricName)
+		return unknownMetricTypeError(metricName)
 	}
 }
 
 func (hm *hcoMetrics) SetMetric(metricName string, label prometheus.Labels, value float64) error {
 	metric, found := hm.metricList[metricName]
 	if !found {
-		return fmt.Errorf("unknown metric name %s", metricName)
+		return unknownMetricNameError(metricName)
 	}
 
 	if m, ok := metric.(*prometheus.GaugeVec); ok {
 		m.With(label).Set(value)
 		return nil
 	}
-	return fmt.Errorf("%s is with unknown metric type", metricName)
+	return unknownMetricTypeError(metricName)
 }
 
 // IncOverwrittenModifications increments counter by 1
@@ -186,4 +186,12 @@ func (hm hcoMetrics) GetMetricDesc() []MetricDescription {
 	}
 
 	return res
+}
+
+func unknownMetricNameError(metricName string) error {
+	return fmt.Errorf("unknown metric name %s", metricName)
+}
+
+func unknownMetricTypeError(metricName string) error {
+	return fmt.Errorf("%s is with unknown metric type", metricName)
 }

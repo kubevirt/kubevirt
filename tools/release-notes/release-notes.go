@@ -12,7 +12,7 @@ import (
 )
 
 func (r *releaseData) writeHeader(span string) error {
-	tagUrl := fmt.Sprintf("https://github.com/kubevirt/%s/releases/tag/%s", "hyperconverged-cluster-operator", r.hco.currentTag)
+	tagUrl := fmt.Sprintf("https://github.com/kubevirt/hyperconverged-cluster-operator/releases/tag/%s", r.hco.currentTag)
 
 	numChanges, err := r.hco.gitGetNumChanges(span)
 	if err != nil {
@@ -183,8 +183,7 @@ func (r *releaseData) writeContributors(span string) error {
 	return nil
 }
 
-func (r *releaseData) writeAdditionalResources() {
-	additionalResources := fmt.Sprintf(`Additional Resources
+const additionalResources = `Additional Resources
 --------------------
 - Mailing list: <https://groups.google.com/forum/#!forum/kubevirt-dev>
 - Slack: <https://kubernetes.slack.com/messages/virtualization>
@@ -193,13 +192,10 @@ func (r *releaseData) writeAdditionalResources() {
 - [License][license]
 
 
-[contributing]: https://github.com/kubevirt/%s/blob/main/CONTRIBUTING.md
-[license]: https://github.com/kubevirt/%s/blob/main/LICENSE
+[contributing]: https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/CONTRIBUTING.md
+[license]: https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/LICENSE
 ---
-`, "hyperconverged-cluster-operator", "hyperconverged-cluster-operator")
-
-	r.outFile.WriteString(additionalResources)
-}
+`
 
 func (r *releaseData) generateReleaseNotes() error {
 	releaseNotesFile := fmt.Sprintf("%s-release-notes.md", r.hco.currentTag)
@@ -228,7 +224,7 @@ func (r *releaseData) generateReleaseNotes() error {
 		return err
 	}
 
-	r.writeAdditionalResources()
+	r.outFile.WriteString(additionalResources)
 
 	return nil
 }
