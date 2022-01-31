@@ -29,7 +29,7 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: {{.containerPrefix}}{{.containerImg}}:{{.containerTag}}
+      image: {{.containerPrefix}}/{{.containerImg}}:{{.containerTag}}
       imagePullPolicy: IfNotPresent
     name: disk0
   - cloudInitNoCloud:
