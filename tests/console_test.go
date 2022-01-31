@@ -200,9 +200,10 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			})
@@ -224,10 +225,11 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting the VirtualMachineInstance console")
-				_, _, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
+				_, _, err = console.NewExpecter(virtClient, vmi, 30*time.Second)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			})
