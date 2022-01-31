@@ -231,7 +231,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
-				if tests.HasBindingModeWaitForFirstConsumer() {
+				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
 					Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				num := 2
@@ -290,7 +290,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
-				if tests.HasBindingModeWaitForFirstConsumer() {
+				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
 					Eventually(ThisDV(dataVolume), 60).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
@@ -728,6 +728,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				var err error
 				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				tests.SetDataVolumeForceBindAnnotation(dv)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisDV(dataVolume), 90).Should(HaveSucceeded())
@@ -777,7 +778,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				createdVirtualMachine = vm
 
-				// wait for clone to complete
+				// start vm and check dv clone succeeded
+				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
 				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
 				Eventually(ThisDVWith(createdVirtualMachine.Namespace, targetDVName), 90).Should(HaveSucceeded())
 			}
@@ -846,8 +848,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				createVmSuccess()
 
-				// start/stop vm
-				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
+				// stop vm
 				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
 			},
 				table.Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),

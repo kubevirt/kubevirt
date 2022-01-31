@@ -29,18 +29,10 @@ import (
 
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
 type KubeVirtTestsConfiguration struct {
-	// StorageClass to use to create local PVCs
-	StorageClassLocal string `json:"storageClassLocal"`
-	// StorageClass to use to create host-path PVCs
-	StorageClassHostPath string `json:"storageClassHostPath"`
-	// StorageClassHostPathSeparateDevice to use to create host-path PVCs that are on a separate device from the boot device
-	StorageClassHostPathSeparateDevice string `json:"storageClassHostPathSeparateDevice"`
 	// StorageClass to use to create rhel PVCs
 	StorageClassRhel string `json:"storageClassRhel"`
 	// StorageClass to use to create windows PVCs
 	StorageClassWindows string `json:"storageClassWindows"`
-	// Flag if true the storageclasses are managed, false otherwise
-	ManageStorageClasses bool `json:"manageStorageClasses"`
 	// StorageClass supporting RWX Filesystem
 	StorageRWXFileSystem string `json:"storageRWXFileSystem"`
 	// StorageClass supporting RWX Block
