@@ -226,11 +226,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
 
-			tests.BeforeAll(func() {
-				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
-			})
-
 			BeforeEach(func() {
+				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+
 				requiredNumberOfCpus := 3
 				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
 					fmt.Sprintf("Test requires %d cpus, but only %d available!", requiredNumberOfCpus, availableNumberOfCPUs))
@@ -1696,13 +1694,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			return updatedCPUName
 		}
 
-		// Collect capabilities once for all tests
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			nodes = util.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-		})
 
-		BeforeEach(func() {
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		})
 
