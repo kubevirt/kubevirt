@@ -97,6 +97,12 @@ func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bo
 	return WantVirtioNetDevice(vmi) && !allowEmulation
 }
 
+func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
+	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
+}
+
 // UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
 // This happens when the given device doesn't exist, and software emulation is enabled.
 func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool, error) {
