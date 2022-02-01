@@ -149,6 +149,7 @@ var _ = SIGDescribe("Services", func() {
 		}
 
 		BeforeEach(func() {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 			subdomain := "vmi"
 			hostname := "inbound"
 
@@ -273,9 +274,8 @@ var _ = SIGDescribe("Services", func() {
 			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
+					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
 					if ipFamily == k8sv1.IPv6Protocol {
-						libnet.SkipWhenNotDualStackCluster(virtClient)
-
 						serviceName = serviceName + "v6"
 						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					} else {

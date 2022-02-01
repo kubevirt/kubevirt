@@ -66,11 +66,11 @@ func isDualStack(ipFamily ipFamily) bool {
 	return ipFamily == dualIPv4Primary || ipFamily == dualIPv6Primary
 }
 
-func doesSupportIpv6(ipFamily ipFamily) bool {
+func inlcudesIpv6(ipFamily ipFamily) bool {
 	return ipFamily != ipv4
 }
 
-func doesSupportIpv4(ipFamily ipFamily) bool {
+func includesIpv4(ipFamily ipFamily) bool {
 	return ipFamily != ipv6
 }
 
@@ -108,16 +108,19 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	}
 
 	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
-		if doesSupportIpv6(ipFamily) {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
-			if isDualStack(ipFamily) {
-				checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
-			}
+		if includesIpv4(ipFamily) {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+		}
+		if inlcudesIpv6(ipFamily) {
+			libnet.SkipWhenClusterNotSupportIpv6(virtClient)
+		}
+		if isDualStack(ipFamily) {
+			checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
 		}
 	}
 
 	appendIpFamilyToExposeArgs := func(ipFamily ipFamily, vmiExposeArgs []string) []string {
-		if doesSupportIpv6(ipFamily) {
+		if inlcudesIpv6(ipFamily) {
 			vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
 		}
 		return vmiExposeArgs
@@ -350,7 +353,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Validating the num of cluster ips")
 				Expect(len(svc.Spec.ClusterIPs)).To(Equal(calcNumOfClusterIPs()))
 			},
-				table.Entry("over SingleStack IPv4 IP family policy", k8sv1.IPFamilyPolicySingleStack),
+				table.Entry("over SingleStack IP family policy", k8sv1.IPFamilyPolicySingleStack),
 				table.Entry("over PreferDualStack IP family policy", k8sv1.IPFamilyPolicyPreferDualStack),
 				table.Entry("over RequireDualStack IP family policy", k8sv1.IPFamilyPolicyRequireDualStack),
 			)
@@ -395,13 +398,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					nodeIP := node.Status.Addresses[0].Address
 					var ipv6NodeIP string
 
-					if doesSupportIpv4(ipFamily) {
+					if includesIpv4(ipFamily) {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
 							Expect(createAndWaitForJobToSucceed(tests.NewHelloWorldJobTCP, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
 						}, ipFamily == dualIPv6Primary)
 					}
-					if doesSupportIpv6(ipFamily) {
+					if inlcudesIpv6(ipFamily) {
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
 							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
@@ -517,7 +520,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					nodeIP := node.Status.Addresses[0].Address
 
 					var ipv6NodeIP string
-					if doesSupportIpv6(ipFamily) {
+					if inlcudesIpv6(ipFamily) {
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
 							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
@@ -527,13 +530,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
 					}
 
-					if doesSupportIpv4(ipFamily) {
+					if includesIpv4(ipFamily) {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
 							Expect(createAndWaitForJobToSucceed(tests.NewHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address")).To(Succeed())
 						}, ipFamily == dualIPv6Primary)
 					}
-					if doesSupportIpv6(ipFamily) {
+					if inlcudesIpv6(ipFamily) {
 						By("Connecting to IPv6 node IP")
 						assert.XFail(xfailError, func() {
 							Expect(createAndWaitForJobToSucceed(tests.NewHelloWorldJobUDP, udpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv6 address")).To(Succeed())

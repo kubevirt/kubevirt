@@ -125,6 +125,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 		var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 
+		BeforeEach(func() {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+		})
 		Context("with a test outbound VMI", func() {
 			BeforeEach(func() {
 				inboundVMI = libvmi.NewCirros()
@@ -228,7 +231,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				inboundVMI = libvmi.NewCirros()
 				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
-				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, libnet.WithIPv6(console.LoginToCirros))
+				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 				tests.StartTCPServer(inboundVMI, testPort)
 			})
 
@@ -492,6 +495,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
 		It("[test_id:1777]should disable learning on pod iface", func() {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 			By("checking learning flag")
 			learningDisabledVMI := libvmi.NewAlpine()
 			learningDisabledVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(learningDisabledVMI)
@@ -504,6 +508,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 			dhcpVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
@@ -549,6 +554,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	Context("VirtualMachineInstance with custom dns", func() {
 		It("[test_id:1779]should have custom resolv.conf", func() {
+			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 			userData := "#cloud-config\n"
 			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
@@ -681,6 +687,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			}
 
 			table.DescribeTable("ipv4", func(ports []v1.Port, tcpPort int, networkCIDR string) {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+
 				var clientVMI *v1.VirtualMachineInstance
 				var serverVMI *v1.VirtualMachineInstance
 
@@ -719,6 +727,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 				ipv4Address := "8.8.8.8"
 				if flags.IPV4ConnectivityCheckAddress != "" {
 					ipv4Address = flags.IPV4ConnectivityCheckAddress
@@ -739,7 +748,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			table.DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv6(virtClient)
 				var serverVMI *v1.VirtualMachineInstance
 				var clientVMI *v1.VirtualMachineInstance
 
@@ -776,7 +785,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				libnet.SkipWhenClusterNotSupportIpv6(virtClient)
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
 				// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
@@ -853,9 +862,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily, ports []v1.Port) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-				}
+				libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
 
 				var err error
 				var loginMethod console.LoginToFunction
@@ -960,9 +967,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			table.DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-				}
+				libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
 
 				By("checking k6t-eth0 MTU inside the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
