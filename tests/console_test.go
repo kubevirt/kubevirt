@@ -54,16 +54,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		tests.BeforeTestCleanup()
 	})
 
-	RunVMIAndWaitForStart := func(vmi *v1.VirtualMachineInstance) {
-		By("Creating a new VirtualMachineInstance")
-		createdVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
-		*vmi = *createdVmi
-
-		By("Waiting until it starts")
-		tests.WaitForSuccessfulVMIStart(vmi)
-	}
-
 	ExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -92,7 +82,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 				It("[test_id:1588]should return that we are running cirros", func() {
 					vmi := libvmi.NewCirros()
-					RunVMIAndWaitForStart(vmi)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 					ExpectConsoleOutput(
 						vmi,
 						"login as 'cirros' user",
@@ -103,7 +93,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			Context("with a fedora image", func() {
 				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
 					vmi := libvmi.NewFedora()
-					RunVMIAndWaitForStart(vmi)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 					ExpectConsoleOutput(
 						vmi,
 						"Welcome to",
@@ -129,7 +119,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
 					vmi, dv := createVMI()
 					defer deleteDataVolume(dv)
-					RunVMIAndWaitForStart(vmi)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 					ExpectConsoleOutput(vmi, "login")
 				},
 					table.Entry("[test_id:4636]with ContainerDisk", newVirtualMachineInstanceWithAlpineContainerDisk),
@@ -140,8 +130,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				vmi := libvmi.NewAlpine()
-
-				RunVMIAndWaitForStart(vmi)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				for i := 0; i < 5; i++ {
 					ExpectConsoleOutput(vmi, "login")
@@ -150,8 +139,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 			It("[test_id:1591]should close console connection when new console connection is opened", func(done Done) {
 				vmi := libvmi.NewAlpine()
-
-				RunVMIAndWaitForStart(vmi)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("opening 1st console connection")
 				expecter, errChan := OpenConsole(vmi)
