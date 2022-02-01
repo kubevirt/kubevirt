@@ -82,11 +82,13 @@ func CreateErrorDisk(nodeName string) (address string, device string) {
 func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
 	args := []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
 	args = append(args, opts...)
-	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	fmt.Println(stdout)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
 	args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/bin/lsscsi"}
-	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	stdout, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	fmt.Println(stdout)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to find out address of  SCSI disk")
 
 	// Example output
