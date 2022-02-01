@@ -22,7 +22,6 @@ package apply
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -35,6 +34,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -884,7 +884,7 @@ var _ = Describe("Apply Apps", func() {
 			orig := componentConfig.DeepCopy()
 			orig.NodePlacement.NodeSelector = map[string]string{kubernetesOSLabel: kubernetesOSLinux}
 			injectPlacementMetadata(componentConfig, nil)
-			Expect(reflect.DeepEqual(orig, componentConfig)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(orig, componentConfig)).To(BeTrue())
 		})
 
 		It("should copy NodeSelectors when podSpec is empty", func() {
@@ -980,7 +980,7 @@ var _ = Describe("Apply Apps", func() {
 		It("It should copy NodePlacement if podSpec Affinity is empty", func() {
 			nodePlacement.Affinity = affinity
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
 
@@ -988,7 +988,7 @@ var _ = Describe("Apply Apps", func() {
 			nodePlacement.Affinity = affinity
 			podSpec.Affinity = &corev1.Affinity{}
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
 
@@ -1002,7 +1002,7 @@ var _ = Describe("Apply Apps", func() {
 			Expect(len(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
 			Expect(len(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
 			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
-			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeFalse())
+			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeFalse())
 		})
 
 		It("It should copy Required NodeAffinity", func() {

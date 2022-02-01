@@ -23,12 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -625,7 +625,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	controller.SetVMIPhaseTransitionTimestamp(vmi, vmiCopy)
 
 	// If we detect a change on the vmi we update the vmi
-	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels)
+	vmiChanged := !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) || !equality.Semantic.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !equality.Semantic.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !equality.Semantic.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
@@ -667,7 +667,7 @@ func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
 func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error) {
 	var patchOps []string
 
-	if !reflect.DeepEqual(newVMI.Status.VolumeStatus, oldVMI.Status.VolumeStatus) {
+	if !equality.Semantic.DeepEqual(newVMI.Status.VolumeStatus, oldVMI.Status.VolumeStatus) {
 		// VolumeStatus changed which means either removed or added volumes.
 		newVolumeStatus, err := json.Marshal(newVMI.Status.VolumeStatus)
 		if err != nil {
@@ -704,7 +704,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI conditions")
 	}
 
-	if !reflect.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
+	if !equality.Semantic.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
 		newPods, err := json.Marshal(newVMI.Status.ActivePods)
 		if err != nil {
 			return nil, err
@@ -729,7 +729,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 		}
 	}
 
-	if !reflect.DeepEqual(oldVMI.Labels, newVMI.Labels) {
+	if !equality.Semantic.DeepEqual(oldVMI.Labels, newVMI.Labels) {
 		newLabelBytes, err := json.Marshal(newVMI.Labels)
 		if err != nil {
 			return nil, err
@@ -1135,7 +1135,7 @@ func (c *VMIController) updatePVC(old, cur interface{}) {
 	if curPVC.DeletionTimestamp != nil {
 		return
 	}
-	if reflect.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
+	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
 		// We only do something when the capacity changes
 		return
 	}
@@ -1177,7 +1177,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 	if curDataVolume.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
 		// having a DataVOlume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteDataVolume(curDataVolume)
@@ -1265,7 +1265,7 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 	}
 
 	if curPod.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curPod.Labels, oldPod.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curPod.Labels, oldPod.Labels)
 		// having a pod marked for deletion is enough to count as a deletion expectation
 		c.deletePod(curPod)
 		if labelChanged {
@@ -1277,7 +1277,7 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 
 	curControllerRef := controller.GetControllerOf(curPod)
 	oldControllerRef := controller.GetControllerOf(oldPod)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPod.Namespace, oldControllerRef); vmi != nil {

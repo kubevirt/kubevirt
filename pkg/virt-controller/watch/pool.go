@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	randutil "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 	"k8s.io/utils/trace"
@@ -210,7 +210,7 @@ func (c *PoolController) updateVMHandler(old, cur interface{}) {
 		return
 	}
 
-	labelChanged := !reflect.DeepEqual(curVM.Labels, oldVM.Labels)
+	labelChanged := !equality.Semantic.DeepEqual(curVM.Labels, oldVM.Labels)
 	if curVM.DeletionTimestamp != nil {
 		c.deleteVMHandler(curVM)
 		if labelChanged {
@@ -221,7 +221,7 @@ func (c *PoolController) updateVMHandler(old, cur interface{}) {
 
 	curControllerRef := metav1.GetControllerOf(curVM)
 	oldControllerRef := metav1.GetControllerOf(oldVM)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if pool := c.resolveControllerRef(oldVM.Namespace, oldControllerRef); pool != nil {
@@ -907,7 +907,7 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 
 	pool.Status.Replicas = int32(len(vms))
 
-	if !reflect.DeepEqual(pool.Status, origPool.Status) {
+	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) {
 		_, err := c.clientset.VirtualMachinePool(pool.Namespace).Update(context.Background(), pool, metav1.UpdateOptions{})
 		if err != nil {
 			return err

@@ -1084,6 +1084,8 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			if phase == virtv1.MigrationFailed {
+				// This finalizer is added by the mutation webhook during creation
+				migration.Finalizers = append(migration.Finalizers, virtv1.VirtualMachineInstanceMigrationFinalizer)
 				shouldExpectMigrationFinalizerRemoval(migration)
 			} else {
 				shouldExpectMigrationFailedState(migration)

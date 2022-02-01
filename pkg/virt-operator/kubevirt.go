@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -663,7 +663,7 @@ func (c *KubeVirtController) execute(key string) error {
 	operatorutil.SetConditionTimestamps(kv, kvCopy)
 
 	// If we detect a change on KubeVirt we update it
-	if !reflect.DeepEqual(kv.Status, kvCopy.Status) {
+	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
 		if err := c.statusUpdater.UpdateStatus(kvCopy); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
 			return err
@@ -672,7 +672,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// If we detect a change on KubeVirt finalizers we update them
 	// Note: we don't own the metadata section so we need to use Patch() and not Update()
-	if !reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
+	if !equality.Semantic.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
 		finalizersJson, err := json.Marshal(kvCopy.Finalizers)
 		if err != nil {
 			return err
