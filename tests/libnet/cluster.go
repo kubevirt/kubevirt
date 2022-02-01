@@ -14,6 +14,27 @@ import (
 )
 
 func IsClusterDualStack(virtClient kubecli.KubevirtClient) (bool, error) {
+	supportsIpv4, err := ClusterSupportsIpv4(virtClient)
+	if err != nil {
+		return false, err
+	}
+
+	supportsIpv6, err := ClusterSupportsIpv6(virtClient)
+	if err != nil {
+		return false, err
+	}
+	return supportsIpv4 && supportsIpv6, nil
+}
+
+func ClusterSupportsIpv4(virtClient kubecli.KubevirtClient) (bool, error) {
+	return clusterAnswersIpCondition(virtClient, netutils.IsIPv4String)
+}
+
+func ClusterSupportsIpv6(virtClient kubecli.KubevirtClient) (bool, error) {
+	return clusterAnswersIpCondition(virtClient, netutils.IsIPv6String)
+}
+
+func clusterAnswersIpCondition(virtClient kubecli.KubevirtClient, ipCondition func(ip string) bool) (bool, error) {
 	// grab us some neat kubevirt pod; let's say virt-handler is our target.
 	targetPodType := "virt-handler"
 	virtHandlerPod, err := getPodByKubeVirtRole(virtClient, targetPodType)
@@ -21,13 +42,8 @@ func IsClusterDualStack(virtClient kubecli.KubevirtClient) (bool, error) {
 		return false, err
 	}
 
-	hasMultipleIPAddrs := len(virtHandlerPod.Status.PodIPs) > 1
-	if !hasMultipleIPAddrs {
-		return false, nil
-	}
-
 	for _, ip := range virtHandlerPod.Status.PodIPs {
-		if netutils.IsIPv6String(ip.IP) {
+		if ipCondition(ip.IP) {
 			return true, nil
 		}
 	}

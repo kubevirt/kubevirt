@@ -26,12 +26,12 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 		panic(err)
 	}
 
-	isClusterDualStack, err := IsClusterDualStack(virtClient)
+	clusterSupportsIpv6, err := ClusterSupportsIpv6(virtClient)
 	if err != nil {
 		return err
 	}
 
-	if !isClusterDualStack ||
+	if !clusterSupportsIpv6 ||
 		(vmi.Spec.Domain.Devices.Interfaces == nil || len(vmi.Spec.Domain.Devices.Interfaces) == 0 || vmi.Spec.Domain.Devices.Interfaces[0].InterfaceBindingMethod.Masquerade == nil) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface != nil && !*vmi.Spec.Domain.Devices.AutoattachPodInterface) ||
 		(!hasEth0Iface() || hasGlobalIPv6()) {
