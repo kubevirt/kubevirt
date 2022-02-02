@@ -58,16 +58,6 @@ function test_delete_ns(){
     echo "Delete the hyperconverged CR to remove the product"
     timeout 10m ${CMD} delete hyperconverged -n kubevirt-hyperconverged kubevirt-hyperconverged
 
-    # TODO: workaround for https://bugzilla.redhat.com/show_bug.cgi?id=2031919
-    # remove once fixed
-    INFRASTRUCTURETOPOLOGY=$(${CMD} get infrastructure.config.openshift.io cluster -o json | jq -j '.status.infrastructureTopology')
-    if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
-      echo "Explictly deleting kubevirt apiservice leftovers"
-      ${CMD} delete apiservice v1alpha3.subresources.kubevirt.io --ignore-not-found=true
-      ${CMD} delete apiservice v1.subresources.kubevirt.io --ignore-not-found=true
-    fi
-    # ---
-
     echo "Finally delete kubevirt-hyperconverged namespace"
     timeout 10m ${CMD} delete namespace kubevirt-hyperconverged
 }
