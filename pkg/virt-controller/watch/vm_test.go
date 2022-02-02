@@ -24,11 +24,10 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -85,8 +84,8 @@ var _ = Describe("VirtualMachine", func() {
 			generatedInterface := fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-			vmInformer, vmSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
+			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
@@ -634,6 +633,44 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
 			addVirtualMachine(vm)
 			dataVolumeFeeder.Add(existingDataVolume)
+			// expect creation called
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+			}).Return(vmi, nil)
+			// expect update status is called
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should start VMI once DataVolumes (not templates) are complete", func() {
+
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+				Name: "test1",
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			dvt := &virtv1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			}
+
+			existingDataVolume, _ := createDataVolumeManifest(virtClient, dvt, vm)
+
+			existingDataVolume.OwnerReferences = nil
+			existingDataVolume.Namespace = "default"
+			existingDataVolume.Status.Phase = cdiv1.Succeeded
+			addVirtualMachine(vm)
+			dataVolumeFeeder.Add(existingDataVolume)
+
 			// expect creation called
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))

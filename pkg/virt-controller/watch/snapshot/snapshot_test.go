@@ -11,8 +11,6 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/api/core"
-
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +32,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -279,42 +278,11 @@ var _ = Describe("Snapshot controlleer", func() {
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshot{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
-					vms := obj.(*snapshotv1.VirtualMachineSnapshot)
-					if vms.Spec.Source.APIGroup != nil &&
-						*vms.Spec.Source.APIGroup == core.GroupName &&
-						vms.Spec.Source.Kind == "VirtualMachine" {
-						return []string{vms.Namespace + "/" + vms.Spec.Source.Name}, nil
-					}
-					return nil, nil
-				},
-			})
-			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshotContent{}, cache.Indexers{
-				"volumeSnapshot": func(obj interface{}) ([]string, error) {
-					vmsc := obj.(*snapshotv1.VirtualMachineSnapshotContent)
-					var volumeSnapshots []string
-					for _, v := range vmsc.Spec.VolumeBackups {
-						if v.VolumeSnapshotName != nil {
-							volumeSnapshots = append(volumeSnapshots, vmsc.Namespace+"/"+*v.VolumeSnapshotName)
-						}
-					}
-					return volumeSnapshots, nil
-				},
-			})
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
-					cr := obj.(*appsv1.ControllerRevision)
-					for _, ref := range cr.OwnerReferences {
-						if ref.Kind == "VirtualMachine" {
-							return []string{string(ref.UID)}, nil
-						}
-					}
-					return nil, nil
-				},
-			})
-			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
-			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshot{}, virtcontroller.GetVirtualMachineSnapshotInformerIndexers())
+			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshotContent{}, virtcontroller.GetVirtualMachineSnapshotContentInformerIndexers())
+			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
+			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
 			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshot{})
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})

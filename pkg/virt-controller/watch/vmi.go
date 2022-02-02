@@ -1136,10 +1136,21 @@ func (c *VMIController) updatePVC(old, cur interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingPVC(curPVC.Namespace, curPVC.Name)
-	if err != nil {
-		log.Log.V(4).Object(curPVC).Errorf("Error encountered during pvc update: %v", err)
-		return
+	var err error
+	var vmis []*virtv1.VirtualMachineInstance
+	controllerRef := v1.GetControllerOf(curPVC)
+	if controllerRef != nil && controllerRef.Kind == "DataVolume" {
+		vmis, err = c.listVMIsMatchingDV(curPVC.Namespace, controllerRef.Name)
+		if err != nil {
+			log.Log.V(4).Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
+			return
+		}
+	} else {
+		vmis, err = c.listVMIsMatchingPVC(curPVC.Namespace, curPVC.Name)
+		if err != nil {
+			log.Log.V(4).Object(curPVC).Errorf("Error encountered getting VMIs for PVC: %v", err)
+			return
+		}
 	}
 	for _, vmi := range vmis {
 		log.Log.V(4).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
@@ -1154,7 +1165,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingDV(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1185,7 +1196,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingPVC(curDataVolume.Namespace, curDataVolume.Name)
+	vmis, err := c.listVMIsMatchingDV(curDataVolume.Namespace, curDataVolume.Name)
 	if err != nil {
 		log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
 		return
@@ -1213,7 +1224,7 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingDV(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1412,21 +1423,33 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 	return vmi.(*virtv1.VirtualMachineInstance)
 }
 
+func (c *VMIController) listVMIsMatchingDV(namespace string, dvName string) ([]*virtv1.VirtualMachineInstance, error) {
+	// TODO - refactor if/when dv/pvc do not have the same name
+	vmis, err := c.listVMIsMatchingPVC(namespace, dvName)
+	if err != nil {
+		return nil, err
+	}
+	objs, err := c.vmiInformer.GetIndexer().ByIndex("dv", namespace+"/"+dvName)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range objs {
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		vmis = append(vmis, vmi.DeepCopy())
+	}
+	return vmis, nil
+}
+
 // takes a PVC name and namespace and returns all VMIs from the VMI cache which use this PVC
 func (c *VMIController) listVMIsMatchingPVC(namespace string, pvcName string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmiInformer.GetIndexer().ByIndex("pvc", namespace+"/"+pvcName)
 	if err != nil {
 		return nil, err
 	}
 	vmis := []*virtv1.VirtualMachineInstance{}
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
-		for _, volume := range vmi.Spec.Volumes {
-			if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == pvcName ||
-				volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == pvcName {
-				vmis = append(vmis, vmi)
-			}
-		}
+		vmis = append(vmis, vmi.DeepCopy())
 	}
 	return vmis, nil
 }

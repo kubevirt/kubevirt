@@ -45,18 +45,15 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
-	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
-
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
@@ -205,8 +202,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
+		vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, kvcontroller.GetVirtualMachineInformerIndexers())
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
