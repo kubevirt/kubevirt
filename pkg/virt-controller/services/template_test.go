@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
@@ -3227,22 +3229,46 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("without Virtual Machine name label", func() {
-			It("should create label with VM name", func() {
-				config, kvInformer, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-				}
+			Context("with valid VM name", func() {
+				It("should create label with VM name", func() {
+					config, kvInformer, svc = configFactory(defaultArch)
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "default",
+							UID:       "1234",
+						},
+					}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Containers).To(HaveLen(1))
-				vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
-				Expect(ok).To(BeTrue())
-				Expect(vmNameLabel).To(Equal(vmi.Name))
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.Containers).To(HaveLen(1))
+					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					Expect(ok).To(BeTrue())
+					Expect(vmNameLabel).To(Equal(vmi.Name))
+				})
+			})
+
+			Context("with VM name longer than 63 characters", func() {
+				It("should create label with trimmed VM name", func() {
+					name := "testvmi-" + strings.Repeat("a", 63)
+
+					config, kvInformer, svc = configFactory(defaultArch)
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      name,
+							Namespace: "default",
+							UID:       "1234",
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.Containers).To(HaveLen(1))
+					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					Expect(ok).To(BeTrue())
+					Expect(vmNameLabel).To(Equal(name[:validation.DNS1123LabelMaxLength]))
+				})
 			})
 		})
 	})
