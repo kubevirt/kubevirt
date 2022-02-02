@@ -132,12 +132,10 @@ type GuestOSInfo struct {
 }
 
 type InterfaceStatus struct {
-	Name          string
 	Mac           string
 	Ip            string
 	IPs           []string
 	InterfaceName string
-	InfoSource    string
 }
 
 type Timezone struct {

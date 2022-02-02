@@ -79,39 +79,44 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	interfacesStatus, err := c.ifacesStatusFromPodCache(vmi)
-	if err != nil {
-		return err
-	}
+	interfacesStatus := ifacesStatusFromDomain(domain.Spec.Devices.Interfaces)
 
-	if len(domain.Spec.Devices.Interfaces) > 0 {
-		interfacesStatus = ifacesStatusFromDomain(interfacesStatus, domain.Spec.Devices.Interfaces)
-	}
-
+	var err error
 	if len(domain.Status.Interfaces) > 0 {
 		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, domain.Status.Interfaces)
+
+		natedIfacesSpec := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
+			return i.Masquerade != nil || i.Slirp != nil
+		})
+		if interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, natedIfacesSpec, vmi); err != nil {
+			return err
+		}
+	} else {
+		interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, vmi)
+		if err != nil {
+			return err
+		}
 	}
 
 	vmi.Status.Interfaces = interfacesStatus
 	return nil
 }
 
-func (c *NetStat) ifacesStatusFromPodCache(vmi *v1.VirtualMachineInstance) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-	ifacesStatus := []v1.VirtualMachineInstanceNetworkInterface{}
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
+// updateIfacesStatusFromPodCache updates the provided interfaces statuses with data (IP/s) from the pod-cache.
+func (c *NetStat) updateIfacesStatusFromPodCache(ifacesStatus []v1.VirtualMachineInstanceNetworkInterface, ifacesSpec []v1.Interface, vmi *v1.VirtualMachineInstance) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
+	for _, iface := range ifacesSpec {
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(ifacesStatus, iface.Name)
+		if ifaceStatus == nil {
 			continue
 		}
+
 		podIface, err := c.getPodInterfacefromFileCache(vmi, iface.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		ifacesStatus = append(ifacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-			Name: iface.Name,
-			IP:   podIface.PodIP,
-			IPs:  podIface.PodIPs,
-		})
+		ifaceStatus.IP = podIface.PodIP
+		ifaceStatus.IPs = podIface.PodIPs
 	}
 	return ifacesStatus, nil
 }
@@ -139,68 +144,68 @@ func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
 	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
 }
 
-func ifacesStatusFromDomain(vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface, domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+func ifacesStatusFromDomain(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
+
 	for _, domainSpecInterface := range domainSpecIfaces {
 		interfaceMAC := domainSpecInterface.MAC.MAC
 		domainIfaceAlias := domainSpecInterface.Alias.GetName()
 
-		if interfaceStatus := netvmispec.LookupInterfaceStatusByName(vmiStatusIfaces, domainIfaceAlias); interfaceStatus != nil {
-			interfaceStatus.MAC = interfaceMAC
-			interfaceStatus.InfoSource = netvmispec.InfoSourceDomain
-		} else {
-			networkInterface := v1.VirtualMachineInstanceNetworkInterface{
-				Name:       domainIfaceAlias,
-				MAC:        interfaceMAC,
-				InfoSource: netvmispec.InfoSourceDomain,
-			}
-			vmiStatusIfaces = append(vmiStatusIfaces, networkInterface)
+		networkInterface := v1.VirtualMachineInstanceNetworkInterface{
+			Name:       domainIfaceAlias,
+			MAC:        interfaceMAC,
+			InfoSource: netvmispec.InfoSourceDomain,
 		}
+		vmiStatusIfaces = append(vmiStatusIfaces, networkInterface)
 	}
 	return vmiStatusIfaces
 }
 
 func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, vmiIfacesSpec []v1.Interface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
-	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmiIfacesSpec)
 	vmiInterfacesSpecByMac := netvmispec.IndexInterfaceSpecByMac(vmiIfacesSpec)
 
 	for _, guestAgentInterface := range guestAgentInterfaces {
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
-			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface, vmiInterfacesSpecByName)
+			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
+			if !isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface) {
+				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
+			}
 		} else {
-			setMissingSRIOVInterfaceName(&guestAgentInterface, vmiInterfacesSpecByMac)
-			data := newVMIIfaceStatusFromGuestAgentData(guestAgentInterface)
-			vmiIfacesStatus = append(vmiIfacesStatus, data)
+			newVMIIfaceStatus := newVMIIfaceStatusFromGuestAgentData(guestAgentInterface)
+
+			// Special SR-IOV handling: Current implementation does not detect SR-IOV interfaces from the domain,
+			// therefore, such interfaces are detected from the guest-agent and requires association based on the
+			// VMI interfaces spec.
+			if vmiSpecIface := vmiInterfacesSpecByMac[guestAgentInterface.Mac]; vmiSpecIface.SRIOV != nil {
+				newVMIIfaceStatus.Name = vmiSpecIface.Name
+			}
+			newVMIIfaceStatus.InfoSource = netvmispec.InfoSourceGuestAgent
+			vmiIfacesStatus = append(vmiIfacesStatus, newVMIIfaceStatus)
 		}
 	}
 	return vmiIfacesStatus
 }
 
-func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus, ifacesSpecByName map[string]v1.Interface) {
-	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
-	ifaceStatus.InfoSource = guestAgentIface.InfoSource
-
-	// Update IP/s only if the interface has no Masquerade/Slirp binding
-	vmiSpecIface := ifacesSpecByName[ifaceStatus.Name]
-	if vmiSpecIface.Masquerade == nil && vmiSpecIface.Slirp == nil {
-		ifaceStatus.IP = guestAgentIface.Ip
-		ifaceStatus.IPs = guestAgentIface.IPs
-	}
+// For backward compatability with older virt-launchers, apply this logic:
+// - When the domain status `InterfaceName` field is set, the data originates from the guest-agent.
+//   This is true for old virt-launchers and new ones alike.
+// - When the domain status `InterfaceName` field is not set (empty), the data originates from a merge
+//   at an old virt-launcher and comes from the domain spec. In such cases, no action is to be taken.
+func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.InterfaceStatus) bool {
+	return guestAgentInterface.InterfaceName == ""
 }
 
-func setMissingSRIOVInterfaceName(guestAgentInterface *api.InterfaceStatus, vmiInterfacesSpecByMac map[string]v1.Interface) {
-	vmiSpecIface := vmiInterfacesSpecByMac[guestAgentInterface.Mac]
-	if vmiSpecIface.SRIOV != nil {
-		guestAgentInterface.Name = vmiSpecIface.Name
-	}
+func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
+	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
+	ifaceStatus.IP = guestAgentIface.Ip
+	ifaceStatus.IPs = guestAgentIface.IPs
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
 	return v1.VirtualMachineInstanceNetworkInterface{
-		Name:          guestAgentInterface.Name,
 		MAC:           guestAgentInterface.Mac,
 		IP:            guestAgentInterface.Ip,
 		IPs:           guestAgentInterface.IPs,
 		InterfaceName: guestAgentInterface.InterfaceName,
-		InfoSource:    guestAgentInterface.InfoSource,
 	}
 }
