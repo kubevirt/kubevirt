@@ -914,7 +914,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 		})
 
-		Context("[Serial]with a dedicated migration network", func() {
+		Context("[Serial][QUARANTINE]with a dedicated migration network", func() {
 			BeforeEach(func() {
 				virtClient, err = kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
