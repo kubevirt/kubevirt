@@ -129,7 +129,8 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 			When("the pod interface has an IPv4 address", func() {
 				When("and is missing an IPv6 address", func() {
 					BeforeEach(func() {
-						handler.EXPECT().IsIpv6Enabled(ifaceName).Return(false, nil)
+						handler.EXPECT().HasIPv4GlobalUnicastAddress(ifaceName).Return(true, nil)
+						handler.EXPECT().HasIPv6GlobalUnicastAddress(ifaceName).Return(false, nil)
 					})
 
 					It("should succeed discovering the pod link info", func() {
@@ -144,7 +145,8 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 
 				When("and we fail to understand if there's an IPv6 configuration", func() {
 					BeforeEach(func() {
-						handler.EXPECT().IsIpv6Enabled(ifaceName).Return(true, fmt.Errorf("failed to check pod's IPv6 configuration"))
+						handler.EXPECT().HasIPv4GlobalUnicastAddress(ifaceName).Return(true, nil)
+						handler.EXPECT().HasIPv6GlobalUnicastAddress(ifaceName).Return(true, fmt.Errorf("failed to check pod's IPv6 configuration"))
 					})
 
 					It("should fail to discover the pod's link information", func() {
@@ -155,7 +157,8 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 
 			When("the pod interface has both IPv4 and IPv6 addresses", func() {
 				BeforeEach(func() {
-					handler.EXPECT().IsIpv6Enabled(ifaceName).Return(true, nil)
+					handler.EXPECT().HasIPv4GlobalUnicastAddress(ifaceName).Return(true, nil)
+					handler.EXPECT().HasIPv6GlobalUnicastAddress(ifaceName).Return(true, nil)
 				})
 
 				It("should succeed reading the pod link info", func() {
@@ -218,8 +221,8 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 			dhcpConfig = expectedDhcpConfig(ifaceName, podIP, *gatewayAddr, vmIPv6Str, ipv6GwStr, mtu)
 		})
 
-		When("the pod features a properly configured primary link", func() {
-			table.DescribeTable("should work with", func(vmi *v1.VirtualMachineInstance, mockNetfilterFrontendFunc mockNetfilterFrontend, additionalIPProtocol ...iptables.Protocol) {
+		When("the pod features a properly configured primary link", func() { // TODO add single stack ipv6
+			table.DescribeTable("should work with", func(vmi *v1.VirtualMachineInstance, mockNetfilterFrontendFunc mockNetfilterFrontend, ipProtocols []iptables.Protocol) {
 				masqueradeConfigurator := newMockedMasqueradeConfigurator(
 					vmi,
 					&vmi.Spec.Domain.Devices.Interfaces[0],
@@ -233,55 +236,62 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 					*podIPv6,
 					*gatewayIPv6Addr)
 				mockCreateMasqueradeInfraCreation(handler, inPodBridge, tapDeviceName, queueCount, launcherPID, mtu)
-				mockVML3Config(*masqueradeConfigurator, ifaceName, inPodBridge, additionalIPProtocol...)
-				mockNATNetfilterRules(*masqueradeConfigurator, *dhcpConfig, mockNetfilterFrontendFunc, additionalIPProtocol...)
+				mockVML3Config(masqueradeConfigurator, ifaceName, inPodBridge, ipProtocols)
+				mockNATNetfilterRules(*masqueradeConfigurator, *dhcpConfig, mockNetfilterFrontendFunc, ipProtocols)
 				Expect(masqueradeConfigurator.PreparePodNetworkInterface()).To(Succeed())
 			},
 				table.Entry("NFTables backend on an IPv4 cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
-					mockNetfilterNFTables),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("IPTables backend on an IPv4 cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
-					mockNetfilterIPTables),
+					mockNetfilterIPTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("NFTables backend on an IPv4 cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
-					mockNetfilterNFTables),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("IPTables backend on an IPv4 cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
-					mockNetfilterIPTables),
+					mockNetfilterIPTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("NFTables backend on an IPv4 cluster when *reserved* ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
-					mockNetfilterNFTables),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("NFTables backend on an IPv4 cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
-					mockNetfilterNFTables),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("NFTables backend on a dual stack cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterNFTables,
-					iptables.ProtocolIPv6),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
 				table.Entry("IPTables backend on a dual stack cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterIPTables,
-					iptables.ProtocolIPv6),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
 				table.Entry("NFTables backend on a dual stack cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterNFTables,
-					iptables.ProtocolIPv6),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
 				table.Entry("IPTables backend on a dual stack cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables,
-					iptables.ProtocolIPv6),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
 				table.Entry("NFTables backend on a dual stack cluster when *reserved* ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
 					mockNetfilterNFTables,
-					iptables.ProtocolIPv6),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
 				table.Entry("NFTables backend on a dual stack cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables,
-					iptables.ProtocolIPv6),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
 				table.Entry("NFTables backend on an IPv4 cluster with migration over sockets",
 					newVMIMasqueradeMigrateOverSockets(namespace, vmName, getReservedPortList(!migrationOverTCP)...),
-					mockNetfilterNFTables),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 			)
 		})
 	})
@@ -345,22 +355,35 @@ func mockCreateMasqueradeInfraCreation(handler *netdriver.MockNetworkHandler, br
 	handler.EXPECT().BindTapDeviceToBridge(tapName, bridge.Name).Return(nil)
 }
 
-func mockVML3Config(configurator MasqueradePodNetworkConfigurator, podIface string, inPodBridge *netlink.Bridge, optionalIPProtocol ...iptables.Protocol) {
-	protos := protocols(optionalIPProtocol...)
-	hasIPv6Config := len(protos) > 1
+func mockVML3Config(configurator *MasqueradePodNetworkConfigurator, podIface string, inPodBridge *netlink.Bridge, ipProtocols []iptables.Protocol) {
 	mockedHandler := configurator.handler.(*netdriver.MockNetworkHandler)
-	mockedHandler.EXPECT().IsIpv6Enabled(podIface).Return(hasIPv6Config, nil).Times(2) // once on create bridge, another on prepare pod network
 
-	for _, l3Protocol := range protos {
-		gatewayAddr := configurator.vmGatewayAddr
-		if l3Protocol == iptables.ProtocolIPv6 {
-			gatewayAddr = configurator.vmGatewayIpv6Addr
+	var gatewayAddr *netlink.Addr
+	var gatewayIPv6Addr *netlink.Addr
+	for _, l3Protocol := range ipProtocols {
+		if l3Protocol == iptables.ProtocolIPv4 {
+			gatewayAddr = configurator.vmGatewayAddr
 		}
+		if l3Protocol == iptables.ProtocolIPv6 {
+			gatewayIPv6Addr = configurator.vmGatewayIpv6Addr
+		}
+	}
+	mockedHandler.EXPECT().HasIPv4GlobalUnicastAddress(podIface).Return(gatewayAddr != nil, nil)
+	mockedHandler.EXPECT().HasIPv6GlobalUnicastAddress(podIface).Return(gatewayIPv6Addr != nil, nil)
+
+	if gatewayAddr != nil {
 		mockedHandler.EXPECT().AddrAdd(inPodBridge, gatewayAddr).Return(nil)
+	} else {
+		configurator.vmGatewayAddr = nil
+	}
+	if gatewayIPv6Addr != nil {
+		mockedHandler.EXPECT().AddrAdd(inPodBridge, gatewayIPv6Addr).Return(nil)
+	} else {
+		configurator.vmGatewayIpv6Addr = nil
 	}
 }
 
-func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpConfig cache.DHCPConfig, mockFrontendFunc mockNetfilterFrontend, optionalIPProtocol ...iptables.Protocol) {
+func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpConfig cache.DHCPConfig, mockFrontendFunc mockNetfilterFrontend, ipProtocols []iptables.Protocol) {
 	getNFTIPString := func(proto iptables.Protocol) string {
 		ipString := "ip"
 		if proto == iptables.ProtocolIPv6 {
@@ -372,9 +395,13 @@ func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpCo
 	handler := configurator.handler.(*netdriver.MockNetworkHandler)
 	portList := getVMPrimaryInterfacePortList(*configurator.vmi)
 	isMigrationOverSockets := configurator.vmi.Status.MigrationTransport == v1.MigrationTransportUnix
-	for _, proto := range protocols(optionalIPProtocol...) {
-		vmIP := dhcpConfig.IP.IP.String()
-		gwIP := dhcpConfig.AdvertisingIPAddr.String()
+	for _, proto := range ipProtocols {
+		var vmIP, gwIP string
+		if proto == iptables.ProtocolIPv4 {
+			vmIP = dhcpConfig.IP.IP.String()
+			gwIP = dhcpConfig.AdvertisingIPAddr.String()
+		}
+
 		if proto == iptables.ProtocolIPv6 {
 			vmIP = dhcpConfig.IPv6.IP.String()
 			gwIP = dhcpConfig.AdvertisingIPv6Addr.String()
@@ -578,12 +605,6 @@ func mockIstioNetfilterCalls(handler *netdriver.MockNetworkHandler, proto iptabl
 	handler.EXPECT().NftablesAppendRule(proto, "nat",
 		"KUBEVIRT_PREINBOUND",
 		"counter", "dnat", "to", vmIP).Return(nil).Times(0)
-}
-
-func protocols(optionalIPProtocol ...iptables.Protocol) []iptables.Protocol {
-	return append(
-		[]iptables.Protocol{iptables.ProtocolIPv4},
-		optionalIPProtocol...)
 }
 
 func getReservedPortList(isMigrationOverSockets bool) []int {

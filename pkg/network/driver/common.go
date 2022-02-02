@@ -72,7 +72,8 @@ type NetworkHandler interface {
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasNatIptables(proto iptables.Protocol) bool
-	IsIpv6Enabled(interfaceName string) (bool, error)
+	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
+	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
 	ConfigureIpForwarding(proto iptables.Protocol) error
 	ConfigureIpv4ArpIgnore() error
@@ -161,7 +162,25 @@ func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) err
 	return err
 }
 
-func (h *NetworkUtilsHandler) IsIpv6Enabled(interfaceName string) (bool, error) {
+func (h *NetworkUtilsHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
+	link, err := h.LinkByName(interfaceName)
+	if err != nil {
+		return false, err
+	}
+	addrList, err := h.AddrList(link, netlink.FAMILY_V4)
+	if err != nil {
+		return false, err
+	}
+
+	for _, addr := range addrList {
+		if addr.IP.IsGlobalUnicast() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (h *NetworkUtilsHandler) HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error) {
 	link, err := h.LinkByName(interfaceName)
 	if err != nil {
 		return false, err
@@ -349,26 +368,28 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 		searchDomains = append([]string{domain}, searchDomains...)
 	}
 
-	// panic in case the DHCP server failed during the vm creation
-	// but ignore dhcp errors when the vm is destroyed or shutting down
-	go func() {
-		if err = DHCPServer(
-			nic.MAC,
-			nic.IP.IP,
-			nic.IP.Mask,
-			bridgeInterfaceName,
-			nic.AdvertisingIPAddr,
-			nic.Gateway,
-			nameservers,
-			nic.Routes,
-			searchDomains,
-			nic.Mtu,
-			dhcpOptions,
-		); err != nil {
-			log.Log.Errorf("failed to run DHCP: %v", err)
-			panic(err)
-		}
-	}()
+	if nic.IP.IPNet != nil {
+		// panic in case the DHCP server failed during the vm creation
+		// but ignore dhcp errors when the vm is destroyed or shutting down
+		go func() {
+			if err = DHCPServer(
+				nic.MAC,
+				nic.IP.IP,
+				nic.IP.Mask,
+				bridgeInterfaceName,
+				nic.AdvertisingIPAddr,
+				nic.Gateway,
+				nameservers,
+				nic.Routes,
+				searchDomains,
+				nic.Mtu,
+				dhcpOptions,
+			); err != nil {
+				log.Log.Errorf("failed to run DHCP: %v", err)
+				panic(err)
+			}
+		}()
+	}
 
 	if nic.IPv6.IPNet != nil {
 		go func() {

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	ipVerifyFailFmt            = "failed to verify whether ipv6 is configured on %s"
+	ipVerifyFailFmt            = "failed to verify whether ipv%s is configured on %s"
 	toDest                     = "--to-destination"
 	src                        = "--source"
 	dport                      = "--dport"
@@ -63,17 +63,24 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 	}
 	b.podNicLink = link
 
-	if err := b.computeIPv4GatewayAndVmIp(); err != nil {
+	ipv4Enabled, err := b.handler.HasIPv4GlobalUnicastAddress(podIfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, "4", podIfaceName)
 		return err
 	}
+	if ipv4Enabled {
+		if err := b.computeIPv4GatewayAndVmIp(); err != nil {
+			return err
+		}
+	}
 
-	ipv6Enabled, err := b.handler.IsIpv6Enabled(podIfaceName)
+	ipv6Enabled, err := b.handler.HasIPv6GlobalUnicastAddress(podIfaceName)
 	if err != nil {
-		log.Log.Reason(err).Errorf(ipVerifyFailFmt, podIfaceName)
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, "6", podIfaceName)
 		return err
 	}
 	if ipv6Enabled {
-		if err := b.discoverIPv6GatewayAndVmIp(); err != nil {
+		if err := b.computeIPv6GatewayAndVmIp(); err != nil {
 			return err
 		}
 	}
@@ -92,7 +99,7 @@ func (b *MasqueradePodNetworkConfigurator) computeIPv4GatewayAndVmIp() error {
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) discoverIPv6GatewayAndVmIp() error {
+func (b *MasqueradePodNetworkConfigurator) computeIPv6GatewayAndVmIp() error {
 	ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, iptables.ProtocolIPv6)
 	if err != nil {
 		return err
@@ -122,15 +129,22 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		return err
 	}
 
-	err = b.createNatRules(iptables.ProtocolIPv4)
+	ipv4Enabled, err := b.handler.HasIPv4GlobalUnicastAddress(b.podNicLink.Attrs().Name)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, "4", b.podNicLink.Attrs().Name)
 		return err
 	}
+	if ipv4Enabled {
+		err = b.createNatRules(iptables.ProtocolIPv4)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
+			return err
+		}
+	}
 
-	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podNicLink.Attrs().Name)
+	ipv6Enabled, err := b.handler.HasIPv6GlobalUnicastAddress(b.podNicLink.Attrs().Name)
 	if err != nil {
-		log.Log.Reason(err).Errorf(ipVerifyFailFmt, b.podNicLink.Attrs().Name)
+		log.Log.Reason(err).Errorf(ipVerifyFailFmt, "6", b.podNicLink.Attrs().Name)
 		return err
 	}
 	if ipv6Enabled {
@@ -172,16 +186,14 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 		return err
 	}
 
-	if err := b.handler.AddrAdd(bridge, b.vmGatewayAddr); err != nil {
-		log.Log.Reason(err).Errorf("failed to set bridge IP")
-		return err
+	if b.vmGatewayAddr != nil {
+		if err := b.handler.AddrAdd(bridge, b.vmGatewayAddr); err != nil {
+			log.Log.Reason(err).Errorf("failed to set bridge IP")
+			return err
+		}
 	}
-	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podNicLink.Attrs().Name)
-	if err != nil {
-		log.Log.Reason(err).Errorf(ipVerifyFailFmt, b.podNicLink.Attrs().Name)
-		return err
-	}
-	if ipv6Enabled {
+
+	if b.vmGatewayIpv6Addr != nil {
 		if err := b.handler.AddrAdd(bridge, b.vmGatewayIpv6Addr); err != nil {
 			log.Log.Reason(err).Errorf("failed to set bridge IPv6")
 			return err
