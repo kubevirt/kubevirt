@@ -1298,6 +1298,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		nodeSelector[k] = v
 	}
 
+	hostName := dns.SanitizeHostname(vmi)
+
 	podLabels := map[string]string{}
 
 	for k, v := range vmi.Labels {
@@ -1305,7 +1307,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
 	podLabels[v1.CreatedByLabel] = string(vmi.UID)
-	podLabels[v1.VirtualMachineNameLabel] = vmi.Name
+	podLabels[v1.VirtualMachineNameLabel] = hostName
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		resources := k8sv1.ResourceRequirements{}
@@ -1340,8 +1342,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 		containers = append(containers, sidecar)
 	}
-
-	hostName := dns.SanitizeHostname(vmi)
 
 	podAnnotations, err := generatePodAnnotations(vmi)
 	if err != nil {
