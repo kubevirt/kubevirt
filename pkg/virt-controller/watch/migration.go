@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -67,6 +69,11 @@ const (
 // This is the timeout used when a target pod is stuck in
 // a pending unschedulable state.
 const defaultUnschedulablePendingTimeoutSeconds = int64(60 * 5)
+
+// This is how many finalized migration objects left in
+// the system before we begin garbage collecting the oldest
+// migration objects
+const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 
 // This is catch all timeout used when a target pod is stuck in
 // a in the pending phase for any reason. The theory behind this timeout
@@ -314,6 +321,13 @@ func (c *MigrationController) execute(key string) error {
 
 	if syncErr != nil {
 		return syncErr
+	}
+
+	if migration.IsFinal() {
+		err = c.garbageCollectFinalizedMigrations(vmi)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -1258,6 +1272,62 @@ func (c *MigrationController) updatePDB(old, cur interface{}) {
 			c.enqueueMigration(vmim)
 		}
 	}
+}
+
+type vmimCollection []*virtv1.VirtualMachineInstanceMigration
+
+func (c vmimCollection) Len() int {
+	return len(c)
+}
+
+func (c vmimCollection) Less(i, j int) bool {
+	t1 := &c[i].CreationTimestamp
+	t2 := &c[j].CreationTimestamp
+	return t1.Before(t2)
+}
+
+func (c vmimCollection) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+
+func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachineInstance) error {
+
+	var finalizedMigrations []string
+
+	migrations, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
+	if err != nil {
+		return err
+	}
+
+	// Oldest first
+	sort.Sort(vmimCollection(migrations))
+	for _, migration := range migrations {
+		if migration.IsFinal() && migration.DeletionTimestamp == nil {
+			finalizedMigrations = append(finalizedMigrations, migration.Name)
+		}
+	}
+
+	// only keep the oldest 5 finalized migration objects
+	garbageCollectionCount := len(finalizedMigrations) - defaultFinalizedMigrationGarbageCollectionBuffer
+
+	if garbageCollectionCount <= 0 {
+		return nil
+	}
+
+	for i := 0; i < garbageCollectionCount; i++ {
+		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(finalizedMigrations[i], &v1.DeleteOptions{})
+		if err != nil && errors.IsNotFound(err) {
+			// This is safe to ignore. It's possible in some
+			// scenarios that the migration we're trying to garbage
+			// collect has already disappeared. Let's log it as debug
+			// and suppress the error in this situation.
+			log.Log.V(3).Reason(err).Infof("error encountered when garbage collecting migration object %s/%s", vmi.Namespace, finalizedMigrations[i])
+		} else if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // takes a namespace and returns all migrations listening for this vmi
