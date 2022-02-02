@@ -70,10 +70,8 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 	}
 
 	deleteDataVolume := func(dv *cdiv1.DataVolume) {
-		if dv != nil {
-			By("Deleting the DataVolume")
-			ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-		}
+		By("Deleting the DataVolume")
+		ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 	}
 
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
@@ -104,10 +102,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			Context("with an alpine image", func() {
 				type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
-				newVirtualMachineInstanceWithAlpineContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine)), nil
-				}
-
 				newVirtualMachineInstanceWithAlpineFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 					return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				}
@@ -122,7 +116,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 					ExpectConsoleOutput(vmi, "login")
 				},
-					table.Entry("[test_id:4636]with ContainerDisk", newVirtualMachineInstanceWithAlpineContainerDisk),
 					table.Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
 					table.Entry("[test_id:4638][storage-req]with Block Disk", newVirtualMachineInstanceWithAlpineBlockDisk),
 				)
