@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -25,8 +24,9 @@ var _ = Describe("[sig-compute]Controller devices", func() {
 		util.PanicOnError(err)
 	})
 
-	Context("with ephemeral disk", func() {
-		table.DescribeTable("a scsi controller", func(enabled bool) {
+	Context("VMI with hotplug disabled", func() {
+		It("should not have an scsi controller", func() {
+			enabled := true
 			vmi := libvmi.NewCirros()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -43,9 +43,6 @@ var _ = Describe("[sig-compute]Controller devices", func() {
 				}
 			}
 			Expect(found).To(Equal(enabled))
-		},
-			table.Entry("should appear if enabled", true),
-			table.Entry("should NOT appear if disabled", false),
-		)
+		})
 	})
 })
