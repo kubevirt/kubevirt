@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[sig-compute]Controller devices", func() {
@@ -27,11 +27,9 @@ var _ = Describe("[sig-compute]Controller devices", func() {
 
 	Context("with ephemeral disk", func() {
 		table.DescribeTable("a scsi controller", func(enabled bool) {
-			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			randomVMI.Spec.Domain.Devices.DisableHotplug = !enabled
-			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
-			Expect(apiErr).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
+			vmi := libvmi.NewCirros()
+			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
