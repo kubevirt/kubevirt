@@ -330,6 +330,8 @@ type FeatureVendorID struct {
 type FeatureEnabled struct {
 }
 
+type Shareable struct{}
+
 type FeatureState struct {
 	State string `xml:"state,attr,omitempty"`
 }
@@ -584,6 +586,7 @@ type Disk struct {
 	FilesystemOverhead *cdiv1.Percent `xml:"filesystemOverhead,omitempty"`
 	Capacity           *int64         `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
+	Shareable          *Shareable     `xml:"shareable,omitempty"`
 }
 
 type DiskAuth struct {

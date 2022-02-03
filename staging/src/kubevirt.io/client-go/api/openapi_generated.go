@@ -15552,6 +15552,13 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Ref:         ref("kubevirt.io/api/core/v1.BlockSize"),
 						},
 					},
+					"shareable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified the disk is made sharable and multiple write from different VMs are permitted",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},

@@ -316,6 +316,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
+		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
 	}
 }
 

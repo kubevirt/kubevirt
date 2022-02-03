@@ -104,6 +104,15 @@ var _ = SIGDescribe("Storage", func() {
 			return pvName
 		}
 
+		setShareable := func(vmi *virtv1.VirtualMachineInstance, diskName string) {
+			shareable := true
+			for i, d := range vmi.Spec.Domain.Devices.Disks {
+				if d.Name == diskName {
+					vmi.Spec.Domain.Devices.Disks[i].Shareable = &shareable
+					return
+				}
+			}
+		}
 		Context("with error disk", func() {
 			var (
 				nodeName, address, device string
@@ -1194,7 +1203,130 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
 				Expect(runningPod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal("disk0"))
 			})
+		})
 
+		Context("disk shareable tunable", func() {
+			var (
+				dv         *cdiv1.DataVolume
+				vmi1, vmi2 *virtv1.VirtualMachineInstance
+			)
+			BeforeEach(func() {
+				dv = tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).To(BeNil())
+				labelKey := "testshareablekey"
+				labels := map[string]string{
+					labelKey: "",
+				}
+
+				// give an affinity rule to ensure the vmi's get placed on the same node.
+				affinityRule := &k8sv1.Affinity{
+					PodAffinity: &k8sv1.PodAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
+							{
+								Weight: int32(1),
+								PodAffinityTerm: k8sv1.PodAffinityTerm{
+									LabelSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      labelKey,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{string("")}},
+										},
+									},
+									TopologyKey: "kubernetes.io/hostname",
+								},
+							},
+						},
+					},
+				}
+
+				vmi1 = tests.NewRandomVMIWithDataVolume(dv.Name)
+				vmi2 = tests.NewRandomVMIWithDataVolume(dv.Name)
+				vmi1.Labels = labels
+				vmi2.Labels = labels
+
+				vmi1.Spec.Affinity = affinityRule
+				vmi2.Spec.Affinity = affinityRule
+			})
+
+			It("should successfully start 2 VMs with a shareable disk", func() {
+				setShareable(vmi1, "disk0")
+				setShareable(vmi2, "disk0")
+
+				By("Starting the VirtualMachineInstances")
+				tests.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
+				tests.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
+			})
+		})
+		Context("write and read data from a shared disk", func() {
+			It("should successfully write and read data", func() {
+				vmi1 := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi2 := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				labelKey := "testshareablekey"
+				labels := map[string]string{
+					labelKey: "",
+				}
+
+				// give an affinity rule to ensure the vmi's get placed on the same node.
+				affinityRule := &k8sv1.Affinity{
+					PodAffinity: &k8sv1.PodAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
+							{
+								Weight: int32(1),
+								PodAffinityTerm: k8sv1.PodAffinityTerm{
+									LabelSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      labelKey,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{string("")}},
+										},
+									},
+									TopologyKey: "kubernetes.io/hostname",
+								},
+							},
+						},
+					},
+				}
+				vmi1.Labels = labels
+				vmi2.Labels = labels
+
+				vmi1.Spec.Affinity = affinityRule
+				vmi2.Spec.Affinity = affinityRule
+
+				diskName := "disk1"
+				pvcClaim := "pvc-test-disk1"
+				size, _ := resource.ParseQuantity("500Mi")
+				tests.CreateBlockPVC(virtClient, pvcClaim, size)
+				tests.AddPVCDisk(vmi1, diskName, "virtio", pvcClaim)
+				tests.AddPVCDisk(vmi2, diskName, "virtio", pvcClaim)
+
+				setShareable(vmi1, diskName)
+				setShareable(vmi2, diskName)
+
+				By("Starting the VirtualMachineInstances")
+				tests.RunVMIAndExpectLaunch(vmi1, 500)
+				tests.RunVMIAndExpectLaunch(vmi2, 500)
+				By("Write data from the first VMI")
+				Expect(console.LoginToAlpine(vmi1)).To(Succeed())
+
+				Expect(console.SafeExpectBatch(vmi1, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: fmt.Sprintf("%s \n", `printf "Test awesome shareable disks" | dd  of=/dev/vdb bs=1 count=150 conv=notrunc`)},
+					&expect.BExp{R: console.PromptExpression},
+				}, 40)).To(Succeed())
+				By("Read data from the second VMI")
+				Expect(console.LoginToAlpine(vmi2)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi2, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: fmt.Sprintf("dd  if=/dev/vdb bs=1 count=150 conv=notrunc \n")},
+					&expect.BExp{R: "Test awesome shareable disks"},
+				}, 40)).To(Succeed())
+
+			})
 		})
 
 		Context("with lun disk", func() {

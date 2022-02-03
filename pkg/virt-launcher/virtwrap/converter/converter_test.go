@@ -224,6 +224,26 @@ var _ = Describe("Converter", func() {
 			xml := string(data)
 			Expect(xml).To(Equal(expectedXML))
 		})
+		It("should set sharable and the cache if requested", func() {
+			v1Disk := &v1.Disk{
+				Name: "mydisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+				Shareable: True(),
+			}
+			var expectedXML = `<Disk device="disk" type="" model="virtio-non-transitional">
+  <source></source>
+  <target bus="virtio" dev="vda"></target>
+  <driver cache="none" error_policy="stop" name="qemu" type="" discard="unmap"></driver>
+  <alias name="ua-mydisk"></alias>
+  <shareable></shareable>
+</Disk>`
+			xml := diskToDiskXML(v1Disk)
+			Expect(xml).To(Equal(expectedXML))
+		})
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {

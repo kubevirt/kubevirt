@@ -180,6 +180,17 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
+		if diskDevice.Shareable != nil {
+			if *diskDevice.Shareable {
+				if diskDevice.Cache == "" {
+					diskDevice.Cache = v1.CacheNone
+				}
+				if diskDevice.Cache != v1.CacheNone {
+					return fmt.Errorf("a sharable disk requires cache = none got: %v", diskDevice.Cache)
+				}
+				disk.Shareable = &api.Shareable{}
+			}
+		}
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
