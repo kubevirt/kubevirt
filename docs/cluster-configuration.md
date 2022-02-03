@@ -550,6 +550,8 @@ To add a custom image, add a `DataImportCronTemplate` object to the `dataImportC
 the `HyperConverged`'s
 `spec` field.
 
+See the [CDI document](https://github.com/kubevirt/containerized-data-importer/blob/main/doc/os-image-poll-and-update.md) for specific details about the `DataImportCronTemplate` fields.
+
 **Note**: the `enableCommonBootImageImport` feature does not block the custom golden images, but only the common ones.
 
 ### Custom Golden Images example
@@ -568,6 +570,7 @@ spec:
         registry:
           url: docker://myprivateregistry/custom1
       managedDataSource: custom1
+      retentionPolicy: "All" # created DataVolumes and DataSources are retained when their DataImportCron is deleted (default behavior)
   - metadata:
       name: custom-image2
     spec:
@@ -576,6 +579,7 @@ spec:
         registry:
           url: docker://myprivateregistry/custom2
       managedDataSource: custom2
+      retentionPolicy: "None" # created DataVolumes and DataSources are deleted when their DataImportCron is deleted
 ```
 
 ## Log verbosity
