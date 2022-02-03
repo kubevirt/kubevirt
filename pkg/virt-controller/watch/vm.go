@@ -1404,23 +1404,22 @@ func (c *VMController) addDataVolume(obj interface{}) {
 		return
 	}
 	controllerRef := v1.GetControllerOf(dataVolume)
-	if controllerRef == nil {
-		return
+	if controllerRef != nil {
+		log.Log.Object(dataVolume).Info("Looking for DataVolume Ref")
+		vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+		if vm != nil {
+			vmKey, err := controller.KeyFunc(vm)
+			if err != nil {
+				log.Log.Object(dataVolume).Errorf("Cannot parse key of VM: %s for DataVolume: %s", vm.Name, dataVolume.Name)
+			} else {
+				log.Log.Object(dataVolume).Infof("DataVolume created because %s was added.", dataVolume.Name)
+				c.dataVolumeExpectations.CreationObserved(vmKey)
+			}
+		} else {
+			log.Log.Object(dataVolume).Errorf("Cant find the matching VM for DataVolume: %s", dataVolume.Name)
+		}
 	}
-	log.Log.Object(dataVolume).Info("Looking for DataVolume Ref")
-	vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
-	if vm == nil {
-		log.Log.Object(dataVolume).Errorf("Cant find the matching VM for DataVolume: %s", dataVolume.Name)
-		return
-	}
-	vmKey, err := controller.KeyFunc(vm)
-	if err != nil {
-		log.Log.Object(dataVolume).Errorf("Cannot parse key of VM: %s for DataVolume: %s", vm.Name, dataVolume.Name)
-		return
-	}
-	log.Log.Object(dataVolume).Infof("DataVolume created because %s was added.", dataVolume.Name)
-	c.dataVolumeExpectations.CreationObserved(vmKey)
-	c.enqueueVm(vm)
+	c.queueVMsForDataVolume(dataVolume)
 }
 func (c *VMController) updateDataVolume(old, cur interface{}) {
 	curDataVolume := cur.(*cdiv1.DataVolume)
@@ -1433,7 +1432,7 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 	}
 	labelChanged := !equality.Semantic.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
 	if curDataVolume.DeletionTimestamp != nil {
-		// having a DataVOlume marked for deletion is enough
+		// having a DataVolume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteDataVolume(curDataVolume)
 		if labelChanged {
@@ -1452,15 +1451,7 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 			c.enqueueVm(vm)
 		}
 	}
-	if curControllerRef == nil {
-		return
-	}
-	vm := c.resolveControllerRef(curDataVolume.Namespace, curControllerRef)
-	if vm == nil {
-		return
-	}
-	log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
-	c.enqueueVm(vm)
+	c.queueVMsForDataVolume(curDataVolume)
 }
 
 func (c *VMController) deleteDataVolume(obj interface{}) {
@@ -1481,21 +1472,46 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	controllerRef := v1.GetControllerOf(dataVolume)
-	if controllerRef == nil {
-		// No controller should care about orphans being deleted.
-		return
+	if controllerRef := v1.GetControllerOf(dataVolume); controllerRef != nil {
+		if vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef); vm != nil {
+			if vmKey, err := controller.KeyFunc(vm); err == nil {
+				c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(dataVolume))
+			}
+		}
 	}
-	vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
-	if vm == nil {
-		return
+	c.queueVMsForDataVolume(dataVolume)
+}
+
+func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
+	var vmOwner string
+	if controllerRef := v1.GetControllerOf(dataVolume); controllerRef != nil {
+		if vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef); vm != nil {
+			vmOwner = vm.Name
+			log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
+			c.enqueueVm(vm)
+		}
 	}
-	vmKey, err := controller.KeyFunc(vm)
+	// handle DataVolumes not owned by the VM but referenced in the spec
+	// TODO come back when DV/PVC name may differ
+	k, err := controller.KeyFunc(dataVolume)
 	if err != nil {
+		log.Log.Object(dataVolume).Errorf("Cannot parse key of DataVolume: %s", dataVolume.Name)
 		return
 	}
-	c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(dataVolume))
-	c.enqueueVm(vm)
+	for _, indexName := range []string{"dv", "pvc"} {
+		objs, err := c.vmInformer.GetIndexer().ByIndex(indexName, k)
+		if err != nil {
+			log.Log.Object(dataVolume).Errorf("Cannot get index %s of DataVolume: %s", indexName, dataVolume.Name)
+			return
+		}
+		for _, obj := range objs {
+			vm := obj.(*virtv1.VirtualMachine)
+			if vm.Name != vmOwner {
+				log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
+				c.enqueueVm(vm)
+			}
+		}
+	}
 }
 
 func (c *VMController) addVirtualMachine(obj interface{}) {
