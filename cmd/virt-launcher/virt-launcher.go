@@ -466,10 +466,14 @@ func main() {
 	}
 
 	finalShutdownCallback := func(pid int) {
-		err := domainManager.KillVMI(vmi)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
-			syscall.Kill(pid, syscall.SIGTERM)
+		if err := domainManager.KillVMI(vmi); err != nil {
+			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt")
+			if pid != 0 {
+				log.Log.Warning("Falling back to SIGTERM")
+				if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+					log.Log.Reason(err).Errorf("Unable to kill PID %d", pid)
+				}
+			}
 		}
 	}
 
