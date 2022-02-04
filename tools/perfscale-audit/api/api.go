@@ -74,6 +74,10 @@ type InputConfig struct {
 	PrometheusBearerToken string `json:"prometheusBearerToken"`
 	PrometheusVerifyTLS   bool   `json:"prometheusVerifyTLS"`
 
+	// PrometheusScrapeInterval must be correct or the audit tool's results
+	// will be inaccurate. Defaults to 30s.
+	PrometheusScrapeInterval time.Duration `json:"prometheusScrapeInterval,omitempty"`
+
 	ThresholdExpectations map[ResultType]InputThreshold `json:"thresholdExpectations,omitempty"`
 }
 
@@ -131,7 +135,6 @@ func (r *Result) DumpToFile(filePath string) error {
 }
 
 func (r *Result) DumpToStdout() error {
-
 	str, err := r.toString()
 	if err != nil {
 		return err
@@ -152,6 +155,10 @@ func ReadInputFile(filePath string) (*InputConfig, error) {
 
 	if err := json.Unmarshal(b, cfg); err != nil {
 		return nil, fmt.Errorf("Failed to json unmarshal input config: %v", err)
+	}
+
+	if cfg.PrometheusScrapeInterval.Seconds() <= 0 {
+		cfg.PrometheusScrapeInterval = time.Duration(30 * time.Second)
 	}
 
 	if cfg.EndTime == nil {
