@@ -2124,7 +2124,7 @@ type LogVerbosity struct {
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
-// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+// PermittedHostDevices holds information about devices allowed for passthrough
 type PermittedHostDevices struct {
 	// +listType=atomic
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
@@ -2154,7 +2154,7 @@ type MediatedHostDevice struct {
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }
 
-// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
@@ -2163,7 +2163,7 @@ type MediatedDevicesConfiguration struct {
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
 }
 
-// NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+// NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.
 // +k8s:openapi-gen=true
 type NodeMediatedDeviceTypesConfig struct {
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.

@@ -746,7 +746,7 @@ var CRDsValidation map[string]string = map[string]string{
             machineType:
               type: string
             mediatedDevicesConfiguration:
-              description: MediatedDevicesConfiguration holds inforamtion about MDEV
+              description: MediatedDevicesConfiguration holds information about MDEV
                 types to be defined, if available
               properties:
                 mediatedDevicesTypes:
@@ -756,7 +756,7 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-list-type: atomic
                 nodeMediatedDeviceTypes:
                   items:
-                    description: NodeMediatedDeviceTypesConfig holds inforamtion about
+                    description: NodeMediatedDeviceTypesConfig holds information about
                       MDEV types to be defined in a specifc node that matches the
                       NodeSelector field.
                     properties:
@@ -836,7 +836,7 @@ var CRDsValidation map[string]string = map[string]string{
             ovmfPath:
               type: string
             permittedHostDevices:
-              description: PermittedHostDevices holds inforamtion about devices allowed
+              description: PermittedHostDevices holds information about devices allowed
                 for passthrough
               properties:
                 mediatedDevices:

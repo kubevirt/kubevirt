@@ -17805,7 +17805,7 @@ func schema_kubevirtio_api_core_v1_MediatedDevicesConfiguration(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+				Description: "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"mediatedDevicesTypes": {
@@ -18188,7 +18188,7 @@ func schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref common.Refe
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+				Description: "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"nodeSelector": {
@@ -18391,7 +18391,7 @@ func schema_kubevirtio_api_core_v1_PermittedHostDevices(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+				Description: "PermittedHostDevices holds information about devices allowed for passthrough",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"pciHostDevices": {

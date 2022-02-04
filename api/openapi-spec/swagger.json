@@ -14153,7 +14153,7 @@
     }
    },
    "v1.MediatedDevicesConfiguration": {
-    "description": "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+    "description": "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
     "type": "object",
     "properties": {
      "mediatedDevicesTypes": {
@@ -14335,7 +14335,7 @@
     }
    },
    "v1.NodeMediatedDeviceTypesConfig": {
-    "description": "NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+    "description": "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
     "type": "object",
     "required": [
      "nodeSelector",
@@ -14440,7 +14440,7 @@
     }
    },
    "v1.PermittedHostDevices": {
-    "description": "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+    "description": "PermittedHostDevices holds information about devices allowed for passthrough",
     "type": "object",
     "properties": {
      "mediatedDevices": {

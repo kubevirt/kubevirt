@@ -270,7 +270,7 @@ spec:
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
-                    description: MediatedDevicesConfiguration holds inforamtion about
+                    description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
                       mediatedDevicesTypes:
@@ -280,7 +280,7 @@ spec:
                         x-kubernetes-list-type: atomic
                       nodeMediatedDeviceTypes:
                         items:
-                          description: NodeMediatedDeviceTypesConfig holds inforamtion
+                          description: NodeMediatedDeviceTypesConfig holds information
                             about MDEV types to be defined in a specifc node that
                             matches the NodeSelector field.
                           properties:
@@ -360,7 +360,7 @@ spec:
                   ovmfPath:
                     type: string
                   permittedHostDevices:
-                    description: PermittedHostDevices holds inforamtion about devices
+                    description: PermittedHostDevices holds information about devices
                       allowed for passthrough
                     properties:
                       mediatedDevices:
@@ -2869,7 +2869,7 @@ spec:
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
-                    description: MediatedDevicesConfiguration holds inforamtion about
+                    description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
                       mediatedDevicesTypes:
@@ -2879,7 +2879,7 @@ spec:
                         x-kubernetes-list-type: atomic
                       nodeMediatedDeviceTypes:
                         items:
-                          description: NodeMediatedDeviceTypesConfig holds inforamtion
+                          description: NodeMediatedDeviceTypesConfig holds information
                             about MDEV types to be defined in a specifc node that
                             matches the NodeSelector field.
                           properties:
@@ -2959,7 +2959,7 @@ spec:
                   ovmfPath:
                     type: string
                   permittedHostDevices:
-                    description: PermittedHostDevices holds inforamtion about devices
+                    description: PermittedHostDevices holds information about devices
                       allowed for passthrough
                     properties:
                       mediatedDevices:
