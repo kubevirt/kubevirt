@@ -91,7 +91,7 @@ const (
 	stressDefaultTimeout = 1600
 )
 
-var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
+var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
@@ -473,7 +473,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with bandwidth limitations", func() {
+		Context("[Serial] with bandwidth limitations", func() {
 
 			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {
 				var migrationDurationTotal time.Duration
@@ -1059,7 +1059,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("with auto converge enabled", func() {
+		Context("[Serial] with auto converge enabled", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
@@ -1467,7 +1467,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("migration security", func() {
-			Context("with TLS disabled", func() {
+			Context("[Serial] with TLS disabled", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
@@ -1574,8 +1574,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Context("with TLS enabled", func() {
 				BeforeEach(func() {
 					cfg := getCurrentKv()
-					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
-					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					tlsEnabled := cfg.MigrationConfiguration.DisableTLS == nil || *cfg.MigrationConfiguration.DisableTLS == false
+					if !tlsEnabled {
+						Skip("test requires secure migrations to be enabled")
+					}
 				})
 
 				It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
@@ -1659,7 +1661,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		Context("migration postcopy", func() {
+		Context("[Serial] migration postcopy", func() {
 
 			var dv *cdiv1.DataVolume
 			var wffcPod *k8sv1.Pod
@@ -1788,7 +1790,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		Context("migration monitor", func() {
+		Context("[Serial] migration monitor", func() {
 			var createdPods []string
 			AfterEach(func() {
 				for _, podName := range createdPods {
@@ -2526,7 +2528,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		})
 
-		Context("with migration policies", func() {
+		Context("[Serial] with migration policies", func() {
 
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Retrieving the VMI post migration")
@@ -2816,7 +2818,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
-			Context("with node tainted during node drain", func() {
+			Context("[Serial] with node tainted during node drain", func() {
 
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
@@ -3084,7 +3086,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 			})
 		})
-		Context("with multiple VMIs with eviction policies set", func() {
+		Context("[Serial]with multiple VMIs with eviction policies set", func() {
 
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
@@ -3162,7 +3164,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	})
 
-	Context("With Huge Pages", func() {
+	Context("[Serial] With Huge Pages", func() {
 		var hugepagesVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -3226,7 +3228,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		)
 	})
 
-	Context("with CPU pinning and huge pages", func() {
+	Context("[Serial] with CPU pinning and huge pages", func() {
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
