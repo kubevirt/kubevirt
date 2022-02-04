@@ -358,11 +358,29 @@ func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
 			ThresholdValue:    v.Value,
 			ThresholdExceeded: false,
 		}
-		if result.Value > v.Value {
-			thresholdResult.ThresholdExceeded = true
+
+		if v.Metric != "" && v.Ratio > 0 {
+			metricResult, ok := r.Values[v.Metric]
+			if !ok {
+				log.Printf("Encountered input threshold Metric [%s] with no matching results. Double check Metric key is accurate. If accurate, then results are likely 0.", v.Metric)
+				continue
+			}
+			thresholdResult.ThresholdMetric = v.Metric
+			thresholdResult.ThresholdRatio = result.Value / metricResult.Value
+			thresholdResult.ThresholdValue = metricResult.Value * v.Ratio
+			if (result.Value * v.Ratio) < metricResult.Value {
+				thresholdResult.ThresholdExceeded = true
+			}
+			result.ThresholdResult = &thresholdResult
+			r.Values[key] = result
+
+		} else {
+			if result.Value > v.Value {
+				thresholdResult.ThresholdExceeded = true
+			}
+			result.ThresholdResult = &thresholdResult
+			r.Values[key] = result
 		}
-		result.ThresholdResult = &thresholdResult
-		r.Values[key] = result
 	}
 
 	return nil

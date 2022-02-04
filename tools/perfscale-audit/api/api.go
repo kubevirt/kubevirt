@@ -52,7 +52,9 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 }
 
 type InputThreshold struct {
-	Value float64 `json:"value"`
+	Value  float64    `json:"value"`
+	Metric ResultType `json:"metric,omitempty"`
+	Ratio  float64    `json:"ratio,omitempty"`
 }
 
 type InputConfig struct {
@@ -88,6 +90,12 @@ func (i *InputConfig) GetDuration() time.Duration {
 type ResultType string
 
 const (
+	// rest_client_requests_total
+	ResultTypePatchVMICount   ResultType = "PATCH-virtualmachineinstances-count"
+	ResultTypeUpdateVMICount  ResultType = "UPDATE-virtualmachineinstances-count"
+	ResultTypeCreatePodsCount ResultType = "CREATE-pods-count"
+
+	// kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket
 	ResultTypeVMICreationToRunningP99 ResultType = "vmiCreationToRunningSecondsP99"
 	ResultTypeVMICreationToRunningP95 ResultType = "vmiCreationToRunningSecondsP95"
 	ResultTypeVMICreationToRunningP50 ResultType = "vmiCreationToRunningSecondsP50"
@@ -102,8 +110,10 @@ const (
 )
 
 type ThresholdResult struct {
-	ThresholdValue    float64 `json:"thresholdValue"`
-	ThresholdExceeded bool    `json:"thresholdExceeded"`
+	ThresholdValue    float64    `json:"thresholdValue"`
+	ThresholdMetric   ResultType `json:"thresholdMetric,omitempty"`
+	ThresholdRatio    float64    `json:"thresholdRatio,omitempty"`
+	ThresholdExceeded bool       `json:"thresholdExceeded"`
 }
 
 type ResultValue struct {
