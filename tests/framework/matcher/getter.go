@@ -3,6 +3,7 @@ package matcher
 import (
 	"context"
 
+	k8sv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -137,6 +138,21 @@ func ThisMigrationWith(namespace string, name string) func() (*virtv1.VirtualMac
 			return nil, err
 		}
 		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(name, &k8smetav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return
+	}
+}
+
+// ThisDeploymentWith fetches the latest state of the Deployment based on namespace and name. If the object does not exist, nil is returned.
+func ThisDeploymentWith(namespace string, name string) func() (*k8sv1.Deployment, error) {
+	return func() (p *k8sv1.Deployment, err error) {
+		virtClient, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			return nil, err
+		}
+		p, err = virtClient.AppsV1().Deployments(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
