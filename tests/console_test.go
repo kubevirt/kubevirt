@@ -51,7 +51,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		tests.BeforeTestCleanup()
 	})
 
-	ExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
+	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
@@ -59,7 +59,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		}, 120)).To(Succeed())
 	}
 
-	OpenConsole := func(vmi *v1.VirtualMachineInstance) (expect.Expecter, <-chan error) {
+	openConsole := func(vmi *v1.VirtualMachineInstance) (expect.Expecter, <-chan error) {
 		By("Expecting the VirtualMachineInstance console")
 		expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
 		Expect(err).ToNot(HaveOccurred())
@@ -73,7 +73,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				It("[test_id:1588]should return that we are running cirros", func() {
 					vmi := libvmi.NewCirros()
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-					ExpectConsoleOutput(
+					expectConsoleOutput(
 						vmi,
 						"login as 'cirros' user",
 					)
@@ -84,7 +84,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
 					vmi := libvmi.NewFedora()
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-					ExpectConsoleOutput(
+					expectConsoleOutput(
 						vmi,
 						"Welcome to",
 					)
@@ -107,7 +107,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
 					vmi := createVMI()
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
-					ExpectConsoleOutput(vmi, "login")
+					expectConsoleOutput(vmi, "login")
 				},
 					table.Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
 					table.Entry("[test_id:4638][storage-req]with Block Disk", newVirtualMachineInstanceWithAlpineBlockDisk),
@@ -119,7 +119,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				for i := 0; i < 5; i++ {
-					ExpectConsoleOutput(vmi, "login")
+					expectConsoleOutput(vmi, "login")
 				}
 			})
 
@@ -128,7 +128,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("opening 1st console connection")
-				expecter, errChan := OpenConsole(vmi)
+				expecter, errChan := openConsole(vmi)
 				defer expecter.Close()
 
 				By("expecting error on 1st console connection")
@@ -144,7 +144,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}()
 
 				By("opening 2nd console connection")
-				ExpectConsoleOutput(vmi, "login")
+				expectConsoleOutput(vmi, "login")
 			}, 220)
 
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
