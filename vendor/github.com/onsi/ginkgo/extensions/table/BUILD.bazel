@@ -9,5 +9,9 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/extensions/table",
     importpath = "github.com/onsi/ginkgo/extensions/table",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/onsi/ginkgo:go_default_library"],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo/internal/codelocation:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/internal/global:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/types:go_default_library",
+    ],
 )

@@ -4,19 +4,26 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
+
+	sprig "github.com/go-task/slim-sprig"
 )
 
 func BuildGenerateCommand() *Command {
-	var agouti, noDot, internal bool
+	var (
+		agouti, noDot, internal bool
+		customTestFile          string
+	)
 	flagSet := flag.NewFlagSet("generate", flag.ExitOnError)
 	flagSet.BoolVar(&agouti, "agouti", false, "If set, generate will generate a test file for writing Agouti tests")
 	flagSet.BoolVar(&noDot, "nodot", false, "If set, generate will generate a test file that does not . import ginkgo and gomega")
 	flagSet.BoolVar(&internal, "internal", false, "If set, generate will generate a test file that uses the regular package name")
+	flagSet.StringVar(&customTestFile, "template", "", "If specified, generate will use the contents of the file passed as the test file template")
 
 	return &Command{
 		Name:         "generate",
@@ -28,7 +35,7 @@ func BuildGenerateCommand() *Command {
 			"Accepts the following flags:",
 		},
 		Command: func(args []string, additionalArgs []string) {
-			generateSpec(args, agouti, noDot, internal)
+			generateSpec(args, agouti, noDot, internal, customTestFile)
 		},
 	}
 }
@@ -39,7 +46,7 @@ import (
 	{{if .IncludeImports}}. "github.com/onsi/ginkgo"{{end}}
 	{{if .IncludeImports}}. "github.com/onsi/gomega"{{end}}
 
-	{{if .DotImportPackage}}. "{{.PackageImportPath}}"{{end}}
+	{{if .ImportPackage}}"{{.PackageImportPath}}"{{end}}
 )
 
 var _ = Describe("{{.Subject}}", func() {
@@ -55,7 +62,7 @@ import (
 	"github.com/sclevine/agouti"
 	. "github.com/sclevine/agouti/matchers"
 
-	{{if .DotImportPackage}}. "{{.PackageImportPath}}"{{end}}
+	{{if .ImportPackage}}"{{.PackageImportPath}}"{{end}}
 )
 
 var _ = Describe("{{.Subject}}", func() {
@@ -78,12 +85,12 @@ type specData struct {
 	Subject           string
 	PackageImportPath string
 	IncludeImports    bool
-	DotImportPackage  bool
+	ImportPackage     bool
 }
 
-func generateSpec(args []string, agouti, noDot, internal bool) {
+func generateSpec(args []string, agouti, noDot, internal bool, customTestFile string) {
 	if len(args) == 0 {
-		err := generateSpecForSubject("", agouti, noDot, internal)
+		err := generateSpecForSubject("", agouti, noDot, internal, customTestFile)
 		if err != nil {
 			fmt.Println(err.Error())
 			fmt.Println("")
@@ -95,7 +102,7 @@ func generateSpec(args []string, agouti, noDot, internal bool) {
 
 	var failed bool
 	for _, arg := range args {
-		err := generateSpecForSubject(arg, agouti, noDot, internal)
+		err := generateSpecForSubject(arg, agouti, noDot, internal, customTestFile)
 		if err != nil {
 			failed = true
 			fmt.Println(err.Error())
@@ -107,11 +114,15 @@ func generateSpec(args []string, agouti, noDot, internal bool) {
 	}
 }
 
-func generateSpecForSubject(subject string, agouti, noDot, internal bool) error {
+func generateSpecForSubject(subject string, agouti, noDot, internal bool, customTestFile string) error {
 	packageName, specFilePrefix, formattedName := getPackageAndFormattedName()
 	if subject != "" {
 		specFilePrefix = formatSubject(subject)
 		formattedName = prettifyPackageName(specFilePrefix)
+	}
+
+	if internal {
+		specFilePrefix = specFilePrefix + "_internal"
 	}
 
 	data := specData{
@@ -119,7 +130,7 @@ func generateSpecForSubject(subject string, agouti, noDot, internal bool) error 
 		Subject:           formattedName,
 		PackageImportPath: getPackageImportPath(),
 		IncludeImports:    !noDot,
-		DotImportPackage:  !internal,
+		ImportPackage:     !internal,
 	}
 
 	targetFile := fmt.Sprintf("%s_test.go", specFilePrefix)
@@ -136,13 +147,19 @@ func generateSpecForSubject(subject string, agouti, noDot, internal bool) error 
 	defer f.Close()
 
 	var templateText string
-	if agouti {
+	if customTestFile != "" {
+		tpl, err := ioutil.ReadFile(customTestFile)
+		if err != nil {
+			panic(err.Error())
+		}
+		templateText = string(tpl)
+	} else if agouti {
 		templateText = agoutiSpecText
 	} else {
 		templateText = specText
 	}
 
-	specTemplate, err := template.New("spec").Parse(templateText)
+	specTemplate, err := template.New("spec").Funcs(sprig.TxtFuncMap()).Parse(templateText)
 	if err != nil {
 		return err
 	}
@@ -233,18 +250,20 @@ func getPackageImportPath() string {
 		panic(err.Error())
 	}
 
+	sep := string(filepath.Separator)
+
 	// Try go.mod file first
 	modRoot := findModuleRoot(workingDir)
 	if modRoot != "" {
 		modName := moduleName(modRoot)
 		if modName != "" {
 			cd := strings.Replace(workingDir, modRoot, "", -1)
+			cd = strings.ReplaceAll(cd, sep, "/")
 			return modName + cd
 		}
 	}
 
 	// Fallback to GOPATH structure
-	sep := string(filepath.Separator)
 	paths := strings.Split(workingDir, sep+"src"+sep)
 	if len(paths) == 1 {
 		fmt.Printf("\nCouldn't identify package import path.\n\n\tginkgo generate\n\nMust be run within a package directory under $GOPATH/src/...\nYou're going to have to change UNKNOWN_PACKAGE_PATH in the generated file...\n\n")
