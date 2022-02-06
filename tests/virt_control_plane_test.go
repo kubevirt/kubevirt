@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/kubecli"
@@ -164,27 +165,25 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})
 
-		When("evicting pods of control plane", func() {
-			test := func(podName string) {
-				By(fmt.Sprintf("Try to evict all pods %s\n", podName))
-				podList, err := getPodList()
-				Expect(err).ToNot(HaveOccurred())
-				runningPods := getRunningReadyPods(podList, []string{podName})
-				Expect(len(runningPods)).ToNot(Equal(0))
-				for index, pod := range runningPods {
-					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-					// trying to evict the last running pod in this list should fail
-					if index == len(runningPods)-1 {
-						Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
-					} else {
-						Expect(err).ToNot(HaveOccurred())
-					}
+		table.DescribeTable("when evicting pods of control plane", func(podName string) {
+			By(fmt.Sprintf("Try to evict all pods %s\n", podName))
+			podList, err := getPodList()
+			Expect(err).ToNot(HaveOccurred())
+			runningPods := getRunningReadyPods(podList, []string{podName})
+			Expect(len(runningPods)).ToNot(Equal(0))
+			for index, pod := range runningPods {
+				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				// trying to evict the last running pod in this list should fail
+				if index == len(runningPods)-1 {
+					Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
+				} else {
+					Expect(err).ToNot(HaveOccurred())
 				}
 			}
-
-			It("[test_id:2830]last eviction should fail for virt-controller pods", func() { test("virt-controller") })
-			It("[test_id:2799]last eviction should fail for virt-api pods", func() { test("virt-api") })
-		})
+		},
+			table.Entry("[test_id:2830]last eviction should fail for virt-controller pods", "virt-controller"),
+			table.Entry("[test_id:2799]last eviction should fail for virt-api pods", "virt-api"),
+		)
 	})
 
 	Context("control plane components check", func() {
