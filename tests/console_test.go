@@ -181,32 +181,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			})
-
-			It("[test_id:1594]should fail waiting for the expecter", func() {
-				vmi := libvmi.NewAlpine()
-				vmi.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{
-									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{"notexist"}},
-									},
-								},
-							},
-						},
-					},
-				}
-
-				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Expecting the VirtualMachineInstance console")
-				_, _, err = console.NewExpecter(virtClient, vmi, 30*time.Second)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
-			})
 		})
 
 		Context("without a serial console", func() {
