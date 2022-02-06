@@ -140,6 +140,7 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 						Expect(masqueradeConfigurator.vmGatewayAddr).To(Equal(expectedGwIP))
 						expectedVMIP, _ := netlink.ParseAddr(expectedVMInternalIPStr)
 						Expect(masqueradeConfigurator.vmIPv4Addr).To(Equal(*expectedVMIP))
+						Expect(masqueradeConfigurator.vmGatewayIpv6Addr).To(BeNil())
 					})
 				})
 
@@ -172,6 +173,25 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 					Expect(masqueradeConfigurator.vmGatewayIpv6Addr).To(Equal(expectedGwIPv6))
 					expectedVMIPv6, _ := netlink.ParseAddr(expectedVMInternalIPv6Str)
 					Expect(masqueradeConfigurator.vmIPv6Addr).To(Equal(*expectedVMIPv6))
+				})
+			})
+
+			When("the pod interface has an IPv6 address", func() {
+				When("and is missing an IPv4 address", func() {
+					BeforeEach(func() {
+						handler.EXPECT().HasIPv4GlobalUnicastAddress(ifaceName).Return(false, nil)
+						handler.EXPECT().HasIPv6GlobalUnicastAddress(ifaceName).Return(true, nil)
+					})
+
+					It("should succeed discovering the pod link info", func() {
+						Expect(masqueradeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+						Expect(masqueradeConfigurator.podNicLink).To(Equal(podLink))
+						expectedGwIPv6, _ := netlink.ParseAddr(expectedVMGatewayIPv6Str)
+						Expect(masqueradeConfigurator.vmGatewayIpv6Addr).To(Equal(expectedGwIPv6))
+						expectedVMIPv6, _ := netlink.ParseAddr(expectedVMInternalIPv6Str)
+						Expect(masqueradeConfigurator.vmIPv6Addr).To(Equal(*expectedVMIPv6))
+						Expect(masqueradeConfigurator.vmGatewayAddr).To(BeNil())
+					})
 				})
 			})
 		})
@@ -221,7 +241,7 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 			dhcpConfig = expectedDhcpConfig(ifaceName, podIP, *gatewayAddr, vmIPv6Str, ipv6GwStr, mtu)
 		})
 
-		When("the pod features a properly configured primary link", func() { // TODO add single stack ipv6
+		When("the pod features a properly configured primary link", func() {
 			table.DescribeTable("should work with", func(vmi *v1.VirtualMachineInstance, mockNetfilterFrontendFunc mockNetfilterFrontend, ipProtocols []iptables.Protocol) {
 				masqueradeConfigurator := newMockedMasqueradeConfigurator(
 					vmi,
@@ -264,6 +284,10 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables,
 					[]iptables.Protocol{iptables.ProtocolIPv4}),
+				table.Entry("NFTables backend on an IPv4 cluster with migration over sockets",
+					newVMIMasqueradeMigrateOverSockets(namespace, vmName, getReservedPortList(!migrationOverTCP)...),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv4}),
 				table.Entry("NFTables backend on a dual stack cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterNFTables,
@@ -288,10 +312,38 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables,
 					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
-				table.Entry("NFTables backend on an IPv4 cluster with migration over sockets",
+				table.Entry("NFTables backend on a dual stack cluster with migration over sockets",
 					newVMIMasqueradeMigrateOverSockets(namespace, vmName, getReservedPortList(!migrationOverTCP)...),
 					mockNetfilterNFTables,
-					[]iptables.Protocol{iptables.ProtocolIPv4}),
+					[]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}),
+				table.Entry("NFTables backend on an IPv6 cluster",
+					newVMIMasqueradeInterface(namespace, vmName),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
+				table.Entry("IPTables backend on an IPv6 cluster",
+					newVMIMasqueradeInterface(namespace, vmName),
+					mockNetfilterIPTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
+				table.Entry("NFTables backend on an IPv6 cluster when specific ports are specified",
+					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
+				table.Entry("IPTables backend on an IPv6 cluster when specific ports are specified",
+					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
+					mockNetfilterIPTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
+				table.Entry("NFTables backend on an IPv6 cluster when *reserved* ports are specified",
+					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
+				table.Entry("NFTables backend on an IPv6 cluster when using an ISTIO aware VMI",
+					newIstioAwareVMIWithSingleInterface(namespace, vmName),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
+				table.Entry("NFTables backend on an IPv6 cluster with migration over sockets",
+					newVMIMasqueradeMigrateOverSockets(namespace, vmName, getReservedPortList(!migrationOverTCP)...),
+					mockNetfilterNFTables,
+					[]iptables.Protocol{iptables.ProtocolIPv6}),
 			)
 		})
 	})
