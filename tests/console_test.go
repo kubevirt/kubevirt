@@ -180,33 +180,22 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		})
 
 		Context("without a serial console", func() {
-			var vmi *v1.VirtualMachineInstance
 
-			BeforeEach(func() {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			It("[test_id:4118]should run but not be connectable via the serial console", func() {
+				vmi := libvmi.NewAlpine()
 				f := false
 				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f
-			})
-
-			It("[test_id:4116]should create the vmi without any issue", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
-			})
-
-			It("[test_id:4117]should not have the  serial console in xml", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
 
 				Expect(len(runningVMISpec.Devices.Serials)).To(Equal(0), "should not have any serial consoles present")
 				Expect(len(runningVMISpec.Devices.Consoles)).To(Equal(0), "should not have any virtio console for serial consoles")
-			})
 
-			It("[test_id:4118]should not connect to the serial console", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-
-				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
-
+				By("failing to connect to serial console")
+				_, err = virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
+				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
 			})
 		})
