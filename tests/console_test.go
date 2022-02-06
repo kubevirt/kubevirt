@@ -59,13 +59,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		}, 120)).To(Succeed())
 	}
 
-	openConsole := func(vmi *v1.VirtualMachineInstance) (expect.Expecter, <-chan error) {
-		By("Expecting the VirtualMachineInstance console")
-		expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-		return expecter, errChan
-	}
-
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
@@ -128,7 +121,9 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("opening 1st console connection")
-				expecter, errChan := openConsole(vmi)
+				expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
 				defer expecter.Close()
 
 				By("expecting error on 1st console connection")
