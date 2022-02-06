@@ -38,6 +38,24 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
+func withNodeAffinityTo(label string, value string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Affinity = &k8sv1.Affinity{
+			NodeAffinity: &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{Key: label, Operator: k8sv1.NodeSelectorOpIn, Values: []string{value}},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+}
+
 var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", func() {
 
 	var virtClient kubecli.KubevirtClient
@@ -153,21 +171,8 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:1593]should fail waiting for the virtual machine instance to be running", func() {
-				vmi := libvmi.NewAlpine()
-				vmi.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{
-									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{"notexist"}},
-									},
-								},
-							},
-						},
-					},
-				}
+			It("[test_id:1593]should not be connected if scheduled to non-existing host", func() {
+				vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
 
 				By("Creating a new VirtualMachineInstance")
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
