@@ -75,12 +75,12 @@ func TestTests(t *testing.T) {
 		outputEnricherReporter,
 		k8sReporter,
 	}
-	if qe_reporters.Polarion.Run {
-		if suiteConfig.ParallelTotal > 1 {
-			qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
-		}
-		reporters = append(reporters, &qe_reporters.Polarion)
-	}
+	// if qe_reporters.Polarion.Run {
+	// 	if suiteConfig.ParallelTotal > 1 {
+	// 		qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
+	// 	}
+	// 	reporters = append(reporters, &qe_reporters.Polarion)
+	// }
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
