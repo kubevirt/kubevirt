@@ -31,7 +31,7 @@ type capturedOutputEnricher struct {
 	additionalOutput interface{}
 }
 
-func (j *capturedOutputEnricher) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
+func (j *capturedOutputEnricher) SuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
 	for _, report := range j.reporters {
 		report.SuiteWillBegin(config, summary)
 	}
@@ -73,7 +73,7 @@ func (j *capturedOutputEnricher) AfterSuiteDidRun(setupSummary *types.SetupSumma
 	}
 }
 
-func (j *capturedOutputEnricher) SpecSuiteDidEnd(summary *types.SuiteSummary) {
+func (j *capturedOutputEnricher) SuiteDidEnd(summary *types.SuiteSummary) {
 	for _, report := range j.reporters {
 		report.SuiteDidEnd(summary)
 	}

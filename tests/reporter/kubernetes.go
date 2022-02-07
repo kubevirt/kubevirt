@@ -86,7 +86,7 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 	}
 }
 
-func (r *KubernetesReporter) SpecSuiteWillBegin(_ config.GinkgoConfigType, _ *types.SuiteSummary) {
+func (r *KubernetesReporter) SuiteWillBegin(_ config.GinkgoConfigType, _ *types.SuiteSummary) {
 
 }
 
@@ -993,7 +993,7 @@ func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) 
 	}
 }
 
-func (r *KubernetesReporter) SpecSuiteDidEnd(_ *types.SuiteSummary) {
+func (r *KubernetesReporter) SuiteDidEnd(_ *types.SuiteSummary) {
 
 }
 
