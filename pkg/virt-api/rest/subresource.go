@@ -135,6 +135,30 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 	}
 }
 
+func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, response *restful.Response, validate validation, getURL URLResolver, v interface{}) {
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf(prepConnectionErrFmt, err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	if err := json.Unmarshal([]byte(resp), &v); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling response")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(v)
+}
+
 // get either the interface with the provided name or the first available interface
 // if no interface is present, return error
 func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -847,28 +871,7 @@ func (app *SubresourceAPIApp) GuestOSInfo(request *restful.Request, response *re
 		return conn.GuestInfoURI(vmi)
 	}
 
-	_, url, conn, err := app.prepareConnection(request, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
-	if err := json.Unmarshal([]byte(resp), &guestInfo); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling guest agent response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(guestInfo)
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceGuestAgentInfo{})
 }
 
 // UserList handles the subresource for providing VM guest user list
@@ -887,28 +890,7 @@ func (app *SubresourceAPIApp) UserList(request *restful.Request, response *restf
 		return conn.UserListURI(vmi)
 	}
 
-	_, url, conn, err := app.prepareConnection(request, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	userList := v1.VirtualMachineInstanceGuestOSUserList{}
-	if err := json.Unmarshal([]byte(resp), &userList); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling user list response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(userList)
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceGuestOSUserList{})
 }
 
 // FilesystemList handles the subresource for providing guest filesystem list
@@ -927,28 +909,7 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 		return conn.FilesystemListURI(vmi)
 	}
 
-	_, url, conn, err := app.prepareConnection(request, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	filesystemList := v1.VirtualMachineInstanceFileSystemList{}
-	if err := json.Unmarshal([]byte(resp), &filesystemList); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling file system list response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(filesystemList)
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceFileSystemList{})
 }
 
 func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {

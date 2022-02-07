@@ -150,77 +150,46 @@ func (v *virtHandlerConn) ConnectionDetails() (ip string, port int, err error) {
 	return
 }
 
-//TODO move the actual ws handling in here, and work with channels
-func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+func (v *virtHandlerConn) formatURI(template string, vmi *virtv1.VirtualMachineInstance) (string, error) {
 	ip, port, err := v.ConnectionDetails()
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf(consoleTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return fmt.Sprintf(template, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+//TODO move the actual ws handling in here, and work with channels
+func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(consoleTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) USBRedirURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(usbredirTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(usbredirTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(vncTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(vncTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(freezeTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(freezeTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(unfreezeTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(unfreezeTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(softRebootTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(softRebootTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(pauseTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(pauseTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(unpauseTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(unpauseTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
@@ -293,12 +262,7 @@ func (v *virtHandlerConn) Get(url string, tlsConfig *tls.Config) (string, error)
 }
 
 func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf(guestInfoTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(guestInfoTemplateURI, vmi)
 }
 
 func formatIpForUri(ip string) string {
@@ -309,17 +273,9 @@ func formatIpForUri(ip string) string {
 }
 
 func (v *virtHandlerConn) UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf(userListTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(userListTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf(filesystemListTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return v.formatURI(filesystemListTemplateURI, vmi)
 }
