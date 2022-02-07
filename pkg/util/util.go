@@ -113,6 +113,11 @@ func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState == true
 }
 
+// Check if a VMI spec requests SEV with attestation
+func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
+}
+
 func IsAMD64VMI(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Architecture == "amd64" {
 		return true

@@ -18517,11 +18517,18 @@
    "v1.SEV": {
     "type": "object",
     "properties": {
+     "attestation": {
+      "description": "If specified, run the attestation process for a vmi.",
+      "$ref": "#/definitions/v1.SEVAttestation"
+     },
      "policy": {
       "description": "Guest policy flags as defined in AMD SEV API specification. Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
       "$ref": "#/definitions/v1.SEVPolicy"
      }
     }
+   },
+   "v1.SEVAttestation": {
+    "type": "object"
    },
    "v1.SEVPolicy": {
     "type": "object",

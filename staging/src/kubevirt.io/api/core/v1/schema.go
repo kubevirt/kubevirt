@@ -662,6 +662,9 @@ type SEV struct {
 	// Guest policy flags as defined in AMD SEV API specification.
 	// Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
 	Policy *SEVPolicy `json:"policy,omitempty"`
+	// If specified, run the attestation process for a vmi.
+	// +opitonal
+	Attestation *SEVAttestation `json:"attestation,omitempty"`
 }
 
 type SEVPolicy struct {
@@ -669,6 +672,9 @@ type SEVPolicy struct {
 	// Defaults to false.
 	// +optional
 	EncryptedState *bool `json:"encryptedState,omitempty"`
+}
+
+type SEVAttestation struct {
 }
 
 type LunTarget struct {

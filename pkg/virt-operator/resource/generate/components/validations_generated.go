@@ -6273,6 +6273,10 @@ var CRDsValidation map[string]string = map[string]string{
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
+                            attestation:
+                              description: If specified, run the attestation process
+                                for a vmi.
+                              type: object
                             policy:
                               description: 'Guest policy flags as defined in AMD SEV
                                 API specification. Note: due to security reasons it
@@ -7992,6 +7996,9 @@ var CRDsValidation map[string]string = map[string]string{
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
                 policy:
                   description: 'Guest policy flags as defined in AMD SEV API specification.
                     Note: due to security reasons it is not allowed to enable guest
@@ -10709,6 +10716,10 @@ var CRDsValidation map[string]string = map[string]string{
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
                   properties:
+                    attestation:
+                      description: If specified, run the attestation process for a
+                        vmi.
+                      type: object
                     policy:
                       description: 'Guest policy flags as defined in AMD SEV API specification.
                         Note: due to security reasons it is not allowed to enable
@@ -13360,6 +13371,10 @@ var CRDsValidation map[string]string = map[string]string{
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
                   properties:
+                    attestation:
+                      description: If specified, run the attestation process for a
+                        vmi.
+                      type: object
                     policy:
                       description: 'Guest policy flags as defined in AMD SEV API specification.
                         Note: due to security reasons it is not allowed to enable
@@ -15524,6 +15539,10 @@ var CRDsValidation map[string]string = map[string]string{
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
+                            attestation:
+                              description: If specified, run the attestation process
+                                for a vmi.
+                              type: object
                             policy:
                               description: 'Guest policy flags as defined in AMD SEV
                                 API specification. Note: due to security reasons it
@@ -16754,6 +16773,9 @@ var CRDsValidation map[string]string = map[string]string{
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
                 policy:
                   description: 'Guest policy flags as defined in AMD SEV API specification.
                     Note: due to security reasons it is not allowed to enable guest
@@ -19815,6 +19837,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: AMD Secure Encrypted Virtualization
                                     (SEV).
                                   properties:
+                                    attestation:
+                                      description: If specified, run the attestation
+                                        process for a vmi.
+                                      type: object
                                     policy:
                                       description: 'Guest policy flags as defined
                                         in AMD SEV API specification. Note: due to
@@ -24896,6 +24922,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: AMD Secure Encrypted Virtualization
                                         (SEV).
                                       properties:
+                                        attestation:
+                                          description: If specified, run the attestation
+                                            process for a vmi.
+                                          type: object
                                         policy:
                                           description: 'Guest policy flags as defined
                                             in AMD SEV API specification. Note: due
