@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/go-kit/kit/log"
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirt"
 

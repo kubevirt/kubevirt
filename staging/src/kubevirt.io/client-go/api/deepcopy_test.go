@@ -4,8 +4,7 @@ import (
 	"reflect"
 
 	fuzz "github.com/google/gofuzz"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"

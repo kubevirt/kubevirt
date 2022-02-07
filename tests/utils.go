@@ -54,8 +54,8 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	expect "github.com/google/goexpect"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/config"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
@@ -663,7 +663,7 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 
 // CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
 func CalculateNamespaces() {
-	worker := config.GinkgoConfig.ParallelNode
+	worker := ginkgo.GinkgoConfiguration()
 	util2.NamespaceTestDefault = fmt.Sprintf("%s%d", util2.NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
@@ -693,7 +693,7 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
-	rand.Seed(int64(config.GinkgoConfig.ParallelNode))
+	rand.Seed(int64(ginkgo.GinkgoConfiguration()))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
@@ -704,7 +704,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	// Customize host disk paths
 	// Right now we support three nodes. More image copying needs to happen
 	// TODO link this somehow with the image provider which we run upfront
-	worker := config.GinkgoConfig.ParallelNode
+	worker := ginkgo.GinkgoConfiguration()
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 

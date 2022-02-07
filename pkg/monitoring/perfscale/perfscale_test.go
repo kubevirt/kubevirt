@@ -22,10 +22,9 @@ package perfscale
 import (
 	"time"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"

@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
@@ -31,7 +30,7 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
