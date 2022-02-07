@@ -652,6 +652,12 @@ type LaunchSecurity struct {
 }
 
 type SEV struct {
+	// If specified, run the attestation process for a vmi.
+	// +opitonal
+	Attestation *SEVAttestation `json:"attestation,omitempty"`
+}
+
+type SEVAttestation struct {
 }
 
 type LunTarget struct {

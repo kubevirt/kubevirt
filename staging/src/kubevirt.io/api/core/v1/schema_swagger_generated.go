@@ -363,6 +363,12 @@ func (LaunchSecurity) SwaggerDoc() map[string]string {
 }
 
 func (SEV) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"attestation": "If specified, run the attestation process for a vmi.\n+opitonal",
+	}
+}
+
+func (SEVAttestation) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

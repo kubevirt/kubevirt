@@ -17853,6 +17853,15 @@
     "type": "object"
    },
    "v1.SEV": {
+    "type": "object",
+    "properties": {
+     "attestation": {
+      "description": "If specified, run the attestation process for a vmi.",
+      "$ref": "#/definitions/v1.SEVAttestation"
+     }
+    }
+   },
+   "v1.SEVAttestation": {
     "type": "object"
    },
    "v1.SMBiosConfiguration": {
