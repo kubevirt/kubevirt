@@ -37,5 +37,8 @@ func validateVMIForConsole(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 	if vmi.Status.Phase == v1.Failed {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is in failed status"))
 	}
+	if !vmi.IsRunning() {
+		return errors.NewBadRequest(vmiNotRunning)
+	}
 	return nil
 }

@@ -36,6 +36,10 @@ virtqemud -d
 
 virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
+if grep "sev supported='yes'" /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml; then
+    virsh nodesevinfo > /var/lib/kubevirt-node-labeller/nodesevinfo
+fi
+
 cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
 
 # hypervisor-cpu-baseline command only works on x86

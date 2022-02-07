@@ -73,6 +73,7 @@ var _ = BeforeSuite(func() {
 		logger:                  log.DefaultLogger(),
 		volumePath:              "testdata",
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
+		nodeSEVInfoFileName:     "nodesevinfo",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
 	}
 })
@@ -186,6 +187,8 @@ var _ = Describe("Node-labeller config", func() {
 					Expect(nlController.SEV.CBitPos).To(Equal(uint(47)))
 					Expect(nlController.SEV.ReducedPhysBits).To(Equal(uint(1)))
 					Expect(nlController.SEV.MaxGuests).To(Equal(uint(15)))
+					Expect(nlController.SEV.PDH).To(Equal("AAABBBCCC"))
+					Expect(nlController.SEV.CertChain).To(Equal("DDDEEEFFF"))
 
 					if withES {
 						Expect(nlController.SEV.SupportedES).To(Equal("yes"))
@@ -201,6 +204,8 @@ var _ = Describe("Node-labeller config", func() {
 					Expect(nlController.SEV.MaxGuests).To(BeZero())
 					Expect(nlController.SEV.SupportedES).To(Equal("no"))
 					Expect(nlController.SEV.MaxESGuests).To(BeZero())
+					Expect(nlController.SEV.PDH).To(Equal(""))
+					Expect(nlController.SEV.CertChain).To(Equal(""))
 				}
 			},
 			Entry("when only SEV is supported", true, false),

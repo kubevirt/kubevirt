@@ -884,6 +884,7 @@ spec:
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
+          - virtualmachineinstances/sev/fetchcertchain
           verbs:
           - get
         - apiGroups:
@@ -1029,6 +1030,7 @@ spec:
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
+          - virtualmachineinstances/sev/fetchcertchain
           verbs:
           - get
         - apiGroups:
@@ -1172,6 +1174,7 @@ spec:
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
+          - virtualmachineinstances/sev/fetchcertchain
           verbs:
           - get
         - apiGroups:

@@ -41,6 +41,8 @@ const (
 	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
 	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
 	VMInstancesUserList    = "virtualmachineinstances/userlist"
+
+	VMInstancesSEVFetchCertChain = "virtualmachineinstances/sev/fetchcertchain"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -147,6 +149,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
+					VMInstancesSEVFetchCertChain,
 				},
 				Verbs: []string{
 					"get",
@@ -326,6 +329,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
+					VMInstancesSEVFetchCertChain,
 				},
 				Verbs: []string{
 					"get",
@@ -513,6 +517,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
+					VMInstancesSEVFetchCertChain,
 				},
 				Verbs: []string{
 					"get",

@@ -2762,3 +2762,14 @@ type LiveUpdateConfiguration struct {
 	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 }
+
+// SEVPlatformInfo contains information about the AMD SEV features for the node.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SEVPlatformInfo struct {
+	metav1.TypeMeta `json:",inline"`
+	// Base64 encoded platform Diffie-Hellman key.
+	PDH string `json:"pdh,omitempty"`
+	// Base64 encoded SEV certificate chain.
+	CertChain string `json:"certChain,omitempty"`
+}

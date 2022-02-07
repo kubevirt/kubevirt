@@ -1268,6 +1268,21 @@ var _ = Describe("Manager", func() {
 				DedicatedCPUPlacement: true}, "false", "off"),
 			Entry("disabled if vmi has the disable free page reporting annotation", nil, false, nil, "true", "off"),
 		)
+
+		It("should return SEV platform info", func() {
+			sevNodeParameters := &api.SEVNodeParameters{
+				PDH:       "AAABBBCCC",
+				CertChain: "DDDEEEFFF",
+			}
+
+			mockConn.EXPECT().GetSEVInfo().Return(sevNodeParameters, nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+			sevPlatfomrInfo, err := manager.GetSEVInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sevPlatfomrInfo.PDH).To(Equal(sevNodeParameters.PDH))
+			Expect(sevPlatfomrInfo.CertChain).To(Equal(sevNodeParameters.CertChain))
+		})
 	})
 	Context("test marking graceful shutdown", func() {
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {

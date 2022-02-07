@@ -812,6 +812,7 @@ rules:
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
   verbs:
   - get
 - apiGroups:
@@ -957,6 +958,7 @@ rules:
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
   verbs:
   - get
 - apiGroups:
@@ -1100,6 +1102,7 @@ rules:
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
   verbs:
   - get
 - apiGroups:

@@ -451,6 +451,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Rng":                                                                schema_kubevirtio_api_core_v1_Rng(ref),
 		"kubevirt.io/api/core/v1.SEV":                                                                schema_kubevirtio_api_core_v1_SEV(ref),
 		"kubevirt.io/api/core/v1.SEVAttestation":                                                     schema_kubevirtio_api_core_v1_SEVAttestation(ref),
+		"kubevirt.io/api/core/v1.SEVPlatformInfo":                                                    schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPolicy":                                                          schema_kubevirtio_api_core_v1_SEVPolicy(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredential":                                       schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
@@ -21102,6 +21103,47 @@ func schema_kubevirtio_api_core_v1_SEVAttestation(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SEVPlatformInfo contains information about the AMD SEV features for the node.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pdh": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded platform Diffie-Hellman key.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"certChain": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded SEV certificate chain.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

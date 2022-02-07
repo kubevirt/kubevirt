@@ -935,3 +935,11 @@ func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 		"maxCpuSockets": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
 	}
 }
+
+func (SEVPlatformInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "SEVPlatformInfo contains information about the AMD SEV features for the node.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"pdh":       "Base64 encoded platform Diffie-Hellman key.",
+		"certChain": "Base64 encoded SEV certificate chain.",
+	}
+}

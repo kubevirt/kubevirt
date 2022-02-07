@@ -133,6 +133,7 @@ type DomainManager interface {
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	GetQemuVersion() (string, error)
 	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	GetSEVInfo() (*v1.SEVPlatformInfo, error)
 }
 
 type LibvirtDomainManager struct {
@@ -2001,6 +2002,19 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	}
 
 	return fsList
+}
+
+func (l *LibvirtDomainManager) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	sevNodeParameters, err := l.virConn.GetSEVInfo()
+	if err != nil {
+		log.Log.Reason(err).Error("Getting SEV platform info failed")
+		return nil, err
+	}
+
+	return &v1.SEVPlatformInfo{
+		PDH:       sevNodeParameters.PDH,
+		CertChain: sevNodeParameters.CertChain,
+	}, nil
 }
 
 // check whether VMI has a certain condition

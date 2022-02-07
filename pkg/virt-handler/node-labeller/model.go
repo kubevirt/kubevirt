@@ -97,6 +97,8 @@ type SEVConfiguration struct {
 	MaxGuests       uint   `xml:"maxGuests"`
 	MaxESGuests     uint   `xml:"maxESGuests"`
 	SupportedES     string `xml:"-"`
+	PDH             string
+	CertChain       string
 }
 
 type KSMConfiguration struct {

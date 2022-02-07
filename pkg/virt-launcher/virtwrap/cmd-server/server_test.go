@@ -286,6 +286,17 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(mockedQemuVersion).To(Equal(qemuVersion.GetVersion()))
 		})
 
+		It("should return SEV platform info", func() {
+			sevPlatformInfo := &v1.SEVPlatformInfo{
+				PDH:       "AAABBBCCC",
+				CertChain: "DDDEEEFFF",
+			}
+			domainManager.EXPECT().GetSEVInfo().Return(sevPlatformInfo, nil)
+			fetchedSEVPlatformInfo, err := client.GetSEVInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVPlatformInfo).To(Equal(sevPlatformInfo))
+		})
+
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"
