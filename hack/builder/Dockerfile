@@ -89,7 +89,7 @@ RUN set -x && \
     go get -v -u github.com/golang/mock/gomock@v1.4.3 && \
     go get -v -u github.com/rmohr/mock/mockgen@v0.0.0-20170327080805-5980f5d9a70d && \
     go get -v -u github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
-    go get -v -u github.com/onsi/ginkgo/ginkgo@v1.12.0 && \
+    go get -v -u github.com/onsi/ginkgo/v2@v2.1.1 && \
     go clean -cache -modcache
 
 RUN set -x && \
