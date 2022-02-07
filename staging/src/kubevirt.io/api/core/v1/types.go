@@ -156,6 +156,26 @@ type VirtualMachineInstanceSpec struct {
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 
+func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
+	type VMISpecAlias VirtualMachineInstanceSpec
+	var vmiSpecAlias VMISpecAlias
+
+	if err := json.Unmarshal(data, &vmiSpecAlias); err != nil {
+		return err
+	}
+
+	if vmiSpecAlias.DNSConfig != nil {
+		for i, ns := range vmiSpecAlias.DNSConfig.Nameservers {
+			if sanitizedIP, err := sanitizeIP(ns); err == nil {
+				vmiSpecAlias.DNSConfig.Nameservers[i] = sanitizedIP
+			}
+		}
+	}
+
+	*vmiSpec = VirtualMachineInstanceSpec(vmiSpecAlias)
+	return nil
+}
+
 // VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
 type VirtualMachineInstancePhaseTransitionTimestamp struct {
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
