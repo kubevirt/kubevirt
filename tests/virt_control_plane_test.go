@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -176,6 +177,8 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				// trying to evict the last running pod in this list should fail
 				if index == len(runningPods)-1 {
 					Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
+					Expect(k8serrors.IsTooManyRequests(err))
+					Expect(err.Error()).To(ContainSubstring("Cannot evict pod as it would violate the pod's disruption budget."))
 				} else {
 					Expect(err).ToNot(HaveOccurred())
 				}
