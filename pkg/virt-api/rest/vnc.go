@@ -160,5 +160,8 @@ func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
 		return errors.NewBadRequest(err.Error())
 	}
+	if !vmi.IsRunning() {
+		return errors.NewBadRequest(vmiNotRunning)
+	}
 	return nil
 }

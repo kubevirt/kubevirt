@@ -2225,6 +2225,49 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	})
 
+	Context("Subresource api - AMD SEV attestation", func() {
+		withSEVAttestation := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Attestation: &v1.SEVAttestation{},
+				},
+			}
+		}
+
+		BeforeEach(func() {
+			enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+		})
+
+		It("Should allow to fetch certificates chain when VMI is running", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/v1/namespaces/default/virtualmachineinstances/testvmi/sev/fetchcertchain"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.SEVPlatformInfo{}),
+				),
+			)
+			response.SetRequestAccepts(restful.MIME_JSON)
+
+			expectVMI(Running, UnPaused, withSEVAttestation)
+			app.SEVFetchCertChainRequestHandler(request, response)
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail to fetch certificates chain when attestation is not requested", func() {
+			expectVMI(Running, UnPaused)
+			app.SEVFetchCertChainRequestHandler(request, response)
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("Should fail to fetch certificates chain when VMI is not running", func() {
+			expectVMI(NotRunning, UnPaused)
+			app.SEVFetchCertChainRequestHandler(request, response)
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
 	AfterEach(func() {
 		backend.Close()
 		disableFeatureGates()

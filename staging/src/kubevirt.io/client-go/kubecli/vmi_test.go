@@ -428,6 +428,25 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Entry("with proxied server URL", proxyPath),
 	)
 
+	It("should fetch SEV platform info via subresource", func() {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		sevPlatformIfo := v1.SEVPlatformInfo{
+			PDH:       "AAABBB",
+			CertChain: "CCCDDD",
+		}
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", path.Join(subVMIPath, "sev/fetchcertchain")),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, sevPlatformIfo),
+		))
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVFetchCertChain("testvm")
+
+		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
+		Expect(fetchedInfo).To(Equal(sevPlatformIfo), "fetched info should be the same as passed in")
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})

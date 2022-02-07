@@ -609,6 +609,33 @@ func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Respon
 	return response, nil
 }
 
+func (l *Launcher) GetSEVInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.SEVInfoResponse, error) {
+	sevInfoResponse := &cmdv1.SEVInfoResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	sevPlatformInfo, err := l.domainManager.GetSEVInfo()
+	if err != nil {
+		log.Log.Reason(err).Errorf("Failed to get SEV platform info")
+		sevInfoResponse.Response.Success = false
+		sevInfoResponse.Response.Message = getErrorMessage(err)
+		return sevInfoResponse, nil
+	}
+
+	if sevPlatformInfoJson, err := json.Marshal(sevPlatformInfo); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal SEV platform info")
+		sevInfoResponse.Response.Success = false
+		sevInfoResponse.Response.Message = getErrorMessage(err)
+		return sevInfoResponse, nil
+	} else {
+		sevInfoResponse.SevInfo = sevPlatformInfoJson
+	}
+
+	return sevInfoResponse, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit

@@ -63,6 +63,7 @@ type Connection interface {
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	GetSEVInfo() (*api.SEVNodeParameters, error)
 }
 
 type Stream interface {
@@ -317,6 +318,24 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	}
 
 	return list, nil
+}
+
+func (l *LibvirtConnection) GetSEVInfo() (*api.SEVNodeParameters, error) {
+	const flags = uint32(0)
+	params, err := l.Connect.GetSEVInfo(flags)
+	if err != nil {
+		return nil, err
+	}
+
+	sevNodeParameters := &api.SEVNodeParameters{}
+	if params.PDHSet {
+		sevNodeParameters.PDH = params.PDH
+	}
+	if params.CertChainSet {
+		sevNodeParameters.CertChain = params.CertChain
+	}
+
+	return sevNodeParameters, nil
 }
 
 func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[string]string, error) {

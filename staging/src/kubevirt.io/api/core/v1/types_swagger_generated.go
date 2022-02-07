@@ -846,3 +846,11 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
 	}
 }
+
+func (SEVPlatformInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "SEVPlatformInfo contains information about the AMD SEV features for the node.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"pdh":       "Base64 encoded platform Diffie-Hellman key.",
+		"certChain": "Base64 encoded SEV certificate chain.",
+	}
+}

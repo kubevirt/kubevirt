@@ -66,12 +66,14 @@ const (
 	patchingVMStatusFmt          = "Patching VM status: %s"
 	vmiNotRunning                = "VMI is not running"
 	vmiGuestAgentErr             = "VMI does not have guest agent connected"
+	vmiNoAttestationErr          = "Attestation not requested for VMI"
 	prepConnectionErrFmt         = "Cannot prepare connection %s"
 	getRequestErrFmt             = "Cannot GET request %s"
 	pvcVolumeModeErr             = "pvc should be filesystem pvc"
 	pvcAccessModeErr             = "pvc access mode can't be read only"
 	pvcSizeErrFmt                = "pvc size [%s] should be bigger then [%s]"
 	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+	featureGateDisabledErrFmt    = "'%s' feature gate is not enabled"
 	defaultProfilerComponentPort = 8443
 )
 
@@ -201,8 +203,8 @@ func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
 }
 
 func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
-	if !vmi.IsRunning() {
-		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
+	if !vmi.IsRunning() && !vmi.IsScheduled() {
+		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled))
 	}
 	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
@@ -1595,4 +1597,34 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) ensureSEVEnabled(response *restful.Response) bool {
+	if !app.clusterConfig.WorkloadEncryptionSEVEnabled() {
+		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, virtconfig.WorkloadEncryptionSEV)), response)
+		return false
+	}
+	return true
+}
+
+func (app *SubresourceAPIApp) SEVFetchCertChainRequestHandler(request *restful.Request, response *restful.Response) {
+	if !app.ensureSEVEnabled(response) {
+		return
+	}
+
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if !vmi.IsScheduled() && !vmi.IsRunning() {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not assigned to a node yet"))
+		}
+		if !kutil.IsSEVAttestationRequested(vmi) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SEVFetchCertChainURI(vmi)
+	}
+
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.SEVPlatformInfo{})
 }

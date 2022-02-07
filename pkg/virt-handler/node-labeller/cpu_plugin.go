@@ -20,6 +20,7 @@
 package nodelabeller
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -185,6 +186,15 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 	hostDomCapabilities := HostDomCapabilities{}
 	err := n.getStructureFromXMLFile(domCapabilitiesFile, &hostDomCapabilities)
 
+	if err == nil && hostDomCapabilities.SEV.Supported == "yes" {
+		if pdh, certChain, err := n.parseNodeSEVInfo(n.nodeSEVInfoFileName); err != nil {
+			return HostDomCapabilities{}, err
+		} else {
+			hostDomCapabilities.SEV.PDH = pdh
+			hostDomCapabilities.SEV.CertChain = certChain
+		}
+	}
+
 	return hostDomCapabilities, err
 }
 
@@ -224,4 +234,43 @@ func (n *NodeLabeller) getStructureFromXMLFile(path string, structure interface{
 	n.logger.V(4).Infof("node-labeller - loading data from xml file: %#v", string(rawFile))
 
 	return xml.Unmarshal(rawFile, structure)
+}
+
+func (n *NodeLabeller) parseNodeSEVInfo(fileName string) (pdh string, certChain string, err error) {
+	file, err := os.Open(filepath.Join(n.volumePath, fileName))
+	if err != nil {
+		return "", "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) == 0 {
+			continue
+		}
+		fields := strings.Split(line, ":")
+		if len(fields) != 2 {
+			return "", "", fmt.Errorf("failed to parse '%s'", line)
+		}
+		switch strings.TrimSpace(fields[0]) {
+		case "pdh":
+			pdh = strings.TrimSpace(fields[1])
+		case "cert-chain":
+			certChain = strings.TrimSpace(fields[1])
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", "", err
+	}
+
+	if pdh == "" {
+		return "", "", fmt.Errorf("pdh not found")
+	}
+
+	if certChain == "" {
+		return "", "", fmt.Errorf("cert-chain not found")
+	}
+
+	return pdh, certChain, nil
 }

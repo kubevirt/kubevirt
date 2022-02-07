@@ -7,6 +7,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	libvirt "libvirt.org/go/libvirt"
 
+	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -186,6 +187,17 @@ func (_m *MockConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, l 
 
 func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2)
+}
+
+func (_m *MockConnection) GetSEVInfo() (*api.SEVNodeParameters, error) {
+	ret := _m.ctrl.Call(_m, "GetSEVInfo")
+	ret0, _ := ret[0].(*api.SEVNodeParameters)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) GetSEVInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo")
 }
 
 // Mock of Stream interface

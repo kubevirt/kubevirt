@@ -506,3 +506,10 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, er
 	queryParams.Add("tls", strconv.FormatBool(useTLS))
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }
+
+func (v *vmis) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+	sevPlatformInfo := v1.SEVPlatformInfo{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/fetchcertchain")
+	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevPlatformInfo)
+	return sevPlatformInfo, err
+}

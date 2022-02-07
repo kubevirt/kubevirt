@@ -285,3 +285,14 @@ func (_m *MockDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath
 func (_mr *_MockDomainManagerRecorder) MemoryDump(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryDump", arg0, arg1)
 }
+
+func (_m *MockDomainManager) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetSEVInfo")
+	ret0, _ := ret[0].(*v1.SEVPlatformInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetSEVInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo")
+}

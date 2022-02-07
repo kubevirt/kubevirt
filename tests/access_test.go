@@ -360,6 +360,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"expand-vm-spec", "",
 				allowUpdateFor("admin", "edit", "view"),
 				denyAllFor("default")),
+			Entry("on vmi sev/fetchcertchain",
+				"virtualmachineinstances", "sev/fetchcertchain",
+				allowGetFor("admin", "edit", "view"),
+				denyAllFor("default")),
 		)
 	})
 
@@ -471,6 +475,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
 				Entry("[test_id:2921]given a vmi (vnc/screenshot)", "virtualmachineinstances/vnc/screenshot", "get"),
 				Entry("[test_id:2921]given a vmi (guestosinfo)", "virtualmachineinstances/guestosinfo", "get"),
+				Entry("[test_id:2921]given a vmi (sev/fetchcertchain)", "virtualmachineinstances/sev/fetchcertchain", "get"),
 			)
 		})
 	})

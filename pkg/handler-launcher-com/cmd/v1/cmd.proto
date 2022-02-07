@@ -28,6 +28,7 @@ service Cmd {
   rpc Exec(ExecRequest) returns (ExecResponse) {}
   rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
+  rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
 }
 
 message VMI {
@@ -163,4 +164,9 @@ message FreezeRequest {
 message MemoryDumpRequest {
   VMI vmi = 1;
   string dumpPath = 2;
+}
+
+message SEVInfoResponse {
+  Response response = 1;
+  bytes sevInfo = 2;
 }

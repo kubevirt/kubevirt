@@ -252,6 +252,7 @@ type VirtualMachineInstanceInterface interface {
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
+	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
 }
 
 type ReplicaSetInterface interface {
