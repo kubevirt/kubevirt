@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"golang.org/x/net/context"
@@ -68,6 +69,7 @@ type MediatedDevicePlugin struct {
 	iommuToMDEVMap map[string]string
 	initialized    bool
 	lock           *sync.Mutex
+	deregistered   chan struct{}
 }
 
 func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
@@ -122,6 +124,7 @@ func (dpi *MediatedDevicePlugin) Start(stop chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
 
 	err = dpi.cleanup()
 	if err != nil {
@@ -134,7 +137,7 @@ func (dpi *MediatedDevicePlugin) Start(stop chan struct{}) (err error) {
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.Stop()
+	defer dpi.stopDevicePlugin()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	err = dpi.Register()
@@ -211,12 +214,21 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 }
 
 // Stop stops the gRPC server
-func (dpi *MediatedDevicePlugin) Stop() error {
+func (dpi *MediatedDevicePlugin) stopDevicePlugin() error {
 	defer func() {
 		if !IsChanClosed(dpi.done) {
 			close(dpi.done)
 		}
 	}()
+
+	// Give the device plugin one second to properly deregister
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	select {
+	case <-dpi.deregistered:
+	case <-ticker.C:
+	}
+
 	dpi.server.Stop()
 	dpi.setInitialized(false)
 	return dpi.cleanup()
@@ -253,6 +265,7 @@ func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.De
 
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 
+	done := false
 	for {
 		select {
 		case unhealthy := <-dpi.unhealthy:
@@ -270,11 +283,21 @@ func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.De
 			}
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 		case <-dpi.stop:
-			return nil
+			done = true
 		case <-dpi.done:
-			return nil
+			done = true
+		}
+		if done {
+			break
 		}
 	}
+	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
+	// There exists no explicit way to deregister devices
+	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
+		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
+	}
+	close(dpi.deregistered)
+	return nil
 }
 
 func (dpi *MediatedDevicePlugin) cleanup() error {

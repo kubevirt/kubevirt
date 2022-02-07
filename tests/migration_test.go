@@ -125,12 +125,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		By(fmt.Sprintf("Draining node %s", node))
 		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
 		// time that we call it.
+		vmiSelector := v1.AppLabel + "=virt-launcher"
 		k8sClient := tests.GetK8sCmdClient()
 		if k8sClient == "oc" {
-			tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-local-data",
+			tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		} else {
-			tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-local-data",
+			tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		}
 	}
