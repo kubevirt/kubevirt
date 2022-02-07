@@ -864,6 +864,15 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			})
 		}
 
+		startStrategy := spec.StartStrategy
+		if launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
 		for _, iface := range spec.Domain.Devices.Interfaces {
 			if iface.BootOrder != nil {
 				causes = append(causes, metav1.StatusCause{

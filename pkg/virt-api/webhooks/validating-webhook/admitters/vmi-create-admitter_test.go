@@ -3773,6 +3773,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
 		})
+
+		It("should accept SEV attestation with start strategy 'Paused'", func() {
+			startStrategy := v1.StartStrategyPaused
+			vmi.Spec.Domain.LaunchSecurity.SEV.Attestation = &v1.SEVAttestation{}
+			vmi.Spec.StartStrategy = &startStrategy
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject SEV attestation without start strategy 'Paused'", func() {
+			vmi.Spec.Domain.LaunchSecurity.SEV.Attestation = &v1.SEVAttestation{}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(ContainSubstring("launchSecurity"))
+		})
 	})
 
 	Context("with vsocks defined", func() {
