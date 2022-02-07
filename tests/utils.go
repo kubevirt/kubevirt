@@ -55,7 +55,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/config"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
@@ -663,7 +662,7 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 
 // CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
 func CalculateNamespaces() {
-	worker := ginkgo.GinkgoConfiguration()
+	worker := GinkgoParallelProcess()
 	util2.NamespaceTestDefault = fmt.Sprintf("%s%d", util2.NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
@@ -693,7 +692,8 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
-	rand.Seed(int64(ginkgo.GinkgoConfiguration()))
+	worker := GinkgoParallelProcess()
+	rand.Seed(int64(worker))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
@@ -704,7 +704,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	// Customize host disk paths
 	// Right now we support three nodes. More image copying needs to happen
 	// TODO link this somehow with the image provider which we run upfront
-	worker := ginkgo.GinkgoConfiguration()
+
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 
@@ -3404,18 +3404,6 @@ func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
 }
 
-// Deprecated: BeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
-// parallel execution.
-func BeforeAll(fn func()) {
-	first := true
-	BeforeEach(func() {
-		if first {
-			fn()
-			first = false
-		}
-	})
-}
-
 func SkipIfNonRoot(virtClient kubecli.KubevirtClient, feature string) {
 	if checks.HasFeature(virtconfig.NonRoot) {
 		Skip(fmt.Sprintf("NonRoot implementation doesn't support %s", feature))
@@ -4419,7 +4407,8 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 		return kv
 	}
 
-	if config.GinkgoConfig.ParallelTotal > 1 {
+	suiteConfig, _ := GinkgoConfiguration()
+	if suiteConfig.ParallelTotal > 1 {
 		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
 	}
 
@@ -4444,7 +4433,8 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 // be propagated to all components before it returns. It will only update the configuration and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
-	if config.GinkgoConfig.ParallelTotal > 1 {
+	suiteConfig, _ := GinkgoConfiguration()
+	if suiteConfig.ParallelTotal > 1 {
 		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
 		// we can just skip the restore step.
 		return
