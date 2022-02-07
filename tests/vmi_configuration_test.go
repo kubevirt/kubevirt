@@ -1113,7 +1113,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			},
 				table.Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
 				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
+				table.Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
