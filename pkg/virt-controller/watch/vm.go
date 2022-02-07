@@ -1136,7 +1136,9 @@ func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		return nil
 	}
 
-	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorProfile, vm, vmi)
+	flavor.AddFlavorNameAnnotations(vm, vmi)
+
+	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorProfile, &vmi.Spec)
 	if len(conflicts) == 0 {
 		return nil
 	}

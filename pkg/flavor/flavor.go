@@ -4,21 +4,19 @@ import (
 	"fmt"
 	"strings"
 
-	apiflavor "kubevirt.io/api/flavor"
-
 	"k8s.io/apimachinery/pkg/api/errors"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	virtv1 "kubevirt.io/api/core/v1"
+	apiflavor "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 )
 
 type Methods interface {
 	FindProfile(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error)
-	ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) Conflicts
+	ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
 }
 
 type Conflicts []*k8sfield.Path
@@ -35,6 +33,8 @@ type methods struct {
 	flavorStore        cache.Store
 	clusterFlavorStore cache.Store
 }
+
+var _ Methods = &methods{}
 
 func NewMethods(flavorStore, clusterFlavorStore cache.Store) Methods {
 	return &methods{
@@ -72,28 +72,10 @@ func (m *methods) FindProfile(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Virtua
 	}
 }
 
-func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) Conflicts {
+func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	var conflicts Conflicts
-	var flavor string
 
-	if vm.Spec.Flavor != nil {
-		flavor = strings.ToLower(vm.Spec.Flavor.Kind)
-		if flavor == "" {
-			flavor = "virtualmachineclusterflavor"
-		}
-	}
-
-	if vmi.Annotations == nil {
-		vmi.Annotations = make(map[string]string)
-	}
-	switch flavor {
-	case "virtualmachineflavors", "virtualmachineflavor":
-		vmi.Annotations[virtv1.FlavorAnnotation] = vm.Spec.Flavor.Name
-	case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-		vmi.Annotations[virtv1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
-	}
-
-	conflicts = append(conflicts, applyCpu(field, profile, &vmi.Spec)...)
+	conflicts = append(conflicts, applyCpu(field, profile, vmiSpec)...)
 
 	return conflicts
 }
@@ -151,4 +133,20 @@ func applyCpu(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavor
 
 	vmiSpec.Domain.CPU = profile.CPU.DeepCopy()
 	return nil
+}
+
+func AddFlavorNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
+	if vm.Spec.Flavor == nil {
+		return
+	}
+
+	if target.GetAnnotations() == nil {
+		target.SetAnnotations(make(map[string]string))
+	}
+	switch strings.ToLower(vm.Spec.Flavor.Kind) {
+	case apiflavor.PluralResourceName, apiflavor.SingularResourceName:
+		target.GetAnnotations()[virtv1.FlavorAnnotation] = vm.Spec.Flavor.Name
+	case "", apiflavor.ClusterPluralResourceName, apiflavor.ClusterSingularResourceName:
+		target.GetAnnotations()[virtv1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
+	}
 }

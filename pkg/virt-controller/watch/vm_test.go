@@ -23,8 +23,8 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	flavorapi "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
@@ -2431,11 +2431,9 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("Flavor", func() {
-			var testFlavor string
+			const flavorName = "test-flavor"
 
 			BeforeEach(func() {
-				testFlavor = "test-flavor"
-
 				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 					return &flavorv1alpha1.VirtualMachineFlavorProfile{
 						CPU: &virtv1.CPU{
@@ -2449,29 +2447,14 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply flavor", func() {
 				const flavorCpus = uint32(4)
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) flavor.Conflicts {
-					var flavor string
-
-					if vm.Spec.Flavor != nil {
-						flavor = strings.ToLower(vm.Spec.Flavor.Kind)
-					}
-					if vmi.Annotations == nil {
-						vmi.Annotations = make(map[string]string)
-					}
-					switch flavor {
-					case "virtualmachineflavors", "virtualmachineflavor":
-						vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
-					case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-						vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
-					}
-					vmi.Spec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
+					vmiSpec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
 					return nil
 				}
 
 				vm, vmi := DefaultVirtualMachine(true)
 				vm.Spec.Flavor = &virtv1.FlavorMatcher{
-					Name: testFlavor,
-					Kind: "VirtualMachineFlavor",
+					Name: flavorName,
 				}
 
 				vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 2}
@@ -2481,7 +2464,6 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(flavorCpus))
-					Expect(vmiArg.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 				}).Return(vmi, nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
@@ -2499,8 +2481,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Flavor = &virtv1.FlavorMatcher{
-					Name: testFlavor,
-					Kind: "VirtualMachineFlavor",
+					Name: flavorName,
 				}
 
 				addVirtualMachine(vm)
@@ -2520,27 +2501,13 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should fail applying flavor", func() {
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) flavor.Conflicts {
-					var testflavor string
-
-					if vm.Spec.Flavor != nil {
-						testflavor = strings.ToLower(vm.Spec.Flavor.Kind)
-					}
-					if vmi.Annotations == nil {
-						vmi.Annotations = make(map[string]string)
-					}
-					switch testflavor {
-					case "virtualmachineflavors", "virtualmachineflavor":
-						vmi.Annotations[v1.FlavorAnnotation] = vm.Spec.Flavor.Name
-					case "virtualmachineclusterflavors", "virtualmachineclusterflavor":
-						vmi.Annotations[v1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
-					}
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
 					return flavor.Conflicts{k8sfield.NewPath("spec", "template", "test", "path")}
 				}
 
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Flavor = &virtv1.FlavorMatcher{
-					Name: testFlavor,
+					Name: flavorName,
 				}
 
 				addVirtualMachine(vm)
@@ -2558,6 +2525,27 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 
 				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+			})
+
+			It("should add flavor name annotation", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Spec.Flavor = &virtv1.FlavorMatcher{
+					Name: flavorName,
+					Kind: flavorapi.SingularResourceName,
+				}
+
+				addVirtualMachine(vm)
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
+					Expect(vmiArg.Annotations).To(HaveKeyWithValue(virtv1.FlavorAnnotation, flavorName))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+
+				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			})
 		})
 	})
