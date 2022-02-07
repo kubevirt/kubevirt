@@ -1922,7 +1922,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
-		}, 60)
+		})
 
 		AfterEach(func() {
 			err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})

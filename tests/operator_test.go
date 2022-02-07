@@ -88,7 +88,7 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
-var _ = Describe("[Serial][sig-operator]Operator", func() {
+var _ = Describe("[Serial][sig-operator]Operator", Ordered, func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string

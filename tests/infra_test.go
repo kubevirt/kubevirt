@@ -516,7 +516,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 	})
 
-	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", Ordered, func() {
 
 		/*
 			This test is querying the metrics from Prometheus *after* they were
@@ -622,7 +622,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 	})
 
-	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", Ordered, func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
 		var handlerMetricIPs []string
@@ -1177,7 +1177,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStart(obj)
-			}, 150)
+			})
 		})
 
 	})

@@ -107,7 +107,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-			}, 300)
+			})
 
 			It("[test_id:3168]should call Collect and PreCloudInitIso on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
@@ -123,7 +123,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 					11*time.Second,
 					500*time.Millisecond).
 					Should(ContainSubstring("Hook's PreCloudInitIso callback method has been called"))
-			}, 300)
+			})
 
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -133,7 +133,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 				MountCloudInit(vmi)
 				By("checking cloudinit user-data")
 				CheckCloudInitFile(vmi, "user-data", "#cloud-config")
-			}, 300)
+			})
 		})
 	})
 

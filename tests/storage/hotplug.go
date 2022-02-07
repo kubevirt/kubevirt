@@ -1050,7 +1050,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
-		}, 120)
+		})
 
 		AfterEach(func() {
 			tests.DeletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
@@ -1097,7 +1097,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
-		}, 120)
+		})
 
 		It("should allow adding and removing hotplugged volumes", func() {
 			sc, exists := tests.GetRWOFileSystemStorageClass()
@@ -1144,7 +1144,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
-		}, 120)
+		})
 
 		AfterEach(func() {
 			tests.DeleteAllSeparateDeviceHostPathPvs()
