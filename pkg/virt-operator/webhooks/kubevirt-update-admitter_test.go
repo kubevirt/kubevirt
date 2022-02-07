@@ -28,11 +28,11 @@ import (
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
-	table.DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
+	DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
 		causes := validateCustomizeComponents(cc)
 		Expect(len(causes)).To(Equal(expectedCauses))
 	},
-		table.Entry("invalid values rejected", v1.CustomizeComponents{
+		Entry("invalid values rejected", v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: "virt-api",
@@ -42,7 +42,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 		}, 1),
-		table.Entry("empty patch field rejected", v1.CustomizeComponents{
+		Entry("empty patch field rejected", v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: "virt-api",
@@ -52,7 +52,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 		}, 1),
-		table.Entry("valid values accepted", v1.CustomizeComponents{
+		Entry("valid values accepted", v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: "virt-api",

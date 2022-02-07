@@ -144,6 +144,9 @@ github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 ## explicit
 github.com/go-stack/stack
+# github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
+## explicit; go 1.13
+github.com/go-task/slim-sprig
 # github.com/godbus/dbus/v5 v5.0.4
 ## explicit; go 1.12
 github.com/godbus/dbus/v5
@@ -191,6 +194,9 @@ github.com/google/gofuzz
 # github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
 ## explicit
 github.com/google/goterm/term
+# github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38
+## explicit; go 1.14
+github.com/google/pprof/profile
 # github.com/google/renameio v0.1.0
 ## explicit
 github.com/google/renameio
@@ -285,6 +291,16 @@ github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
+github.com/onsi/ginkgo/v2/ginkgo
+github.com/onsi/ginkgo/v2/ginkgo/build
+github.com/onsi/ginkgo/v2/ginkgo/command
+github.com/onsi/ginkgo/v2/ginkgo/generators
+github.com/onsi/ginkgo/v2/ginkgo/internal
+github.com/onsi/ginkgo/v2/ginkgo/labels
+github.com/onsi/ginkgo/v2/ginkgo/outline
+github.com/onsi/ginkgo/v2/ginkgo/run
+github.com/onsi/ginkgo/v2/ginkgo/unfocus
+github.com/onsi/ginkgo/v2/ginkgo/watch
 github.com/onsi/ginkgo/v2/internal
 github.com/onsi/ginkgo/v2/internal/global
 github.com/onsi/ginkgo/v2/internal/interrupt_handler
@@ -524,6 +540,7 @@ golang.org/x/time/rate
 golang.org/x/tools/cover
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/internal/analysisinternal
 golang.org/x/tools/internal/lsp/fuzzy
 golang.org/x/tools/internal/typeparams

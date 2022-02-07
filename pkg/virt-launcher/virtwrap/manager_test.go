@@ -221,7 +221,7 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
-		table.DescribeTable("should try to start a VirtualMachineInstance in state",
+		DescribeTable("should try to start a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				// Make sure that we always free the domain after use
 				mockDomain.EXPECT().Free()
@@ -239,10 +239,10 @@ var _ = Describe("Manager", func() {
 				Expect(err).To(BeNil())
 				Expect(newspec).ToNot(BeNil())
 			},
-			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
-			table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN),
-			table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
-			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
+			Entry("crashed", libvirt.DOMAIN_CRASHED),
+			Entry("shutdown", libvirt.DOMAIN_SHUTDOWN),
+			Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
+			Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
 		It("should unpause a paused VirtualMachineInstance on SyncVMI, which was not paused by user", func() {
 			// Make sure that we always free the domain after use
@@ -1547,7 +1547,7 @@ var _ = Describe("Manager", func() {
 	})
 
 	Context("on successful VirtualMachineInstance kill", func() {
-		table.DescribeTable("should try to undefine a VirtualMachineInstance in state",
+		DescribeTable("should try to undefine a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				// Make sure that we always free the domain after use
 				mockDomain.EXPECT().Free()
@@ -1557,10 +1557,10 @@ var _ = Describe("Manager", func() {
 				err := manager.DeleteVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
-			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
-			table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
+			Entry("crashed", libvirt.DOMAIN_CRASHED),
+			Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
 		)
-		table.DescribeTable("should try to destroy a VirtualMachineInstance in state",
+		DescribeTable("should try to destroy a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				// Make sure that we always free the domain after use
 				mockDomain.EXPECT().Free()
@@ -1571,12 +1571,12 @@ var _ = Describe("Manager", func() {
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
-			table.Entry("shuttingDown", libvirt.DOMAIN_SHUTDOWN),
-			table.Entry("running", libvirt.DOMAIN_RUNNING),
-			table.Entry("paused", libvirt.DOMAIN_PAUSED),
+			Entry("shuttingDown", libvirt.DOMAIN_SHUTDOWN),
+			Entry("running", libvirt.DOMAIN_RUNNING),
+			Entry("paused", libvirt.DOMAIN_PAUSED),
 		)
 	})
-	table.DescribeTable("check migration flags",
+	DescribeTable("check migration flags",
 		func(migrationType string) {
 			isBlockMigration := migrationType == "block"
 			isUnsafeMigration := migrationType == "unsafe"
@@ -1603,15 +1603,15 @@ var _ = Describe("Manager", func() {
 			}
 			Expect(flags).To(Equal(expectedMigrateFlags))
 		},
-		table.Entry("with block migration", "block"),
-		table.Entry("without block migration", "live"),
-		table.Entry("unsafe migration", "unsafe"),
-		table.Entry("migration auto converge", "autoConverge"),
-		table.Entry("migration using postcopy", "postCopy"),
-		table.Entry("migration of paused vmi", "paused"),
+		Entry("with block migration", "block"),
+		Entry("without block migration", "live"),
+		Entry("unsafe migration", "unsafe"),
+		Entry("migration auto converge", "autoConverge"),
+		Entry("migration using postcopy", "postCopy"),
+		Entry("migration of paused vmi", "paused"),
 	)
 
-	table.DescribeTable("on successful list all domains",
+	DescribeTable("on successful list all domains",
 		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {
 
 			// Make sure that we always free the domain after use
@@ -1642,12 +1642,12 @@ var _ = Describe("Manager", func() {
 			Expect(domain.Status.Status).To(Equal(kubevirtState))
 			Expect(domain.Status.Reason).To(Equal(kubevirtReason))
 		},
-		table.Entry("crashed", libvirt.DOMAIN_CRASHED, api.Crashed, int(libvirt.DOMAIN_CRASHED_UNKNOWN), api.ReasonUnknown),
-		table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF, api.Shutoff, int(libvirt.DOMAIN_SHUTOFF_DESTROYED), api.ReasonDestroyed),
-		table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN, api.Shutdown, int(libvirt.DOMAIN_SHUTDOWN_USER), api.ReasonUser),
-		table.Entry("unknown", libvirt.DOMAIN_NOSTATE, api.NoState, int(libvirt.DOMAIN_NOSTATE_UNKNOWN), api.ReasonUnknown),
-		table.Entry("running", libvirt.DOMAIN_RUNNING, api.Running, int(libvirt.DOMAIN_RUNNING_UNKNOWN), api.ReasonUnknown),
-		table.Entry("paused", libvirt.DOMAIN_PAUSED, api.Paused, int(libvirt.DOMAIN_PAUSED_STARTING_UP), api.ReasonPausedStartingUp),
+		Entry("crashed", libvirt.DOMAIN_CRASHED, api.Crashed, int(libvirt.DOMAIN_CRASHED_UNKNOWN), api.ReasonUnknown),
+		Entry("shutoff", libvirt.DOMAIN_SHUTOFF, api.Shutoff, int(libvirt.DOMAIN_SHUTOFF_DESTROYED), api.ReasonDestroyed),
+		Entry("shutdown", libvirt.DOMAIN_SHUTDOWN, api.Shutdown, int(libvirt.DOMAIN_SHUTDOWN_USER), api.ReasonUser),
+		Entry("unknown", libvirt.DOMAIN_NOSTATE, api.NoState, int(libvirt.DOMAIN_NOSTATE_UNKNOWN), api.ReasonUnknown),
+		Entry("running", libvirt.DOMAIN_RUNNING, api.Running, int(libvirt.DOMAIN_RUNNING_UNKNOWN), api.ReasonUnknown),
+		Entry("paused", libvirt.DOMAIN_PAUSED, api.Paused, int(libvirt.DOMAIN_PAUSED_STARTING_UP), api.ReasonPausedStartingUp),
 	)
 
 	Context("on successful GetAllDomainStats", func() {
@@ -1943,15 +1943,15 @@ var _ = Describe("Manager", func() {
 })
 
 var _ = Describe("getAttachedDisks", func() {
-	table.DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
+	DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
 		res := getAttachedDisks(oldDisks, newDisks)
 		Expect(res).To(Equal(expected))
 	},
-		table.Entry("be empty with empty old and new",
+		Entry("be empty with empty old and new",
 			[]api.Disk{},
 			[]api.Disk{},
 			[]api.Disk{}),
-		table.Entry("be empty with empty old and new being identical",
+		Entry("be empty with empty old and new being identical",
 			[]api.Disk{
 				{
 					Source: api.DiskSource{
@@ -1969,7 +1969,7 @@ var _ = Describe("getAttachedDisks", func() {
 				},
 			},
 			[]api.Disk{}),
-		table.Entry("contain a new disk with empty having a new disk compared to old",
+		Entry("contain a new disk with empty having a new disk compared to old",
 			[]api.Disk{
 				{
 					Source: api.DiskSource{
@@ -2004,15 +2004,15 @@ var _ = Describe("getAttachedDisks", func() {
 })
 
 var _ = Describe("getDetachedDisks", func() {
-	table.DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
+	DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
 		res := getDetachedDisks(oldDisks, newDisks)
 		Expect(res).To(Equal(expected))
 	},
-		table.Entry("be empty with empty old and new",
+		Entry("be empty with empty old and new",
 			[]api.Disk{},
 			[]api.Disk{},
 			[]api.Disk{}),
-		table.Entry("be empty with empty old and new being identical",
+		Entry("be empty with empty old and new being identical",
 			[]api.Disk{
 				{
 					Source: api.DiskSource{
@@ -2030,7 +2030,7 @@ var _ = Describe("getDetachedDisks", func() {
 				},
 			},
 			[]api.Disk{}),
-		table.Entry("contains something if new has less than old",
+		Entry("contains something if new has less than old",
 			[]api.Disk{
 				{
 					Source: api.DiskSource{
@@ -2316,20 +2316,20 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(size).To(Equal(expectedSize))
 		})
 
-		table.DescribeTable("should return error when", func(createDisk func() api.Disk) {
+		DescribeTable("should return error when", func(createDisk func() api.Disk) {
 
 		},
-			table.Entry("disk capacity is nil", func() api.Disk {
+			Entry("disk capacity is nil", func() api.Disk {
 				disk := properDisk
 				disk.Capacity = nil
 				return disk
 			}),
-			table.Entry("filesystem overhead is nil", func() api.Disk {
+			Entry("filesystem overhead is nil", func() api.Disk {
 				disk := properDisk
 				disk.FilesystemOverhead = nil
 				return disk
 			}),
-			table.Entry("filesystem overhead is non-float", func() api.Disk {
+			Entry("filesystem overhead is non-float", func() api.Disk {
 				disk := properDisk
 				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
 				disk.FilesystemOverhead = &fakePercent

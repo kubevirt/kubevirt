@@ -987,7 +987,7 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 }
 
 func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
-	if setupSummary.State.IsFailure() {
+	if setupSummary.State.Is(types.SpecStateFailureStates) {
 		r.failureCount++
 		r.DumpTestNamespaces(setupSummary.RunTime)
 	}

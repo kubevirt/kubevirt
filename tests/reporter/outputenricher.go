@@ -33,7 +33,7 @@ type capturedOutputEnricher struct {
 
 func (j *capturedOutputEnricher) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
 	for _, report := range j.reporters {
-		report.SpecSuiteWillBegin(config, summary)
+		report.SuiteWillBegin(config, summary)
 	}
 }
 
@@ -51,7 +51,7 @@ func (j *capturedOutputEnricher) SpecWillRun(specSummary *types.SpecSummary) {
 }
 
 func (j *capturedOutputEnricher) SpecDidComplete(specSummary *types.SpecSummary) {
-	if specSummary.State.IsFailure() {
+	if specSummary.HasFailureState() {
 		if j.additionalOutput != "" {
 			specSummary.CapturedOutput = fmt.Sprintf("%s\n%s", specSummary.CapturedOutput, j.additionalOutput)
 		}
@@ -75,7 +75,7 @@ func (j *capturedOutputEnricher) AfterSuiteDidRun(setupSummary *types.SetupSumma
 
 func (j *capturedOutputEnricher) SpecSuiteDidEnd(summary *types.SuiteSummary) {
 	for _, report := range j.reporters {
-		report.SpecSuiteDidEnd(summary)
+		report.SuiteDidEnd(summary)
 	}
 }
 func (j *capturedOutputEnricher) collect(duration time.Duration) string {

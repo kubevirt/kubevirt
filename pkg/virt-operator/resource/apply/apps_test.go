@@ -489,7 +489,7 @@ var _ = Describe("Apply Apps", func() {
 				target *appsv1.DaemonSet)
 			type daemonSetPatchChecker func(*v1.KubeVirt, *appsv1.DaemonSet)
 
-			table.DescribeTable("process canary upgrade",
+			DescribeTable("process canary upgrade",
 				func(dsBuild daemonSetBuilder,
 					dsCheck daemonSetPatchChecker,
 					expectedStatus CanaryUpgradeStatus,
@@ -555,7 +555,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 				},
-				table.Entry("should start canary upgrade with MaxUnavailable 1",
+				Entry("should start canary upgrade with MaxUnavailable 1",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
@@ -570,7 +570,7 @@ var _ = Describe("Apply Apps", func() {
 					},
 					CanaryUpgradeStatusStarted, false, false, true,
 				),
-				table.Entry("should wait for canary pod to be created",
+				Entry("should wait for canary pod to be created",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
@@ -581,7 +581,7 @@ var _ = Describe("Apply Apps", func() {
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
 					CanaryUpgradeStatusStarted, false, false, false,
 				),
-				table.Entry("should wait for canary pod to be ready",
+				Entry("should wait for canary pod to be ready",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
@@ -592,7 +592,7 @@ var _ = Describe("Apply Apps", func() {
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
 					CanaryUpgradeStatusStarted, false, false, false,
 				),
-				table.Entry("should restart daemonset rollout with MaxUnavailable 10%",
+				Entry("should restart daemonset rollout with MaxUnavailable 10%",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
@@ -612,7 +612,7 @@ var _ = Describe("Apply Apps", func() {
 					},
 					CanaryUpgradeStatusUpgradingDaemonSet, false, false, true,
 				),
-				table.Entry("should report an error when canary pod fails",
+				Entry("should report an error when canary pod fails",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
@@ -623,7 +623,7 @@ var _ = Describe("Apply Apps", func() {
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
 					CanaryUpgradeStatusFailed, false, true, false,
 				),
-				table.Entry("should wait for new daemonset rollout",
+				Entry("should wait for new daemonset rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						maxUnavailable := intstr.FromString("10%")
 						newDs := daemonSet.DeepCopy()
@@ -638,7 +638,7 @@ var _ = Describe("Apply Apps", func() {
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
 					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, false,
 				),
-				table.Entry("should complete rollout",
+				Entry("should complete rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 						maxUnavailable := intstr.FromString("10%")
 						newDs := daemonSet.DeepCopy()
@@ -1114,7 +1114,7 @@ var _ = Describe("Apply Apps", func() {
 			ctrl.Finish()
 		})
 
-		table.DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
+		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
@@ -1130,8 +1130,8 @@ var _ = Describe("Apply Apps", func() {
 			}
 			executeTest(scc, expectedJsonPatch)
 		},
-			table.Entry("Without custom users", []string{}),
-			table.Entry("With custom users", []string{"someuser"}),
+			Entry("Without custom users", []string{}),
+			Entry("With custom users", []string{"someuser"}),
 		)
 	})
 })
