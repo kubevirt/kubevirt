@@ -1029,13 +1029,16 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm *v1.VirtualMachine
 		)
 
+		const (
+			hotplugPvPath = "/mnt/local-storage/hotplug-test"
+		)
+
 		storageClassHostPath := "host-path"
 		immediateBinding := storagev1.VolumeBindingImmediate
 
 		BeforeEach(func() {
 			tests.CreateStorageClass(storageClassHostPath, &immediateBinding)
-			// Setup second PVC to use in this context
-			pvNode := tests.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, tests.HostPathCustom, "1Gi", storageClassHostPath)
+			pvNode := tests.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, hotplugPvPath, "1Gi", storageClassHostPath)
 			tests.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
 			template := libvmi.NewCirros()
 			if pvNode != "" {
