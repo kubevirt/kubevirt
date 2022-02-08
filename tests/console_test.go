@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"context"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -28,13 +27,11 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -69,11 +66,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		return expecter, errChan
 	}
 
-	deleteDataVolume := func(dv *cdiv1.DataVolume) {
-		By("Deleting the DataVolume")
-		ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-	}
-
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
@@ -100,20 +92,21 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			})
 
 			Context("with an alpine image", func() {
-				type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+				type vmiBuilder func() *v1.VirtualMachineInstance
 
-				newVirtualMachineInstanceWithAlpineFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				newVirtualMachineInstanceWithAlpineFileDisk := func() *v1.VirtualMachineInstance {
+					vmi, _ := tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					return vmi
 				}
 
-				newVirtualMachineInstanceWithAlpineBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				newVirtualMachineInstanceWithAlpineBlockDisk := func() *v1.VirtualMachineInstance {
+					vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					return vmi
 				}
 
 				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
-					vmi, dv := createVMI()
-					defer deleteDataVolume(dv)
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+					vmi := createVMI()
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
 					ExpectConsoleOutput(vmi, "login")
 				},
 					table.Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
