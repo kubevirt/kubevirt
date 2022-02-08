@@ -286,6 +286,36 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		AfterEach(func() {
 			os.RemoveAll(fakeMdevBasePath)
 		})
+		It("makes sure that new mdevs can be created when new supported tyes become available on the node", func() {
+			newMdevTypesConfigured := []string{"nvidia-105", "nvidia-109", "nvidia-224", "nvidia-228", "nvidia-229"}
+			pciMDEVDevicesMap := map[string][]string{
+				"0000:65:00.0": []string{"nvidia-222", "nvidia-223"},
+				"0000:00:02.0": []string{"i915-GVTg_V5_4", "i915-GVTg_V5_8"},
+			}
+			desiredDevicesList := []string{"nvidia-223", "nvidia-224", "nvidia-109", "i915-GVTg_V5_4"}
+
+			By("creating a new sysfs structure and expecting mdevs to be configured")
+			createTempMDEVSysfsStructure(pciMDEVDevicesMap)
+			mdevManager := NewMDEVTypesManager()
+			isConfigUpdated, err := mdevManager.updateMDEVTypesConfiguration(desiredDevicesList)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isConfigUpdated).To(BeTrue())
+
+			By("executing and mdev config update and expecting no change in the configuration")
+			isConfigUpdated, err = mdevManager.updateMDEVTypesConfiguration(desiredDevicesList)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isConfigUpdated).To(BeFalse())
+
+			// remove existing sysfs structure
+			os.RemoveAll(fakeMdevBasePath)
+
+			By("adding a new card and expecting new mdev types to be configured")
+			pciMDEVDevicesMap["0000:66:00.0"] = newMdevTypesConfigured
+			createTempMDEVSysfsStructure(pciMDEVDevicesMap)
+			isConfigUpdated, err = mdevManager.updateMDEVTypesConfiguration(desiredDevicesList)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isConfigUpdated).To(BeTrue())
+		})
 		DescribeTable("should create and remove relevant mdev types", func(scenario func() *scenarioValues) {
 			sc := scenario()
 			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)

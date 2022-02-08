@@ -35,10 +35,11 @@ import (
 var mdevClassBusPath string = "/sys/class/mdev_bus"
 
 type MDEVTypesManager struct {
-	availableMdevTypesMap   map[string][]string
-	unconfiguredParentsMap  map[string]struct{}
-	mdevsConfigurationMutex sync.Mutex
-	configuredMdevTypes     []byte
+	availableMdevTypesMap    map[string][]string
+	unconfiguredParentsMap   map[string]struct{}
+	mdevsConfigurationMutex  sync.Mutex
+	configuredMdevTypes      []byte
+	discoveredMdevProviders  []byte
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
@@ -48,13 +49,51 @@ func NewMDEVTypesManager() *MDEVTypesManager {
 	}
 }
 
+func getAlreadyConfiguredMdevParents() (map[string]struct{}, error){
+
+	configuredPCICards = make(map[string]struct{})
+	files, err := filepath.Glob("/sys/bus/mdev/devices/*")
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		originFile, err := os.Readlink(file)
+		if err != nil {
+			return err
+		}
+
+		filePathParts := strings.Split(originFile, string(os.PathSeparator))
+		parentID := filePathParts[len(filePathParts)-3]
+		configuredPCICards[parenItID] = struct{}{}
+	}
+	return configuredPCICards
+}
+
+func filterConfiguredMdevProviders
+	// scan the mdev_class bus to see if there are new devices available
+	mdevProviders, err := filepath.Glob(filepath.Join(mdevClassBusPath, "*"))
+	if err != nil {
+		return isConfigUpdated, err
+	}
+	for idx, mdevProvider
+	//mdevProvidersBytes := []byte(strings.Join(mdevProviders, ","))
+
 func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string) (bool, error) {
 	isConfigUpdated := false
 	m.mdevsConfigurationMutex.Lock()
 	defer m.mdevsConfigurationMutex.Unlock()
 
 	desiredTypesBytes := []byte(strings.Join(desiredTypesList, ","))
-	if bytes.Compare(m.configuredMdevTypes, desiredTypesBytes) != 0 {
+
+	// scan the mdev_class bus to see if there are new devices available
+	mdevProviders, err := filepath.Glob(filepath.Join(mdevClassBusPath, "*"))
+	if err != nil {
+		return isConfigUpdated, err
+	}
+	mdevProvidersBytes := []byte(strings.Join(mdevProviders, ","))
+
+	if bytes.Compare(m.configuredMdevTypes, desiredTypesBytes) != 0 || bytes.Compare(m.discoveredMdevProviders, mdevProvidersBytes) != 0 {
 
 		// construct a map of desired types for lookup
 		desiredTypesMap := make(map[string]struct{})
@@ -72,6 +111,7 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 		}
 		// store the configured list of types
 		m.configuredMdevTypes = desiredTypesBytes
+		m.discoveredMdevProviders = mdevProvidersBytes
 		isConfigUpdated = true
 	}
 	return isConfigUpdated, nil
