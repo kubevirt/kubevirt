@@ -2244,13 +2244,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return vmi, dv
 			}
 
-			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
-				vmi, dv := createVMI()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-				defer deleteDataVolume(dv)
-
-				By("Limiting the bandwidth of migrations in the test namespace")
-				quantity := resource.MustParse("1Mi")
+			limitMigrationBadwidth := func(quantity resource.Quantity) error {
 				migrationPolicy := &v1alpha1.MigrationPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: util.NamespaceTestDefault,
@@ -2271,7 +2265,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				_, err := virtClient.MigrationPolicy().Create(context.Background(), migrationPolicy, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				return err
+			}
+
+			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
+				vmi, dv := createVMI()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				defer deleteDataVolume(dv)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -2301,11 +2304,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
