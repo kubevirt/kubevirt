@@ -32,6 +32,8 @@ trap 'catch $? $LINENO' ERR TERM INT
 
 PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
+source hack/cri-bin.sh
+
 # update image digests
 "${PROJECT_ROOT}"/automation/digester/update_images.sh
 source "${PROJECT_ROOT}"/deploy/images.env
@@ -77,7 +79,7 @@ function gen_csv() {
   local crds="${operatorName}.crds.yaml"
 
   # TODO: Use oc to run if cluster is available
-  local dockerArgs="docker run --rm --entrypoint=${csvGeneratorPath} ${imagePullUrl} ${operatorArgs}"
+  local dockerArgs="$CRI_BIN run --rm --entrypoint=${csvGeneratorPath} ${imagePullUrl} ${operatorArgs}"
 
   eval $dockerArgs > $csv
   eval $dockerArgs $dumpCRDsArg > $csvWithCRDs
@@ -353,8 +355,8 @@ cp -f ${TEMPDIR}/*.${CRD_EXT} ${CRD_DIR}
 cp -f ${TEMPDIR}/*.${CRD_EXT} ${CSV_DIR}
 
 # Validate the yaml files
-(cd ${CRD_DIR} && docker run --rm -v "$(pwd)":/yaml quay.io/pusher/yamllint yamllint -d "{extends: relaxed, rules: {line-length: disable}}" /yaml)
-(cd ${CSV_DIR} && docker run --rm -v "$(pwd)":/yaml quay.io/pusher/yamllint yamllint -d "{extends: relaxed, rules: {line-length: disable}}" /yaml)
+(cd ${CRD_DIR} && $CRI_BIN run --rm -v "$(pwd)":/yaml quay.io/pusher/yamllint yamllint -d "{extends: relaxed, rules: {line-length: disable}}" /yaml)
+(cd ${CSV_DIR} && $CRI_BIN run --rm -v "$(pwd)":/yaml quay.io/pusher/yamllint yamllint -d "{extends: relaxed, rules: {line-length: disable}}" /yaml)
 
 # Check there are not API Groups overlap between different CNV operators
 ${PROJECT_ROOT}/tools/csv-merger/csv-merger --crds-dir=${CRD_DIR}

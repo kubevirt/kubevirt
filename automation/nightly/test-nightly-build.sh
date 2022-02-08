@@ -2,8 +2,10 @@
 
 set -ex
 
+source "hack/cri-bin.sh"
+
 # Get golang
-docker login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
+$CRI_BIN login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
 wget -q https://dl.google.com/go/go1.17.3.linux-amd64.tar.gz
 tar -C /usr/local -xf go*.tar.gz
 export PATH=/usr/local/go/bin:$PATH
@@ -31,9 +33,9 @@ go mod vendor
 build_date="$(date +%Y%m%d)"
 export IMAGE_REGISTRY=quay.io
 export IMAGE_TAG="nb_${build_date}_$(git show -s --format=%h)"
-export DOCKER_PREFIX=kubevirtci
-TEMP_OPERATOR_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-operator
-TEMP_WEBHOOK_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-webhook
+export IMAGE_PREFIX=kubevirtci
+TEMP_OPERATOR_IMAGE=${IMAGE_PREFIX}/hyperconverged-cluster-operator
+TEMP_WEBHOOK_IMAGE=${IMAGE_PREFIX}/hyperconverged-cluster-webhook
 CSV_OPERATOR_IMAGE=${IMAGE_REGISTRY}/${TEMP_OPERATOR_IMAGE}
 CSV_WEBHOOK_IMAGE=${IMAGE_REGISTRY}/${TEMP_WEBHOOK_IMAGE}
 
@@ -45,7 +47,6 @@ sed -i "s#quay.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
 sed -i "s#^KUBEVIRT_VERSION=.*#KUBEVIRT_VERSION=\"${kv_tag}\"#" hack/config
 (cd ./tools/digester && go build .)
 export HCO_VERSION="${IMAGE_TAG}"
-export DOCKER_API_VERSION=1.40
 ./automation/digester/update_images.sh
 
 HCO_OPERATOR_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_OPERATOR_IMAGE}:${IMAGE_TAG})
@@ -54,9 +55,9 @@ HCO_WEBHOOK_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_WEBHOOK_IMAGE}:
 # Build the CSV
 HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE_DIGEST} HCO_WEBHOOK_IMAGE=${HCO_WEBHOOK_IMAGE_DIGEST} ./hack/build-manifests.sh
 
-REGISTRY_NAMESPACE=${DOCKER_PREFIX} CONTAINER_TAG=${IMAGE_TAG} make bundleRegistry
+REGISTRY_NAMESPACE=${IMAGE_PREFIX} CONTAINER_TAG=${IMAGE_TAG} make bundleRegistry
 hco_bucket="kubevirt-prow/devel/nightly/release/kubevirt/hyperconverged-cluster-operator"
 echo "${build_date}" > build-date
-echo "${IMAGE_REGISTRY}/${DOCKER_PREFIX}/hco-container-registry:${IMAGE_TAG}" > hco-bundle
+echo "${IMAGE_REGISTRY}/${IMAGE_PREFIX}/hco-container-registry:${IMAGE_TAG}" > hco-bundle
 gsutil cp ./hco-bundle "gs://${hco_bucket}/${build_date}/hco-bundle-image"
 gsutil cp ./build-date gs://${hco_bucket}/latest

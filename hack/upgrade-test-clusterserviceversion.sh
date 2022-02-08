@@ -12,9 +12,11 @@ CLUSTER_FILE=${CLUSTER_DIR}/kubevirt-hyperconverged-operator.v${UPGRADE_VERSION}
 
 echo ${CLUSTER_FILE}
 
-docker run --entrypoint ls  ${IMAGE_REGISTRY}/kubevirt/hco-registry-upgrade:${IMAGE_TAG} ${CLUSTER_DIR} || true
+source hack/cri-bin.sh
 
-docker run --entrypoint cat  ${IMAGE_REGISTRY}/kubevirt/hco-registry-upgrade:${IMAGE_TAG} ${CLUSTER_FILE} > ./test-out/clusterserviceversion.yaml
+$CRI_BIN run --entrypoint ls  ${IMAGE_REGISTRY}/kubevirt/hco-registry-upgrade:${IMAGE_TAG} ${CLUSTER_DIR} || true
+
+$CRI_BIN run --entrypoint cat  ${IMAGE_REGISTRY}/kubevirt/hco-registry-upgrade:${IMAGE_TAG} ${CLUSTER_FILE} > ./test-out/clusterserviceversion.yaml
 
 ls -al test-out
 

@@ -2,7 +2,16 @@
 
 source ./hack/common.sh
 
-registry_port=$(docker ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)')
+container_command=podman
+
+registry_port=$(${container_command} ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)' || echo "")
+
+if [ -z "$registry_port" ]
+then
+      container_command=docker
+      registry_port=$(${container_command} ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)')
+fi
+
 registry=localhost:$registry_port
 
 # Cleanup previously generated manifests
@@ -33,7 +42,7 @@ else
     pull_command="docker"
 fi
 
-docker ps -a
+${container_command} ps -a
 
 for node in ${nodes[@]}; do
     ./cluster/ssh.sh ${node} "echo registry:5000/kubevirt/hyperconverged-cluster-operator | xargs \-\-max-args=1 sudo ${pull_command} pull"

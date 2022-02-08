@@ -15,13 +15,13 @@ main() {
   local TEST_BUILD_TAG="${REGISTRY}/${BUILD_TAG}:${TAG}"
 
   # Build the encapsulated compile and test container
-  (cd "${BUILD_DIR}" && docker build --tag "${TEST_BUILD_TAG}" .)
+  (cd "${BUILD_DIR}" && $CRI_BIN build --tag "${TEST_BUILD_TAG}" .)
 
   if [[ ${PUSH_IMAGE} == "false" ]]; then
     exit 0
   fi
 
-  docker push "${TEST_BUILD_TAG}"
+  $CRI_BIN push "${TEST_BUILD_TAG}"
 
   echo "Successfully created and pushed new test utils image: ${TEST_BUILD_TAG}"
 
@@ -43,4 +43,6 @@ update_tag_in_pull_request() {
 }
 
 source hack/common.sh
+source hack/cri-bin.sh
+
 main "$@"

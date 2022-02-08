@@ -11,7 +11,7 @@ function cleanup() {
 
 function lint() {
     local target_file="${1:?}"
-    docker run --rm --entrypoint=/bin/promtool \
+    podman run --rm --entrypoint=/bin/promtool \
         -v "$target_file":/tmp/rules.verify:ro "$PROM_IMAGE" \
         check rules /tmp/rules.verify
 }
@@ -19,7 +19,7 @@ function lint() {
 function unit_test() {
     local target_file="${1:?}"
     local tests_file="${2:?}"
-    docker run --rm --entrypoint=/bin/promtool \
+    podman run --rm --entrypoint=/bin/promtool \
         -v "$tests_file":/tmp/rules.test:ro \
         -v "$target_file":/tmp/rules.verify:ro \
         "$PROM_IMAGE" \

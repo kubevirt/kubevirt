@@ -3,6 +3,7 @@
 set -e
 
 source hack/common.sh
+source hack/cri-bin.sh
 
 HCO_DIR="$(readlink -f $(dirname $0)/../)"
 WORK_DIR="/go/src/github.com/kubevirt/hyperconverged-cluster-operator"
@@ -13,7 +14,7 @@ BUILD_TAG="${REGISTRY}/${REPOSITORY}:${TAG}"
 
 # Execute the build
 [ -t 1 ] && USE_TTY="-it"
-docker run ${USE_TTY} \
+$CRI_BIN run ${USE_TTY} \
     --rm \
     -v ${HCO_DIR}:${WORK_DIR}:rw,Z \
     -e RUN_UID=$(id -u) \

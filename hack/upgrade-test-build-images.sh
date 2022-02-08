@@ -19,8 +19,10 @@
 # Used only with the STDCI
 # Builds operator and registry images.
 
-container_id=$(docker ps | grep kubevirtci | cut -d ' ' -f 1)
-registry_port=$(docker port $container_id | grep 5000 | cut -d ':' -f 2)
+source hack/cri-bin.sh
+
+container_id=$($CRI_BIN ps | grep kubevirtci | cut -d ' ' -f 1)
+registry_port=$($CRI_BIN port $container_id | grep 5000 | cut -d ':' -f 2)
 registry=localhost:$registry_port
 
 echo "INFO: registry: $registry"

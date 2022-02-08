@@ -28,8 +28,8 @@ go mod edit -require kubevirt.io/kubevirt@${LATEST_KUBEVIRT_COMMIT}
 go mod vendor
 KUBEVIRT_IMAGE=${LATEST_KUBEVIRT_IMAGE} hack/build-manifests.sh
 
-container_id=$(docker ps | grep kubevirtci | cut -d ' ' -f 1)
-registry_port=$(docker port $container_id | grep 5000 | cut -d ':' -f 2)
+container_id=$(podman ps | grep kubevirtci | cut -d ' ' -f 1)
+registry_port=$(podman port $container_id | grep 5000 | cut -d ':' -f 2)
 registry=localhost:$registry_port
 
 echo "INFO: registry: $registry"

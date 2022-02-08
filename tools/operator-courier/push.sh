@@ -32,7 +32,7 @@ echo "getting auth token from Quay"
 AUTH_TOKEN=$(/"${PROJECT_ROOT}"/tools/token.sh $QUAY_USERNAME $QUAY_PASSWORD)
 
 echo "pushing bundle"
-docker run \
+podman run \
 	-e QUAY_USERNAME="${QUAY_USERNAME}" \
 	-e QUAY_PASSWORD="${QUAY_PASSWORD}" \
 	-e QUAY_REPOSITORY="${REPO_DIR}" \

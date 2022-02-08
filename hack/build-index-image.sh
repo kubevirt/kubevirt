@@ -40,16 +40,16 @@ function create_index_image() {
     INDEX_IMAGE_PARAM=--from-index="${PREV_INDEX_IMAGE}"
   fi
 
-  docker build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
-  docker push "${BUNDLE_IMAGE_NAME}"
+  podman build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
+  podman push "${BUNDLE_IMAGE_NAME}"
 
   # Referencing the unstable bundle digest in the index image, rather than the floating tag, to avoid
   # unalignment between cached index image and fetched bundle image.
   BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
   # shellcheck disable=SC2086
-  ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker --mode semver
-  docker push "${INDEX_IMAGE_NAME}"
+  ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u podman --mode semver
+  podman push "${INDEX_IMAGE_NAME}"
 }
 
 function create_all_versions() {
