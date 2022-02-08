@@ -139,14 +139,14 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		})
 
 		if mutator.ClusterConfig.NonRootEnabled() {
-			if err := util.CanBeNonRoot(newVMI); err != nil {
+			/*if err := util.CanBeNonRoot(newVMI); err != nil {
 				return &admissionv1.AdmissionResponse{
 					Result: &metav1.Status{
 						Message: err.Error(),
 						Code:    http.StatusUnprocessableEntity,
 					},
 				}
-			}
+			}*/
 
 			util.MarkAsNonroot(newVMI)
 		}

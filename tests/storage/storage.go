@@ -398,8 +398,9 @@ var _ = SIGDescribe("Storage", func() {
 			var pvc = "empty-pvc1"
 
 			BeforeEach(func() {
+				tests.EnableFeatureGate(virtconfig.NonRoot)
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
-				checks.SkipIfNonRoot("VirtioFS")
+				//checks.SkipIfNonRoot("VirtioFS")
 				tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
 				tests.CreateHostPathPVC(pvc, "1G")
 			})
@@ -407,6 +408,50 @@ var _ = SIGDescribe("Storage", func() {
 			AfterEach(func() {
 				tests.DeletePVC(pvc)
 				tests.DeletePV(pvc)
+				tests.DisableFeatureGate(virtconfig.NonRoot)
+			})
+			FIt("[test_id:9935] test DV virtiofs", func() {
+				pvcName := fmt.Sprintf("disk-%s", pvc)
+				vmi := tests.NewRandomVMIWithPVCFS(pvcName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+				vmi.Spec.Domain.Devices.Rng = &virtv1.Rng{}
+
+				// add userdata for guest agent and mount virtio-fs
+				fs := vmi.Spec.Domain.Devices.Filesystems[0]
+				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
+				virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
+				mountVirtiofsCommands := fmt.Sprintf(`#!/bin/bash
+				                                   mkdir %s
+				                                   mount -t virtiofs %s %s
+				                                   touch %s
+				                           `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
+				tests.AddUserData(vmi, cloudInitName, mountVirtiofsCommands)
+
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By(checkingVMInstanceConsoleOut)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+
+				//virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
+				virtioFsFileTestCmd := fmt.Sprintf("test -f /%s/virtiofs_test && echo exist", fs.Name)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					fmt.Sprintf("sharedfs-%s", fs.Name),
+					[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+
+				/*getStatus := func() bool {
+
+					return false
+				}
+				Eventually(getStatus, 3000, 1).Should(BeTrue())*/
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
@@ -461,6 +506,67 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+			It("[test_id:9935] test DV virtiofs", func() {
+				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				By("Waiting until the DataVolume is ready")
+				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
+					Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
+				}
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+
+				vmi.Spec.Domain.Devices.Rng = &virtv1.Rng{}
+
+				/*/ add userdata for guest agent and mount virtio-fs
+								fs := vmi.Spec.Domain.Devices.Filesystems[0]
+								virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
+								virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
+								mountVirtiofsCommands := fmt.Sprintf(`#!/bin/bash
+				                                       mkdir %s
+				                                       mount -t virtiofs %s %s
+				                                       touch %s
+				                               `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
+								tests.AddUserData(vmi, cloudInitName, mountVirtiofsCommands)
+				*/
+				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
+				// import and start
+				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By(checkingVMInstanceConsoleOut)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				/*
+					By("Checking that virtio-fs is mounted")
+					listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
+					Expect(console.ExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: listVirtioFSDisk},
+						&expect.BExp{R: console.RetValue("1")},
+					}, 30*time.Second)).To(Succeed(), "Should be able to access the mounted virtiofs file")
+
+					virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
+					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+					podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+						virtClient,
+						pod,
+						"compute",
+						[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+				*/
+				getStatus := func() bool {
+
+					return false
+				}
+				Eventually(getStatus, 3000, 1).Should(BeTrue())
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+			})
 			It("should be successfully started and virtiofs could be accessed", func() {
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})

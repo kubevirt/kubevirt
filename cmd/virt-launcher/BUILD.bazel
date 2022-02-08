@@ -60,6 +60,7 @@ pkg_tar(
         "//cmd/virt-freezer",
         "//cmd/virt-launcher-monitor",
         "//cmd/virt-probe",
+        "//cmd/virtiofsd-monitor",
     ],
     package_dir = "/usr/bin",
 )

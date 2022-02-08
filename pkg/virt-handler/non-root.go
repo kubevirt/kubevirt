@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+	//"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -16,8 +17,16 @@ import (
 )
 
 func changeOwnershipOfBlockDevices(vmiWithOnlyBlockPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	passthoughFSVolumes := make(map[string]struct{})
+	for i := range vmiWithOnlyBlockPVCs.Spec.Domain.Devices.Filesystems {
+		passthoughFSVolumes[vmiWithOnlyBlockPVCs.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+	}
 	for i := range vmiWithOnlyBlockPVCs.Spec.Volumes {
 		if volumeSource := &vmiWithOnlyBlockPVCs.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
+			volumeName := vmiWithOnlyBlockPVCs.Spec.Volumes[i].Name
+			if _, isPassthoughFSVolume := passthoughFSVolumes[volumeName]; isPassthoughFSVolume {
+				continue
+			}
 			devPath := filepath.Join(string(filepath.Separator), "dev", vmiWithOnlyBlockPVCs.Spec.Volumes[i].Name)
 			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(filepath.Join(res.MountRoot(), devPath)); err != nil {
 				return err
@@ -46,7 +55,18 @@ func changeOwnershipAndRelabel(path string) error {
 }
 
 func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	passthoughFSVolumes := make(map[string]struct{})
+	for i := range vmiWithAllPVCs.Spec.Domain.Devices.Filesystems {
+		passthoughFSVolumes[vmiWithAllPVCs.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+	}
 	for i := range vmiWithAllPVCs.Spec.Volumes {
+		/*volumeName := vmiWithAllPVCs.Spec.Volumes[i].Name
+		if _, isPassthoughFSVolume := passthoughFSVolumes[volumeName]; isPassthoughFSVolume {
+			err := changeOwnershipAndRelabel(filepath.Join(res.MountRoot(), fmt.Sprintf("/%s", volumeName)))
+			if err != nil {
+				return fmt.Errorf("Failed to change ownership of filesystem directory : %s", err)
+			}
+		}*/
 		if volumeSource := &vmiWithAllPVCs.Spec.Volumes[i].VolumeSource; volumeSource.HostDisk != nil {
 			volumeName := vmiWithAllPVCs.Spec.Volumes[i].Name
 			diskPath := hostdisk.GetMountedHostDiskPath(volumeName, volumeSource.HostDisk.Path)
@@ -153,6 +173,18 @@ func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineI
 	if err != nil {
 		return err
 	}
+
+	sock1 := filepath.Join(res.MountRoot(), "/var/run/kubevirt/virtiofs-containers/findMe.sock")
+	res1, err := d.podIsolationDetector.DetectForSocket(origVMI, sock1)
+	if err != nil {
+		//log.Log.Reason(err).Errorf("failed to connect to socket")
+		return err
+	}
+	err = changeOwnershipAndRelabel(filepath.Join(res1.MountRoot(), "/disk1"))
+	if err != nil {
+		return fmt.Errorf("Failed to change ownership of filesystem directory test! : %s", err)
+	}
+
 	if err := d.prepareStorage(vmi, origVMI, res); err != nil {
 		return err
 	}

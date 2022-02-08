@@ -2475,8 +2475,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("failed to replace PVCByHostDisk")
 		return err
 	}
+	log.Log.Object(vmi).Info("passed hostdisk.ReplacePVCByHostDisk")
 
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
@@ -2494,6 +2496,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err != nil {
 			return err
 		}
+		log.Log.Object(vmi).Info("passed MountAndVerify")
 
 		// Try to mount hotplug volume if there is any during startup.
 		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
@@ -2532,11 +2535,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			}
 		}
 
+		log.Log.Object(vmi).Info("going into non-root setup")
 		if virtutil.IsNonRootVMI(vmi) {
 			if err := d.nonRootSetup(origVMI, vmi); err != nil {
 				return err
 			}
 		}
+		log.Log.Object(vmi).Info("passed non-root setup")
 
 		// set runtime limits as needed
 		err = d.podIsolationDetector.AdjustResources(vmi)

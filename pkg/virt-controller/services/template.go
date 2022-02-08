@@ -57,15 +57,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 const (
-	containerDisks   = "container-disks"
-	hotplugDisks     = "hotplug-disks"
-	hookSidecarSocks = "hook-sidecar-sockets"
-	varRun           = "/var/run"
-	virtBinDir       = "virt-bin-share-dir"
-	hotplugDisk      = "hotplug-disk"
+	containerDisks     = "container-disks"
+	hotplugDisks       = "hotplug-disks"
+	hookSidecarSocks   = "hook-sidecar-sockets"
+	varRun             = "/var/run"
+	virtBinDir         = "virt-bin-share-dir"
+	hotplugDisk        = "hotplug-disk"
+	virtiofsContainers = "virtiofs-containers"
 )
 
 const KvmDevice = "devices.kubevirt.io/kvm"
@@ -146,6 +148,7 @@ type templateService struct {
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
+	passthoughFSVolumes        map[string]struct{}
 }
 
 type PvcNotFoundError struct {
@@ -449,11 +452,13 @@ func (t *templateService) addPVCToLaunchManifest(volume v1.Volume, claimName str
 		}
 		*volumeDevices = append(*volumeDevices, device)
 	} else {
-		volumeMount := k8sv1.VolumeMount{
-			Name:      volume.Name,
-			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+		if _, exist := t.passthoughFSVolumes[volume.Name]; !exist {
+			volumeMount := k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+			}
+			*volumeMounts = append(*volumeMounts, volumeMount)
 		}
-		*volumeMounts = append(*volumeMounts, volumeMount)
 	}
 	return nil
 }
@@ -463,6 +468,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	nodeSelector := map[string]string{}
+	t.passthoughFSVolumes = make(map[string]struct{})
 
 	var volumes []k8sv1.Volume
 	var volumeDevices []k8sv1.VolumeDevice
@@ -512,6 +518,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
+	for i := range vmi.Spec.Domain.Devices.Filesystems {
+		t.passthoughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+	}
+
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if t.IsPPC64() {
 		privileged = true
@@ -558,12 +568,27 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	})
 
+	// virt-launcher virtiofs socket dir
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		volumes = append(volumes, k8sv1.Volume{
+			Name: virtiofsContainers,
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      virtiofsContainers,
+			MountPath: filepath.Join(t.virtShareDir, virtiofsContainers),
+		})
+	}
+
 	serviceAccountName := ""
 
 	for _, volume := range vmi.Spec.Volumes {
 		if hotplugVolumes[volume.Name] {
 			continue
 		}
+
 		if volume.PersistentVolumeClaim != nil {
 			claimName := volume.PersistentVolumeClaim.ClaimName
 			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
@@ -1223,6 +1248,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
 	containersDisks := containerdisk.GenerateContainers(vmi, imageIDs, containerDisks, virtBinDir)
+	//log.Log.Infof("virtioFS vars: vmi: %v", vmi)
+	log.Log.Infof("virtioFS vars: virtiofsContainers: %v", virtiofsContainers)
+	log.Log.Infof("virtioFS vars: t.launcherImage: %v", t.launcherImage)
+	sharedFSs := virtiofs.GenerateContainers(vmi, virtiofsContainers, t.launcherImage)
+	containers = append(containers, sharedFSs...)
 	containers = append(containers, containersDisks...)
 
 	kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, imageIDs, containerDisks, virtBinDir)
@@ -1241,6 +1271,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	)
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "virtiofs-runtime",
 		VolumeSource: k8sv1.VolumeSource{
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
@@ -1776,6 +1812,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 
 func getVirtiofsCapabilities() []k8sv1.Capability {
 	return []k8sv1.Capability{
+		"SYS_CHROOT",
 		"CHOWN",
 		"DAC_OVERRIDE",
 		"FOWNER",
@@ -1814,11 +1851,11 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	if !util.IsNonRootVMI(vmi) {
 		// add a CAP_SYS_NICE capability to allow setting cpu affinity
 		capabilities = append(capabilities, CAP_SYS_NICE)
-		// add CAP_SYS_ADMIN capability to allow virtiofs
+		/*/ add CAP_SYS_ADMIN capability to allow virtiofs
 		if util.IsVMIVirtiofsEnabled(vmi) {
 			capabilities = append(capabilities, CAP_SYS_ADMIN)
 			capabilities = append(capabilities, getVirtiofsCapabilities()...)
-		}
+		}*/
 	}
 	// add CAP_SYS_PTRACE capability needed by libvirt + swtpm
 	// TODO: drop SYS_PTRACE after updating libvirt to a release containing:
@@ -2075,6 +2112,7 @@ func NewTemplateService(launcherImage string,
 	virtLibDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
+	//virtiofContainersDir string,
 	hotplugDiskDir string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,

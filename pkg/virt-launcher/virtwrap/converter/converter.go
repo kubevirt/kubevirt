@@ -1540,12 +1540,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			newFS := api.FilesystemDevice{}
 
 			newFS.Type = "mount"
-			newFS.AccessMode = "passthrough"
+			//newFS.AccessMode = "passthrough"
 			newFS.Driver = &api.FilesystemDriver{
 				Type:  "virtiofs",
 				Queue: "1024",
 			}
-			newFS.Binary = &api.FilesystemBinary{
+			/*newFS.Binary = &api.FilesystemBinary{
 				Path:  "/usr/libexec/virtiofsd",
 				Xattr: "on",
 				Cache: &api.FilesystemBinaryCache{
@@ -1555,7 +1555,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					Posix: "on",
 					Flock: "on",
 				},
-			}
+			}*/
 			newFS.Target = &api.FilesystemTarget{
 				Dir: fs.Name,
 			}
@@ -1564,9 +1564,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			if volume == nil {
 				return fmt.Errorf("No matching volume with name %s found", fs.Name)
 			}
-			volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
+			//volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
 			newFS.Source = &api.FilesystemSource{}
-			newFS.Source.Dir = volDir
+			//newFS.Source.Dir = volDir
+			newFS.Source.Socket = filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "virtiofs-containers", fmt.Sprintf("%s.sock", fs.Name))
+			//			newFS.Source.Socket = fmt.Sprintf("/var/run/kubevirt/virtiofs-containers/%s.sock", fs.Name)
 			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 		}
 	}

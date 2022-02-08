@@ -499,7 +499,8 @@ type FilesystemTarget struct {
 }
 
 type FilesystemSource struct {
-	Dir string `xml:"dir,attr"`
+	Dir    string `xml:"dir,attr,omitempty"`
+	Socket string `xml:"socket,attr,omitempty"`
 }
 
 type FilesystemDriver struct {
