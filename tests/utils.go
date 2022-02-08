@@ -2004,6 +2004,9 @@ func createNamespaces() {
 		ns := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
+				Labels: map[string]string{
+					cleanup.TestLabelForNamespace(namespace): "",
+				},
 			},
 		}
 		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})

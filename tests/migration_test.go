@@ -30,10 +30,11 @@ import (
 	"strings"
 	"sync"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
+	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -2248,18 +2249,33 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				defer deleteDataVolume(dv)
 
+				By("Limiting the bandwidth of migrations in the test namespace")
+				quantity := resource.MustParse("1Mi")
+				migrationPolicy := &v1alpha1.MigrationPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: util.NamespaceTestDefault,
+						Labels: map[string]string{
+							cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
+						},
+					},
+					Spec: v1alpha1.MigrationPolicySpec{
+						BandwidthPerMigration: &quantity,
+						Selectors: &v1alpha1.Selectors{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
+								},
+							},
+						},
+					},
+				}
+
+				_, err := virtClient.MigrationPolicy().Create(context.Background(), migrationPolicy, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
-
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
-
-				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
@@ -2275,9 +2291,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// delete VMI
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
 				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
 				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),

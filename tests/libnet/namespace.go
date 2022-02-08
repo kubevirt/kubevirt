@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
 )
 
 func AddLabelToNamespace(client kubecli.KubevirtClient, namespace, key, value string) error {
@@ -35,7 +36,9 @@ func RemoveAllLabelsFromNamespace(client kubecli.KubevirtClient, namespace strin
 		if ns.Labels == nil {
 			return
 		}
-		ns.Labels = map[string]string{}
+		ns.Labels = map[string]string{
+			cleanup.TestLabelForNamespace(namespace): "",
+		}
 	})
 }
 
