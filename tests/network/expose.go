@@ -563,8 +563,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		BeforeEach(func() {
 			By("Creating a VMRS object with 2 replicas")
-			template := newLabeledVMI("vmirs")
-			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
+			vmrs = tests.NewRandomReplicaSetFromVMI(newLabeledVMI("vmirs"), int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
@@ -662,8 +661,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		createStoppedVM := func(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 			By("Creating an VM object")
-			template := newLabeledVMI("vm")
-			vm := tests.NewRandomVirtualMachine(template, false)
+			vm := tests.NewRandomVirtualMachine(newLabeledVMI("vm"), false)
 
 			By("Creating the VM")
 			vm, err = virtClient.VirtualMachine(namespace).Create(vm)
