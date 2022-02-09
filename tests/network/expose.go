@@ -24,7 +24,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
-	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -39,7 +38,7 @@ const (
 	shouldStartVM                 = "should have been able to start the VM"
 )
 
-func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {
+func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 	ports := []v1.Port{{Name: "http", Port: 80},
 		{Name: "test-port-tcp", Port: 1500, Protocol: "TCP"},
 		{Name: "udp", Port: 82, Protocol: "UDP"},
@@ -48,16 +47,6 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 	vmi.Labels = map[string]string{"expose": label}
-
-	var err error
-	if createVMI {
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
-		tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
-	}
 	return
 }
 
@@ -181,7 +170,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			tcpVM = newLabeledVMI("vm", virtClient, true)
+			tcpVM = newLabeledVMI("vm")
+			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
 			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp")
 		})
 
@@ -446,7 +436,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("Expose UDP service on a VMI", func() {
 		var udpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			udpVM = newLabeledVMI("udp-vm", virtClient, true)
+			udpVM = newLabeledVMI("udp-vm")
+			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
 			tests.GenerateHelloWorldServer(udpVM, testPort, "udp")
 		})
 
@@ -572,7 +563,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		BeforeEach(func() {
 			By("Creating a VMRS object with 2 replicas")
-			template := newLabeledVMI("vmirs", virtClient, false)
+			template := newLabeledVMI("vmirs")
 			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
@@ -671,7 +662,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		createStoppedVM := func(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 			By("Creating an VM object")
-			template := newLabeledVMI("vm", virtClient, false)
+			template := newLabeledVMI("vm")
 			vm := tests.NewRandomVirtualMachine(template, false)
 
 			By("Creating the VM")
