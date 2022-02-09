@@ -656,3 +656,14 @@ func (_m *MockVirDomain) SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags)
 func (_mr *_MockVirDomainRecorder) SetVcpusFlags(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVcpusFlags", arg0, arg1)
 }
+
+func (_m *MockVirDomain) GetLaunchSecurityInfo(flags uint32) (*libvirt.DomainLaunchSecurityParameters, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchSecurityInfo", flags)
+	ret0, _ := ret[0].(*libvirt.DomainLaunchSecurityParameters)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetLaunchSecurityInfo(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchSecurityInfo", arg0)
+}

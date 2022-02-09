@@ -668,6 +668,36 @@ func (l *Launcher) GetSEVInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.
 	return sevInfoResponse, nil
 }
 
+func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.LaunchMeasurementResponse, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	launchMeasurementResponse := &cmdv1.LaunchMeasurementResponse{
+		Response: response,
+	}
+
+	if !launchMeasurementResponse.Response.Success {
+		return launchMeasurementResponse, nil
+	}
+
+	sevMeasurementInfo, err := l.domainManager.GetLaunchMeasurement(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to get launch measuement")
+		launchMeasurementResponse.Response.Success = false
+		launchMeasurementResponse.Response.Message = getErrorMessage(err)
+		return launchMeasurementResponse, nil
+	}
+
+	if sevMeasurementInfoJson, err := json.Marshal(sevMeasurementInfo); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal launch measuement info")
+		launchMeasurementResponse.Response.Success = false
+		launchMeasurementResponse.Response.Message = getErrorMessage(err)
+		return launchMeasurementResponse, nil
+	} else {
+		launchMeasurementResponse.LaunchMeasurement = sevMeasurementInfoJson
+	}
+
+	return launchMeasurementResponse, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit

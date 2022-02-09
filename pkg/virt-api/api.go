@@ -533,6 +533,16 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.SEVPlatformInfo{}).
 			Returns(http.StatusOK, "OK", v1.SEVPlatformInfo{}))
 
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/querylaunchmeasurement")).
+			To(subresourceApp.SEVQueryLaunchMeasurementHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation(version.Version+"SEVQueryLaunchMeasurement").
+			Doc("Query SEV launch measurement from a Virtual Machine").
+			Writes(v1.SEVMeasurementInfo{}).
+			Returns(http.StatusOK, "OK", v1.SEVMeasurementInfo{}))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -633,6 +643,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/sev/fetchcertchain",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/sev/querylaunchmeasurement",
 						Namespaced: true,
 					},
 				}

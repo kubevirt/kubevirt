@@ -31,6 +31,7 @@ service Cmd {
   rpc GetQemuVersion(EmptyRequest) returns (QemuVersionResponse){}
   rpc SyncVirtualMachineCPUs(VMIRequest) returns (Response) {}
   rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
+  rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
 }
 
 message QemuVersionResponse {
@@ -183,4 +184,9 @@ message MemoryDumpRequest {
 message SEVInfoResponse {
   Response response = 1;
   bytes sevInfo = 2;
+}
+
+message LaunchMeasurementResponse {
+  Response response = 1;
+  bytes launchMeasurement = 2;
 }

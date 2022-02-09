@@ -447,6 +447,28 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Expect(fetchedInfo).To(Equal(sevPlatformIfo), "fetched info should be the same as passed in")
 	})
 
+	It("should query SEV launch measurement info via subresource", func() {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		sevMeasurementInfo := v1.SEVMeasurementInfo{
+			Measurement: "AAABBB",
+			APIMajor:    1,
+			APIMinor:    2,
+			BuildID:     0xFFEE,
+			Policy:      0xFF,
+		}
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", path.Join(subVMIPath, "sev/querylaunchmeasurement")),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, sevMeasurementInfo),
+		))
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVQueryLaunchMeasurement("testvm")
+
+		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
+		Expect(fetchedInfo).To(Equal(sevMeasurementInfo), "fetched info should be the same as passed in")
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})

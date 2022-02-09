@@ -31,7 +31,8 @@ const (
 	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
 	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
 
-	sevFetchCertChainTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
+	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
+	sevQueryLaunchMeasurementTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/querylaunchmeasurement"
 )
 
 func NewVirtHandlerClient(virtCli KubevirtClient, httpCli *http.Client) VirtHandlerClient {
@@ -61,6 +62,7 @@ type VirtHandlerConn interface {
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	SEVQueryLaunchMeasurementURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, body io.ReadCloser) error
 	Get(url string) (string, error)
@@ -286,4 +288,8 @@ func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) 
 
 func (v *virtHandlerConn) SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(sevFetchCertChainTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) SEVQueryLaunchMeasurementURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(sevQueryLaunchMeasurementTemplateURI, vmi)
 }

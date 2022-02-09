@@ -513,3 +513,10 @@ func (v *vmis) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
 	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevPlatformInfo)
 	return sevPlatformInfo, err
 }
+
+func (v *vmis) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+	sevMeasurementInfo := v1.SEVMeasurementInfo{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/querylaunchmeasurement")
+	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevMeasurementInfo)
+	return sevMeasurementInfo, err
+}

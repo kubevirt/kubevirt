@@ -451,6 +451,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Rng":                                                                schema_kubevirtio_api_core_v1_Rng(ref),
 		"kubevirt.io/api/core/v1.SEV":                                                                schema_kubevirtio_api_core_v1_SEV(ref),
 		"kubevirt.io/api/core/v1.SEVAttestation":                                                     schema_kubevirtio_api_core_v1_SEVAttestation(ref),
+		"kubevirt.io/api/core/v1.SEVMeasurementInfo":                                                 schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPlatformInfo":                                                    schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPolicy":                                                          schema_kubevirtio_api_core_v1_SEVPolicy(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
@@ -21103,6 +21104,75 @@ func schema_kubevirtio_api_core_v1_SEVAttestation(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SEVMeasurementInfo contains information about the guest launch measurement.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"measurement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded launch measurement of the SEV guest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiMajor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "API major version of the SEV host.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"apiMinor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "API minor version of the SEV host.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"buildID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Build ID of the SEV host.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Policy of the SEV guest.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"loaderSHA": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SHA256 of the loader binary",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
