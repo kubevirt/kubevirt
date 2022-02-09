@@ -56,7 +56,7 @@ var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, retries int32) *batchv1.Job {
-		job := tests.NewHelloWorldJob(host, port)
+		job := tests.NewHelloWorldJobTCP(host, port)
 		job.Spec.BackoffLimit = &retries
 		var err error
 		job, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})

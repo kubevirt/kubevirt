@@ -242,7 +242,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Skip("Skip network test that requires multiple nodes when only one node is present.")
 				}
 
-				job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
+				job := tests.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
 				job.Spec.Template.Spec.Affinity = &v12.Affinity{
 					NodeAffinity: &v12.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{

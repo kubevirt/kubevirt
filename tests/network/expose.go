@@ -82,7 +82,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port), metav1.CreateOptions{})
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobTCP(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
