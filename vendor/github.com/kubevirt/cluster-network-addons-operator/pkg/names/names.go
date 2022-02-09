@@ -23,3 +23,5 @@ const VERSION_LABEL_KEY = "app.kubernetes.io/version"
 const MANAGED_BY_LABEL_KEY = "app.kubernetes.io/managed-by"
 const COMPONENT_LABEL_DEFAULT_VALUE = "network"
 const MANAGED_BY_LABEL_DEFAULT_VALUE = "cnao-operator"
+
+const KUBEMACPOOL_CONTROL_PLANE_KEY = "control-plane"
