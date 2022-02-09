@@ -582,6 +582,7 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist").To(lifecycleHandler.GetFilesystems).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vsock").Param(restful.QueryParameter("port", "Target VSOCK port")).To(consoleHandler.VSOCKHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain").To(lifecycleHandler.SEVFetchCertChainHandler).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.SEVPlatformInfo{}))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/querylaunchmeasurement").To(lifecycleHandler.SEVQueryLaunchMeasurementHandler).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.SEVMeasurementInfo{}))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),

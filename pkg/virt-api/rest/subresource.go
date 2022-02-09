@@ -65,6 +65,7 @@ const (
 	jsonpatchTestErr             = "jsonpatch test operation does not apply"
 	patchingVMStatusFmt          = "Patching VM status: %s"
 	vmiNotRunning                = "VMI is not running"
+	vmiNotPaused                 = "VMI is not paused"
 	vmiGuestAgentErr             = "VMI does not have guest agent connected"
 	vmiNoAttestationErr          = "Attestation not requested for VMI"
 	prepConnectionErrFmt         = "Cannot prepare connection %s"
@@ -757,11 +758,11 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not paused"))
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
 		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not paused"))
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotPaused))
 		}
 		return nil
 	}
@@ -1627,4 +1628,30 @@ func (app *SubresourceAPIApp) SEVFetchCertChainRequestHandler(request *restful.R
 	}
 
 	app.httpGetRequestHandler(request, response, validate, getURL, v1.SEVPlatformInfo{})
+}
+
+func (app *SubresourceAPIApp) SEVQueryLaunchMeasurementHandler(request *restful.Request, response *restful.Response) {
+	if !app.ensureSEVEnabled(response) {
+		return
+	}
+
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if !vmi.IsRunning() {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		if !kutil.IsSEVAttestationRequested(vmi) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotPaused))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SEVQueryLaunchMeasurementURI(vmi)
+	}
+
+	app.httpGetRequestHandler(request, response, validate, getURL, v1.SEVMeasurementInfo{})
 }

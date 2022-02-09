@@ -11667,6 +11667,47 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/querylaunchmeasurement": {
+    "get": {
+     "description": "Query SEV launch measurement from a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1SEVQueryLaunchMeasurement",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.SEVMeasurementInfo"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
@@ -13115,6 +13156,47 @@
        "description": "OK",
        "schema": {
         "$ref": "#/definitions/v1.SEVPlatformInfo"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/querylaunchmeasurement": {
+    "get": {
+     "description": "Query SEV launch measurement from a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3SEVQueryLaunchMeasurement",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.SEVMeasurementInfo"
        }
       },
       "401": {
@@ -17945,6 +18027,48 @@
    },
    "v1.SEVAttestation": {
     "type": "object"
+   },
+   "v1.SEVMeasurementInfo": {
+    "description": "SEVMeasurementInfo contains information about the guest launch measurement.",
+    "type": "object",
+    "properties": {
+     "apiMajor": {
+      "description": "API major version of the SEV host.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "apiMinor": {
+      "description": "API minor version of the SEV host.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "buildID": {
+      "description": "Build ID of the SEV host.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "loaderSHA": {
+      "description": "SHA256 of the loader binary",
+      "type": "string"
+     },
+     "measurement": {
+      "description": "Base64 encoded launch measurement of the SEV guest.",
+      "type": "string"
+     },
+     "policy": {
+      "description": "Policy of the SEV guest.",
+      "type": "integer",
+      "format": "int32"
+     }
+    }
    },
    "v1.SEVPlatformInfo": {
     "description": "SEVPlatformInfo contains information about the AMD SEV features for the node.",

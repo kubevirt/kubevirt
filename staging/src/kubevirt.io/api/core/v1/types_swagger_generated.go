@@ -854,3 +854,15 @@ func (SEVPlatformInfo) SwaggerDoc() map[string]string {
 		"certChain": "Base64 encoded SEV certificate chain.",
 	}
 }
+
+func (SEVMeasurementInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "SEVMeasurementInfo contains information about the guest launch measurement.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"measurement": "Base64 encoded launch measurement of the SEV guest.",
+		"apiMajor":    "API major version of the SEV host.",
+		"apiMinor":    "API minor version of the SEV host.",
+		"buildID":     "Build ID of the SEV host.",
+		"policy":      "Policy of the SEV guest.",
+		"loaderSHA":   "SHA256 of the loader binary",
+	}
+}

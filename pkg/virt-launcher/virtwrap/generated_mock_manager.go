@@ -296,3 +296,14 @@ func (_m *MockDomainManager) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
 func (_mr *_MockDomainManagerRecorder) GetSEVInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo")
 }
+
+func (_m *MockDomainManager) GetLaunchMeasurement(_param0 *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchMeasurement", _param0)
+	ret0, _ := ret[0].(*v1.SEVMeasurementInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetLaunchMeasurement(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchMeasurement", arg0)
+}

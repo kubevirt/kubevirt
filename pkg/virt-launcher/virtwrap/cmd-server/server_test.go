@@ -284,6 +284,21 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(fetchedSEVPlatformInfo).To(Equal(sevPlatformInfo))
 		})
 
+		It("should return a vmi launch measurement", func() {
+			sevMeasurementInfo := &v1.SEVMeasurementInfo{
+				Measurement: "AAABBBCCC",
+				APIMajor:    1,
+				APIMinor:    2,
+				BuildID:     0xee,
+				Policy:      0xff,
+			}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().GetLaunchMeasurement(vmi).Return(sevMeasurementInfo, nil)
+			fetchedSEVMeasurementInfo, err := client.GetLaunchMeasurement(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVMeasurementInfo).To(Equal(sevMeasurementInfo))
+		})
+
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"

@@ -2540,3 +2540,22 @@ type SEVPlatformInfo struct {
 	// Base64 encoded SEV certificate chain.
 	CertChain string `json:"certChain,omitempty"`
 }
+
+// SEVMeasurementInfo contains information about the guest launch measurement.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SEVMeasurementInfo struct {
+	metav1.TypeMeta `json:",inline"`
+	// Base64 encoded launch measurement of the SEV guest.
+	Measurement string `json:"measurement,omitempty"`
+	// API major version of the SEV host.
+	APIMajor uint `json:"apiMajor,omitempty"`
+	// API minor version of the SEV host.
+	APIMinor uint `json:"apiMinor,omitempty"`
+	// Build ID of the SEV host.
+	BuildID uint `json:"buildID,omitempty"`
+	// Policy of the SEV guest.
+	Policy uint `json:"policy,omitempty"`
+	// SHA256 of the loader binary
+	LoaderSHA string `json:"loaderSHA,omitempty"`
+}

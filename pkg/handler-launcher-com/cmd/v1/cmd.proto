@@ -29,6 +29,7 @@ service Cmd {
   rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
   rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
+  rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
 }
 
 message VMI {
@@ -169,4 +170,9 @@ message MemoryDumpRequest {
 message SEVInfoResponse {
   Response response = 1;
   bytes sevInfo = 2;
+}
+
+message LaunchMeasurementResponse {
+  Response response = 1;
+  bytes launchMeasurement = 2;
 }

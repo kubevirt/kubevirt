@@ -594,3 +594,14 @@ func (_m *MockVirDomain) CoreDumpWithFormat(to string, format libvirt.DomainCore
 func (_mr *_MockVirDomainRecorder) CoreDumpWithFormat(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CoreDumpWithFormat", arg0, arg1, arg2)
 }
+
+func (_m *MockVirDomain) GetLaunchSecurityInfo(flags uint32) (*libvirt.DomainLaunchSecurityParameters, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchSecurityInfo", flags)
+	ret0, _ := ret[0].(*libvirt.DomainLaunchSecurityParameters)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetLaunchSecurityInfo(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchSecurityInfo", arg0)
+}

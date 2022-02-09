@@ -854,6 +854,7 @@ spec:
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
+          - virtualmachineinstances/sev/querylaunchmeasurement
           verbs:
           - get
         - apiGroups:
@@ -999,6 +1000,7 @@ spec:
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
+          - virtualmachineinstances/sev/querylaunchmeasurement
           verbs:
           - get
         - apiGroups:
@@ -1142,6 +1144,7 @@ spec:
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
+          - virtualmachineinstances/sev/querylaunchmeasurement
           verbs:
           - get
         - apiGroups:
