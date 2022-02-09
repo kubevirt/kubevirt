@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["qos.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/qos-hook-sidecar",
+    importpath = "kubevirt.io/kubevirt/cmd/ecx-hook-sidecar",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/hooks:go_default_library",
@@ -19,7 +19,7 @@ go_library(
 )
 
 go_binary(
-    name = "qos-hook-sidecar",
+    name = "ecx-hook-sidecar",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
@@ -30,7 +30,7 @@ load(
 )
 
 container_image(
-    name = "qos-hook-sidecar-image",
+    name = "ecx-hook-sidecar-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
@@ -40,7 +40,7 @@ container_image(
         "//conditions:default": "@fedora//image",
     }),
     directory = "/",
-    entrypoint = ["/qos-hook-sidecar"],
-    files = [":qos-hook-sidecar"],
+    entrypoint = ["/ecx-hook-sidecar"],
+    files = [":ecx-hook-sidecar"],
     visibility = ["//visibility:public"],
 )

@@ -184,7 +184,7 @@ container_bundle(
     name = "build-other-images",
     images = {
         # cmd images
-        "$(container_prefix)/$(image_prefix)qos-hook-sidecar:$(container_tag)": "//cmd/qos-hook-sidecar:qos-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)ecx-hook-sidecar:$(container_tag)": "//cmd/ecx-hook-sidecar:ecx-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)subresource-access-test:$(container_tag)": "//cmd/subresource-access-test:subresource-access-test-image",

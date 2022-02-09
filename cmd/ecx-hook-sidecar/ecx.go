@@ -185,13 +185,13 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 }
 
 func main() {
-	log.InitializeLogging("qos-hook-sidecar")
+	log.InitializeLogging("ecx-hook-sidecar")
 
 	var version string
 	pflag.StringVar(&version, "version", "", "hook version to use")
 	pflag.Parse()
 
-	socketPath := hooks.HookSocketsSharedDirectory + "/qos.sock"
+	socketPath := hooks.HookSocketsSharedDirectory + "/ecx.sock"
 	socket, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
@@ -203,7 +203,7 @@ func main() {
 	server := grpc.NewServer([]grpc.ServerOption{}...)
 
 	if version == "" {
-		panic(fmt.Errorf("usage: \n        /qos-hook-sidecar --version v1alpha1|v1alpha2"))
+		panic(fmt.Errorf("usage: \n        /ecx-hook-sidecar --version v1alpha1|v1alpha2"))
 	}
 	hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
 	hooksV1alpha1.RegisterCallbacksServer(server, v1alpha1Server{})
