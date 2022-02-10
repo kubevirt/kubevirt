@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func WaitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.VirtualMachineInstance) error) {
+func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.VirtualMachineInstance) error) {
 	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
 	if vmi.Namespace == "" {
 		vmi.Namespace = util.NamespaceTestDefault
@@ -87,7 +87,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				WaitForVMIRebooted(vmi, console.LoginToFedora)
+				waitForVMIRebooted(vmi, console.LoginToFedora)
 			})
 		})
 
@@ -101,7 +101,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).SoftReboot(vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				WaitForVMIRebooted(vmi, console.LoginToCirros)
+				waitForVMIRebooted(vmi, console.LoginToCirros)
 			})
 		})
 
@@ -114,7 +114,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				command := tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
 
-				WaitForVMIRebooted(vmi, console.LoginToFedora)
+				waitForVMIRebooted(vmi, console.LoginToFedora)
 			})
 		})
 
@@ -128,7 +128,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				command := tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
 
-				WaitForVMIRebooted(vmi, console.LoginToCirros)
+				waitForVMIRebooted(vmi, console.LoginToCirros)
 			})
 		})
 
@@ -167,7 +167,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				command = tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
 
-				WaitForVMIRebooted(vmi, console.LoginToFedora)
+				waitForVMIRebooted(vmi, console.LoginToFedora)
 			})
 		})
 	})
