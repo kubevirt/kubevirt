@@ -523,8 +523,56 @@ func BeforeTestCleanup() {
 	cleanNamespaces()
 	CleanNodes()
 	resetToDefaultConfig()
+	ensureKubevirtInfra()
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
+}
+
+func ensureKubevirtInfra() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+	kv := util2.GetCurrentKv(virtClient)
+
+	timeout := 180 * time.Second
+	interval := 1 * time.Second
+
+	deployments := []string{
+		"virt-operator",
+		components.VirtAPIName,
+		components.VirtControllerName,
+	}
+
+	ensureDeployment := func(deploymentName string) {
+		deployment, err := virtClient.
+			AppsV1().
+			Deployments(kv.Namespace).
+			Get(context.Background(), deploymentName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		EventuallyWithOffset(
+			1,
+			ThisDeploymentWith(kv.Namespace, deploymentName),
+			timeout,
+			interval).
+			Should(HaveReadyReplicasNumerically("==", *deployment.Spec.Replicas),
+				"waiting for %s deployment to be ready", deploymentName)
+	}
+
+	for _, deploymentName := range deployments {
+		ensureDeployment(deploymentName)
+	}
+
+	//TODO: implement matcher for Daemonset in test infra
+	Eventually(func() bool {
+		ds, err := virtClient.
+			AppsV1().
+			DaemonSets(kv.Namespace).
+			Get(context.Background(), components.VirtHandlerName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady
+	}, timeout, interval).Should(BeTrue(), "waiting for virt-handler daemonSet to be ready")
+
 }
 
 func CleanNodes() {
@@ -4492,6 +4540,7 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 			if pod.DeletionTimestamp != nil {
 				continue
 			}
+
 			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
 				return fmt.Errorf("failed to call healthz endpoint. %s", errAdditionalInfo)
