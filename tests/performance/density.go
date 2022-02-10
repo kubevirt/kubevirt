@@ -43,6 +43,14 @@ import (
 )
 
 var PrometheusScrapeInterval = time.Duration(30 * time.Second)
+
+const (
+	patchVMICountToPodCreateCountThreshold  = 2
+	updateVMICountToPodCreateCountThreshold = 10
+	vmiCreationToRunningSecondsP50Threshold = 45
+	vmiCreationToRunningSecondsP95Threshold = 60
+)
+
 var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
 		err        error
@@ -99,15 +107,40 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	})
 })
 
+func defineThresholds() map[audit_api.ResultType]audit_api.InputThreshold {
+	thresholds := map[audit_api.ResultType]audit_api.InputThreshold{}
+	thresholds[audit_api.ResultTypePatchVMICount] = audit_api.InputThreshold{
+		Metric: audit_api.ResultTypeCreatePodsCount,
+		Ratio:  patchVMICountToPodCreateCountThreshold,
+	}
+
+	thresholds[audit_api.ResultTypeUpdateVMICount] = audit_api.InputThreshold{
+		Metric: audit_api.ResultTypeCreatePodsCount,
+		Ratio:  updateVMICountToPodCreateCountThreshold,
+	}
+
+	thresholds[audit_api.ResultTypeVMICreationToRunningP50] = audit_api.InputThreshold{
+		Value: vmiCreationToRunningSecondsP50Threshold,
+	}
+
+	thresholds[audit_api.ResultTypeVMICreationToRunningP95] = audit_api.InputThreshold{
+		Value: vmiCreationToRunningSecondsP95Threshold,
+	}
+	return thresholds
+}
+
 func runAudit(startTime time.Time, endTime time.Time) {
 	prometheusPort := 30007
 	duration := audit_api.Duration(endTime.Sub(startTime))
+
 	inputCfg := &audit_api.InputConfig{
+
 		PrometheusURL:            fmt.Sprintf("http://127.0.0.1:%v", prometheusPort),
 		StartTime:                &startTime,
 		EndTime:                  &endTime,
 		Duration:                 &duration,
 		PrometheusScrapeInterval: PrometheusScrapeInterval,
+		ThresholdExpectations:    defineThresholds(),
 	}
 
 	metricClient, err := metric_client.NewMetricClient(inputCfg)
