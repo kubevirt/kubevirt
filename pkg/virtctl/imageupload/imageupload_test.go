@@ -61,6 +61,7 @@ var _ = Describe("ImageUpload", func() {
 
 		imagePath       string
 		archiveFilePath string
+		tmpDir          string
 	)
 
 	BeforeEach(func() {
@@ -76,12 +77,17 @@ var _ = Describe("ImageUpload", func() {
 		defer imageFile.Close()
 
 		imagePath = imageFile.Name()
+		tmpDir, err = ioutil.TempDir("", "imageupload")
+		Expect(err).ToNot(HaveOccurred())
 
-		archiveFilePath = tests.ArchiveFiles("archive", os.TempDir(), imagePath)
+		archiveFilePath = tests.ArchiveFiles("archive", tmpDir, imagePath)
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
+		if tmpDir != "" {
+			os.RemoveAll(tmpDir)
+		}
 		os.Remove(imagePath)
 		os.Remove(archiveFilePath)
 	})
