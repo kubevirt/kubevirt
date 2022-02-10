@@ -1752,15 +1752,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[QUARANTINE][test_id:4747] should migrate using cluster level config for postcopy", func() {
-				config := getCurrentKv()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-				bandwidth := resource.MustParse("256Mi")
-				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
-				tests.UpdateKubeVirtConfigValueAndWait(config)
-
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
