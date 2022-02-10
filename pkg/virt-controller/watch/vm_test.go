@@ -958,7 +958,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				if runStrategy != virtv1.RunStrategyManual {
+				if runStrategy != virtv1.RunStrategyManual && runStrategy != virtv1.RunStrategyOnce {
 					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 				}
 			},
@@ -967,6 +967,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("always", virtv1.RunStrategyAlways),
 				table.Entry("manual", virtv1.RunStrategyManual),
 				table.Entry("rerunOnFailure", virtv1.RunStrategyRerunOnFailure),
+				table.Entry("once", virtv1.RunStrategyOnce),
 			)
 
 			table.DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
@@ -1249,9 +1250,11 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should create missing VirtualMachineInstance", func() {
+		table.DescribeTable("should create missing VirtualMachineInstance", func(runStrategy virtv1.VirtualMachineRunStrategy) {
 			vm, vmi := DefaultVirtualMachine(true)
 
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
 			addVirtualMachine(vm)
 
 			// expect creation called
@@ -1268,7 +1271,12 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-		})
+		},
+
+			table.Entry("with run strategy Always", virtv1.RunStrategyAlways),
+			table.Entry("with run strategy Once", virtv1.RunStrategyOnce),
+			table.Entry("with run strategy RerunOnFailure", virtv1.RunStrategyRerunOnFailure),
+		)
 
 		It("should ignore the name of a VirtualMachineInstance templates", func() {
 			vm, vmi := DefaultVirtualMachineWithNames(true, "vmname", "vminame")
@@ -1363,6 +1371,28 @@ var _ = Describe("VirtualMachine", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
+
+		table.DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy virtv1.VirtualMachineRunStrategy) {
+			vm, vmi := DefaultVirtualMachine(true)
+
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
+
+			vmi.Status.Phase = virtv1.Failed
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			shouldExpectVMIFinalizerRemoval(vmi)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+		},
+
+			table.Entry("with run strategy Once", virtv1.RunStrategyOnce),
+			table.Entry("with run strategy Manual", virtv1.RunStrategyManual),
+		)
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(false)
@@ -1911,6 +1941,18 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					virtv1.RunStrategyManual,
 					false,
+					false),
+				table.Entry("vm with runStrategy once should not report crash loop",
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					virtv1.RunStrategyOnce,
+					true,
 					false),
 				table.Entry("vm with runStrategy always and VMI still exists should not report crash loop",
 					virtv1.VirtualMachineStatus{
