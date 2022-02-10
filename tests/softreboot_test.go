@@ -141,6 +141,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				command := tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				err := command()
+				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VMI neither have the agent connected nor the ACPI feature enabled"))
 			})
 		})
@@ -156,6 +157,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				command = tests.NewRepeatableVirtctlCommand(virtctlsoftreboot.COMMAND_SOFT_REBOOT, "--namespace", util.NamespaceTestDefault, vmi.Name)
 				err := command()
+				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VMI is paused"))
 
 				command = tests.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_UNPAUSE, "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
