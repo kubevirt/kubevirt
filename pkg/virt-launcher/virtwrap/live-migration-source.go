@@ -511,12 +511,24 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	}
 
 	now := metav1.Now()
+	metaAbortStatus := domainSpec.Metadata.KubeVirt.Migration.AbortStatus
 	if abortStatus != "" {
-		metaAbortStatus := domainSpec.Metadata.KubeVirt.Migration.AbortStatus
 		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
 			return domainerrors.MigrationAbortInProgressError
 		}
 		domainSpec.Metadata.KubeVirt.Migration.AbortStatus = string(abortStatus)
+	}
+
+	// In case that migrations are not reported as aborted, but as failed or succeeded, but we know that an abort was
+	// requested, we schould set the resulting outcome of the abort.
+	if isMigrationAbortInProgress(domainSpec) {
+		if failed {
+			// Migration failed, and we wanted an abort, we can count that as a win.
+			domainSpec.Metadata.KubeVirt.Migration.AbortStatus = string(v1.MigrationAbortSucceeded)
+		} else if completed {
+			// A migration abort was requested but the migration succeeded anyway, we lost the race
+			domainSpec.Metadata.KubeVirt.Migration.AbortStatus = string(v1.MigrationAbortFailed)
+		}
 	}
 
 	if failed {
