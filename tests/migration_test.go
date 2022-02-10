@@ -349,13 +349,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		return pid
 	}
 
-	deleteDataVolume := func(dv *cdiv1.DataVolume) {
-		if dv != nil {
-			By("Deleting the DataVolume")
-			ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-		}
-	}
-
 	setMigrationBandwidthLimitation := func(migrationBandwidth resource.Quantity) {
 		cfg := getCurrentKv()
 		cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
@@ -1204,8 +1197,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			})
 			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", func() {
-				vmi, dv := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				defer deleteDataVolume(dv)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 300)
@@ -2212,13 +2204,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("live migration cancelation", func() {
-			type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+			type vmiBuilder func() *v1.VirtualMachineInstance
 
-			newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-				return tests.NewRandomFedoraVMIWithGuestAgent(), nil
+			newVirtualMachineInstanceWithFedoraContainerDisk := func() *v1.VirtualMachineInstance {
+				return tests.NewRandomFedoraVMIWithGuestAgent()
 			}
 
-			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() *v1.VirtualMachineInstance {
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -2235,16 +2227,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
-				return vmi, dv
+				return vmi
 			}
 
-			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
-				vmi, dv := createVMI()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-				defer deleteDataVolume(dv)
-
-				By("Limiting the bandwidth of migrations in the test namespace")
-				quantity := resource.MustParse("1Mi")
+			limitMigrationBadwidth := func(quantity resource.Quantity) error {
 				migrationPolicy := &v1alpha1.MigrationPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: util.NamespaceTestDefault,
@@ -2265,7 +2251,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				_, err := virtClient.MigrationPolicy().Create(context.Background(), migrationPolicy, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				return err
+			}
+
+			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
+				vmi := createVMI()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -2295,11 +2289,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
+				By("Limiting the bandwidth of migrations in the test namespace")
+				Expect(limitMigrationBadwidth(resource.MustParse("1Mi"))).To(Succeed())
+
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
