@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -33,11 +34,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func createFile(fullPath string) {
-	f, err := os.OpenFile(fullPath, os.O_RDONLY|os.O_CREATE, 0666)
-	Expect(err).NotTo(HaveOccurred())
-	if f != nil {
-		f.Close()
+func createFiles(filenames []string) {
+	for _, f := range filenames {
+		f, err := os.OpenFile(filepath.Join(SysprepSourceDir, "sysprep-volume", f), os.O_RDONLY|os.O_CREATE, 0666)
+		Expect(err).NotTo(HaveOccurred())
+		if f != nil {
+			f.Close()
+		}
 	}
 }
 
@@ -83,35 +86,31 @@ var _ = Describe("SysprepConfigMap", func() {
 		},
 	})
 
-	Describe("With invalid file name", func() {
-		BeforeEach(func() {
-			createFile(filepath.Join(SysprepSourceDir, "sysprep-volume", "wrongname.xml"))
-		})
+	DescribeTable("Assert successful sysprep ISO creation with CreateSysprepDisks",
+		func(vmi *v1.VirtualMachineInstance, filenames []string) {
+			createFiles(filenames)
+			err := CreateSysprepDisks(vmi, false)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Stat(filepath.Join(SysprepDisksDir, "sysprep-volume.iso"))
+			Expect(err).NotTo(HaveOccurred())
+		},
+		Entry("Should pass when using a configMap and finding valid filenames", vmiConfigMap, []string{"AutounattenD.xml", "UnattenD.xml"}),
+		Entry("Should pass when using a configMap and finding only autoattend.xml", vmiConfigMap, []string{"Autounattend.xml"}),
+		Entry("Should pass when using a configMap and finding only unattend.xml", vmiConfigMap, []string{"Unattend.xml"}),
+		Entry("Should pass when using a secret and finding valid filenames", vmiSecret, []string{"AutounattenD.xml", "UnattenD.xml"}),
+		Entry("Should pass when using a secret and finding only autoattend.xml", vmiSecret, []string{"Autounattend.xml"}),
+		Entry("Should pass when using a secret and finding only unattend.xml", vmiSecret, []string{"Unattend.xml"}),
+	)
 
-		It("Should fail on creating config map iso disk", func() {
-			err := CreateSysprepDisks(vmiConfigMap, false)
+	DescribeTable("Assert failures when creating sysprep ISO with CreateSysprepDisks",
+		func(vmi *v1.VirtualMachineInstance, filenames []string) {
+			createFiles(filenames)
+			err := CreateSysprepDisks(vmi, false)
 			Expect(err).To(HaveOccurred())
-		})
-	})
-
-	Describe("With valid file name (autounattend.xml)", func() {
-		BeforeEach(func() {
-			// Check case-insensitivity (should accept anything Windows accepts).
-			createFile(filepath.Join(SysprepSourceDir, "sysprep-volume", "AutounattenD.xml"))
-		})
-
-		It("Should create a new config map iso disk", func() {
-			err := CreateSysprepDisks(vmiConfigMap, false)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(SysprepDisksDir, "sysprep-volume.iso"))
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("Should create a new secret iso disk", func() {
-			err := CreateSysprepDisks(vmiSecret, false)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(SysprepDisksDir, "sysprep-volume.iso"))
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
+		},
+		Entry("Should fail when using a configMap and finding no filenames", vmiConfigMap, []string{}),
+		Entry("Should fail when using a configMap and finding incorrect filenames", vmiConfigMap, []string{"wrongname.xml", "foobar.xml"}),
+		Entry("Should fail when using a secret and finding no filenames", vmiSecret, []string{}),
+		Entry("Should fail when using a secret and finding incorrect filenames", vmiSecret, []string{"wrongname.xml", "foobar.xml"}),
+	)
 })
