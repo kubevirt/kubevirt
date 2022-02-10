@@ -67,6 +67,10 @@ function remove_finalizers() {
         local ns="${arr[1]}"
         patch_remove_finalizers -n $ns vm $name
     done
+
+    _kubectl get customresourcedefinitions -l kubevirt.io -o=custom-columns=NAME:.metadata.name --no-headers | while read p; do
+        _kubectl patch customresourcedefinitions --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]' $p
+    done
 }
 
 function delete_resources() {

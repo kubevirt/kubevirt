@@ -63,7 +63,8 @@ function functest() {
 }
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
-    trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
+    # TODO-OR fix path of files
+    trap "mv partial2.junit2.functest.xml ${ARTIFACTS} || true; _out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial2.*.xml'" EXIT
     parallel_test_args=""
     serial_test_args=""
 
@@ -83,16 +84,20 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
 
     return_value=0
     set +e
-    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
+    KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA="--junit-report partial2.junit1.functest.xml ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
+    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA}
     return_value="$?"
     set -e
+    mv partial2.junit1.functest.xml ${ARTIFACTS}
     if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
         exit "$return_value"
     fi
     KUBEVIRT_FUNC_TEST_SUITE_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
-    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
+    KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA="--junit-report partial2.junit2.functest.xml ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
+    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA}
     exit "$return_value"
 else
+    trap "mv junit.functest.xml ${ARTIFACTS}" EXIT
     additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
         additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
@@ -102,5 +107,7 @@ else
         additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
     fi
 
+    # TODO-OR fix path
+    KUBEVIRT_FUNC_TEST_GINKGO_ARGS="--junit-report junit.functest.xml ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 fi

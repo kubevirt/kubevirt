@@ -65,6 +65,12 @@ const (
 
 type JustAfterEachReporter interface {
 	JustAfterEach(specSummary ginkgo.GinkgoTestDescription)
+	AfterSuiteDidRun(setupSummary *types.SetupSummary)
+	BeforeSuiteDidRun(setupSummary *types.SetupSummary)
+	SpecDidComplete(specSummary *types.SpecSummary)
+	SpecWillRun(specSummary *types.SpecSummary)
+	SuiteDidEnd(suiteSummary *types.SuiteSummary)
+	SuiteWillBegin(ginkgoConfigType config.GinkgoConfigType, suiteSummary *types.SuiteSummary)
 }
 
 type KubernetesReporter struct {
@@ -95,7 +101,7 @@ func (r *KubernetesReporter) BeforeSuiteDidRun(_ *types.SetupSummary) {
 }
 
 func (r *KubernetesReporter) SpecWillRun(_ *types.SpecSummary) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
+
 }
 
 func (r *KubernetesReporter) SpecDidComplete(_ *types.SpecSummary) {}

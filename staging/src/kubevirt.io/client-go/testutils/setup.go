@@ -44,7 +44,7 @@ func KubeVirtTestSuiteSetup(t *testing.T) {
 			outputFile = fmt.Sprintf("%s-%d", outputFile, ginkgo.GinkgoParallelProcess())
 		}
 
-		ginkgo.RunSpecsWithDefaultAndCustomReporters(
+		ginkgo.RunSpecs(
 			t,
 			testTarget,
 			[]ginkgo.Reporter{

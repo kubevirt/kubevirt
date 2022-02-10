@@ -35,7 +35,7 @@ func TestLogging(t *testing.T) {
 			outputFile = fmt.Sprintf("%s-%d", outputFile, ginkgo.GinkgoParallelProcess())
 		}
 
-		ginkgo.RunSpecsWithDefaultAndCustomReporters(
+		ginkgo.RunSpecs(
 			t,
 			description,
 			[]ginkgo.Reporter{

@@ -71,10 +71,11 @@ func TestTests(t *testing.T) {
 	)
 	k8sReporter := reporter.NewKubernetesReporter(artifactsPath, maxFails)
 	justAfterEachReporter = append(justAfterEachReporter, outputEnricherReporter, k8sReporter)
-	reporters := []Reporter{
-		outputEnricherReporter,
-		k8sReporter,
-	}
+	// reporters := []Reporter{
+	// 	outputEnricherReporter,
+	// 	k8sReporter,
+	// }
+
 	// if qe_reporters.Polarion.Run {
 	// 	if suiteConfig.ParallelTotal > 1 {
 	// 		qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
@@ -85,7 +86,8 @@ func TestTests(t *testing.T) {
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
-	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
+	//TODO
+	RunSpecs(t, "Tests Suite") // , reporters)
 }
 
 var _ = SynchronizedBeforeSuite(tests.SynchronizedBeforeTestSetup, tests.BeforeTestSuitSetup)
@@ -109,8 +111,23 @@ func getMaxFailsFromEnv() int {
 
 // Collect info directly after each `It` execution with our reporters
 // to collect the state directly after the spec.
-var _ = JustAfterEach(func() {
-	for _, reporter := range justAfterEachReporter {
-		reporter.JustAfterEach(CurrentGinkgoTestDescription())
-	}
-})
+// var _ = JustAfterEach(func() {
+// 	for _, reporter := range justAfterEachReporter {
+// 		reporter.JustAfterEach(CurrentGinkgoTestDescription())
+// 	}
+// })
+
+// TODO-OR return the custom after each
+//TODO-OR fix the first arg
+//var _ = ReportAfterSuite("custom_fixme", func(report Report) {
+//	for _, reporter := range justAfterEachReporter {
+//		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)
+//	}
+//})
+
+// var _ = ReportAfterEach(func(specReport SpecReport) {
+// 	for _, reporter := range justAfterEachReporter {
+// 		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, specReport) // not the same type
+// 		//reporter.JustAfterEach(CurrentGinkgoTestDescription())
+// 	}
+// })
