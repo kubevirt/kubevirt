@@ -1237,6 +1237,9 @@ const (
 	// VMI will initially be running--and restarted if a failure occurs.
 	// It will not be restarted upon successful completion.
 	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
+	// VMI will run once and not be restarted upon completion regardless
+	// if the completion is of phase Failure or Success
+	RunStrategyOnce VirtualMachineRunStrategy = "Once"
 )
 
 // VirtualMachineSpec describes how the proper VirtualMachine
