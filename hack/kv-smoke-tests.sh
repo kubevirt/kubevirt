@@ -232,4 +232,5 @@ ${TESTS_BINARY} \
     -oc-path="$(which oc)" \
     -kubectl-path="$(which oc)" \
     -utility-container-prefix=quay.io/kubevirt \
-    -test.timeout=2h
+    -test.timeout=2h \
+    -artifacts=${ARTIFACT_DIR}/kubevirt_dump

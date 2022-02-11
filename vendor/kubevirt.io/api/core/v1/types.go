@@ -156,6 +156,26 @@ type VirtualMachineInstanceSpec struct {
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 
+func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
+	type VMISpecAlias VirtualMachineInstanceSpec
+	var vmiSpecAlias VMISpecAlias
+
+	if err := json.Unmarshal(data, &vmiSpecAlias); err != nil {
+		return err
+	}
+
+	if vmiSpecAlias.DNSConfig != nil {
+		for i, ns := range vmiSpecAlias.DNSConfig.Nameservers {
+			if sanitizedIP, err := sanitizeIP(ns); err == nil {
+				vmiSpecAlias.DNSConfig.Nameservers[i] = sanitizedIP
+			}
+		}
+	}
+
+	*vmiSpec = VirtualMachineInstanceSpec(vmiSpecAlias)
+	return nil
+}
+
 // VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
 type VirtualMachineInstancePhaseTransitionTimestamp struct {
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
@@ -244,9 +264,13 @@ type PersistentVolumeClaimInfo struct {
 	// +optional
 	VolumeMode *k8sv1.PersistentVolumeMode `json:"volumeMode,omitempty"`
 
-	// Capacity represents the capacity set on the corresponding PVC spec
+	// Capacity represents the capacity set on the corresponding PVC status
 	// +optional
 	Capacity k8sv1.ResourceList `json:"capacity,omitempty"`
+
+	// Requests represents the resources requested by the corresponding PVC spec
+	// +optional
+	Requests k8sv1.ResourceList `json:"requests,omitempty"`
 
 	// Preallocated indicates if the PVC's storage is preallocated or not
 	// +optional
@@ -506,6 +530,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
+	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
+	InfoSource string `json:"infoSource,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -570,6 +596,13 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
 	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the dedicated CPU set on the target node
+	// +listType=atomic
+	TargetCPUSet []int `json:"targetCPUSet,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the numa topology on the target node
+	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -727,6 +760,9 @@ const (
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
+	// Set by virt-operator to coordinate component deletion
+	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
+
 	// Set by VMI controller to ensure VMIs are processed during deletion
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
@@ -776,6 +812,11 @@ const (
 	// This exists for functional testing
 	MigrationPendingPodTimeoutSecondsAnnotation string = "kubevirt.io/migrationPendingPodTimeoutSeconds"
 
+	// CustomLibvirtLogFiltersAnnotation can be used to customized libvirt log filters. Example value could be
+	// "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*".
+	// For more info: https://libvirt.org/kbase/debuglogs.html
+	CustomLibvirtLogFiltersAnnotation string = "kubevirt.io/libvirt-log-filters"
+
 	// RealtimeLabel marks the node as capable of running realtime workloads
 	RealtimeLabel string = "kubevirt.io/realtime"
 
@@ -791,6 +832,12 @@ const (
 
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
+
+	// FlavorAnnotation is the name of a VirtualMachineFlavor
+	FlavorAnnotation string = "kubevirt.io/flavor-name"
+
+	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
+	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1400,6 +1447,8 @@ const (
 	CacheNone DriverCache = "none"
 	// CacheWriteThrough - I/O from the guest is cached on the host but written through to the physical medium.
 	CacheWriteThrough DriverCache = "writethrough"
+	// CacheWriteBack - I/O from the guest is cached on the host.
+	CacheWriteBack DriverCache = "writeback"
 
 	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
 	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.

@@ -3,5 +3,6 @@
   "storageClassHostPath": "hostpath-provisioner",
   "storageClassRhel": "hostpath-provisioner",
   "storageClassWindows": "hostpath-provisioner",
+  "storageRWOFileSystem": "hostpath-provisioner",
   "manageStorageClasses": false
 }

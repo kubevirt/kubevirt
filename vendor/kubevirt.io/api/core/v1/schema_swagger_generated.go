@@ -284,6 +284,7 @@ func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
 func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the GPU device as exposed by a device plugin",
+		"tag":  "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 
@@ -301,6 +302,7 @@ func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
+		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 

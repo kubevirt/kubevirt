@@ -23,11 +23,11 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/tools v0.1.8
 	k8s.io/api v0.23.2
-	k8s.io/apiextensions-apiserver v0.23.0
+	k8s.io/apiextensions-apiserver v0.23.1
 	k8s.io/apimachinery v0.23.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
-	kubevirt.io/api v0.49.0
+	kubevirt.io/api v0.50.0-rc.0
 	kubevirt.io/containerized-data-importer-api v1.44.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.3
 	kubevirt.io/ssp-operator v0.13.1

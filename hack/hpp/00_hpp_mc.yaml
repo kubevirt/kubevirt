@@ -1,0 +1,84 @@
+---
+#
+# Create and mount a dedicated partition for PersistentVolumes
+# provisioned by kubevirt-hostpath-provisioner.
+#
+# See documentation:
+# - https://github.com/kubevirt/hostpath-provisioner-operator/blob/master/contrib/machineconfig-selinux-hpp.yaml
+#
+
+kind: MachineConfig
+apiVersion: machineconfiguration.openshift.io/v1
+metadata:
+  name: 100-worker-hostpath-provisioner
+  labels:
+    machineconfiguration.openshift.io/role: worker
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    systemd:
+      units:
+        - contents: |
+            [Unit]
+            Description=Create directory for hostpath provisioner
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=mkdir -p /var/hpvolumes
+
+            [Install]
+            WantedBy=local-fs.target
+          enabled: true
+          name: hostpath-provisioner-mkdir.service
+        - contents: |
+            # VirtualMachines have a dedicated disk for HPP while BM servers
+            # use their rootdisk for HPP
+            [Unit]
+            Description=Create filesystem for hostpath provisioner
+            ConditionPathExists=/dev/vdb
+            ConditionVirtualization=vm
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/bin/bash -c 'lsblk --noheadings --output=FSTYPE /dev/vdb | grep -Fw ext4 || /usr/sbin/mkfs.ext4 -q -L hpvolumes /dev/vdb'
+
+            [Install]
+            WantedBy=local-fs.target
+          enabled: true
+          name: hostpath-provisioner-mkfs.service
+        - contents: |
+            [Unit]
+            Description=Mount filesystem for hostpath provisioner
+            ConditionPathExists=/dev/disk/by-label/hpvolumes
+            ConditionVirtualization=vm
+            Requires=hostpath-provisioner-mkdir.service hostpath-provisioner-mkfs.service
+            After=hostpath-provisioner-mkdir.service hostpath-provisioner-mkfs.service
+            Before=hostpath-provisioner-selinux.service
+
+            [Mount]
+            What=/dev/disk/by-label/hpvolumes
+            Where=/var/hpvolumes
+
+            [Install]
+            WantedBy=local-fs.target
+          enabled: true
+          name: var-hpvolumes.mount
+        - contents: |
+            [Unit]
+            Description=Set SELinux chcon for hostpath provisioner
+            Requires=local-fs.target hostpath-provisioner-mkdir.service
+            After=local-fs.target hostpath-provisioner-mkdir.service var-hpvolumes.mount
+            Before=kubelet.service
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/usr/bin/chcon -Rt container_file_t /var/hpvolumes
+
+            [Install]
+            WantedBy=local-fs.target
+          enabled: true
+          name: hostpath-provisioner-selinux.service

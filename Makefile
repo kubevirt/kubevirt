@@ -204,8 +204,13 @@ charts:
 local:
 	./hack/make_local.sh
 
-deploy_cr:
+deploy_cr: deploy_hco_cr deploy_hpp
+
+deploy_hco_cr:
 	./hack/deploy_only_cr.sh
+
+deploy_hpp:
+	./hack/hpp/deploy_hpp.sh
 
 validate-no-offensive-lang:
 	./hack/validate-no-offensive-lang.sh

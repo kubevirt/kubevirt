@@ -81,7 +81,8 @@ func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
 		"":                   "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
 		"accessModes":        "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
 		"volumeMode":         "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
-		"capacity":           "Capacity represents the capacity set on the corresponding PVC spec\n+optional",
+		"capacity":           "Capacity represents the capacity set on the corresponding PVC status\n+optional",
+		"requests":           "Requests represents the resources requested by the corresponding PVC spec\n+optional",
 		"preallocated":       "Preallocated indicates if the PVC's storage is preallocated or not\n+optional",
 		"filesystemOverhead": "Percentage of filesystem's size to be reserved when resizing the PVC\n+optional",
 	}
@@ -130,6 +131,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
 		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
 		"interfaceName": "The interface name inside the Virtual Machine",
+		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
 	}
 }
 
@@ -166,6 +168,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
 		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
 		"migrationConfiguration":         "Migration configurations to apply",
+		"targetCPUSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
+		"targetNodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
 	}
 }
 
