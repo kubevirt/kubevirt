@@ -50,28 +50,33 @@ func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 	return
 }
 
+type ipFamily string
+
+const (
+	ipv4            ipFamily = "ipv4"
+	ipv6            ipFamily = "ipv6"
+	dualIPv4Primary ipFamily = "ipv4,ipv6"
+	dualIPv6Primary ipFamily = "ipv6,ipv4"
+)
+
+func isDualStack(ipFamily ipFamily) bool {
+	return ipFamily == dualIPv4Primary || ipFamily == dualIPv6Primary
+}
+
+func doesSupportIpv6(ipFamily ipFamily) bool {
+	return ipFamily != ipv4
+}
+
+func doesSupportIpv4(ipFamily ipFamily) bool {
+	return ipFamily != ipv6
+}
+
 var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
 
 	const testPort = 1500
-
-	type ipFamily string
-	const (
-		ipv4            ipFamily = "ipv4"
-		ipv6            ipFamily = "ipv6"
-		dualIPv4Primary ipFamily = "ipv4,ipv6"
-		dualIPv6Primary ipFamily = "ipv6,ipv4"
-	)
-
-	isDualStack := func(ipFamily ipFamily) bool {
-		return ipFamily == dualIPv4Primary || ipFamily == dualIPv6Primary
-	}
-
-	doesSupportIpv6 := func(ipFamily ipFamily) bool {
-		return ipFamily != ipv4
-	}
 
 	const xfailError = "Secondary ip on dual stack service is not working. Tracking issue - https://github.com/kubevirt/kubevirt/issues/5477"
 
@@ -387,7 +392,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					nodeIP := node.Status.Addresses[0].Address
 					var ipv6NodeIP string
 
-					if ipFamily != ipv6 {
+					if doesSupportIpv4(ipFamily) {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
 							Expect(createAndWaitForJobToSucceed(tests.NewHelloWorldJobTCP, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
@@ -519,7 +524,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
 					}
 
-					if ipFamily != ipv6 {
+					if doesSupportIpv4(ipFamily) {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
 							Expect(createAndWaitForJobToSucceed(tests.NewHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address")).To(Succeed())
