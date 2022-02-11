@@ -3503,7 +3503,7 @@ func DisableFeatureGate(feature string) {
 		}
 	}
 
-	newArray := []string{}
+	var newArray []string
 	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 	for _, fg := range featureGates {
 		if fg == feature {
