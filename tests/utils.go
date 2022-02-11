@@ -2111,17 +2111,17 @@ func execCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerN
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	config, err := kubecli.GetKubevirtClientConfig()
+	virtConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		return err
 	}
 
-	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	executor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
 	if err != nil {
 		return err
 	}
 
-	return exec.Stream(options)
+	return executor.Stream(options)
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -2333,10 +2333,10 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 func RemoveHostDiskImage(diskPath string, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
-	path := filepath.Join("/proc/1/root", diskPath)
+	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", path})
+	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -2542,9 +2542,9 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
 	name := vmi.Name
 	namespace := vmi.Namespace
-	labels := map[string]string{"name": name}
+	vmLabels := map[string]string{"name": name}
 	for k, v := range vmi.Labels {
-		labels[k] = v
+		vmLabels[k] = v
 	}
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2555,7 +2555,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:    labels,
+					Labels:    vmLabels,
 					Name:      name + "makeitinteresting", // this name should have no effect
 					Namespace: namespace,
 				},
@@ -2783,12 +2783,12 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 			Name(pod.Name).
 			SubResource("portforward")
 
-		config, err := kubecli.GetKubevirtClientConfig()
+		kubevirtClientConfig, err := kubecli.GetKubevirtClientConfig()
 		if err != nil {
 			errChan <- err
 			return
 		}
-		transport, upgrader, err := spdy.RoundTripperFor(config)
+		transport, upgrader, err := spdy.RoundTripperFor(kubevirtClientConfig)
 		if err != nil {
 			errChan <- err
 			return
@@ -3087,7 +3087,7 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		},
 	}
 
-	var cert []byte
+	var certificate []byte
 	EventuallyWithOffset(2, func() []byte {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
@@ -3100,12 +3100,12 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		}
 		mutex.Lock()
 		defer mutex.Unlock()
-		cert = make([]byte, len(rawCert))
-		copy(cert, rawCert)
-		return cert
+		certificate = make([]byte, len(rawCert))
+		copy(certificate, rawCert)
+		return certificate
 	}, 40*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 
-	return cert
+	return certificate
 }
 
 func CallUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
