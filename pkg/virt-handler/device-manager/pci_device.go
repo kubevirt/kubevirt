@@ -57,15 +57,12 @@ type PCIDevicePlugin struct {
 	devs          []*pluginapi.Device
 	server        *grpc.Server
 	socketPath    string
-	stop          chan struct{}
-	health        chan string
+	stop          <-chan struct{}
+	health        chan deviceHealth
 	devicePath    string
-	deviceName    string
 	resourceName  string
 	done          chan struct{}
 	deviceRoot    string
-	healthy       chan string
-	unhealthy     chan string
 	iommuToPCIMap map[string]string
 	initialized   bool
 	lock          *sync.Mutex
@@ -82,13 +79,11 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	dpi := &PCIDevicePlugin{
 		devs:          devs,
 		socketPath:    serverSock,
-		deviceName:    resourceName,
 		resourceName:  resourceName,
 		devicePath:    vfioDevicePath,
 		deviceRoot:    util.HostRootMount,
 		iommuToPCIMap: iommuToPCIMap,
-		healthy:       make(chan string),
-		unhealthy:     make(chan string),
+		health:        make(chan deviceHealth),
 		initialized:   false,
 		lock:          &sync.Mutex{},
 	}
@@ -116,7 +111,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 }
 
 // Start starts the device plugin
-func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
+func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
@@ -136,7 +131,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 	defer dpi.stopDevicePlugin()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-	err = dpi.Register()
+	err = dpi.register()
 	if err != nil {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
@@ -147,7 +142,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.server.Serve(sock)
 	}()
 
-	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
+	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
@@ -157,7 +152,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 	}()
 
 	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.deviceName)
+	logger.Infof("%s device plugin started", dpi.resourceName)
 	err = <-errChan
 
 	return err
@@ -175,17 +170,10 @@ func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DeviceP
 	done := false
 	for {
 		select {
-		case unhealthy := <-dpi.unhealthy:
+		case devHealth := <-dpi.health:
 			for _, dev := range dpi.devs {
-				if unhealthy == dev.ID {
-					dev.Health = pluginapi.Unhealthy
-				}
-			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case healthy := <-dpi.healthy:
-			for _, dev := range dpi.devs {
-				if healthy == dev.ID {
-					dev.Health = pluginapi.Healthy
+				if devHealth.DevId == dev.ID {
+					dev.Health = devHealth.Health
 				}
 			}
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
@@ -201,33 +189,14 @@ func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DeviceP
 	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
 	// There exists no explicit way to deregister devices
 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
+		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
 	}
 	close(dpi.deregistered)
 	return nil
 }
 
-func formatVFIODeviceSpecs(devID string) []*pluginapi.DeviceSpec {
-	// always add /dev/vfio/vfio device as well
-	devSpecs := make([]*pluginapi.DeviceSpec, 0)
-	devSpecs = append(devSpecs, &pluginapi.DeviceSpec{
-		HostPath:      vfioMount,
-		ContainerPath: vfioMount,
-		Permissions:   "mrw",
-	})
-
-	vfioDevice := filepath.Join(vfioDevicePath, devID)
-	devSpecs = append(devSpecs, &pluginapi.DeviceSpec{
-		HostPath:      vfioDevice,
-		ContainerPath: vfioDevice,
-		Permissions:   "mrw",
-	})
-	return devSpecs
-}
-
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	resourceName := dpi.deviceName
-	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
@@ -311,14 +280,20 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 			if monDevId, exist := monitoredDevices[event.Name]; exist {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.deviceName)
-					dpi.healthy <- monDevId
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
+					dpi.health <- deviceHealth{
+						DevId:  monDevId,
+						Health: pluginapi.Healthy,
+					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.deviceName)
-					dpi.unhealthy <- monDevId
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
+					dpi.health <- deviceHealth{
+						DevId:  monDevId,
+						Health: pluginapi.Unhealthy,
+					}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
 		}
@@ -330,7 +305,7 @@ func (dpi *PCIDevicePlugin) GetDevicePath() string {
 }
 
 func (dpi *PCIDevicePlugin) GetDeviceName() string {
-	return dpi.deviceName
+	return dpi.resourceName
 }
 
 // Stop stops the gRPC server
@@ -355,8 +330,8 @@ func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *PCIDevicePlugin) Register() error {
-	conn, err := connect(pluginapi.KubeletSocket, connectionTimeout)
+func (dpi *PCIDevicePlugin) register() error {
+	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
 	if err != nil {
 		return err
 	}
