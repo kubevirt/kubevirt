@@ -256,27 +256,14 @@ func createReadyCirrosVMIWithReadinessProbe(virtClient kubecli.KubevirtClient, p
 	vmi := libvmi.NewCirros()
 	vmi.Spec.ReadinessProbe = probe
 
-	return createAndBlockUntilVMIHasStarted(virtClient, vmi)
+	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createReadyCirrosVMIWithLivenessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewCirros()
 	vmi.Spec.LivenessProbe = probe
 
-	return createAndBlockUntilVMIHasStarted(virtClient, vmi)
-}
-
-func createAndBlockUntilVMIHasStarted(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-	Expect(err).ToNot(HaveOccurred())
-
-	// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
-	tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-
-	// read back the created VMI, so it has the UID available on it
-	startedVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return startedVMI
+	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func vmiReady(vmi *v1.VirtualMachineInstance) corev1.ConditionStatus {
