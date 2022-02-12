@@ -77,7 +77,12 @@ var _ = Describe("ImageUpload", func() {
 
 		imagePath = imageFile.Name()
 
-		archiveFilePath = tests.ArchiveFiles("archive", os.TempDir(), imagePath)
+		archiveFile, err := ioutil.TempFile("", "archive")
+		Expect(err).ToNot(HaveOccurred())
+		defer archiveFile.Close()
+		archiveFilePath = archiveFile.Name()
+
+		tests.ArchiveToFile(archiveFile, imagePath)
 	})
 
 	AfterEach(func() {

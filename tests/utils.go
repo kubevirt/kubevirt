@@ -5206,12 +5206,18 @@ func CreateBlockPVC(virtClient kubecli.KubevirtClient, name string, size resourc
 	return createdPvc
 }
 
-func ArchiveFiles(targetFile, tgtDir string, sourceFilesNames ...string) string {
+func CreateArchive(targetFile, tgtDir string, sourceFilesNames ...string) string {
 	tgtPath := filepath.Join(tgtDir, filepath.Base(targetFile)+".tar")
 	tgtFile, err := os.Create(tgtPath)
 	Expect(err).ToNot(HaveOccurred())
 	defer tgtFile.Close()
 
+	ArchiveToFile(tgtFile, sourceFilesNames...)
+
+	return tgtPath
+}
+
+func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 	w := tar.NewWriter(tgtFile)
 	defer w.Close()
 
@@ -5232,8 +5238,6 @@ func ArchiveFiles(targetFile, tgtDir string, sourceFilesNames ...string) string 
 		_, err = io.Copy(w, srcFile)
 		Expect(err).ToNot(HaveOccurred())
 	}
-
-	return tgtPath
 }
 
 func GetPolicyMatchedToVmi(name string, vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
