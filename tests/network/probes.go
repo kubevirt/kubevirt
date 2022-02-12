@@ -18,8 +18,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -253,18 +253,14 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 })
 
 func createReadyCirrosVMIWithReadinessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
-	dummyUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
-		cd.ContainerDiskFor(cd.ContainerDiskCirros), dummyUserData)
+	vmi := libvmi.NewCirros()
 	vmi.Spec.ReadinessProbe = probe
 
 	return createAndBlockUntilVMIHasStarted(virtClient, vmi)
 }
 
 func createReadyCirrosVMIWithLivenessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
-	dummyUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
-		cd.ContainerDiskFor(cd.ContainerDiskCirros), dummyUserData)
+	vmi := libvmi.NewCirros()
 	vmi.Spec.LivenessProbe = probe
 
 	return createAndBlockUntilVMIHasStarted(virtClient, vmi)
