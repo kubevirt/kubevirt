@@ -24,7 +24,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"libvirt.org/go/libvirt"

@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

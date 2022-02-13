@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	"github.com/coreos/go-iptables/iptables"
-	"github.com/onsi/ginkgo/extensions/table"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

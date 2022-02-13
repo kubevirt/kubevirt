@@ -3,7 +3,6 @@ package lookup
 import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

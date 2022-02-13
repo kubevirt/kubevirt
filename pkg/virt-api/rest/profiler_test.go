@@ -34,7 +34,6 @@ import (
 
 	"github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 

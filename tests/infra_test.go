@@ -37,7 +37,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"

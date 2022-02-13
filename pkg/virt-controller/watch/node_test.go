@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	appv1 "k8s.io/api/apps/v1"

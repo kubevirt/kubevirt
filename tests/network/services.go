@@ -26,7 +26,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/util"

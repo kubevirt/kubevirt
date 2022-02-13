@@ -22,7 +22,6 @@ package install
 import (
 	"strings"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"

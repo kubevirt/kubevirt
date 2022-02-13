@@ -26,7 +26,6 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/onsi/ginkgo/extensions/table"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"

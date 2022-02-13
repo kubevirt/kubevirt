@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"

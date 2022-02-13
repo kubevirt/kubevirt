@@ -27,7 +27,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	autov1 "k8s.io/api/autoscaling/v1"
 	v13 "k8s.io/api/core/v1"

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"

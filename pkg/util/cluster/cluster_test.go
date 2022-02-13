@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	secv1 "github.com/openshift/api/security/v1"

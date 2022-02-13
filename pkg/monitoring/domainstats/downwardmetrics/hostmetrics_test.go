@@ -2,7 +2,6 @@ package downwardmetrics
 
 import (
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 

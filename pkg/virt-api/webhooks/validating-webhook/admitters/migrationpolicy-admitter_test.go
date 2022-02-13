@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 

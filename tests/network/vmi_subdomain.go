@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
