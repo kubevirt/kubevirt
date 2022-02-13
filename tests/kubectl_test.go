@@ -158,7 +158,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, tests.MigrationWaitTime, false)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, tests.MigrationWaitTime)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())

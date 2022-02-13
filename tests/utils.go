@@ -1632,14 +1632,6 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 	return obj
 }
 
-func RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
-	if ignoreWarnings {
-		return RunVMIAndExpectLaunchIgnoreWarnings(vmi, timeout)
-	} else {
-		return RunVMIAndExpectLaunch(vmi, timeout)
-	}
-}
-
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")

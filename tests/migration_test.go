@@ -176,11 +176,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, false)
+		return tests.RunVMIAndExpectLaunch(vmi, timeout)
 	}
 
 	runVMIAndExpectLaunchIgnoreWarnings := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, true)
+		return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, timeout)
 	}
 
 	confirmVMIPostMigrationFailed := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
