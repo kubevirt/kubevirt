@@ -111,7 +111,6 @@ package ghttp
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -269,7 +268,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		s.rwMutex.Unlock()
 		if s.GetAllowUnhandledRequests() {
-			ioutil.ReadAll(req.Body)
+			io.ReadAll(req.Body)
 			req.Body.Close()
 			w.WriteHeader(s.GetUnhandledRequestStatusCode())
 		} else {
