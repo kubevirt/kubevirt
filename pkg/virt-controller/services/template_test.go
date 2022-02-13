@@ -32,7 +32,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

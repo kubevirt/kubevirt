@@ -24,7 +24,7 @@ import (
 	"net/http/httptest"
 
 	restful "github.com/emicklei/go-restful"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"

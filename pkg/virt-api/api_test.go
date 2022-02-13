@@ -28,7 +28,7 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"

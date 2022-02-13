@@ -54,8 +54,8 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	expect "github.com/google/goexpect"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/config"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"

@@ -8,7 +8,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	mount "github.com/moby/sys/mountinfo"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/util"

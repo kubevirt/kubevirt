@@ -3,7 +3,7 @@ package checks
 import (
 	"fmt"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
