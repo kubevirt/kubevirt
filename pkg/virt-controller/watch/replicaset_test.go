@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,14 +22,14 @@ import (
 
 var _ = Describe("Replicaset", func() {
 
-	table.DescribeTable("Different replica diffs given", func(diff int, burstReplicas int, result int) {
+	DescribeTable("Different replica diffs given", func(diff int, burstReplicas int, result int) {
 		Expect(limit(diff, uint(burstReplicas))).To(Equal(result))
 	},
-		table.Entry("should limit negative diff to negative burst maximum", -10, 5, -5),
-		table.Entry("should return negative diff if bigger than negative burst maximum", -4, 5, -4),
-		table.Entry("should limit positive diff to positive burst maximum", 10, 5, 5),
-		table.Entry("should return positive diff if less than positive burst maximum", 4, 5, 4),
-		table.Entry("should return 0 for zero diff", 0, 5, 0),
+		Entry("should limit negative diff to negative burst maximum", -10, 5, -5),
+		Entry("should return negative diff if bigger than negative burst maximum", -4, 5, -4),
+		Entry("should limit positive diff to positive burst maximum", 10, 5, 5),
+		Entry("should return positive diff if less than positive burst maximum", 4, 5, 4),
+		Entry("should return 0 for zero diff", 0, 5, 0),
 	)
 
 	Context("One valid ReplicaSet controller given", func() {

@@ -42,7 +42,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -1101,7 +1100,7 @@ spec:
 		crdName := "virtualmachines.kubevirt.io"
 		shortNameAdded := "new"
 
-		table.DescribeTable("checking updating resource is reverted to original state for ", func(changeResource func(), getResource func() runtime.Object, compareResource func() bool) {
+		DescribeTable("checking updating resource is reverted to original state for ", func(changeResource func(), getResource func() runtime.Object, compareResource func() bool) {
 			resource := getResource()
 			By("Updating KubeVirt Object")
 			changeResource()
@@ -1131,7 +1130,7 @@ spec:
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 		},
 
-			table.Entry("[test_id:6254] deployments",
+			Entry("[test_id:6254] deployments",
 
 				func() {
 
@@ -1172,7 +1171,7 @@ spec:
 					return true
 				}),
 
-			table.Entry("[test_id:6255] customresourcedefinitions",
+			Entry("[test_id:6255] customresourcedefinitions",
 				func() {
 					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1205,7 +1204,7 @@ spec:
 
 					return true
 				}),
-			table.Entry("[test_id:6256] poddisruptionbudgets",
+			Entry("[test_id:6256] poddisruptionbudgets",
 				func() {
 					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1234,7 +1233,7 @@ spec:
 
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
 				}),
-			table.Entry("[test_id:6308] daemonsets",
+			Entry("[test_id:6308] daemonsets",
 				func() {
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1433,7 +1432,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		table.DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
+		DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
 			if !tests.HasCDI() {
 				Skip("Skip update test when CDI is not present")
 			}
@@ -1737,8 +1736,8 @@ spec:
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
 		},
-			table.Entry("by patching KubeVirt CR", false),
-			table.Entry("by updating virt-operator", true),
+			Entry("by patching KubeVirt CR", false),
+			Entry("by updating virt-operator", true),
 		)
 	})
 

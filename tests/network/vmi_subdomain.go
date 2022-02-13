@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
@@ -68,7 +67,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		table.DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom string) {
+		DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom string) {
 			vmiSpec := f()
 			var expectedFQDN string
 			if subdom != "" {
@@ -85,10 +84,10 @@ var _ = SIGDescribe("Subdomain", func() {
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		},
-			table.Entry("with Masquerade binding and subdomain", fedoraMasqueradeVMI, subdomain),
-			table.Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain),
-			table.Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, ""),
-			table.Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, ""),
+			Entry("with Masquerade binding and subdomain", fedoraMasqueradeVMI, subdomain),
+			Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain),
+			Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, ""),
+			Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, ""),
 		)
 
 		It("VMI with custom DNSPolicy should have the expected FQDN", func() {

@@ -45,7 +45,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1334,7 +1333,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(hasHotplug).To(BeTrue())
 			})
 
-			table.DescribeTable("should generate a mount event, when able to move to mount", func(currentPhase v1.VolumePhase) {
+			DescribeTable("should generate a mount event, when able to move to mount", func(currentPhase v1.VolumePhase) {
 				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
@@ -1368,12 +1367,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				controller.updateVolumeStatusesFromDomain(vmi, domain)
 			},
-				table.Entry("When current phase is bound", v1.VolumeBound),
-				table.Entry("When current phase is pending", v1.VolumePending),
-				table.Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
+				Entry("When current phase is bound", v1.VolumeBound),
+				Entry("When current phase is pending", v1.VolumePending),
+				Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
 			)
 
-			table.DescribeTable("should generate an unmount event, when able to move to unmount", func(currentPhase v1.VolumePhase) {
+			DescribeTable("should generate an unmount event, when able to move to unmount", func(currentPhase v1.VolumePhase) {
 				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
@@ -1404,9 +1403,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 				controller.updateVolumeStatusesFromDomain(vmi, domain)
 			},
-				table.Entry("When current phase is bound", v1.VolumeReady),
-				table.Entry("When current phase is pending", v1.HotplugVolumeMounted),
-				table.Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
+				Entry("When current phase is bound", v1.VolumeReady),
+				Entry("When current phase is pending", v1.HotplugVolumeMounted),
+				Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
 			)
 
 			It("Should generate a ready event when target is assigned", func() {
@@ -1474,7 +1473,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		})
 
-		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
+		DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = phase
 			vmiFeeder.Add(vmi)
@@ -1483,8 +1482,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// expect no errors and no mock interactions
 			Expect(mockQueue.NumRequeues("default/testvmi")).To(Equal(0))
 		},
-			table.Entry("succeeded", v1.Succeeded),
-			table.Entry("failed", v1.Failed),
+			Entry("succeeded", v1.Succeeded),
+			Entry("failed", v1.Failed),
 		)
 
 		It("should leave VirtualMachineInstance phase alone if not the current active node", func() {
@@ -2193,7 +2192,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
-		table.DescribeTable("when host model labels", func(toDefineHostModelLabels bool) {
+		DescribeTable("when host model labels", func(toDefineHostModelLabels bool) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
@@ -2221,8 +2220,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 		},
-			table.Entry("exist migration should succeed", true),
-			table.Entry("don't exist migration should fail", false),
+			Entry("exist migration should succeed", true),
+			Entry("don't exist migration should fail", false),
 		)
 
 		It("should not be allowed to live-migrate if the VMI uses virtiofs ", func() {
@@ -2438,7 +2437,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				return v1.Volume{Name: volumeAndDiskName, VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}}
 			}
 
-			table.DescribeTable("using", func(disk v1.Disk, volume v1.Volume, migrationMethod v1.VirtualMachineInstanceMigrationMethod) {
+			DescribeTable("using", func(disk v1.Disk, volume v1.Volume, migrationMethod v1.VirtualMachineInstanceMigrationMethod) {
 				migrationMethodExpected := fmt.Sprintf("Migration method is expected to be %s", migrationMethod)
 
 				vmi := api2.NewMinimalVMI("testvmi")
@@ -2456,9 +2455,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(true).To(BeFalse(), "Shouldn't reach here - BlockMigration and LiveMigration are the only migration methods supported")
 				}
 			},
-				table.Entry("CDROM", getCDRomDisk(nil), getContainerDiskVolume(), v1.LiveMigration),
-				table.Entry("CDROM with read-only=true", getCDRomDisk(pointer.BoolPtr(true)), getContainerDiskVolume(), v1.LiveMigration),
-				table.Entry("CDROM with read-only=false", getCDRomDisk(pointer.BoolPtr(false)), getContainerDiskVolume(), v1.BlockMigration),
+				Entry("CDROM", getCDRomDisk(nil), getContainerDiskVolume(), v1.LiveMigration),
+				Entry("CDROM with read-only=true", getCDRomDisk(pointer.BoolPtr(true)), getContainerDiskVolume(), v1.LiveMigration),
+				Entry("CDROM with read-only=false", getCDRomDisk(pointer.BoolPtr(false)), getContainerDiskVolume(), v1.BlockMigration),
 			)
 		})
 

@@ -5,7 +5,6 @@ import (
 	"runtime"
 
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"github.com/golang/mock/gomock"

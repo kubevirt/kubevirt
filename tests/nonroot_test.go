@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -36,7 +35,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		return tests.NewRandomVMIWithPVCFS(name)
 	}
 
-	table.DescribeTable("should cause fail in creating of vmi with", func(createVMI func() *v1.VirtualMachineInstance, neededFeature, feature string) {
+	DescribeTable("should cause fail in creating of vmi with", func(createVMI func() *v1.VirtualMachineInstance, neededFeature, feature string) {
 		if neededFeature != "" && !checks.HasFeature(neededFeature) {
 			Skip(fmt.Sprintf("Missing %s, enable %s featureGate.", neededFeature, neededFeature))
 		}
@@ -47,7 +46,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		Expect(err.Error()).To(And(ContainSubstring(feature), ContainSubstring("nonroot")))
 
 	},
-		table.Entry("[test_id:7127]VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
+		Entry("[test_id:7127]VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
 	)
 
 	Context("[verify-nonroot] NonRoot feature", func() {

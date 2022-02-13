@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -60,15 +59,15 @@ var _ = Describe("HostDevice", func() {
 		pool = newAddressPoolStub()
 	})
 
-	table.DescribeTable("fails to create device given no available addresses in pool",
+	DescribeTable("fails to create device given no available addresses in pool",
 		func(createHostDevices createHostDevices) {
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{{}}
 			_, err := createHostDevices(hostDevicesMetaData, pool)
 
 			Expect(err).To(HaveOccurred())
 		},
-		table.Entry("PCI", hostdevice.CreatePCIHostDevices),
-		table.Entry("MDEV", createMDEVWithoutDisplay),
+		Entry("PCI", hostdevice.CreatePCIHostDevices),
+		Entry("MDEV", createMDEVWithoutDisplay),
 	)
 
 	It("fails to create a device given bad host PCI address", func() {
@@ -79,7 +78,7 @@ var _ = Describe("HostDevice", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	table.DescribeTable("fails to create a device when hook returns error",
+	DescribeTable("fails to create a device when hook returns error",
 		func(createHostDevices createHostDevices) {
 			pool.AddResource(resource0, "0000:81:01.0")
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{{
@@ -91,11 +90,11 @@ var _ = Describe("HostDevice", func() {
 
 			Expect(err).To(HaveOccurred())
 		},
-		table.Entry("PCI", hostdevice.CreatePCIHostDevices),
-		table.Entry("MDEV", createMDEVWithoutDisplay),
+		Entry("PCI", hostdevice.CreatePCIHostDevices),
+		Entry("MDEV", createMDEVWithoutDisplay),
 	)
 
-	table.DescribeTable("fails to create a device given two devices but only one address",
+	DescribeTable("fails to create a device given two devices but only one address",
 		func(createHostDevices createHostDevices) {
 			pool.AddResource(resource0, "0000:81:01.0")
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{{ResourceName: resource0}, {ResourceName: resource0}}
@@ -104,8 +103,8 @@ var _ = Describe("HostDevice", func() {
 
 			Expect(err).To(HaveOccurred())
 		},
-		table.Entry("PCI", hostdevice.CreatePCIHostDevices),
-		table.Entry("MDEV", createMDEVWithoutDisplay),
+		Entry("PCI", hostdevice.CreatePCIHostDevices),
+		Entry("MDEV", createMDEVWithoutDisplay),
 	)
 
 	Context("PCI", func() {

@@ -32,7 +32,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -85,7 +84,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	})
 
 	Context("[storage-req]PVC expansion", func() {
-		table.DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
+		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
 			if !tests.HasCDI() {
 				Skip("Skip DataVolume tests when CDI is not present")
@@ -148,8 +147,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				&expect.BExp{R: "0"},
 			}, 360)).To(Succeed(), "can use more space after expansion and resize")
 		},
-			table.Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
-			table.Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
+			Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
+			Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
 		)
 	})
 
@@ -707,7 +706,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 
-			table.DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
+			DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
 				var vm *v1.VirtualMachine
 				if isHTTP {
 					vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
@@ -734,8 +733,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 			},
 
-				table.Entry("with http import", true),
-				table.Entry("with registry import", false),
+				Entry("with http import", true),
+				Entry("with registry import", false),
 			)
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
@@ -874,7 +873,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
 			})
 
-			table.DescribeTable("[storage-req] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
+			DescribeTable("[storage-req] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Authorization failed, message is:"))
@@ -897,10 +896,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// stop vm
 				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
 			},
-				table.Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),
-				table.Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false),
-				table.Entry("[test_id:5253]with explicit role (all namespaces)", explicitCloneRole, true, false),
-				table.Entry("[test_id:5254]with explicit role (one namespace)", explicitCloneRole, false, true),
+				Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),
+				Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false),
+				Entry("[test_id:5253]with explicit role (all namespaces)", explicitCloneRole, true, false),
+				Entry("[test_id:5254]with explicit role (one namespace)", explicitCloneRole, false, true),
 			)
 		})
 	})
@@ -954,7 +953,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dv.Annotations = map[string]string{"user.custom.annotation/storage.thick-provisioned": "false"}
 			return dv
 		}
-		table.DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
+		DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("5Gi")
 			dataVolume = dvChange(dataVolume)
@@ -1036,11 +1035,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).To(BeNil())
 		},
-			table.Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true),
-			table.Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false),
-			table.Entry("[test_id:5897]with preallocation false, fstrim will make the image smaller", addPreallocationFalse, true),
-			table.Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false),
-			table.Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true),
+			Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true),
+			Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false),
+			Entry("[test_id:5897]with preallocation false, fstrim will make the image smaller", addPreallocationFalse, true),
+			Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false),
+			Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true),
 		)
 	})
 })

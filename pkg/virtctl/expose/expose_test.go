@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -314,7 +313,7 @@ var _ = Describe("Expose", func() {
 
 				})
 
-				table.DescribeTable("should select a valid default for the IPFamilyPolicy attribute, based on the provided IPFamilies", func(expectedIPFamilyPolicy *k8sv1.IPFamilyPolicyType, ipFamilies ...string) {
+				DescribeTable("should select a valid default for the IPFamilyPolicy attribute, based on the provided IPFamilies", func(expectedIPFamilyPolicy *k8sv1.IPFamilyPolicyType, ipFamilies ...string) {
 					ipFamilyStr := strings.Join(ipFamilies, ",")
 					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--target-port", "http", "--ip-family", ipFamilyStr)
@@ -323,10 +322,10 @@ var _ = Describe("Expose", func() {
 
 					Expect(obtainedService.Spec.IPFamilyPolicy).To(Equal(expectedIPFamilyPolicy))
 				},
-					table.Entry("a single IPv4 IPFamily", nil, "ipv4"),
-					table.Entry("a single IPv6 IPFamily", nil, "ipv6"),
-					table.Entry("a list of IPv4, IPv6 IPFamilies", &dualStack, "ipv4", "ipv6"),
-					table.Entry("a list of IPv6, IPv4 IPFamilies", &dualStack, "ipv6", "ipv4"))
+					Entry("a single IPv4 IPFamily", nil, "ipv4"),
+					Entry("a single IPv6 IPFamily", nil, "ipv6"),
+					Entry("a list of IPv4, IPv6 IPFamilies", &dualStack, "ipv4", "ipv6"),
+					Entry("a list of IPv6, IPv4 IPFamilies", &dualStack, "ipv6", "ipv4"))
 			})
 			Context("With parametrized IPFamilyPolicy", func() {
 				It("should succeed with singlestack", func() {

@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	autov1 "k8s.io/api/autoscaling/v1"
 	v13 "k8s.io/api/core/v1"
@@ -128,28 +127,28 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		return newReplicaSetWithTemplate(template)
 	}
 
-	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale", func(startScale int, stopScale int) {
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale", func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, int32(startScale))
 		doScale(newRS.ObjectMeta.Name, int32(stopScale))
 		doScale(newRS.ObjectMeta.Name, int32(0))
 
 	},
-		table.Entry("[test_id:1405]to three, to two and then to zero replicas", 3, 2),
-		table.Entry("[test_id:1406]to five, to six and then to zero replicas", 5, 6),
+		Entry("[test_id:1405]to three, to two and then to zero replicas", 3, 2),
+		Entry("[test_id:1406]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource", func(startScale int, stopScale int) {
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource", func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(startScale))
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(stopScale))
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(0))
 	},
-		table.Entry("[test_id:1407]to three, to two and then to zero replicas", 3, 2),
-		table.Entry("[test_id:1408]to five, to six and then to zero replicas", 5, 6),
+		Entry("[test_id:1407]to three, to two and then to zero replicas", 3, 2),
+		Entry("[test_id:1408]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
 		checks.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
 		template := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
@@ -160,8 +159,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(1), int32(1), int32(1))
 
 	},
-		table.Entry("[test_id:1409]to three, to two and then to one replicas", 3, 2),
-		table.Entry("[test_id:1410]to five, to six and then to one replicas", 5, 6),
+		Entry("[test_id:1409]to three, to two and then to one replicas", 3, 2),
+		Entry("[test_id:1410]to five, to six and then to one replicas", 5, 6),
 	)
 
 	It("[test_id:1411]should be rejected on POST if spec is invalid", func() {

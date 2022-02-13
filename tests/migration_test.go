@@ -49,7 +49,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -1647,7 +1646,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return
 			}
 
-			table.DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
+			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
 				By("Create a VMI that will run root(default)")
 				vmi := createVMI()
 
@@ -1682,11 +1681,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			},
-				table.Entry("with simple VMI", func() *v1.VirtualMachineInstance {
+				Entry("with simple VMI", func() *v1.VirtualMachineInstance {
 					return libvmi.NewAlpine()
 				}, console.LoginToAlpine),
 
-				table.Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
 					nfsPod, pvName := createPVC()
 
 					// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
@@ -1699,11 +1698,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					return tests.NewRandomVMIWithDataVolume(dv.Name)
 				}, console.LoginToAlpine),
 
-				table.Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
+				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
 					return prepareVMIWithAllVolumeSources()
 				}, console.LoginToFedora),
 
-				table.Entry("with PVC", func() *v1.VirtualMachineInstance {
+				Entry("with PVC", func() *v1.VirtualMachineInstance {
 					nfsPod, pvName := createPVC()
 
 					tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
@@ -2507,7 +2506,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return err
 			}
 
-			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
+			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2533,12 +2532,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 			},
-				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
-				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
-				table.Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
-				table.Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
+				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
+				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
 
-			table.DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
+			DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2567,8 +2566,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
-				table.Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
-				table.Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
+				Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
+				Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
 			)
 		})
 
@@ -2805,7 +2804,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return namespace
 			}
 
-			table.DescribeTable("migration policy", func(defineMigrationPolicy bool) {
+			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
@@ -2836,8 +2835,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 				confirmMigrationPolicyName(vmi, expectedPolicyName)
 			},
-				table.Entry("should override cluster-wide policy if defined", true),
-				table.Entry("should not affect cluster-wide policy if not defined", false),
+				Entry("should override cluster-wide policy if defined", true),
+				Entry("should not affect cluster-wide policy if not defined", false),
 			)
 
 		})
@@ -3453,7 +3452,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		})
 
-		table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+		DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
 			v, err := cluster.GetKubernetesVersion()
 			Expect(err).ShouldNot(HaveOccurred())
@@ -3505,8 +3504,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(hugepagesVmi, 240)
 		},
-			table.Entry("[test_id:6983]hugepages-2Mi", "2Mi", "64Mi"),
-			table.Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
+			Entry("[test_id:6983]hugepages-2Mi", "2Mi", "64Mi"),
+			Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
 		)
 	})
 

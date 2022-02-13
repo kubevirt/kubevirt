@@ -27,8 +27,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
-	"github.com/onsi/ginkgo/extensions/table"
-
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -173,7 +171,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})
 
-		table.DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
+		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
 			if isMultiReplica {
 				checks.SkipIfSingleReplica(virtCli)
 			} else {
@@ -197,13 +195,13 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				}
 			}
 		},
-			table.Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods",
+			Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods",
 				"virt-controller", multiReplica, "no error occurred on evict of last virt-controller pod"),
-			table.Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods",
+			Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods",
 				"virt-api", multiReplica, "no error occurred on evict of last virt-api pod"),
-			table.Entry("eviction of single-replica virt-controller pod should succeed",
+			Entry("eviction of single-replica virt-controller pod should succeed",
 				"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"),
-			table.Entry("eviction of multi-replica virt-api pod should succeed",
+			Entry("eviction of multi-replica virt-api pod should succeed",
 				"virt-api", singleReplica, "error occurred on eviction of single-replica virt-api pod"),
 		)
 	})

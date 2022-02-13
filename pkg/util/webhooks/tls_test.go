@@ -11,7 +11,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/certificate"
@@ -77,7 +76,7 @@ var _ = Describe("TLS", func() {
 		caManager = &mockCAManager{caBundle: caBundle}
 	})
 
-	table.DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
+	DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
 		serverTLSConfig := webhooks.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false)
 		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,19 +99,19 @@ var _ = Describe("TLS", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
-		table.Entry(
+		Entry(
 			"connect with proper certificates",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"",
 		),
-		table.Entry(
+		Entry(
 			"fail if client uses not a client certificate",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerServerCertSecretName,
 			"remote error: tls: bad certificate",
 		),
-		table.Entry(
+		Entry(
 			"fail if server uses not a server certificate",
 			components.VirtHandlerCertSecretName,
 			components.VirtHandlerCertSecretName,
@@ -120,7 +119,7 @@ var _ = Describe("TLS", func() {
 		),
 	)
 
-	table.DescribeTable("on virt-handler with externally-managed certificates should", func(serverSecret, clientSecret string, errStr string) {
+	DescribeTable("on virt-handler with externally-managed certificates should", func(serverSecret, clientSecret string, errStr string) {
 		serverTLSConfig := webhooks.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], true)
 		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,19 +142,19 @@ var _ = Describe("TLS", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
-		table.Entry(
+		Entry(
 			"connect with proper certificates",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"",
 		),
-		table.Entry(
+		Entry(
 			"fail if client uses not a client certificate",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerServerCertSecretName,
 			"remote error: tls: bad certificate",
 		),
-		table.Entry(
+		Entry(
 			"fail if server uses not a server certificate",
 			components.VirtHandlerCertSecretName,
 			components.VirtHandlerCertSecretName,
@@ -180,7 +179,7 @@ var _ = Describe("TLS", func() {
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	})
 
-	table.DescribeTable("should verify self-signed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
+	DescribeTable("should verify self-signed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
 		serverTLSConfig := webhooks.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert)
 		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -203,19 +202,19 @@ var _ = Describe("TLS", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
-		table.Entry(
+		Entry(
 			"connect with proper certificates",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"",
 		),
-		table.Entry(
+		Entry(
 			"fail if client uses an invalid certificate",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerServerCertSecretName,
 			"remote error: tls: bad certificate",
 		),
-		table.Entry(
+		Entry(
 			"fail if server uses an invalid certificate",
 			components.VirtHandlerCertSecretName,
 			components.VirtHandlerCertSecretName,
@@ -223,7 +222,7 @@ var _ = Describe("TLS", func() {
 		),
 	)
 
-	table.DescribeTable("should verify externally-managed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
+	DescribeTable("should verify externally-managed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
 		serverTLSConfig := webhooks.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert)
 		clientTLSConfig := webhooks.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -246,19 +245,19 @@ var _ = Describe("TLS", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
-		table.Entry(
+		Entry(
 			"connect with proper certificates",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"",
 		),
-		table.Entry(
+		Entry(
 			"fail if client uses an invalid certificate",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerServerCertSecretName,
 			"remote error: tls: bad certificate",
 		),
-		table.Entry(
+		Entry(
 			"fail if server uses an invalid certificate",
 			components.VirtHandlerCertSecretName,
 			components.VirtHandlerCertSecretName,

@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/core/v1"
@@ -131,15 +130,15 @@ var _ = Describe("Webhook", func() {
 		Expect(response.Allowed).To(BeTrue())
 	})
 
-	table.DescribeTable("should not check for workloads if kubevirt phase is", func(phase k6tv1.KubeVirtPhase) {
+	DescribeTable("should not check for workloads if kubevirt phase is", func(phase k6tv1.KubeVirtPhase) {
 		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
 		kv.Status.Phase = phase
 		response := admitter.Admit(&admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 		Expect(response.Allowed).To(BeTrue())
 	},
-		table.Entry("unset", k6tv1.KubeVirtPhase("")),
-		table.Entry("deploying", k6tv1.KubeVirtPhaseDeploying),
-		table.Entry("deleting", k6tv1.KubeVirtPhaseDeleting),
-		table.Entry("deleted", k6tv1.KubeVirtPhaseDeleted),
+		Entry("unset", k6tv1.KubeVirtPhase("")),
+		Entry("deploying", k6tv1.KubeVirtPhaseDeploying),
+		Entry("deleting", k6tv1.KubeVirtPhaseDeleting),
+		Entry("deleted", k6tv1.KubeVirtPhaseDeleted),
 	)
 })

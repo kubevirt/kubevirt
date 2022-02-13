@@ -32,7 +32,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -313,7 +312,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return updatedVM
 		}
 
-		table.DescribeTable("cpu/memory in requests/limits should allow", func(cpu, request string) {
+		DescribeTable("cpu/memory in requests/limits should allow", func(cpu, request string) {
 			vm := tests.NewRandomVirtualMachine(
 				tests.NewRandomVMIWithEphemeralDisk(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
@@ -348,8 +347,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verify VM will run")
 			startVM(vm)
 		},
-			table.Entry("int type", "2", "2222222"),
-			table.Entry("float type", "2.2", "2222222.2"),
+			Entry("int type", "2", "2222222"),
+			Entry("float type", "2.2", "2222222.2"),
 		)
 
 		It("[test_id:3161]should carry annotations to VMI", func() {
@@ -411,7 +410,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
 		})
 
-		table.DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {
+		DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
 			defer deleteDataVolume(dv)
 			newVM := createVirtualMachine(true, template)
@@ -421,12 +420,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
-			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
-			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
+			Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
+			Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
-		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
+		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
 			defer deleteDataVolume(dv)
 			newVM := createVirtualMachine(true, template)
@@ -439,9 +438,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return len(vmis.Items)
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
-			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
-			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
+			Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
+			Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -556,16 +555,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
 
-		table.DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
+		DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
 			defer deleteDataVolume(dv)
 			vm := createVirtualMachine(false, template)
 			vm = startVM(vm)
 			stopVM(vm)
 		},
-			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
-			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
+			Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
+			Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -777,7 +776,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Should(Equal(k8sv1.ConditionFalse))
 		})
 
-		table.DescribeTable("should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
+		DescribeTable("should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
 			vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
 			unschedulableFunc(vmi)
 
@@ -793,14 +792,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
 				Should(Equal(v1.VirtualMachineStatusUnschedulable))
 		},
-			table.Entry("[test_id:6867]with unsatisfiable resource requirements", func(vmi *v1.VirtualMachineInstance) {
+			Entry("[test_id:6867]with unsatisfiable resource requirements", func(vmi *v1.VirtualMachineInstance) {
 				vmi.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					// This may stop working sometime around 2040
 					corev1.ResourceMemory: resource.MustParse("1Ei"),
 					corev1.ResourceCPU:    resource.MustParse("1M"),
 				}
 			}),
-			table.Entry("[test_id:6868]with unsatisfiable scheduling constraints", func(vmi *v1.VirtualMachineInstance) {
+			Entry("[test_id:6868]with unsatisfiable scheduling constraints", func(vmi *v1.VirtualMachineInstance) {
 				vmi.Spec.NodeSelector = map[string]string{
 					"node-label": "that-doesnt-exist",
 				}
@@ -829,7 +828,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		table.DescribeTable("should report an error status when a VM with a missing PVC/DV is started", func(vmiFunc func() *v1.VirtualMachineInstance, status v1.VirtualMachinePrintableStatus) {
+		DescribeTable("should report an error status when a VM with a missing PVC/DV is started", func(vmiFunc func() *v1.VirtualMachineInstance, status v1.VirtualMachinePrintableStatus) {
 			vm := createVirtualMachine(true, vmiFunc())
 
 			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
@@ -840,14 +839,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).Should(Equal(status))
 		},
-			table.Entry(
+			Entry(
 				"[test_id:7596]missing PVC",
 				func() *v1.VirtualMachineInstance {
 					return tests.NewRandomVMIWithPVC("missing-pvc")
 				},
 				v1.VirtualMachineStatusPvcNotFound,
 			),
-			table.Entry(
+			Entry(
 				"[test_id:7597]missing DataVolume",
 				func() *v1.VirtualMachineInstance {
 					return tests.NewRandomVMIWithDataVolume("missing-datavolume")
@@ -1731,7 +1730,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return virtualMachine.Status.Ready
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 				})
-				table.DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
+				DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
 					// The estimated execution time of one test is 400 seconds.
 					By("Creating a Kernel Boot VMI with a mismatched disk")
 					vmi := utils.GetVMIKernelBoot()
@@ -1786,8 +1785,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Eventually(Expect(launcherPod.Status.Phase).To(Equal(k8sv1.PodFailed)), 160*time.Second, 1*time.Second).Should(BeTrue())
 					}
 				},
-					table.Entry("[test_id:7164]VMI launcher pod should fail", "false"),
-					table.Entry("[test_id:6993]VMI launcher pod compute container should keep running", "true"),
+					Entry("[test_id:7164]VMI launcher pod should fail", "false"),
+					Entry("[test_id:6993]VMI launcher pod compute container should keep running", "true"),
 				)
 			})
 		})
@@ -1844,7 +1843,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
 		})
 
-		table.DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", func(version string) {
+		DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", func(version string) {
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -1877,8 +1876,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 		},
-			table.Entry("with v1 api", "kubevirt.io/v1"),
-			table.Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
+			Entry("with v1 api", "kubevirt.io/v1"),
+			Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
 		)
 
 		It("[test_id:264]should create and delete via command line", func() {
@@ -1940,7 +1939,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			table.DescribeTable("in stop command", func(flags ...string) {
+			DescribeTable("in stop command", func(flags ...string) {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				thisVm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -1993,8 +1992,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
 			},
 
-				table.Entry("[test_id:7529]with no other flags"),
-				table.Entry("[test_id:7604]with grace period", "--grace-period=10", "--force"),
+				Entry("[test_id:7529]with no other flags"),
+				Entry("[test_id:7604]with grace period", "--grace-period=10", "--force"),
 			)
 
 			It("[test_id:7528]in restart command", func() {

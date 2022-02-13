@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/api"
@@ -219,7 +218,7 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 		})
 
 		When("the pod features a properly configured primary link", func() {
-			table.DescribeTable("should work with", func(vmi *v1.VirtualMachineInstance, mockNetfilterFrontendFunc mockNetfilterFrontend, additionalIPProtocol ...iptables.Protocol) {
+			DescribeTable("should work with", func(vmi *v1.VirtualMachineInstance, mockNetfilterFrontendFunc mockNetfilterFrontend, additionalIPProtocol ...iptables.Protocol) {
 				masqueradeConfigurator := newMockedMasqueradeConfigurator(
 					vmi,
 					&vmi.Spec.Domain.Devices.Interfaces[0],
@@ -237,49 +236,49 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 				mockNATNetfilterRules(*masqueradeConfigurator, *dhcpConfig, mockNetfilterFrontendFunc, additionalIPProtocol...)
 				Expect(masqueradeConfigurator.PreparePodNetworkInterface()).To(Succeed())
 			},
-				table.Entry("NFTables backend on an IPv4 cluster",
+				Entry("NFTables backend on an IPv4 cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterNFTables),
-				table.Entry("IPTables backend on an IPv4 cluster",
+				Entry("IPTables backend on an IPv4 cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterIPTables),
-				table.Entry("NFTables backend on an IPv4 cluster when specific ports are specified",
+				Entry("NFTables backend on an IPv4 cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterNFTables),
-				table.Entry("IPTables backend on an IPv4 cluster when specific ports are specified",
+				Entry("IPTables backend on an IPv4 cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables),
-				table.Entry("NFTables backend on an IPv4 cluster when *reserved* ports are specified",
+				Entry("NFTables backend on an IPv4 cluster when *reserved* ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
 					mockNetfilterNFTables),
-				table.Entry("NFTables backend on an IPv4 cluster when using an ISTIO aware VMI",
+				Entry("NFTables backend on an IPv4 cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables),
-				table.Entry("NFTables backend on a dual stack cluster",
+				Entry("NFTables backend on a dual stack cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
-				table.Entry("IPTables backend on a dual stack cluster",
+				Entry("IPTables backend on a dual stack cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterIPTables,
 					iptables.ProtocolIPv6),
-				table.Entry("NFTables backend on a dual stack cluster when specific ports are specified",
+				Entry("NFTables backend on a dual stack cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
-				table.Entry("IPTables backend on a dual stack cluster when specific ports are specified",
+				Entry("IPTables backend on a dual stack cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables,
 					iptables.ProtocolIPv6),
-				table.Entry("NFTables backend on a dual stack cluster when *reserved* ports are specified",
+				Entry("NFTables backend on a dual stack cluster when *reserved* ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
 					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
-				table.Entry("NFTables backend on a dual stack cluster when using an ISTIO aware VMI",
+				Entry("NFTables backend on a dual stack cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
-				table.Entry("NFTables backend on an IPv4 cluster with migration over sockets",
+				Entry("NFTables backend on an IPv4 cluster with migration over sockets",
 					newVMIMasqueradeMigrateOverSockets(namespace, vmName, getReservedPortList(!migrationOverTCP)...),
 					mockNetfilterNFTables),
 			)

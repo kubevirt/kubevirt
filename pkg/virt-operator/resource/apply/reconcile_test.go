@@ -27,7 +27,6 @@ import (
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -117,20 +116,20 @@ var _ = Describe("Apply", func() {
 
 	Context("should calculate", func() {
 
-		table.DescribeTable("update path based on semver", func(target string, current string, expected bool) {
+		DescribeTable("update path based on semver", func(target string, current string, expected bool) {
 			takeUpdatePath := shouldTakeUpdatePath(target, current)
 
 			Expect(takeUpdatePath).To(Equal(expected))
 		},
-			table.Entry("with increasing semver", "v0.15.0", "v0.14.0", true),
-			table.Entry("with decreasing semver", "v0.14.0", "v0.15.0", false),
-			table.Entry("with identical semver", "v0.15.0", "v0.15.0", false),
-			table.Entry("with invalid semver", "devel", "v0.14.0", true),
-			table.Entry("with increasing semver no prefix", "0.15.0", "0.14.0", true),
-			table.Entry("with decreasing semver no prefix", "0.14.0", "0.15.0", false),
-			table.Entry("with identical semver no prefix", "0.15.0", "0.15.0", false),
-			table.Entry("with invalid semver no prefix", "devel", "0.14.0", true),
-			table.Entry("with no current no prefix", "devel", "", false),
+			Entry("with increasing semver", "v0.15.0", "v0.14.0", true),
+			Entry("with decreasing semver", "v0.14.0", "v0.15.0", false),
+			Entry("with identical semver", "v0.15.0", "v0.15.0", false),
+			Entry("with invalid semver", "devel", "v0.14.0", true),
+			Entry("with increasing semver no prefix", "0.15.0", "0.14.0", true),
+			Entry("with decreasing semver no prefix", "0.14.0", "0.15.0", false),
+			Entry("with identical semver no prefix", "0.15.0", "0.15.0", false),
+			Entry("with invalid semver no prefix", "devel", "0.14.0", true),
+			Entry("with no current no prefix", "devel", "", false),
 		)
 	})
 

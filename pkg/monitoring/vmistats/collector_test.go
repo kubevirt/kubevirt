@@ -20,7 +20,6 @@
 package vmistats
 
 import (
-	"github.com/onsi/ginkgo/extensions/table"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	k8sv1 "k8s.io/api/core/v1"
@@ -41,7 +40,7 @@ var _ = Describe("VMI Stats Collector", func() {
 	Context("VMI Eviction blocker", func() {
 
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
-		table.DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
 			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
 			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 			collector := &VMICollector{
@@ -63,12 +62,12 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_non_evictable"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(expectedVal))
 		},
-			table.Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
-			table.Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
-			table.Entry("VMI Eviction policy set to LiveMigration and vm is migratable", &liveMigrateEvictPolicy, k8sv1.ConditionTrue, 0.0),
-			table.Entry("VMI Eviction policy is not set and vm is not migratable", nil, k8sv1.ConditionFalse, 0.0),
-			table.Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
-			table.Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
+			Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
+			Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
+			Entry("VMI Eviction policy set to LiveMigration and vm is migratable", &liveMigrateEvictPolicy, k8sv1.ConditionTrue, 0.0),
+			Entry("VMI Eviction policy is not set and vm is not migratable", nil, k8sv1.ConditionFalse, 0.0),
+			Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
+			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
 		)
 	})
 })

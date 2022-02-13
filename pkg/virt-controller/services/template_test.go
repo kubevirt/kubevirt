@@ -33,7 +33,6 @@ import (
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -203,7 +202,7 @@ var _ = Describe("Template", func() {
 
 			type checkContainerFunc func(*kubev1.Container)
 
-			table.DescribeTable("all containers", func(assertFunc checkContainerFunc) {
+			DescribeTable("all containers", func(assertFunc checkContainerFunc) {
 				config, kvInformer, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).NotTo(HaveOccurred())
@@ -217,13 +216,13 @@ var _ = Describe("Template", func() {
 				}
 
 			},
-				table.Entry("run as qemu user", runAsQemuUser),
-				table.Entry("run as nonroot user", runAsNonRootUser),
+				Entry("run as qemu user", runAsQemuUser),
+				Entry("run as nonroot user", runAsNonRootUser),
 			)
 
 		})
 		Context("launch template with correct parameters", func() {
-			table.DescribeTable("should contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
+			DescribeTable("should contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
 				config, kvInformer, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -247,7 +246,7 @@ var _ = Describe("Template", func() {
 				}
 
 			},
-				table.Entry("and contain kubevirt domain annotation",
+				Entry("and contain kubevirt domain annotation",
 					map[string]string{
 						"kubevirt.io/domain": "fedora",
 					},
@@ -255,7 +254,7 @@ var _ = Describe("Template", func() {
 						"kubevirt.io/domain": "fedora",
 					},
 				),
-				table.Entry("and contain kubernetes annotation",
+				Entry("and contain kubernetes annotation",
 					map[string]string{
 						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
 					},
@@ -263,7 +262,7 @@ var _ = Describe("Template", func() {
 						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
 					},
 				),
-				table.Entry("and contain kubevirt ignitiondata annotation",
+				Entry("and contain kubevirt ignitiondata annotation",
 					map[string]string{
 						"kubevirt.io/ignitiondata": `{
 							"ignition" :  {
@@ -279,7 +278,7 @@ var _ = Describe("Template", func() {
 						}`,
 					},
 				),
-				table.Entry("and contain default container for logging and exec",
+				Entry("and contain default container for logging and exec",
 					map[string]string{},
 					map[string]string{
 						"kubectl.kubernetes.io/default-container": "compute",
@@ -287,7 +286,7 @@ var _ = Describe("Template", func() {
 				),
 			)
 
-			table.DescribeTable("should not contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
+			DescribeTable("should not contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
 				config, kvInformer, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -310,7 +309,7 @@ var _ = Describe("Template", func() {
 					Expect(pod.ObjectMeta.Annotations).To(Not(HaveKey(key)))
 				}
 			},
-				table.Entry("and don't contain kubectl annotation",
+				Entry("and don't contain kubectl annotation",
 					map[string]string{
 						"kubectl.kubernetes.io/last-applied-configuration": "open",
 					},
@@ -318,7 +317,7 @@ var _ = Describe("Template", func() {
 						"kubectl.kubernetes.io/last-applied-configuration": "open",
 					},
 				),
-				table.Entry("and don't contain kubevirt annotation added by apiserver",
+				Entry("and don't contain kubevirt annotation added by apiserver",
 					map[string]string{
 						"kubevirt.io/latest-observed-api-version":  "source",
 						"kubevirt.io/storage-observed-api-version": ".com",
@@ -330,7 +329,7 @@ var _ = Describe("Template", func() {
 				),
 			)
 
-			table.DescribeTable("should work", func(arch string, ovmfPath string) {
+			DescribeTable("should work", func(arch string, ovmfPath string) {
 				config, kvInformer, svc = configFactory(arch)
 				trueVar := true
 				annotations := map[string]string{
@@ -416,8 +415,8 @@ var _ = Describe("Template", func() {
 				Expect(hasPodNameEnvVar).To(BeTrue())
 
 			},
-				table.Entry("on amd64", "amd64", "/usr/share/OVMF"),
-				table.Entry("on arm64", "arm64", "/usr/share/AAVMF"),
+				Entry("on amd64", "amd64", "/usr/share/OVMF"),
+				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
 			)
 		})
 		Context("with SELinux types", func() {
@@ -515,7 +514,7 @@ var _ = Describe("Template", func() {
 				}
 			})
 		})
-		table.DescribeTable("should check if proper environment variable is ",
+		DescribeTable("should check if proper environment variable is ",
 			func(debugLogsAnnotationValue string, exceptedValues []string) {
 				config, kvInformer, svc = configFactory(defaultArch)
 
@@ -543,9 +542,9 @@ var _ = Describe("Template", func() {
 				Expect(exceptedValues).To(ContainElements(debugLogsValue))
 
 			},
-			table.Entry("defined when debug annotation is on with lowercase true", "true", []string{"1"}),
-			table.Entry("defined when debug annotation is on with mixed case true", "TRuE", []string{"1"}),
-			table.Entry("not defined when debug annotation is off", "false", []string{"0", ""}),
+			Entry("defined when debug annotation is on with lowercase true", "true", []string{"1"}),
+			Entry("defined when debug annotation is on with mixed case true", "TRuE", []string{"1"}),
+			Entry("not defined when debug annotation is off", "false", []string{"0", ""}),
 		)
 
 		Context("without debug log annotation", func() {
@@ -1070,7 +1069,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with node selectors", func() {
-			table.DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
+			DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
 				config, kvInformer, svc = configFactory(arch)
 
 				nodeSelector := map[string]string{
@@ -1126,8 +1125,8 @@ var _ = Describe("Template", func() {
 
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			},
-				table.Entry("on amd64", "amd64", "/usr/share/OVMF"),
-				table.Entry("on arm64", "arm64", "/usr/share/AAVMF"),
+				Entry("on amd64", "amd64", "/usr/share/OVMF"),
+				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
 			)
 
 			It("should add node selector for node discovery feature to template", func() {
@@ -1611,7 +1610,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with cpu and memory constraints", func() {
-			table.DescribeTable("should add cpu and memory constraints to a template", func(arch string, requestMemory string, limitMemory string) {
+			DescribeTable("should add cpu and memory constraints to a template", func(arch string, requestMemory string, limitMemory string) {
 				config, kvInformer, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
@@ -1647,10 +1646,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				table.Entry("on amd64", "amd64", "1180211045", "2180211045"),
-				table.Entry("on arm64", "arm64", "1314428773", "2314428773"),
+				Entry("on amd64", "amd64", "1180211045", "2180211045"),
+				Entry("on arm64", "arm64", "1314428773", "2314428773"),
 			)
-			table.DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
+			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvInformer, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
@@ -1683,10 +1682,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				table.Entry("on amd64", "amd64", "2180211045"),
-				table.Entry("on arm64", "arm64", "2314428773"),
+				Entry("on amd64", "amd64", "2180211045"),
+				Entry("on arm64", "arm64", "2314428773"),
 			)
-			table.DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
+			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvInformer, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
@@ -1721,11 +1720,11 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				table.Entry("on amd64", "amd64", 260),
-				table.Entry("on arm64", "arm64", 394),
+				Entry("on amd64", "amd64", 260),
+				Entry("on arm64", "arm64", 394),
 			)
 
-			table.DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
+			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
 				config, kvInformer, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
@@ -1757,12 +1756,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				table.Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 260),
-				table.Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 260),
-				table.Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 243),
-				table.Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 394),
-				table.Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 394),
-				table.Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 377),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 260),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", True(), 260),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", False(), 243),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 394),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", True(), 394),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", False(), 377),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -1901,7 +1900,7 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with hugepages constraints", func() {
-			table.DescribeTable("should add to the template constraints ", func(arch, pagesize string, memorySize int) {
+			DescribeTable("should add to the template constraints ", func(arch, pagesize string, memorySize int) {
 				config, kvInformer, svc = configFactory(arch)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1950,12 +1949,12 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7))
 				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
 			},
-				table.Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 179),
-				table.Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 179),
-				table.Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 313),
-				table.Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 313),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 179),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 179),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 313),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 313),
 			)
-			table.DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
+			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvInformer, svc = configFactory(arch)
 				guestMem := resource.MustParse("64M")
 				vmi := v1.VirtualMachineInstance{
@@ -2008,8 +2007,8 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7))
 				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
 			},
-				table.Entry("on amd64", "amd64", 179),
-				table.Entry("on arm64", "arm64", 313),
+				Entry("on amd64", "amd64", 179),
+				Entry("on arm64", "arm64", 313),
 			)
 		})
 
@@ -3002,7 +3001,7 @@ var _ = Describe("Template", func() {
 
 		Context("Ephemeral storage request", func() {
 
-			table.DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
+			DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
 				vmi := api.NewMinimalVMI("fake-vmi")
 
 				ephemeralStorageRequests := resource.MustParse("30M")
@@ -3043,8 +3042,8 @@ var _ = Describe("Template", func() {
 					Expect(computeContainer.Resources.Limits).To(Not(HaveKey(kubev1.ResourceEphemeralStorage)))
 				}
 			},
-				table.Entry("request is increased to consist non-user ephemeral storage", false),
-				table.Entry("request and limit is increased to consist non-user ephemeral storage", true),
+				Entry("request is increased to consist non-user ephemeral storage", false),
+				Entry("request and limit is increased to consist non-user ephemeral storage", true),
 			)
 
 		})
@@ -3118,7 +3117,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		table.DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
+		DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			switch interfaceType {
 			case "bridge":
@@ -3140,9 +3139,9 @@ var _ = Describe("Template", func() {
 			}
 			Expect(false).To(BeTrue())
 		},
-			table.Entry("when there is bridge interface", "bridge"),
-			table.Entry("when there is masquerade interface", "masquerade"),
-			table.Entry("when there is slirp interface", "slirp"),
+			Entry("when there is bridge interface", "bridge"),
+			Entry("when there is masquerade interface", "masquerade"),
+			Entry("when there is slirp interface", "slirp"),
 		)
 
 		It("should not require NET_BIND_SERVICE", func() {

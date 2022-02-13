@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -234,7 +233,7 @@ var _ = Describe("Pod eviction admitter", func() {
 				Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 			})
 
-			table.DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
+			DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
 				By("Composing a dummy admission request on a virt-launcher pod")
 				pod := &k8sv1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -286,8 +285,8 @@ var _ = Describe("Pod eviction admitter", func() {
 				actions := kubeClient.Fake.Actions()
 				Expect(actions).To(HaveLen(1))
 			},
-				table.Entry("and should mark the VMI when not in dry-run mode", false),
-				table.Entry("and should not mark the VMI when in dry-run mode", true),
+				Entry("and should mark the VMI when not in dry-run mode", false),
+				Entry("and should not mark the VMI when in dry-run mode", true),
 			)
 
 			Context("With EvictionStrategy cluster setting set to 'LiveMigrate'", func() {
@@ -317,7 +316,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					}
 				})
 
-				table.DescribeTable("Should allow review requests", func(markVMI bool, vmiEvictionStrategy virtv1.EvictionStrategy) {
+				DescribeTable("Should allow review requests", func(markVMI bool, vmiEvictionStrategy virtv1.EvictionStrategy) {
 					vmi.Spec.EvictionStrategy = &vmiEvictionStrategy
 
 					By("Composing a dummy admission request on a virt-launcher pod")
@@ -361,8 +360,8 @@ var _ = Describe("Pod eviction admitter", func() {
 					Expect(resp.Allowed).To(BeTrue())
 					Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 				},
-					table.Entry("and should mark the VMI", true, nil),
-					table.Entry("and should not mark the VMI", false, virtv1.EvictionStrategyNone),
+					Entry("and should mark the VMI", true, nil),
+					Entry("and should not mark the VMI", false, virtv1.EvictionStrategyNone),
 				)
 			})
 		})

@@ -9,7 +9,6 @@ import (
 	expect "github.com/google/goexpect"
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1086,7 +1085,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			table.DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
+			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
 				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
@@ -1117,8 +1116,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						vm.Status.VolumeSnapshotStatuses[0].Enabled
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			},
-				table.Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
-				table.Entry("with PVC volume", tests.NewRandomVMIWithPVC),
+				Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
+				Entry("with PVC volume", tests.NewRandomVMIWithPVC),
 			)
 		})
 	})
