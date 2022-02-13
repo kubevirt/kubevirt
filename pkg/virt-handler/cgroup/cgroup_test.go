@@ -64,7 +64,7 @@ var _ = Describe("cgroup manager", func() {
 		ctrl = gomock.NewController(GinkgoT())
 	})
 
-	table.DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
+	DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
 		manager, err := newMockManager(version)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -80,11 +80,11 @@ var _ = Describe("cgroup manager", func() {
 		}
 
 	},
-		table.Entry("for v1", V1),
-		table.Entry("for v2", V2),
+		Entry("for v1", V1),
+		Entry("for v2", V2),
 	)
 
-	table.DescribeTable("ensure that past rules are not overridden", func(version CgroupVersion) {
+	DescribeTable("ensure that past rules are not overridden", func(version CgroupVersion) {
 		manager, err := newMockManager(version)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -101,11 +101,11 @@ var _ = Describe("cgroup manager", func() {
 		Expect(previousRuleExists).To(BeTrue(), "previous rule is expected to not be overridden")
 
 	},
-		table.Entry("for v1", V1),
-		table.Entry("for v2", V2),
+		Entry("for v1", V1),
+		Entry("for v2", V2),
 	)
 
-	table.DescribeTable("ensure that past rules are overridden if explicitly set", func(version CgroupVersion) {
+	DescribeTable("ensure that past rules are overridden if explicitly set", func(version CgroupVersion) {
 		manager, err := newMockManager(version)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -120,8 +120,8 @@ var _ = Describe("cgroup manager", func() {
 		Expect(isRulesInRuleList(fakeRule, manager.rulesDefined)).To(BeTrue(), "rule needs to be overridden since explicitly re-set")
 
 	},
-		table.Entry("for v1", V1),
-		table.Entry("for v2", V2),
+		Entry("for v1", V1),
+		Entry("for v2", V2),
 	)
 
 })

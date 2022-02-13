@@ -42,7 +42,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 
 	always := v1.RunStrategyAlways
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -58,14 +58,14 @@ var _ = Describe("Validating Pool Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
-		table.Entry("VirtualMachinePool creation and update",
+		Entry("VirtualMachinePool creation and update",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 			`.very in body is a forbidden property`,
 			webhooks.VirtualMachinePoolGroupVersionResource,
 			poolAdmitter.Admit,
 		),
 	)
-	table.DescribeTable("reject invalid VirtualMachineInstance spec", func(pool *poolv1.VirtualMachinePool, causes []string) {
+	DescribeTable("reject invalid VirtualMachineInstance spec", func(pool *poolv1.VirtualMachinePool, causes []string) {
 		poolBytes, _ := json.Marshal(&pool)
 
 		ar := &admissionv1.AdmissionReview{
@@ -84,7 +84,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 			Expect(resp.Result.Details.Causes[i].Field).To(Equal(cause))
 		}
 	},
-		table.Entry("with missing volume and missing labels", &poolv1.VirtualMachinePool{
+		Entry("with missing volume and missing labels", &poolv1.VirtualMachinePool{
 			Spec: poolv1.VirtualMachinePoolSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "this"},
@@ -102,7 +102,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 			"spec.virtualMachineTemplate.spec.running",
 			"spec.selector",
 		}),
-		table.Entry("with mismatching label selectors", &poolv1.VirtualMachinePool{
+		Entry("with mismatching label selectors", &poolv1.VirtualMachinePool{
 			Spec: poolv1.VirtualMachinePoolSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "not"},

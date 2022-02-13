@@ -159,7 +159,7 @@ var _ = Describe("Node controller with", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
-		table.DescribeTable("should set a vmi without a pod to failed state if the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
+		DescribeTable("should set a vmi without a pod to failed state if the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
 			vmi.Status.Phase = phase
@@ -172,8 +172,8 @@ var _ = Describe("Node controller with", func() {
 			controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		},
-			table.Entry("running state", virtv1.Running),
-			table.Entry("scheduled state", virtv1.Scheduled),
+			Entry("running state", virtv1.Running),
+			Entry("scheduled state", virtv1.Scheduled),
 		)
 		It("should set multiple vmis to failed in one go, even if some updates fail", func() {
 			node := NewUnhealthyNode("testnode")
@@ -308,7 +308,7 @@ var _ = Describe("Node controller with", func() {
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
 
-		table.DescribeTable("should ignore a vmi which still has a healthy pod in", func(phase virtv1.VirtualMachineInstancePhase) {
+		DescribeTable("should ignore a vmi which still has a healthy pod in", func(phase virtv1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi", node)
 			vmi.Status.Phase = phase
@@ -325,8 +325,8 @@ var _ = Describe("Node controller with", func() {
 			controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		},
-			table.Entry("running state", virtv1.Running),
-			table.Entry("scheduled state", virtv1.Scheduled),
+			Entry("running state", virtv1.Running),
+			Entry("scheduled state", virtv1.Scheduled),
 		)
 	})
 
@@ -340,7 +340,7 @@ var _ = Describe("Node controller with", func() {
 			vmi = NewRunningVirtualMachine("vmi", node)
 		})
 
-		table.DescribeTable("testing orpahned event", func(returnVirtHandler bool, ds *appv1.DaemonSet, hasrunningvmi bool, expectEvent bool) {
+		DescribeTable("testing orpahned event", func(returnVirtHandler bool, ds *appv1.DaemonSet, hasrunningvmi bool, expectEvent bool) {
 
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				if returnVirtHandler {
@@ -365,10 +365,10 @@ var _ = Describe("Node controller with", func() {
 				testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			}
 		},
-			table.Entry("is not created when no vmis", true, &appv1.DaemonSet{}, false, false),
-			table.Entry("is not created when virt-handler is running", true, &appv1.DaemonSet{}, true, false),
-			table.Entry("is not created when daemonSet is not stable", false, UnHealthVirtHandlerDS(), true, false),
-			table.Entry("is created when virt-handler is missing on node with vmis", false, HealthVirtHandlerDS(), true, true),
+			Entry("is not created when no vmis", true, &appv1.DaemonSet{}, false, false),
+			Entry("is not created when virt-handler is running", true, &appv1.DaemonSet{}, true, false),
+			Entry("is not created when daemonSet is not stable", false, UnHealthVirtHandlerDS(), true, false),
+			Entry("is created when virt-handler is missing on node with vmis", false, HealthVirtHandlerDS(), true, true),
 		)
 	})
 

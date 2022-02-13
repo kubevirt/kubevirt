@@ -71,32 +71,32 @@ var _ = Describe("DHCP configurator", func() {
 			}
 		})
 
-		table.DescribeTable("should succeed when DHCP server started", func(configurator *configurator) {
+		DescribeTable("should succeed when DHCP server started", func(configurator *configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(nil)
 
 			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 		},
-			table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
-			table.Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
+			Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
+			Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
 		)
 
-		table.DescribeTable("should succeed when DHCP server is started multiple times", func(configurator *configurator) {
+		DescribeTable("should succeed when DHCP server is started multiple times", func(configurator *configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(nil)
 
 			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 		},
-			table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
-			table.Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
+			Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
+			Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
 		)
 
-		table.DescribeTable("should fail when DHCP server failed", func(configurator *configurator) {
+		DescribeTable("should fail when DHCP server failed", func(configurator *configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(fmt.Errorf("failed to start DHCP server"))
 
 			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(HaveOccurred())
 		},
-			table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
-			table.Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
+			Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
+			Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
 		)
 
 		When("IPAM is disabled on the DHCPConfig", func() {
@@ -110,13 +110,13 @@ var _ = Describe("DHCP configurator", func() {
 				}
 			})
 
-			table.DescribeTable("shouldn't fail when DHCP server failed", func(configurator *configurator) {
+			DescribeTable("shouldn't fail when DHCP server failed", func(configurator *configurator) {
 				configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(nil).Times(0)
 
 				Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 			},
-				table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
-				table.Entry("with masquerade", newMasqueradeConfigurator(bridgeName)),
+				Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
+				Entry("with masquerade", newMasqueradeConfigurator(bridgeName)),
 			)
 		})
 	})

@@ -1086,7 +1086,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			table.DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
+			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
 				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
@@ -1117,8 +1117,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						vm.Status.VolumeSnapshotStatuses[0].Enabled
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			},
-				table.Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
-				table.Entry("with PVC volume", tests.NewRandomVMIWithPVC),
+				Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
+				Entry("with PVC volume", tests.NewRandomVMIWithPVC),
 			)
 		})
 	})

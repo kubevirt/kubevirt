@@ -173,11 +173,11 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 	})
 
 	Context("difference", func() {
-		table.DescribeTable("should return the correct host-devices set comparing by host-devices's Alias.Name",
+		DescribeTable("should return the correct host-devices set comparing by host-devices's Alias.Name",
 			func(hostDevices, removeHostDevices, expectedHostDevices []api.HostDevice) {
 				Expect(hostdevice.DifferenceHostDevicesByAlias(hostDevices, removeHostDevices)).To(ConsistOf(expectedHostDevices))
 			},
-			table.Entry("empty set and zero elements to filter",
+			Entry("empty set and zero elements to filter",
 				// slice A
 				[]api.HostDevice{},
 				// slice B
@@ -185,7 +185,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 				// expected
 				[]api.HostDevice{},
 			),
-			table.Entry("empty set and at least one element to filter",
+			Entry("empty set and at least one element to filter",
 				// slice A
 				[]api.HostDevice{},
 				// slice B
@@ -196,23 +196,23 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 				// expected
 				[]api.HostDevice{},
 			),
-			table.Entry("valid set and zero elements to filter",
+			Entry("valid set and zero elements to filter",
 				// slice A
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-				},
-				// slice B
-				[]api.HostDevice{},
-				// expected
 				[]api.HostDevice{
 					{Alias: api.NewUserDefinedAlias("hostdev1")},
 					{Alias: api.NewUserDefinedAlias("hostdev2")},
 					{Alias: api.NewUserDefinedAlias("hostdev3")},
 				},
+				// slice B
+				[]api.HostDevice{},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
 			),
-			table.Entry("valid set and at least one element to filter",
+			Entry("valid set and at least one element to filter",
 				// slice A
 				[]api.HostDevice{
 					{Alias: api.NewUserDefinedAlias("hostdev4")},
@@ -232,7 +232,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 				},
 			),
 
-			table.Entry("valid set and a set that includes all elements from the first set",
+			Entry("valid set and a set that includes all elements from the first set",
 				// slice A
 				[]api.HostDevice{
 					{Alias: api.NewUserDefinedAlias("hostdev4")},
@@ -248,7 +248,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 				// expected
 				[]api.HostDevice{},
 			),
-			table.Entry("valid set and larger set to to filter",
+			Entry("valid set and larger set to to filter",
 				// slice A
 				[]api.HostDevice{
 					{Alias: api.NewUserDefinedAlias("hostdev4")},

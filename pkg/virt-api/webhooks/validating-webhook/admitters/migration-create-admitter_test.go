@@ -323,7 +323,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 	})
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -339,13 +339,13 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
-		table.Entry("Migration creation ",
+		Entry("Migration creation ",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 			`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 			webhooks.MigrationGroupVersionResource,
 			migrationCreateAdmitter.Admit,
 		),
-		table.Entry("Migration update",
+		Entry("Migration update",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 			`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 			webhooks.MigrationGroupVersionResource,

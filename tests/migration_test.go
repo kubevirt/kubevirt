@@ -2256,7 +2256,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return err
 			}
 
-			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
+			DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder, with_virtctl bool) {
 				vmi := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2282,12 +2282,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 			},
-				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
-				table.Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
-				table.Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
-				table.Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
+				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
+				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
 
-			table.DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
+			DescribeTable("Immediate migration cancellation", func(with_virtctl bool) {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2316,8 +2316,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
-				table.Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
-				table.Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
+				Entry("[sig-compute][test_id:3241]cancel a migration right after posting it", false),
+				Entry("[sig-compute][test_id:3246]cancel a migration with virtctl", true),
 			)
 		})
 
@@ -2554,7 +2554,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return namespace
 			}
 
-			table.DescribeTable("migration policy", func(defineMigrationPolicy bool) {
+			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
@@ -2585,8 +2585,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 				confirmMigrationPolicyName(vmi, expectedPolicyName)
 			},
-				table.Entry("should override cluster-wide policy if defined", true),
-				table.Entry("should not affect cluster-wide policy if not defined", false),
+				Entry("should override cluster-wide policy if defined", true),
+				Entry("should not affect cluster-wide policy if not defined", false),
 			)
 
 		})
@@ -3242,7 +3242,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		})
 
-		table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+		DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
 			v, err := cluster.GetKubernetesVersion()
 			Expect(err).ShouldNot(HaveOccurred())
@@ -3294,8 +3294,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(hugepagesVmi, 240)
 		},
-			table.Entry("[test_id:6983]hugepages-2Mi", "2Mi", "64Mi"),
-			table.Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
+			Entry("[test_id:6983]hugepages-2Mi", "2Mi", "64Mi"),
+			Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
 		)
 	})
 

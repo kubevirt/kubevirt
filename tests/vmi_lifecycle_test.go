@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Should(ContainSubstring(`"subcomponent":"libvirt"`))
 		})
 
-		table.DescribeTable("log libvirtd debug logs should be", func(vmiLabels, vmiAnnotations map[string]string, expectDebugLogs bool) {
+		DescribeTable("log libvirtd debug logs should be", func(vmiLabels, vmiAnnotations map[string]string, expectDebugLogs bool) {
 			var err error
 			vmi := tests.NewRandomVMI()
 			vmi.Labels = vmiLabels
@@ -254,11 +254,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}
 
 		},
-			table.Entry("[test_id:3197]enabled when debugLogs label defined", map[string]string{"debugLogs": "true"}, nil, true),
-			table.Entry("enabled when customLogFilters defined", nil, map[string]string{v1.CustomLibvirtLogFiltersAnnotation: fakeLibvirtLogFilters}, true),
-			table.Entry("enabled when log verbosity is high", map[string]string{"logVerbosity": "10"}, nil, true),
-			table.Entry("disabled when log verbosity is low", map[string]string{"logVerbosity": "2"}, nil, false),
-			table.Entry("disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
+			Entry("[test_id:3197]enabled when debugLogs label defined", map[string]string{"debugLogs": "true"}, nil, true),
+			Entry("enabled when customLogFilters defined", nil, map[string]string{v1.CustomLibvirtLogFiltersAnnotation: fakeLibvirtLogFilters}, true),
+			Entry("enabled when log verbosity is high", map[string]string{"logVerbosity": "10"}, nil, true),
+			Entry("disabled when log verbosity is low", map[string]string{"logVerbosity": "2"}, nil, false),
+			Entry("disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
 		)
 
 		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
@@ -342,7 +342,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("with boot order", func() {
-			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
+			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VirtualMachineInstance with an Alpine disk")
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
 				By("adding a Cirros Disk")
@@ -366,8 +366,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}, wait)
 				Expect(err).ToNot(HaveOccurred(), "Should match the console in VMI")
 			},
-				table.Entry("[test_id:1627]Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
-				table.Entry("[test_id:1628]Cirros as first boot", uint(2), uint(1), "cirros", 90),
+				Entry("[test_id:1627]Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
+				Entry("[test_id:1628]Cirros as first boot", uint(2), uint(1), "cirros", 90),
 			)
 		})
 
@@ -1166,7 +1166,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("with non default namespace", func() {
-			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace *string) {
+			DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace *string) {
 
 				nodes := util.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
@@ -1228,8 +1228,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")
 			},
-				table.Entry("[test_id:1641]"+util.NamespaceTestDefault, &util.NamespaceTestDefault),
-				table.Entry("[test_id:1642]"+tests.NamespaceTestAlternative, &tests.NamespaceTestAlternative),
+				Entry("[test_id:1641]"+util.NamespaceTestDefault, &util.NamespaceTestDefault),
+				Entry("[test_id:1642]"+tests.NamespaceTestAlternative, &tests.NamespaceTestAlternative),
 			)
 		})
 
@@ -1496,7 +1496,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 		Context("with ACPI and some grace period seconds", func() {
-			table.DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(gracePeriod int64) {
+			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(gracePeriod int64) {
 				vmi = newCirrosVMI()
 
 				if gracePeriod >= 0 {
@@ -1523,8 +1523,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					return currVMI.Status.Phase
 				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded), "VMI should be succeeded")
 			},
-				table.Entry("[test_id:1653]with set grace period seconds", int64(10)),
-				table.Entry("[test_id:1654]with default grace period seconds", int64(-1)),
+				Entry("[test_id:1653]with set grace period seconds", int64(10)),
+				Entry("[test_id:1654]with default grace period seconds", int64(-1)),
 			)
 		})
 		Context("with grace period greater than 0", func() {

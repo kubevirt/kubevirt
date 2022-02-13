@@ -134,16 +134,16 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 	}
 
 	Context("handler functions", func() {
-		table.DescribeTable("should return error when feature gate is not enabled", func(fn func(*restful.Request, *restful.Response)) {
+		DescribeTable("should return error when feature gate is not enabled", func(fn func(*restful.Request, *restful.Response)) {
 
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusForbidden))
 		},
-			table.Entry("start function", app.StartClusterProfilerHandler),
-			table.Entry("stop function", app.StopClusterProfilerHandler),
-			table.Entry("dump function", app.DumpClusterProfilerHandler),
+			Entry("start function", app.StartClusterProfilerHandler),
+			Entry("stop function", app.StopClusterProfilerHandler),
+			Entry("dump function", app.DumpClusterProfilerHandler),
 		)
-		table.DescribeTable("start/stop should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
+		DescribeTable("start/stop should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
 
 			results := v1.ClusterProfilerResults{
 				ComponentResults: make(map[string]v1.ProfilerResult),
@@ -161,11 +161,11 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
 		},
-			table.Entry("start function", app.StartClusterProfilerHandler, "start"),
-			table.Entry("stop function", app.StopClusterProfilerHandler, "stop"),
+			Entry("start function", app.StartClusterProfilerHandler, "start"),
+			Entry("stop function", app.StopClusterProfilerHandler, "stop"),
 		)
 
-		table.DescribeTable("dump should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
+		DescribeTable("dump should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
 
 			results := v1.ClusterProfilerResults{
 				ComponentResults: make(map[string]v1.ProfilerResult),
@@ -187,7 +187,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
 		},
-			table.Entry("dump function", app.DumpClusterProfilerHandler, "dump"),
+			Entry("dump function", app.DumpClusterProfilerHandler, "dump"),
 		)
 	})
 

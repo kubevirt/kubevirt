@@ -123,15 +123,15 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		return newVirtualMachinePoolWithTemplate(template, false)
 	}
 
-	table.DescribeTable("[Serial]pool should scale", func(startScale int, stopScale int) {
+	DescribeTable("[Serial]pool should scale", func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, int32(startScale))
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))
 		doScale(newPool.ObjectMeta.Name, int32(0))
 
 	},
-		table.Entry("[QUARANTINE]to three, to two and then to zero replicas", 3, 2),
-		table.Entry("[QUARANTINE]to five, to six and then to zero replicas", 5, 6),
+		Entry("[QUARANTINE]to three, to two and then to zero replicas", 3, 2),
+		Entry("[QUARANTINE]to five, to six and then to zero replicas", 5, 6),
 	)
 
 	It("should be rejected on POST if spec is invalid", func() {

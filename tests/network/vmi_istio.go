@@ -254,22 +254,22 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				BeforeEach(func() {
 					vmiPorts = explicitPorts
 				})
-				table.DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
+				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
 					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
 				},
-					table.Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
-					table.Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
+					Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
+					Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
 				)
 			})
 			Context("With VMI having no explicit ports specified", func() {
 				BeforeEach(func() {
 					vmiPorts = []v1.Port{}
 				})
-				table.DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
+				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
 					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
 				},
-					table.Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
-					table.Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
+					Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
+					Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
 				)
 				It("Should not be able to reach service running on Istio restricted port", func() {
 					Expect(checkVMIReachability(vmi, istioRestrictedPort)).NotTo(Succeed())
@@ -287,22 +287,22 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					BeforeEach(func() {
 						vmiPorts = explicitPorts
 					})
-					table.DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
+					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
 						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
 					},
-						table.Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
-						table.Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
+						Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
+						Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
 					)
 				})
 				Context("With VMI having no explicit ports specified", func() {
 					BeforeEach(func() {
 						vmiPorts = []v1.Port{}
 					})
-					table.DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
+					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
 						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
 					},
-						table.Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
-						table.Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
+						Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
+						Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
 					)
 				})
 			})

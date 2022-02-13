@@ -63,26 +63,26 @@ var _ = Describe("Generic Address Pool", func() {
 		vmi = &v1.VirtualMachineInstance{}
 	})
 
-	table.DescribeTable("creates an empty pool when no HostDevices are specified",
+	DescribeTable("creates an empty pool when no HostDevices are specified",
 		func(newPool func([]v1.HostDevice) *hostdevice.AddressPool) {
 			pool := newPool(vmi.Spec.Domain.Devices.HostDevices)
 			expectPoolPopFailure(pool, hostdevResource0)
 		},
-		table.Entry("PCI", generic.NewPCIAddressPool),
-		table.Entry("MDEV", generic.NewMDEVAddressPool),
+		Entry("PCI", generic.NewPCIAddressPool),
+		Entry("MDEV", generic.NewMDEVAddressPool),
 	)
 
-	table.DescribeTable("creates an empty pool when no resources are specified",
+	DescribeTable("creates an empty pool when no resources are specified",
 		func(newPool func([]v1.HostDevice) *hostdevice.AddressPool) {
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{{DeviceName: hostdevResource0, Name: hostdevName0}}
 			pool := newPool(vmi.Spec.Domain.Devices.HostDevices)
 			expectPoolPopFailure(pool, hostdevResource0)
 		},
-		table.Entry("PCI", generic.NewPCIAddressPool),
-		table.Entry("MDEV", generic.NewMDEVAddressPool),
+		Entry("PCI", generic.NewPCIAddressPool),
+		Entry("MDEV", generic.NewMDEVAddressPool),
 	)
 
-	table.DescribeTable("succeeds to pop 2 addresses from same resource",
+	DescribeTable("succeeds to pop 2 addresses from same resource",
 		func(newPool func([]v1.HostDevice) *hostdevice.AddressPool, prefix, address0, address1 string) {
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{{DeviceName: hostdevResource0, Name: hostdevName0}}
 			env := []envData{newResourceEnv(prefix, envHostDevResource0, address0, address1)}
@@ -92,11 +92,11 @@ var _ = Describe("Generic Address Pool", func() {
 				Expect(pool.Pop(hostdevResource0)).To(Equal(address1))
 			})
 		},
-		table.Entry("PCI", generic.NewPCIAddressPool, pciResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
-		table.Entry("MDEV", generic.NewMDEVAddressPool, mdevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
+		Entry("PCI", generic.NewPCIAddressPool, pciResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
+		Entry("MDEV", generic.NewMDEVAddressPool, mdevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
 	)
 
-	table.DescribeTable("succeeds to pop 2 addresses from two resources",
+	DescribeTable("succeeds to pop 2 addresses from two resources",
 		func(newPool func([]v1.HostDevice) *hostdevice.AddressPool, prefix, address0, address1 string) {
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{DeviceName: hostdevResource0, Name: hostdevName0},
@@ -112,8 +112,8 @@ var _ = Describe("Generic Address Pool", func() {
 				Expect(pool.Pop(hostdevResource1)).To(Equal(address1))
 			})
 		},
-		table.Entry("PCI", generic.NewPCIAddressPool, pciResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
-		table.Entry("MDEV", generic.NewMDEVAddressPool, mdevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
+		Entry("PCI", generic.NewPCIAddressPool, pciResourcePrefix, hostdevPCIAddress0, hostdevPCIAddress1),
+		Entry("MDEV", generic.NewMDEVAddressPool, mdevResourcePrefix, hostdevMDEVAddress0, hostdevMDEVAddress1),
 	)
 })
 

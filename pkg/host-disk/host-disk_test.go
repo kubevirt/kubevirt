@@ -377,7 +377,7 @@ var _ = Describe("HostDisk", func() {
 			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		})
 
-		table.DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
+		DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
 
 			pvcName := "madeup"
 
@@ -449,9 +449,9 @@ var _ = Describe("HostDisk", func() {
 
 		},
 
-			table.Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
-			table.Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
-			table.Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),
+			Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
+			Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
+			Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),
 		)
 	})
 

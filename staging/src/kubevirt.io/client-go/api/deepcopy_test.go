@@ -80,7 +80,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 		}
 	})
 
-	table.DescribeTable("should work for fuzzed structs with a probability for nils of", func(nilProbability float64) {
+	DescribeTable("should work for fuzzed structs with a probability for nils of", func(nilProbability float64) {
 		for _, s := range structs {
 			fuzz.New().NilChance(nilProbability).Fuzz(s)
 			Expect(reflect.ValueOf(s).MethodByName("DeepCopy").Call(nil)[0].Interface()).To(Equal(s))
@@ -92,10 +92,10 @@ var _ = Describe("Generated deepcopy functions", func() {
 			Expect(new.Interface()).To(Equal(s))
 		}
 	},
-		table.Entry("0%", float64(0)),
-		table.Entry("10%", float64(0.1)),
-		table.Entry("50%", float64(0.5)),
-		table.Entry("70%", float64(0.7)),
-		table.Entry("100%", float64(1)),
+		Entry("0%", float64(0)),
+		Entry("10%", float64(0.1)),
+		Entry("50%", float64(0.5)),
+		Entry("70%", float64(0.7)),
+		Entry("100%", float64(1)),
 	)
 })

@@ -49,7 +49,7 @@ var _ = Describe("EFI environment detection", func() {
 		return ovmfPath
 	}
 
-	table.DescribeTable("EFI Roms",
+	DescribeTable("EFI Roms",
 		func(arch, codeSB, varsSB, code, vars string, SBBootable, NoSBBootable bool) {
 			ovmfPath := createEFIRoms(codeSB, varsSB, code, vars)
 			defer os.RemoveAll(ovmfPath)
@@ -72,14 +72,14 @@ var _ = Describe("EFI environment detection", func() {
 			}
 
 		},
-		table.Entry("SB and NoSB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICode, EFIVars, true, true),
-		table.Entry("Only SB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, "", true, false),
-		table.Entry("Only NoSB available", "x86_64", "", "", EFICode, EFIVars, false, true),
-		table.Entry("Arm64 EFI", "arm64", "", "", EFICodeAARCH64, EFIVarsAARCH64, false, true),
-		table.Entry("SB and NoSB available when OVMF_CODE.fd does not exist", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, EFIVars, true, true),
-		table.Entry("Only NoSB available when OVMF_CODE.fd and OVMF_VARS.secboot.fd do not exist", "x86_64", EFICodeSecureBoot, "", EFICodeSecureBoot, EFIVars, false, true),
-		table.Entry("EFI booting not available for x86_64", "x86_64", "", "", "", "", false, false),
-		table.Entry("EFI booting not available for arm64", "arm64", "", "", "", "", false, false),
+		Entry("SB and NoSB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICode, EFIVars, true, true),
+		Entry("Only SB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, "", true, false),
+		Entry("Only NoSB available", "x86_64", "", "", EFICode, EFIVars, false, true),
+		Entry("Arm64 EFI", "arm64", "", "", EFICodeAARCH64, EFIVarsAARCH64, false, true),
+		Entry("SB and NoSB available when OVMF_CODE.fd does not exist", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, EFIVars, true, true),
+		Entry("Only NoSB available when OVMF_CODE.fd and OVMF_VARS.secboot.fd do not exist", "x86_64", EFICodeSecureBoot, "", EFICodeSecureBoot, EFIVars, false, true),
+		Entry("EFI booting not available for x86_64", "x86_64", "", "", "", "", false, false),
+		Entry("EFI booting not available for arm64", "arm64", "", "", "", "", false, false),
 	)
 
 	It("SEV EFI Roms", func() {

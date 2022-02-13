@@ -149,7 +149,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	table.DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
+	DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
 		now := metav1.Now()
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Status = v1.VirtualMachineInstanceStatus{
@@ -199,7 +199,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(false))
 	},
-		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk2",
@@ -219,7 +219,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			},
 		}),
-		table.Entry("with valid request to remove volume", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to remove volume", []v1.VirtualMachineVolumeRequest{
 			{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 					Name: "testdisk",
@@ -228,7 +228,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}),
 	)
 
-	table.DescribeTable("should validate VolumeRequest on running vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
+	DescribeTable("should validate VolumeRequest on running vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
@@ -311,7 +311,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
-		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk2",
@@ -333,7 +333,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
-		table.Entry("with invalid request to add volume that conflicts with running vmi", []v1.VirtualMachineVolumeRequest{
+		Entry("with invalid request to add volume that conflicts with running vmi", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testpvcdisk-extra",
@@ -354,7 +354,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			false),
-		table.Entry("with valid request to add volume that is identical to one in vmi", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to add volume that is identical to one in vmi", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "a-pvcdisk",
@@ -449,7 +449,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			true),
 	)
 
-	table.DescribeTable("should validate VolumeRequest on offline vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
+	DescribeTable("should validate VolumeRequest on offline vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
@@ -491,7 +491,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
-		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk2",
@@ -513,7 +513,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		},
 			true),
 
-		table.Entry("with invalid request to add the same volume twice", []v1.VirtualMachineVolumeRequest{
+		Entry("with invalid request to add the same volume twice", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk2",
@@ -552,7 +552,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			false),
-		table.Entry("with invalid request to add volume that already exists", []v1.VirtualMachineVolumeRequest{
+		Entry("with invalid request to add volume that already exists", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk",
@@ -574,7 +574,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		},
 			false),
 
-		table.Entry("with valid request to add the exact same volume that already exists.", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to add the exact same volume that already exists.", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk",
@@ -595,7 +595,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			false),
-		table.Entry("with valid request to remove volume", []v1.VirtualMachineVolumeRequest{
+		Entry("with valid request to remove volume", []v1.VirtualMachineVolumeRequest{
 			{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 					Name: "testdisk",
@@ -603,7 +603,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
-		table.Entry("with invalid request to remove same volume twice", []v1.VirtualMachineVolumeRequest{
+		Entry("with invalid request to remove same volume twice", []v1.VirtualMachineVolumeRequest{
 			{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 					Name: "testdisk",
@@ -616,11 +616,11 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			false),
-		table.Entry("with invalid request with no options", []v1.VirtualMachineVolumeRequest{
+		Entry("with invalid request with no options", []v1.VirtualMachineVolumeRequest{
 			{},
 		},
 			false),
-		table.Entry("with invalid request with multiple options", []v1.VirtualMachineVolumeRequest{
+		Entry("with invalid request with multiple options", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testdisk2",
@@ -733,7 +733,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			disableFeatureGates()
 		})
 
-		table.DescribeTable("should accept valid volumes",
+		DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -745,16 +745,16 @@ var _ = Describe("Validating VM Admitter", func() {
 				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 				Expect(len(causes)).To(Equal(0))
 			},
-			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}),
-			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
-			table.Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: testutils.NewFakeContainerDiskSource()}),
-			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
-			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
-			table.Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
-			table.Entry("with hostDisk volume source", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "fake", Type: v1.HostDiskExistsOrCreate}}),
-			table.Entry("with configMap volume source", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "fake"}}}),
-			table.Entry("with secret volume source", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "fake"}}),
-			table.Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
+			Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}),
+			Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
+			Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: testutils.NewFakeContainerDiskSource()}),
+			Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
+			Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
+			Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
+			Entry("with hostDisk volume source", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "fake", Type: v1.HostDiskExistsOrCreate}}),
+			Entry("with configMap volume source", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "fake"}}}),
+			Entry("with secret volume source", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "fake"}}),
+			Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
 		)
 		It("should reject DataVolume when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -850,7 +850,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake list exceeds the %d element limit in length", arrayLenMax)))
 		})
 
-		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
+		DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			// generate fake userdata
@@ -873,15 +873,15 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
 			}
 		},
-			table.Entry("should accept userdata under max limit", 10, 0, false),
-			table.Entry("should accept userdata equal max limit", cloudInitUserMaxLen, 0, false),
-			table.Entry("should reject userdata greater than max limit", cloudInitUserMaxLen+1, 1, false),
-			table.Entry("should accept userdata base64 under max limit", 10, 0, true),
-			table.Entry("should accept userdata base64 equal max limit", cloudInitUserMaxLen, 0, true),
-			table.Entry("should reject userdata base64 greater than max limit", cloudInitUserMaxLen+1, 1, true),
+			Entry("should accept userdata under max limit", 10, 0, false),
+			Entry("should accept userdata equal max limit", cloudInitUserMaxLen, 0, false),
+			Entry("should reject userdata greater than max limit", cloudInitUserMaxLen+1, 1, false),
+			Entry("should accept userdata base64 under max limit", 10, 0, true),
+			Entry("should accept userdata base64 equal max limit", cloudInitUserMaxLen, 0, true),
+			Entry("should reject userdata base64 greater than max limit", cloudInitUserMaxLen+1, 1, true),
 		)
 
-		table.DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int, base64Encode bool) {
+		DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int, base64Encode bool) {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			// generate fake networkdata
@@ -905,12 +905,12 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
 			}
 		},
-			table.Entry("should accept networkdata under max limit", 10, 0, false),
-			table.Entry("should accept networkdata equal max limit", cloudInitNetworkMaxLen, 0, false),
-			table.Entry("should reject networkdata greater than max limit", cloudInitNetworkMaxLen+1, 1, false),
-			table.Entry("should accept networkdata base64 under max limit", 10, 0, true),
-			table.Entry("should accept networkdata base64 equal max limit", cloudInitNetworkMaxLen, 0, true),
-			table.Entry("should reject networkdata base64 greater than max limit", cloudInitNetworkMaxLen+1, 1, true),
+			Entry("should accept networkdata under max limit", 10, 0, false),
+			Entry("should accept networkdata equal max limit", cloudInitNetworkMaxLen, 0, false),
+			Entry("should reject networkdata greater than max limit", cloudInitNetworkMaxLen+1, 1, false),
+			Entry("should accept networkdata base64 under max limit", 10, 0, true),
+			Entry("should accept networkdata base64 equal max limit", cloudInitNetworkMaxLen, 0, true),
+			Entry("should reject networkdata base64 greater than max limit", cloudInitNetworkMaxLen+1, 1, true),
 		)
 
 		It("should reject cloud-init with invalid base64 userdata", func() {
@@ -1110,7 +1110,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake"))
 		})
 
-		table.DescribeTable("should successfully authorize clone", func(arNamespace, vmNamespace, sourceNamespace,
+		DescribeTable("should successfully authorize clone", func(arNamespace, vmNamespace, sourceNamespace,
 			serviceAccount, expectedSourceNamespace, expectedTargetNamespace, expectedServiceAccount string) {
 
 			vm := &v1.VirtualMachine{
@@ -1159,14 +1159,14 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 		},
-			table.Entry("when source namespace suppied", "ns1", "", "ns3", "", "ns3", "ns1", "default"),
-			table.Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "ns2", "ns2", "default"),
-			table.Entry("when ar namespace suppied and vm/source not", "ns1", "", "", "", "ns1", "ns1", "default"),
-			table.Entry("when everything suppied with default service account", "ns1", "ns2", "ns3", "", "ns3", "ns2", "default"),
-			table.Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
+			Entry("when source namespace suppied", "ns1", "", "ns3", "", "ns3", "ns1", "default"),
+			Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "ns2", "ns2", "default"),
+			Entry("when ar namespace suppied and vm/source not", "ns1", "", "", "", "ns1", "ns1", "default"),
+			Entry("when everything suppied with default service account", "ns1", "ns2", "ns3", "", "ns3", "ns2", "default"),
+			Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
 		)
 
-		table.DescribeTable("should successfully authorize clone from sourceRef", func(arNamespace,
+		DescribeTable("should successfully authorize clone from sourceRef", func(arNamespace,
 			vmNamespace,
 			sourceRefNamespace,
 			sourceNamespace,
@@ -1248,18 +1248,18 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 		},
-			table.Entry("when source namespace suppied", "ns1", "", "ns2", "ns3", "", "ns3", "ns1", "default"),
-			table.Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "", "ns2", "ns2", "default"),
-			table.Entry("when everything suppied with default service account", "ns1", "ns2", "", "ns3", "", "ns3", "ns2", "default"),
-			table.Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "", "ns3", "sa", "ns3", "ns2", "sa"),
-			table.Entry("when source namespace and sourceRef namespace suppied", "ns1", "", "foo", "ns3", "", "ns3", "ns1", "default"),
-			table.Entry("when vm namespace and sourceRef namespace suppied and source not", "ns1", "ns2", "foo", "", "", "foo", "ns2", "default"),
-			table.Entry("when ar namespace and sourceRef namespace suppied and vm/source not", "ns1", "", "foo", "", "", "foo", "ns1", "default"),
-			table.Entry("when everything and sourceRef suppied with default service account", "ns1", "ns2", "foo", "ns3", "", "ns3", "ns2", "default"),
-			table.Entry("when everything and sourceRef suppied with 'sa' service account", "ns1", "ns2", "foo", "ns3", "sa", "ns3", "ns2", "sa"),
+			Entry("when source namespace suppied", "ns1", "", "ns2", "ns3", "", "ns3", "ns1", "default"),
+			Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "", "ns2", "ns2", "default"),
+			Entry("when everything suppied with default service account", "ns1", "ns2", "", "ns3", "", "ns3", "ns2", "default"),
+			Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "", "ns3", "sa", "ns3", "ns2", "sa"),
+			Entry("when source namespace and sourceRef namespace suppied", "ns1", "", "foo", "ns3", "", "ns3", "ns1", "default"),
+			Entry("when vm namespace and sourceRef namespace suppied and source not", "ns1", "ns2", "foo", "", "", "foo", "ns2", "default"),
+			Entry("when ar namespace and sourceRef namespace suppied and vm/source not", "ns1", "", "foo", "", "", "foo", "ns1", "default"),
+			Entry("when everything and sourceRef suppied with default service account", "ns1", "ns2", "foo", "ns3", "", "ns3", "ns2", "default"),
+			Entry("when everything and sourceRef suppied with 'sa' service account", "ns1", "ns2", "foo", "ns3", "sa", "ns3", "ns2", "sa"),
 		)
 
-		table.DescribeTable("should deny clone", func(sourceNamespace, sourceName, failMessage string, failErr error, expectedMessage string) {
+		DescribeTable("should deny clone", func(sourceNamespace, sourceName, failMessage string, failErr error, expectedMessage string) {
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
@@ -1293,14 +1293,14 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(causes[0].Message).To(Equal(expectedMessage))
 			}
 		},
-			table.Entry("when source name not supplied", "", "sourceName", "Clone source /sourceName invalid", nil, "Clone source /sourceName invalid"),
-			table.Entry("when source namespace not supplied", "sourceNamespace", "", "Clone source sourceNamespace/ invalid", nil, "Clone source sourceNamespace/ invalid"),
-			table.Entry("when user not authorized", "sourceNamespace", "sourceName", "no permission", nil, "Authorization failed, message is: no permission"),
-			table.Entry("error occurs", "sourceNamespace", "sourceName", "", fmt.Errorf("bad error"), ""),
+			Entry("when source name not supplied", "", "sourceName", "Clone source /sourceName invalid", nil, "Clone source /sourceName invalid"),
+			Entry("when source namespace not supplied", "sourceNamespace", "", "Clone source sourceNamespace/ invalid", nil, "Clone source sourceNamespace/ invalid"),
+			Entry("when user not authorized", "sourceNamespace", "sourceName", "no permission", nil, "Authorization failed, message is: no permission"),
+			Entry("error occurs", "sourceNamespace", "sourceName", "", fmt.Errorf("bad error"), ""),
 		)
 	})
 
-	table.DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
+	DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
@@ -1339,21 +1339,21 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		}
 	},
-		table.Entry("reject update to spec", func(vm *v1.VirtualMachine) bool {
+		Entry("reject update to spec", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Running = &[]bool{true}[0]
 			return false
 		}),
-		table.Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
+		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
 			vm.Annotations = map[string]string{"foo": "bar"}
 			return true
 		}),
-		table.Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
+		Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
 			vm.Status.Ready = true
 			return true
 		}),
 	)
 
-	table.DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool, updateRunStrategy bool) {
+	DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool, updateRunStrategy bool) {
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
@@ -1396,23 +1396,23 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		}
 	},
-		table.Entry("reject update to running true", func(vm *v1.VirtualMachine) bool {
+		Entry("reject update to running true", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Running = &[]bool{true}[0]
 			return false
 		}, false),
-		table.Entry("reject update of runStrategy", func(vm *v1.VirtualMachine) bool {
+		Entry("reject update of runStrategy", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.RunStrategy = &runStrategyManual
 			return false
 		}, true),
-		table.Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
+		Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
 			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 			return true
 		}, false),
-		table.Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
+		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
 			vm.Annotations = map[string]string{"foo": "bar"}
 			return true
 		}, false),
-		table.Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
+		Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
 			vm.Status.Ready = true
 			return true
 		}, false),

@@ -653,7 +653,7 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 		})
 
-		table.DescribeTable("should handle pod stuck in unschedulable state", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64, annotationVal string) {
+		DescribeTable("should handle pod stuck in unschedulable state", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64, annotationVal string) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, phase)
 
@@ -692,16 +692,16 @@ var _ = Describe("Migration watcher", func() {
 				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			}
 		},
-			table.Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulablePendingTimeoutSeconds, ""),
-			table.Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultUnschedulablePendingTimeoutSeconds, ""),
-			table.Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultUnschedulablePendingTimeoutSeconds, ""),
-			table.Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulablePendingTimeoutSeconds-1, ""),
-			table.Entry("in pending state with custom timeout", virtv1.MigrationPending, true, int64(10), "10"),
-			table.Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(10), "11"),
-			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulablePendingTimeoutSeconds-1, ""),
+			Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulablePendingTimeoutSeconds, ""),
+			Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultUnschedulablePendingTimeoutSeconds, ""),
+			Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultUnschedulablePendingTimeoutSeconds, ""),
+			Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulablePendingTimeoutSeconds-1, ""),
+			Entry("in pending state with custom timeout", virtv1.MigrationPending, true, int64(10), "10"),
+			Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(10), "11"),
+			Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulablePendingTimeoutSeconds-1, ""),
 		)
 
-		table.DescribeTable("should handle pod stuck in pending phase for extended period of time", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64, annotationVal string) {
+		DescribeTable("should handle pod stuck in pending phase for extended period of time", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64, annotationVal string) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, phase)
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
@@ -730,18 +730,18 @@ var _ = Describe("Migration watcher", func() {
 				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			}
 		},
-			table.Entry("in pending state", virtv1.MigrationPending, true, defaultCatchAllPendingTimeoutSeconds, ""),
-			table.Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultCatchAllPendingTimeoutSeconds, ""),
-			table.Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultCatchAllPendingTimeoutSeconds, ""),
-			table.Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
-			table.Entry("in pending state with custom timeout", virtv1.MigrationPending, true, int64(10), "10"),
-			table.Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(10), "11"),
-			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
+			Entry("in pending state", virtv1.MigrationPending, true, defaultCatchAllPendingTimeoutSeconds, ""),
+			Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultCatchAllPendingTimeoutSeconds, ""),
+			Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultCatchAllPendingTimeoutSeconds, ""),
+			Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
+			Entry("in pending state with custom timeout", virtv1.MigrationPending, true, int64(10), "10"),
+			Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(10), "11"),
+			Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
 		)
 	})
 
 	Context("Migration garbage collection", func() {
-		table.DescribeTable("should garbage old finalized migration objects", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
+		DescribeTable("should garbage old finalized migration objects", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 
 			phasesToGarbageCollect := []virtv1.VirtualMachineInstanceMigrationPhase{
@@ -802,21 +802,21 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.IgnoreEvents(recorder)
 		},
-			table.Entry("in failed phase", virtv1.MigrationFailed),
-			table.Entry("in succeeded phase", virtv1.MigrationSucceeded),
-			table.Entry("in unset phase", virtv1.MigrationPhaseUnset),
-			table.Entry("in pending phase", virtv1.MigrationPending),
-			table.Entry("in scheduling phase", virtv1.MigrationScheduling),
-			table.Entry("in preparing target phase", virtv1.MigrationPreparingTarget),
-			table.Entry("in target ready phase", virtv1.MigrationTargetReady),
-			table.Entry("in running phase", virtv1.MigrationRunning),
+			Entry("in failed phase", virtv1.MigrationFailed),
+			Entry("in succeeded phase", virtv1.MigrationSucceeded),
+			Entry("in unset phase", virtv1.MigrationPhaseUnset),
+			Entry("in pending phase", virtv1.MigrationPending),
+			Entry("in scheduling phase", virtv1.MigrationScheduling),
+			Entry("in preparing target phase", virtv1.MigrationPreparingTarget),
+			Entry("in target ready phase", virtv1.MigrationTargetReady),
+			Entry("in running phase", virtv1.MigrationRunning),
 		)
 
 	})
 
 	Context("Migration should immediately fail if", func() {
 
-		table.DescribeTable("vmi moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
+		DescribeTable("vmi moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Succeeded)
 			vmi.DeletionTimestamp = now()
 			migration := newMigration("testmigration", vmi.Name, phase)
@@ -835,14 +835,14 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, FailedMigrationReason)
 		},
-			table.Entry("in running state", virtv1.MigrationRunning),
-			table.Entry("in unset state", virtv1.MigrationPhaseUnset),
-			table.Entry("in pending state", virtv1.MigrationPending),
-			table.Entry("in scheduled state", virtv1.MigrationScheduled),
-			table.Entry("in scheduling state", virtv1.MigrationScheduling),
-			table.Entry("in target ready state", virtv1.MigrationTargetReady),
+			Entry("in running state", virtv1.MigrationRunning),
+			Entry("in unset state", virtv1.MigrationPhaseUnset),
+			Entry("in pending state", virtv1.MigrationPending),
+			Entry("in scheduled state", virtv1.MigrationScheduled),
+			Entry("in scheduling state", virtv1.MigrationScheduling),
+			Entry("in target ready state", virtv1.MigrationTargetReady),
 		)
-		table.DescribeTable("Pod moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
+		DescribeTable("Pod moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, phase)
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
@@ -864,14 +864,14 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, FailedMigrationReason)
 		},
-			table.Entry("in running state", virtv1.MigrationRunning),
-			table.Entry("in unset state", virtv1.MigrationPhaseUnset),
-			table.Entry("in pending state", virtv1.MigrationPending),
-			table.Entry("in scheduled state", virtv1.MigrationScheduled),
-			table.Entry("in scheduling state", virtv1.MigrationScheduling),
-			table.Entry("in target ready state", virtv1.MigrationTargetReady),
+			Entry("in running state", virtv1.MigrationRunning),
+			Entry("in unset state", virtv1.MigrationPhaseUnset),
+			Entry("in pending state", virtv1.MigrationPending),
+			Entry("in scheduled state", virtv1.MigrationScheduled),
+			Entry("in scheduling state", virtv1.MigrationScheduling),
+			Entry("in target ready state", virtv1.MigrationTargetReady),
 		)
-		table.DescribeTable("VMI's migrate state moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
+		DescribeTable("VMI's migrate state moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, phase)
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
@@ -894,17 +894,17 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, FailedMigrationReason)
 		},
-			table.Entry("in running state", virtv1.MigrationRunning),
-			table.Entry("in unset state", virtv1.MigrationPhaseUnset),
-			table.Entry("in pending state", virtv1.MigrationPending),
-			table.Entry("in scheduled state", virtv1.MigrationScheduled),
-			table.Entry("in scheduling state", virtv1.MigrationScheduling),
-			table.Entry("in target ready state", virtv1.MigrationTargetReady),
+			Entry("in running state", virtv1.MigrationRunning),
+			Entry("in unset state", virtv1.MigrationPhaseUnset),
+			Entry("in pending state", virtv1.MigrationPending),
+			Entry("in scheduled state", virtv1.MigrationScheduled),
+			Entry("in scheduling state", virtv1.MigrationScheduling),
+			Entry("in target ready state", virtv1.MigrationTargetReady),
 		)
 	})
 	Context("Migration object ", func() {
 
-		table.DescribeTable("should hand pod over to target virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
+		DescribeTable("should hand pod over to target virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
@@ -923,19 +923,19 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		},
-			table.Entry("with running compute container and no infra container",
+			Entry("with running compute container and no infra container",
 				[]k8sv1.ContainerStatus{{
 					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
 				}},
 			),
-			table.Entry("with running compute container and no ready istio-proxy container",
+			Entry("with running compute container and no ready istio-proxy container",
 				[]k8sv1.ContainerStatus{{
 					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
 				}, {Name: "istio-proxy", Ready: false}},
 			),
 		)
 
-		table.DescribeTable("should not hand pod over to target virt-handler if pod is not ready and running", func(containerStatus []k8sv1.ContainerStatus) {
+		DescribeTable("should not hand pod over to target virt-handler if pod is not ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
@@ -949,10 +949,10 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 		},
-			table.Entry("with not ready infra container and not ready compute container",
+			Entry("with not ready infra container and not ready compute container",
 				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: false}},
 			),
-			table.Entry("with not ready compute container and no infra container",
+			Entry("with not ready compute container and no infra container",
 				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}},
 			),
 		)
@@ -1150,7 +1150,7 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})
-		table.DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase virtv1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase, initializeMigrationState bool) {
+		DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase virtv1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase, initializeMigrationState bool) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, phase)
@@ -1215,13 +1215,13 @@ var _ = Describe("Migration watcher", func() {
 				testutils.ExpectEvent(recorder, FailedMigrationReason)
 			}
 		},
-			table.Entry("in preparing target state", virtv1.MigrationPreparingTarget, true, k8sv1.PodFailed, true),
-			table.Entry("in target ready state", virtv1.MigrationTargetReady, true, k8sv1.PodFailed, true),
-			table.Entry("in failed state", virtv1.MigrationFailed, true, k8sv1.PodFailed, true),
-			table.Entry("in failed state before pod is created", virtv1.MigrationFailed, false, k8sv1.PodFailed, false),
-			table.Entry("in failed state and pod does not exist", virtv1.MigrationFailed, false, k8sv1.PodFailed, false),
+			Entry("in preparing target state", virtv1.MigrationPreparingTarget, true, k8sv1.PodFailed, true),
+			Entry("in target ready state", virtv1.MigrationTargetReady, true, k8sv1.PodFailed, true),
+			Entry("in failed state", virtv1.MigrationFailed, true, k8sv1.PodFailed, true),
+			Entry("in failed state before pod is created", virtv1.MigrationFailed, false, k8sv1.PodFailed, false),
+			Entry("in failed state and pod does not exist", virtv1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
-		table.DescribeTable("with CPU mode which is", func(toDefineHostModelCPU bool) {
+		DescribeTable("with CPU mode which is", func(toDefineHostModelCPU bool) {
 			const nodeName = "testNode"
 
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -1266,8 +1266,8 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		},
-			table.Entry("host-model should be targeted only to nodes which support the model", true),
-			table.Entry("non-host-model should not be targeted to nodes which support the model", false),
+			Entry("host-model should be targeted only to nodes which support the model", true),
+			Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
 	})
 
@@ -1386,7 +1386,7 @@ var _ = Describe("Migration watcher", func() {
 				namespaceMatchingLabels int
 			}
 
-			table.DescribeTable("must be done correctly", func(expectedMatchedPolicyName string, policiesToDefine ...policyInfo) {
+			DescribeTable("must be done correctly", func(expectedMatchedPolicyName string, policiesToDefine ...policyInfo) {
 				policies := make([]migrationsv1.MigrationPolicy, 0)
 
 				for _, info := range policiesToDefine {
@@ -1399,12 +1399,12 @@ var _ = Describe("Migration watcher", func() {
 
 				Expect(actualMatchedPolicy.Name).To(Equal(expectedMatchedPolicyName))
 			},
-				table.Entry("only one policy should be matched", "one", policyInfo{"one", 1, 4}),
-				table.Entry("most detail policy should be matched", "two",
+				Entry("only one policy should be matched", "one", policyInfo{"one", 1, 4}),
+				Entry("most detail policy should be matched", "two",
 					policyInfo{"one", 1, 4}, policyInfo{"two", 4, 2}),
-				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (1)", "one",
+				Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (1)", "one",
 					policyInfo{"one", 1, 2}, policyInfo{"two", 2, 1}),
-				table.Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "a_two",
+				Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "a_two",
 					policyInfo{"one", 1, 2}, policyInfo{"a_two", 2, 1}),
 			)
 
@@ -1431,7 +1431,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 		})
 
-		table.DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
+		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
 			migrationPolicy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 1, 0)
 			defineMigrationPolicy(&migrationPolicy.Spec)
@@ -1452,7 +1452,7 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		},
-			table.Entry("allow auto coverage",
+			Entry("allow auto coverage",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(true) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
@@ -1460,7 +1460,7 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			table.Entry("deny auto coverage",
+			Entry("deny auto coverage",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(false) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
@@ -1468,7 +1468,7 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			table.Entry("set bandwidth per migration",
+			Entry("set bandwidth per migration",
 				func(p *migrationsv1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.BandwidthPerMigration).ToNot(BeNil())
@@ -1476,7 +1476,7 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			table.Entry("set completion time per GiB",
+			Entry("set completion time per GiB",
 				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
@@ -1484,7 +1484,7 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			table.Entry("allow post copy",
+			Entry("allow post copy",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(true) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
@@ -1492,7 +1492,7 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			table.Entry("deny post copy",
+			Entry("deny post copy",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(false) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
@@ -1500,7 +1500,7 @@ var _ = Describe("Migration watcher", func() {
 				},
 				true,
 			),
-			table.Entry("nothing is changed",
+			Entry("nothing is changed",
 				func(p *migrationsv1.MigrationPolicySpec) {},
 				func(c *virtv1.MigrationConfiguration) {},
 				false,

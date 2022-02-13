@@ -441,34 +441,34 @@ var _ = Describe("Schema", func() {
 		Expect(string(buf)).To(Equal(domainStr))
 	}
 	Context("With example schema", func() {
-		table.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
+		DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
 			unmarshalTest(arch, domainStr, exampleDomain)
 		},
-			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
-			table.Entry("for arm64", "arm64", exampleXMLarm64),
-			table.Entry("for amd64", "amd64", exampleXML),
+			Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
+			Entry("for arm64", "arm64", exampleXMLarm64),
+			Entry("for amd64", "amd64", exampleXML),
 		)
-		table.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
+		DescribeTable("Marshal into xml", func(arch string, domainStr string) {
 			marshalTest(arch, domainStr, exampleDomain)
 		},
-			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
-			table.Entry("for arm64", "arm64", exampleXMLarm64),
-			table.Entry("for amd64", "amd64", exampleXML),
+			Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
+			Entry("for arm64", "arm64", exampleXMLarm64),
+			Entry("for amd64", "amd64", exampleXML),
 		)
 
-		table.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
+		DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
 			unmarshalTest(arch, domainStr, exampleDomainWithMemballonDevice)
 		},
-			table.Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
-			table.Entry("for arm64 and Memballoon device is specified", "arm64", exampleXMLarm64withNoneMemballoon),
-			table.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
+			Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
+			Entry("for arm64 and Memballoon device is specified", "arm64", exampleXMLarm64withNoneMemballoon),
+			Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
 		)
-		table.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
+		DescribeTable("Marshal into xml", func(arch string, domainStr string) {
 			marshalTest(arch, domainStr, exampleDomainWithMemballonDevice)
 		},
-			table.Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
-			table.Entry("for arm64 and Memballoon device is specified", "arm64", exampleXMLarm64withNoneMemballoon),
-			table.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
+			Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
+			Entry("for arm64 and Memballoon device is specified", "arm64", exampleXMLarm64withNoneMemballoon),
+			Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
 		)
 	})
 

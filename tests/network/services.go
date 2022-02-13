@@ -270,7 +270,7 @@ var _ = SIGDescribe("Services", func() {
 				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
-			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
 					if ipFamily == k8sv1.IPv6Protocol {
@@ -292,8 +292,8 @@ var _ = SIGDescribe("Services", func() {
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			},
-				table.Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
-				table.Entry("when the service is exposed by an IPv6 address.", k8sv1.IPv6Protocol),
+				Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
+				Entry("when the service is exposed by an IPv6 address.", k8sv1.IPv6Protocol),
 			)
 		})
 

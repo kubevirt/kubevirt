@@ -204,7 +204,7 @@ var _ = Describe("Application", func() {
 	})
 
 	Describe("Reinitialization conditions", func() {
-		table.DescribeTable("Re-trigger initialization", func(hasCDIAtInit bool, addCrd bool, removeCrd bool, expectReInit bool) {
+		DescribeTable("Re-trigger initialization", func(hasCDIAtInit bool, addCrd bool, removeCrd bool, expectReInit bool) {
 			var reInitTriggered bool
 
 			app := VirtControllerApp{}
@@ -231,10 +231,10 @@ var _ = Describe("Application", func() {
 
 			Expect(reInitTriggered).To(Equal(expectReInit))
 		},
-			table.Entry("when CDI is introduced", false, true, false, true),
-			table.Entry("when CDI is removed", true, false, true, true),
-			table.Entry("not when nothing changed and cdi exists", true, true, false, false),
-			table.Entry("not when nothing changed and does not exist", false, false, true, false),
+			Entry("when CDI is introduced", false, true, false, true),
+			Entry("when CDI is removed", true, false, true, true),
+			Entry("not when nothing changed and cdi exists", true, true, false, false),
+			Entry("not when nothing changed and does not exist", false, false, true, false),
 		)
 	})
 

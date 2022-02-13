@@ -140,7 +140,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(*disk0.Driver.IOThread).ToNot(Equal(*disk1.Driver.IOThread))
 		})
 
-		table.DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", func(numCpus int, expectedIOThreads int) {
+		DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", func(numCpus int, expectedIOThreads int) {
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
@@ -219,12 +219,12 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 		},
 			// special case: there's always at least one thread for the shared pool:
 			// two dedicated and one shared thread is 3 threads.
-			table.Entry("[test_id:3097]for one CPU", 1, 3),
-			table.Entry("[test_id:856] for two CPUs", 2, 4),
-			table.Entry("[test_id:3095] for three CPUs", 3, 6),
+			Entry("[test_id:3097]for one CPU", 1, 3),
+			Entry("[test_id:856] for two CPUs", 2, 4),
+			Entry("[test_id:3095] for three CPUs", 3, 6),
 			// there's only 6 threads expected because there's 6 total disks, even
 			// though the limit would have supported 8.
-			table.Entry("[test_id:3096]for four CPUs", 4, 6),
+			Entry("[test_id:3096]for four CPUs", 4, 6),
 		)
 
 		// IOThread with Emulator Thread

@@ -105,7 +105,7 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("with v1.Disk", func() {
-		table.DescribeTable("Should define disk capacity as the minimum of capacity and request", func(requests, capacity int64) {
+		DescribeTable("Should define disk capacity as the minimum of capacity and request", func(requests, capacity int64) {
 			context := &ConverterContext{}
 			v1Disk := v1.Disk{
 				Name: "myvolume",
@@ -131,8 +131,8 @@ var _ = Describe("Converter", func() {
 			Expect(apiDisk.Capacity).ToNot(BeNil())
 			Expect(*apiDisk.Capacity).To(Equal(min(capacity, requests)))
 		},
-			table.Entry("Higher request than capacity", int64(9999), int64(1111)),
-			table.Entry("Lower request than capacity", int64(1111), int64(9999)),
+			Entry("Higher request than capacity", int64(9999), int64(1111)),
+			Entry("Lower request than capacity", int64(1111), int64(9999)),
 		)
 
 		It("Should add boot order when provided", func() {
@@ -1402,42 +1402,42 @@ var _ = Describe("Converter", func() {
 			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
 
-		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
+		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = arch
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
-			table.Entry("for amd64", "amd64", convertedDomain),
-			table.Entry("for ppc64le", "ppc64le", convertedDomainppc64le),
-			table.Entry("for arm64", "arm64", convertedDomainarm64),
+			Entry("for amd64", "amd64", convertedDomain),
+			Entry("for ppc64le", "ppc64le", convertedDomainppc64le),
+			Entry("for arm64", "arm64", convertedDomainarm64),
 		)
 
-		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
+		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = arch
 			c.MemBalloonStatsPeriod = period
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
-			table.Entry("when context define 5 period on memballoon device for amd64", "amd64", convertedDomainWith5Period, uint(5)),
-			table.Entry("when context define 5 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith5Period, uint(5)),
-			table.Entry("when context define 5 period on memballoon device for arm64", "arm64", convertedDomainarm64With5Period, uint(5)),
-			table.Entry("when context define 0 period on memballoon device for amd64 ", "amd64", convertedDomainWith0Period, uint(0)),
-			table.Entry("when context define 0 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith0Period, uint(0)),
-			table.Entry("when context define 0 period on memballoon device for arm64", "arm64", convertedDomainarm64With0Period, uint(0)),
+			Entry("when context define 5 period on memballoon device for amd64", "amd64", convertedDomainWith5Period, uint(5)),
+			Entry("when context define 5 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith5Period, uint(5)),
+			Entry("when context define 5 period on memballoon device for arm64", "arm64", convertedDomainarm64With5Period, uint(5)),
+			Entry("when context define 0 period on memballoon device for amd64 ", "amd64", convertedDomainWith0Period, uint(0)),
+			Entry("when context define 0 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith0Period, uint(0)),
+			Entry("when context define 0 period on memballoon device for arm64", "arm64", convertedDomainarm64With0Period, uint(0)),
 		)
 
-		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
+		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = False()
 			c.Architecture = arch
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
-			table.Entry("when Autoattach memballoon device is false for amd64", "amd64", convertedDomainWithFalseAutoattach),
-			table.Entry("when Autoattach memballoon device is false for ppc64le", "ppc64le", convertedDomainppc64leWithFalseAutoattach),
-			table.Entry("when Autoattach memballoon device is false for arm64", "arm64", convertedDomainarm64WithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for amd64", "amd64", convertedDomainWithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for ppc64le", "ppc64le", convertedDomainppc64leWithFalseAutoattach),
+			Entry("when Autoattach memballoon device is false for arm64", "arm64", convertedDomainarm64WithFalseAutoattach),
 		)
 
 		It("should use kvm if present", func() {
@@ -1583,7 +1583,7 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
 			})
 
-			table.DescribeTable("should convert CPU model", func(model string) {
+			DescribeTable("should convert CPU model", func(model string) {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
@@ -1593,8 +1593,8 @@ var _ = Describe("Converter", func() {
 
 				Expect(domainSpec.CPU.Mode).To(Equal(model), "Expect mode")
 			},
-				table.Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
-				table.Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
+				Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
+				Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
 			)
 		})
 
@@ -1835,22 +1835,22 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
-		table.DescribeTable("should calculate mebibyte from a quantity", func(quantity string, mebibyte int) {
+		DescribeTable("should calculate mebibyte from a quantity", func(quantity string, mebibyte int) {
 			mi64, _ := resource.ParseQuantity(quantity)
 			q, err := vcpu.QuantityToMebiByte(mi64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(BeNumerically("==", mebibyte))
 		},
-			table.Entry("when 0M is given", "0M", 0),
-			table.Entry("when 0 is given", "0", 0),
-			table.Entry("when 1 is given", "1", 1),
-			table.Entry("when 1M is given", "1M", 1),
-			table.Entry("when 3M is given", "3M", 3),
-			table.Entry("when 100M is given", "100M", 95),
-			table.Entry("when 1Mi is given", "1Mi", 1),
-			table.Entry("when 2G are given", "2G", 1907),
-			table.Entry("when 2Gi are given", "2Gi", 2*1024),
-			table.Entry("when 2780Gi are given", "2780Gi", 2780*1024),
+			Entry("when 0M is given", "0M", 0),
+			Entry("when 0 is given", "0", 0),
+			Entry("when 1 is given", "1", 1),
+			Entry("when 1M is given", "1M", 1),
+			Entry("when 3M is given", "3M", 3),
+			Entry("when 100M is given", "100M", 95),
+			Entry("when 1Mi is given", "1Mi", 1),
+			Entry("when 2G are given", "2G", 1907),
+			Entry("when 2Gi are given", "2Gi", 2*1024),
+			Entry("when 2780Gi are given", "2780Gi", 2780*1024),
 		)
 
 		It("should fail calculating mebibyte if the quantity is less than 0", func() {
@@ -1859,20 +1859,20 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		table.DescribeTable("should calculate memory in bytes", func(quantity string, bytes int) {
+		DescribeTable("should calculate memory in bytes", func(quantity string, bytes int) {
 			m64, _ := resource.ParseQuantity(quantity)
 			memory, err := vcpu.QuantityToByte(m64)
 			Expect(memory.Value).To(BeNumerically("==", bytes))
 			Expect(memory.Unit).To(Equal("b"))
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("specifying memory 64M", "64M", 64*1000*1000),
-			table.Entry("specifying memory 64Mi", "64Mi", 64*1024*1024),
-			table.Entry("specifying memory 3G", "3G", 3*1000*1000*1000),
-			table.Entry("specifying memory 3Gi", "3Gi", 3*1024*1024*1024),
-			table.Entry("specifying memory 45Gi", "45Gi", 45*1024*1024*1024),
-			table.Entry("specifying memory 2780Gi", "2780Gi", 2780*1024*1024*1024),
-			table.Entry("specifying memory 451231 bytes", "451231", 451231),
+			Entry("specifying memory 64M", "64M", 64*1000*1000),
+			Entry("specifying memory 64Mi", "64Mi", 64*1024*1024),
+			Entry("specifying memory 3G", "3G", 3*1000*1000*1000),
+			Entry("specifying memory 3Gi", "3Gi", 3*1024*1024*1024),
+			Entry("specifying memory 45Gi", "45Gi", 45*1024*1024*1024),
+			Entry("specifying memory 2780Gi", "2780Gi", 2780*1024*1024*1024),
+			Entry("specifying memory 451231 bytes", "451231", 451231),
 		)
 		It("should calculate memory in bytes", func() {
 			By("specyfing negative memory size -45Gi")
@@ -1919,7 +1919,7 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.Devices.Rng).ToNot(BeNil())
 		})
 
-		table.DescribeTable("Validate that QEMU SeaBios debug logs are ",
+		DescribeTable("Validate that QEMU SeaBios debug logs are ",
 			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
 
 				var err error
@@ -1958,9 +1958,9 @@ var _ = Describe("Converter", func() {
 				}
 
 			},
-			table.Entry("disabled - virtLauncherLogVerbosity does not exceed verbosity threshold", true, 0, false),
-			table.Entry("enabled - virtLaucherLogVerbosity exceeds verbosity threshold", true, 1, true),
-			table.Entry("disabled - virtLauncherLogVerbosity variable is not defined", false, -1, false),
+			Entry("disabled - virtLauncherLogVerbosity does not exceed verbosity threshold", true, 0, false),
+			Entry("enabled - virtLaucherLogVerbosity exceeds verbosity threshold", true, 1, true),
+			Entry("disabled - virtLauncherLogVerbosity variable is not defined", false, -1, false),
 		)
 
 	})
@@ -2322,7 +2322,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int, arch string) {
+		DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int, arch string) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2358,17 +2358,17 @@ var _ = Describe("Converter", func() {
 				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
 			}
 		},
-			table.Entry("and add the graphics and video device if it is not set on amd64", nil, 1, "amd64"),
-			table.Entry("and add the graphics and video device if it is set to true on amd64", True(), 1, "amd64"),
-			table.Entry("and not add the graphics and video device if it is set to false on amd64", False(), 0, "amd64"),
-			table.Entry("and add the graphics and video device if it is not set on arm64", nil, 1, "arm64"),
-			table.Entry("and add the graphics and video device if it is set to true on arm64", True(), 1, "arm64"),
-			table.Entry("and not add the graphics and video device if it is set to false on arm64", False(), 0, "arm64"),
+			Entry("and add the graphics and video device if it is not set on amd64", nil, 1, "amd64"),
+			Entry("and add the graphics and video device if it is set to true on amd64", True(), 1, "amd64"),
+			Entry("and not add the graphics and video device if it is set to false on amd64", False(), 0, "amd64"),
+			Entry("and add the graphics and video device if it is not set on arm64", nil, 1, "arm64"),
+			Entry("and add the graphics and video device if it is set to true on arm64", True(), 1, "arm64"),
+			Entry("and not add the graphics and video device if it is set to false on arm64", False(), 0, "arm64"),
 		)
 	})
 
 	Context("HyperV features", func() {
-		table.DescribeTable("should convert hyperv features", func(hyperV *v1.FeatureHyperv, result *api.FeatureHyperv) {
+		DescribeTable("should convert hyperv features", func(hyperV *v1.FeatureHyperv, result *api.FeatureHyperv) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2388,8 +2388,8 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Features.Hyperv).To(Equal(result))
 
 		},
-			table.Entry("and add the vapic feature", &v1.FeatureHyperv{VAPIC: &v1.FeatureState{}}, &api.FeatureHyperv{VAPIC: &api.FeatureState{State: "on"}}),
-			table.Entry("and add the stimer direct feature", &v1.FeatureHyperv{
+			Entry("and add the vapic feature", &v1.FeatureHyperv{VAPIC: &v1.FeatureState{}}, &api.FeatureHyperv{VAPIC: &api.FeatureState{State: "on"}}),
+			Entry("and add the stimer direct feature", &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
 					Direct: &v1.FeatureState{},
 				},
@@ -2399,14 +2399,14 @@ var _ = Describe("Converter", func() {
 					Direct: &api.FeatureState{State: "on"},
 				},
 			}),
-			table.Entry("and add the stimer feature without direct", &v1.FeatureHyperv{
+			Entry("and add the stimer feature without direct", &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{},
 			}, &api.FeatureHyperv{
 				SyNICTimer: &api.SyNICTimer{
 					State: "on",
 				},
 			}),
-			table.Entry("and add the vapic and the stimer direct feature", &v1.FeatureHyperv{
+			Entry("and add the vapic and the stimer direct feature", &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
 					Direct: &v1.FeatureState{},
 				},
@@ -2423,7 +2423,7 @@ var _ = Describe("Converter", func() {
 
 	Context("serial console", func() {
 
-		table.DescribeTable("should check autoAttachSerialConsole", func(autoAttach *bool, devices int) {
+		DescribeTable("should check autoAttachSerialConsole", func(autoAttach *bool, devices int) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2451,15 +2451,15 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Consoles).To(HaveLen(devices))
 
 		},
-			table.Entry("and add the serial console if it is not set", nil, 1),
-			table.Entry("and add the serial console if it is set to true", True(), 1),
-			table.Entry("and not add the serial console if it is set to false", False(), 0),
+			Entry("and add the serial console if it is not set", nil, 1),
+			Entry("and add the serial console if it is set to true", True(), 1),
+			Entry("and not add the serial console if it is set to false", False(), 0),
 		)
 	})
 
 	Context("IOThreads", func() {
 
-		table.DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
+		DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2620,14 +2620,14 @@ var _ = Describe("Converter", func() {
 				Expect(int(*disk.Driver.IOThread)).To(Equal(threadIDs[idx]))
 			}
 		},
-			table.Entry("using a shared policy with 1 CPU", v1.IOThreadsPolicyShared, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using a shared policy with 2 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using a shared policy with 3 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using an auto policy with 1 CPU", v1.IOThreadsPolicyAuto, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using an auto policy with 2 CPUs", v1.IOThreadsPolicyAuto, 2, 4, []int{4, 1, 2, 3, 1, 2, 3}),
-			table.Entry("using an auto policy with 3 CPUs", v1.IOThreadsPolicyAuto, 3, 6, []int{6, 1, 2, 3, 4, 5, 1}),
-			table.Entry("using an auto policy with 4 CPUs", v1.IOThreadsPolicyAuto, 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
-			table.Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
+			Entry("using a shared policy with 1 CPU", v1.IOThreadsPolicyShared, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			Entry("using a shared policy with 2 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			Entry("using a shared policy with 3 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			Entry("using an auto policy with 1 CPU", v1.IOThreadsPolicyAuto, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			Entry("using an auto policy with 2 CPUs", v1.IOThreadsPolicyAuto, 2, 4, []int{4, 1, 2, 3, 1, 2, 3}),
+			Entry("using an auto policy with 3 CPUs", v1.IOThreadsPolicyAuto, 3, 6, []int{6, 1, 2, 3, 4, 5, 1}),
+			Entry("using an auto policy with 4 CPUs", v1.IOThreadsPolicyAuto, 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
+			Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
 
 	})
@@ -2981,7 +2981,7 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
-		table.DescribeTable("EFI bootloader", func(secureBoot *bool, efiCode, efiVars string) {
+		DescribeTable("EFI bootloader", func(secureBoot *bool, efiCode, efiVars string) {
 			c.EFIConfiguration = &EFIConfiguration{
 				EFICode:      efiCode,
 				EFIVars:      efiVars,
@@ -3008,10 +3008,10 @@ var _ = Describe("Converter", func() {
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
 		},
-			table.Entry("should use SecureBoot", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
-			table.Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
-			table.Entry("should not use SecureBoot", False(), "OVMF_CODE.fd", "OVMF_VARS.fd"),
-			table.Entry("should not use SecureBoot when OVMF_CODE.fd not present", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
+			Entry("should use SecureBoot", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
+			Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
+			Entry("should not use SecureBoot", False(), "OVMF_CODE.fd", "OVMF_VARS.fd"),
+			Entry("should not use SecureBoot when OVMF_CODE.fd not present", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
 		)
 	})
 
@@ -3031,7 +3031,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		Context("when kernel boot is set", func() {
-			table.DescribeTable("should configure the kernel, initrd and Cmdline arguments correctly", func(kernelPath string, initrdPath string, kernelArgs string) {
+			DescribeTable("should configure the kernel, initrd and Cmdline arguments correctly", func(kernelPath string, initrdPath string, kernelArgs string) {
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					KernelBoot: &v1.KernelBoot{
 						KernelArgs: kernelArgs,
@@ -3056,14 +3056,14 @@ var _ = Describe("Converter", func() {
 
 				Expect(domainSpec.OS.KernelArgs).To(Equal(kernelArgs))
 			},
-				table.Entry("when kernel, initrd and Cmdline are provided", "fully specified path to kernel", "fully specified path to initrd", "some cmdline arguments"),
-				table.Entry("when only kernel and Cmdline are provided", "fully specified path to kernel", "", "some cmdline arguments"),
-				table.Entry("when only kernel and initrd are provided", "fully specified path to kernel", "fully specified path to initrd", ""),
-				table.Entry("when only kernel is provided", "fully specified path to kernel", "", ""),
-				table.Entry("when only initrd and Cmdline are provided", "", "fully specified path to initrd", "some cmdline arguments"),
-				table.Entry("when only Cmdline is provided", "", "", "some cmdline arguments"),
-				table.Entry("when only initrd is provided", "", "fully specified path to initrd", ""),
-				table.Entry("when no arguments provided", "", "", ""),
+				Entry("when kernel, initrd and Cmdline are provided", "fully specified path to kernel", "fully specified path to initrd", "some cmdline arguments"),
+				Entry("when only kernel and Cmdline are provided", "fully specified path to kernel", "", "some cmdline arguments"),
+				Entry("when only kernel and initrd are provided", "fully specified path to kernel", "fully specified path to initrd", ""),
+				Entry("when only kernel is provided", "fully specified path to kernel", "", ""),
+				Entry("when only initrd and Cmdline are provided", "", "fully specified path to initrd", "some cmdline arguments"),
+				Entry("when only Cmdline is provided", "", "", "some cmdline arguments"),
+				Entry("when only initrd is provided", "", "fully specified path to initrd", ""),
+				Entry("when no arguments provided", "", "", ""),
 			)
 		})
 	})
@@ -3119,7 +3119,7 @@ var _ = Describe("Converter", func() {
 			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
 		})
 
-		table.DescribeTable("should convert",
+		DescribeTable("should convert",
 			func(converterFunc ConverterFunc, volumeName string, isBlockMode bool, ignoreDiscard bool) {
 				expectedDisk := &api.Disk{}
 				expectedDisk.Driver = &api.DiskDriver{}
@@ -3142,12 +3142,12 @@ var _ = Describe("Converter", func() {
 				Expect(converterFunc(volumeName, disk, c)).To(Succeed())
 				Expect(disk).To(Equal(expectedDisk))
 			},
-			table.Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
-			table.Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
-			table.Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
-			table.Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
-			table.Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
-			table.Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
+			Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
+			Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
+			Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
+			Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
+			Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
+			Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
 		)
 	})
 
@@ -3376,7 +3376,7 @@ var _ = Describe("SetDriverCacheMode", func() {
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(false, checkerError)
 	}
 
-	table.DescribeTable("should correctly set driver cache mode", func(cache, expectedCache string, setExpectations func()) {
+	DescribeTable("should correctly set driver cache mode", func(cache, expectedCache string, setExpectations func()) {
 		disk := &api.Disk{
 			Driver: &api.DiskDriver{
 				Cache: cache,
@@ -3394,15 +3394,15 @@ var _ = Describe("SetDriverCacheMode", func() {
 			Expect(disk.Driver.Cache).To(Equal(expectedCache))
 		}
 	},
-		table.Entry("detect 'none' with direct io", string(""), string(v1.CacheNone), expectCheckTrue),
-		table.Entry("detect 'writethrough' without direct io", string(""), string(v1.CacheWriteThrough), expectCheckFalse),
-		table.Entry("fallback to 'writethrough' on error", string(""), string(v1.CacheWriteThrough), expectCheckError),
-		table.Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), expectCheckTrue),
-		table.Entry("return error without direct io", string(v1.CacheNone), string(""), expectCheckFalse),
-		table.Entry("return error on error", string(v1.CacheNone), string(""), expectCheckError),
-		table.Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
-		table.Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
-		table.Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+		Entry("detect 'none' with direct io", string(""), string(v1.CacheNone), expectCheckTrue),
+		Entry("detect 'writethrough' without direct io", string(""), string(v1.CacheWriteThrough), expectCheckFalse),
+		Entry("fallback to 'writethrough' on error", string(""), string(v1.CacheWriteThrough), expectCheckError),
+		Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), expectCheckTrue),
+		Entry("return error without direct io", string(v1.CacheNone), string(""), expectCheckFalse),
+		Entry("return error on error", string(v1.CacheNone), string(""), expectCheckError),
+		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
+		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
+		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
 	)
 })
 

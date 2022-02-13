@@ -79,7 +79,7 @@ var _ = Describe("findmnt", func() {
 		findMntByDevice = orgFindMntByDevice
 	})
 
-	table.DescribeTable("Should return a list of values, with valid input", func(findMntFunc func() ([]FindmntInfo, error)) {
+	DescribeTable("Should return a list of values, with valid input", func(findMntFunc func() ([]FindmntInfo, error)) {
 		res, err := findMntFunc()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(res)).To(Equal(1))
@@ -96,27 +96,27 @@ var _ = Describe("findmnt", func() {
 		Expect(res[0].GetOptions()[6]).To(Equal("logbsize=32k"))
 		Expect(res[0].GetOptions()[7]).To(Equal("noquota"))
 	},
-		table.Entry("for findmntbyvolume", callFindMntByVolume),
-		table.Entry("for findmntbydevice", callFindMntByDevice),
+		Entry("for findmntbyvolume", callFindMntByVolume),
+		Entry("for findmntbydevice", callFindMntByDevice),
 	)
 
-	table.DescribeTable("Should return an error if findmnt fails", func(findMntFunc func() ([]FindmntInfo, error)) {
+	DescribeTable("Should return an error if findmnt fails", func(findMntFunc func() ([]FindmntInfo, error)) {
 		_, err := findMntFunc()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("findmnt is busted"))
 		Expect(err.Error()).To(ContainSubstring("test"))
 	},
-		table.Entry("for findmntbyvolume", callFindMntByVolumeBrokenFindmnt),
-		table.Entry("for findmntbydevice", callFindMntByDeviceBrokenFindmnt),
+		Entry("for findmntbyvolume", callFindMntByVolumeBrokenFindmnt),
+		Entry("for findmntbydevice", callFindMntByDeviceBrokenFindmnt),
 	)
 
-	table.DescribeTable("Should return an error if unmarshalling fails", func(findMntFunc func() ([]FindmntInfo, error)) {
+	DescribeTable("Should return an error if unmarshalling fails", func(findMntFunc func() ([]FindmntInfo, error)) {
 		_, err := findMntFunc()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("unable to unmarshal"))
 	},
-		table.Entry("for findmntbyvolume", callFindMntByVolumeInvalidJson),
-		table.Entry("for findmntbydevice", callFindMntByDeviceInvalidJson),
+		Entry("for findmntbyvolume", callFindMntByVolumeInvalidJson),
+		Entry("for findmntbydevice", callFindMntByDeviceInvalidJson),
 	)
 
 	It("GetSourcePath should properly match source field", func() {

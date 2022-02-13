@@ -508,7 +508,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		table.DescribeTable("Should add volumes on an offline VM", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+		DescribeTable("Should add volumes on an offline VM", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
 			By("Adding test volumes")
 			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume1, "madeup", "scsi", false)
 			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume2, "madeup", "scsi", false)
@@ -520,8 +520,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			verifyVolumeAndDiskVMRemoved(vm, testNewVolume1, testNewVolume2)
 		},
-			table.Entry("with DataVolume", addDVVolumeVM, removeVolumeVM),
-			table.Entry("with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
+			Entry("with DataVolume", addDVVolumeVM, removeVolumeVM),
+			Entry("with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
 		)
 	})
 
@@ -542,7 +542,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
-		table.DescribeTable("Should be able to add and use WFFC local storage", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+		DescribeTable("Should be able to add and use WFFC local storage", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
 			tests.SkipIfNonRoot(virtClient, "root owned disk.img")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -575,8 +575,8 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeNolongerAccessible(vmi, volumeName)
 			}
 		},
-			table.Entry("calling endpoints directly", addDVVolumeVMI, removeVolumeVMI),
-			table.Entry("using virtctl", addVolumeVirtctl, removeVolumeVirtctl),
+			Entry("calling endpoints directly", addDVVolumeVMI, removeVolumeVMI),
+			Entry("using virtctl", addVolumeVirtctl, removeVolumeVirtctl),
 		)
 	})
 
@@ -625,7 +625,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
-			table.DescribeTable("should add/remove volume", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
+			DescribeTable("should add/remove volume", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				dv := createDataVolumeAndWaitForImport(sc, volumeMode)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -654,16 +654,16 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 			},
-				table.Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				table.Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				table.Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				table.Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				table.Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				table.Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				table.Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
+				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
+				Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
+				Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
 			)
 
-			table.DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
+			DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				getVmiConsoleAndLogin(vmi)
@@ -699,12 +699,12 @@ var _ = SIGDescribe("Hotplug", func() {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
 				}
 			},
-				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
-				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
+				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
+				Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
-			table.DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
+			DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
@@ -785,9 +785,9 @@ var _ = SIGDescribe("Hotplug", func() {
 					}
 				}
 			},
-				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
-				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("[Serial] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
+				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
+				Entry("[Serial] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
@@ -1194,7 +1194,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
-		table.DescribeTable("should add volume according to options", func(dryRun bool) {
+		DescribeTable("should add volume according to options", func(dryRun bool) {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
@@ -1219,11 +1219,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifySingleAttachmentPod(vmi)
 			}
 		},
-			table.Entry("with default", false),
-			table.Entry("[test_id:7803]with dry-run", true),
+			Entry("with default", false),
+			Entry("[test_id:7803]with dry-run", true),
 		)
 
-		table.DescribeTable("should remove volume according to options", func(dryRun bool) {
+		DescribeTable("should remove volume according to options", func(dryRun bool) {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
@@ -1260,8 +1260,8 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 			}
 		},
-			table.Entry("with default", false),
-			table.Entry("[test_id:7829]with dry-run", true),
+			Entry("with default", false),
+			Entry("[test_id:7829]with dry-run", true),
 		)
 	})
 })

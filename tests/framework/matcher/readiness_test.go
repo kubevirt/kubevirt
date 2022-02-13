@@ -18,18 +18,18 @@ var _ = Describe("Readiness", func() {
 		},
 	}
 
-	table.DescribeTable("should work on a deployment", func(comparator string, count int, deployment interface{}, match bool) {
+	DescribeTable("should work on a deployment", func(comparator string, count int, deployment interface{}, match bool) {
 		success, err := HaveReadyReplicasNumerically(comparator, count).Match(deployment)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(success).To(Equal(match))
 		Expect(HaveReadyReplicasNumerically(comparator, count).FailureMessage(deployment)).ToNot(BeEmpty())
 		Expect(HaveReadyReplicasNumerically(comparator, count).NegatedFailureMessage(deployment)).ToNot(BeEmpty())
 	},
-		table.Entry("with readyReplicas matching the expectation ", ">=", 2, readyDeployment, true),
-		table.Entry("cope with a nil deployment", ">=", 2, nil, false),
-		table.Entry("cope with an object pointing to nil", ">=", 2, toNilPointer, false),
-		table.Entry("cope with an object which has no readyReplicas", ">=", 2, &v1.Service{}, false),
-		table.Entry("cope with a non-integer object as expected readReplicas", "<=", nil, readyDeployment, false),
-		table.Entry("with expected readyReplicas not matching the expectation", "<", 2, readyDeployment, false),
+		Entry("with readyReplicas matching the expectation ", ">=", 2, readyDeployment, true),
+		Entry("cope with a nil deployment", ">=", 2, nil, false),
+		Entry("cope with an object pointing to nil", ">=", 2, toNilPointer, false),
+		Entry("cope with an object which has no readyReplicas", ">=", 2, &v1.Service{}, false),
+		Entry("cope with a non-integer object as expected readReplicas", "<=", nil, readyDeployment, false),
+		Entry("with expected readyReplicas not matching the expectation", "<", 2, readyDeployment, false),
 	)
 })

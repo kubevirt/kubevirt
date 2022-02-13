@@ -48,7 +48,7 @@ var _ = Describe("Hostmetrics", func() {
 		Expect(metrics[8].Unit).To(Equal("s"))
 	})
 
-	table.DescribeTable("should cope with failed reads on stats files and return what it can get for", func(cpuinfo, meminfo, stat, vmstat string, count int) {
+	DescribeTable("should cope with failed reads on stats files and return what it can get for", func(cpuinfo, meminfo, stat, vmstat string, count int) {
 		hostmetrics := &hostMetricsCollector{
 			procCPUInfo: cpuinfo,
 			procStat:    meminfo,
@@ -61,10 +61,10 @@ var _ = Describe("Hostmetrics", func() {
 		Expect(len(metrics)).To(Equal(count))
 
 	},
-		table.Entry("cpuinfo", "nonexistent", "testdata/meminfo", "testdata/stat", "testdata/vmstat", 8),
-		table.Entry("meminfo", "testdata/cpuinfo", "nonexistent", "testdata/stat", "testdata/vmstat", 8),
-		table.Entry("stat", "testdata/cpuinfo", "testdata/meminfo", "nonexistent", "testdata/vmstat", 5),
-		table.Entry("vmstat", "testdata/cpuinfo", "testdata/meminfo", "testdata/stat", "nonexistent", 7),
+		Entry("cpuinfo", "nonexistent", "testdata/meminfo", "testdata/stat", "testdata/vmstat", 8),
+		Entry("meminfo", "testdata/cpuinfo", "nonexistent", "testdata/stat", "testdata/vmstat", 8),
+		Entry("stat", "testdata/cpuinfo", "testdata/meminfo", "nonexistent", "testdata/vmstat", 5),
+		Entry("vmstat", "testdata/cpuinfo", "testdata/meminfo", "testdata/stat", "nonexistent", 7),
 	)
 
 })

@@ -67,7 +67,7 @@ var _ = Describe("Lookup", func() {
 		Expect(returnedVMIs[0].Status.Phase).To(Equal(virtv1.Running))
 	})
 
-	table.DescribeTable("should filter out nonactive vmis", func(phase virtv1.VirtualMachineInstancePhase) {
+	DescribeTable("should filter out nonactive vmis", func(phase virtv1.VirtualMachineInstancePhase) {
 		vmi := createVirtualMachineInstance("vmi2", "node01", phase)
 
 		vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{
@@ -78,10 +78,10 @@ var _ = Describe("Lookup", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmis).To(BeEmpty())
 	},
-		table.Entry("unprocessed state", virtv1.VmPhaseUnset),
-		table.Entry("pending state", virtv1.Pending),
-		table.Entry("scheduling state", virtv1.Scheduling),
-		table.Entry("failed state", virtv1.Failed),
-		table.Entry("succeeded state", virtv1.Succeeded),
+		Entry("unprocessed state", virtv1.VmPhaseUnset),
+		Entry("pending state", virtv1.Pending),
+		Entry("scheduling state", virtv1.Scheduling),
+		Entry("failed state", virtv1.Failed),
+		Entry("succeeded state", virtv1.Succeeded),
 	)
 })

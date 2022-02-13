@@ -337,7 +337,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			}, 120*time.Second).Should(BeTrue())
 		})
 
-		table.DescribeTable("should be rotated when deleted for ", func(secretName string) {
+		DescribeTable("should be rotated when deleted for ", func(secretName string) {
 			By("destroying the certificate")
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
@@ -359,11 +359,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				return tests.GetCertFromSecret(secretName)
 			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 		},
-			table.Entry("[test_id:4101] virt-operator", components.VirtOperatorCertSecretName),
-			table.Entry("[test_id:4103] virt-api", components.VirtApiCertSecretName),
-			table.Entry("[test_id:4104] virt-controller", components.VirtControllerCertSecretName),
-			table.Entry("[test_id:4105] virt-handlers client side", components.VirtHandlerCertSecretName),
-			table.Entry("[test_id:4106] virt-handlers server side", components.VirtHandlerServerCertSecretName),
+			Entry("[test_id:4101] virt-operator", components.VirtOperatorCertSecretName),
+			Entry("[test_id:4103] virt-api", components.VirtApiCertSecretName),
+			Entry("[test_id:4104] virt-controller", components.VirtControllerCertSecretName),
+			Entry("[test_id:4105] virt-handlers client side", components.VirtHandlerCertSecretName),
+			Entry("[test_id:4106] virt-handlers server side", components.VirtHandlerServerCertSecretName),
 		)
 	})
 
@@ -866,7 +866,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			}
 		})
 
-		table.DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
+		DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -910,11 +910,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			err := validatedHTTPResponses(errorsChan, concurrency)
 			Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
 		},
-			table.Entry("[test_id:4140] by using IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6226] by using IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4140] by using IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6226] by using IPv6", k8sv1.IPv6Protocol),
 		)
 
-		table.DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
+		DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -928,11 +928,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				return strings.Join(lines, "\n")
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 		},
-			table.Entry("[test_id:4141] by using IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6227] by using IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4141] by using IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6227] by using IPv6", k8sv1.IPv6Protocol),
 		)
 
-		table.DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
+		DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -954,25 +954,25 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 			}
 		},
-			table.Entry("[test_id:4142] storage flush requests metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-			table.Entry("[test_id:6228] storage flush requests metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-			table.Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
-			table.Entry("[test_id:6229] time (ms) spent on cache flushing metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
-			table.Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-			table.Entry("[test_id:6230] I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-			table.Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-			table.Entry("[test_id:6231] I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-			table.Entry("[test_id:4142] storage read operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
-			table.Entry("[test_id:6232] storage read operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
-			table.Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-			table.Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-			table.Entry("[test_id:4142] storage write operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
-			table.Entry("[test_id:6234] storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
-			table.Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
-			table.Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+			Entry("[test_id:4142] storage flush requests metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+			Entry("[test_id:6228] storage flush requests metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+			Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+			Entry("[test_id:6229] time (ms) spent on cache flushing metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+			Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
+			Entry("[test_id:6230] I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
+			Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
+			Entry("[test_id:6231] I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
+			Entry("[test_id:4142] storage read operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+			Entry("[test_id:6232] storage read operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+			Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+			Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+			Entry("[test_id:4142] storage write operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+			Entry("[test_id:6234] storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+			Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+			Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 		)
 
-		table.DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
+		DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -988,19 +988,19 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				Expect(value).To(BeNumerically(operator, float64(0.0)))
 			}
 		},
-			table.Entry("[test_id:4143] network metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
-			table.Entry("[test_id:6236] network metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
-			table.Entry("[test_id:4144] memory metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
-			table.Entry("[test_id:6237] memory metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
-			table.Entry("[test_id:4553] vcpu wait by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-			table.Entry("[test_id:6238] vcpu wait by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-			table.Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
-			table.Entry("[test_id:6239] vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
-			table.Entry("[test_id:4556] vmi unused memory by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
-			table.Entry("[test_id:6240] vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+			Entry("[test_id:4143] network metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
+			Entry("[test_id:6236] network metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
+			Entry("[test_id:4144] memory metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
+			Entry("[test_id:6237] memory metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
+			Entry("[test_id:4553] vcpu wait by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
+			Entry("[test_id:6238] vcpu wait by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
+			Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+			Entry("[test_id:6239] vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+			Entry("[test_id:4556] vmi unused memory by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+			Entry("[test_id:6240] vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
 		)
 
-		table.DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
+		DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -1035,11 +1035,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				))
 			}
 		},
-			table.Entry("[test_id:4145] by IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6241] by IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4145] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6241] by IPv6", k8sv1.IPv6Protocol),
 		)
 
-		table.DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
+		DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -1056,11 +1056,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 			}
 		},
-			table.Entry("[test_id:4146] by IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6242] by IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4146] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6242] by IPv6", k8sv1.IPv6Protocol),
 		)
 
-		table.DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
+		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -1076,11 +1076,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				Expect(value).To(BeNumerically(">=", float64(0.0)))
 			}
 		},
-			table.Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
 		)
 
-		table.DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
+		DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -1100,12 +1100,12 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			}
 			Expect(containK8sLabel).To(Equal(true))
 		},
-			table.Entry("[test_id:4147] by IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4147] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
 		)
 
 		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
-		table.DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
+		DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
@@ -1129,8 +1129,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			Expect(in).To(BeTrue())
 			Expect(out).To(BeTrue())
 		},
-			table.Entry("[test_id:4555] by IPv4", k8sv1.IPv4Protocol),
-			table.Entry("[test_id:6245] by IPv6", k8sv1.IPv6Protocol),
+			Entry("[test_id:4555] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6245] by IPv6", k8sv1.IPv6Protocol),
 		)
 	})
 

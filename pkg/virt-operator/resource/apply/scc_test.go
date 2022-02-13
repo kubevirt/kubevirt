@@ -85,7 +85,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			ctrl.Finish()
 		})
 
-		table.DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
+		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
@@ -101,8 +101,8 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			}
 			executeTest(scc, expectedJsonPatch)
 		},
-			table.Entry("Without custom users", []string{}),
-			table.Entry("With custom users", []string{"someuser"}),
+			Entry("Without custom users", []string{}),
+			Entry("With custom users", []string{"someuser"}),
 		)
 	})
 

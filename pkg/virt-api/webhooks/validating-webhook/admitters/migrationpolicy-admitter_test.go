@@ -53,7 +53,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		policyName = "test-policy"
 	})
 
-	table.DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
 		By("Setting up a new policy")
 		policy := kubecli.NewMinimalMigrationPolicy(policyName)
 		policy.Spec = policySpec
@@ -61,16 +61,16 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		By("Expecting admitter would not allow it")
 		admitter.admitAndExpect(policy, false)
 	},
-		table.Entry("negative BandwidthPerMigration",
+		Entry("negative BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
 		),
 
-		table.Entry("negative CompletionTimeoutPerGiB",
+		Entry("negative CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(-1)},
 		),
 	)
 
-	table.DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
 		By("Setting up a new policy")
 		policy := kubecli.NewMinimalMigrationPolicy(policyName)
 		policy.Spec = policySpec
@@ -78,23 +78,23 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		By("Expecting admitter would allow it")
 		admitter.admitAndExpect(policy, true)
 	},
-		table.Entry("greater than zero BandwidthPerMigration",
+		Entry("greater than zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)},
 		),
 
-		table.Entry("greater than zero CompletionTimeoutPerGiB",
+		Entry("greater than zero CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(1)},
 		),
 
-		table.Entry("zero CompletionTimeoutPerGiB",
+		Entry("zero CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(0)},
 		),
 
-		table.Entry("zero BandwidthPerMigration",
+		Entry("zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
 		),
 
-		table.Entry("empty spec",
+		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
 		),
 	)

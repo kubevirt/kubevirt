@@ -88,7 +88,7 @@ var _ = Describe("Mediated Device", func() {
 		os.RemoveAll(mdevBasePath)
 		os.RemoveAll(fakeSupportedTypesPath)
 	})
-	table.DescribeTable("should get correct file type name", func(namePathExist bool) {
+	DescribeTable("should get correct file type name", func(namePathExist bool) {
 		if namePathExist {
 			mdevName, err := getMdevTypeName(fakeMdevUUID)
 			Expect(err).ToNot(HaveOccurred())
@@ -99,8 +99,8 @@ var _ = Describe("Mediated Device", func() {
 			Expect(mdevName).To(Equal(resourceNameToTypeName(fakeIntelMdevNameSelector)))
 		}
 	},
-		table.Entry("Nvidia name file exist", true),
-		table.Entry("Intel name file doesn't exist", false),
+		Entry("Nvidia name file exist", true),
+		Entry("Intel name file doesn't exist", false),
 	)
 	Context("discover devices", func() {
 		BeforeEach(func() {

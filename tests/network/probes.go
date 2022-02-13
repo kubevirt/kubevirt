@@ -75,7 +75,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			return vmiReady(readVmi) == corev1.ConditionTrue
 		}
 
-		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
+		DescribeTable("should succeed", func(readinessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
 			checkStatus := func(ready bool, condition corev1.ConditionStatus, timeout int) {
 				By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 				Eventually(isVMIReady, timeout, 1).Should(Equal(ready))
@@ -137,16 +137,16 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				checkStatus(true, corev1.ConditionTrue, 120)
 			}
 		},
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false, false),
-			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false, false),
-			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false, false),
-			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
-			table.Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, true, false),
-			table.Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false, false),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false, false),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false, false),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
+			Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, true, false),
+			Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
 		)
 
-		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
+		DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
 			By(specifyingVMReadinessProbe)
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -163,10 +163,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Consistently(isVMIReady).Should(Equal(false))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
 		},
-			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
-			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
-			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
-			table.Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), true),
+			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
+			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
+			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
+			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), true),
 		)
 	})
 
@@ -181,7 +181,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-		table.DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool) {
+		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool) {
 
 			if IPFamily == corev1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
@@ -221,14 +221,14 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
-			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
-			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
-			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
 		)
 
-		table.DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, isExecProbe bool) {
+		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, isExecProbe bool) {
 			By("Specifying a VMI with a livenessProbe probe")
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -245,9 +245,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			table.Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
-			table.Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
-			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
+			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
+			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
+			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
 		)
 	})
 })

@@ -166,7 +166,7 @@ var _ = Describe("PodSelectors", func() {
 			Expect(runStrategy).To(Equal(v1.RunStrategyAlways))
 		})
 
-		table.DescribeTable("should return RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
+		DescribeTable("should return RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
 
@@ -174,10 +174,10 @@ var _ = Describe("PodSelectors", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newRunStrategy).To(Equal(runStrategy))
 		},
-			table.Entry(string(v1.RunStrategyAlways), v1.RunStrategyAlways),
-			table.Entry(string(v1.RunStrategyHalted), v1.RunStrategyHalted),
-			table.Entry(string(v1.RunStrategyManual), v1.RunStrategyManual),
-			table.Entry(string(v1.RunStrategyRerunOnFailure), v1.RunStrategyRerunOnFailure),
+			Entry(string(v1.RunStrategyAlways), v1.RunStrategyAlways),
+			Entry(string(v1.RunStrategyHalted), v1.RunStrategyHalted),
+			Entry(string(v1.RunStrategyManual), v1.RunStrategyManual),
+			Entry(string(v1.RunStrategyRerunOnFailure), v1.RunStrategyRerunOnFailure),
 		)
 
 		It("should default to RunStrategyHalted", func() {

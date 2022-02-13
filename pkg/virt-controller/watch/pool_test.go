@@ -49,7 +49,7 @@ import (
 
 var _ = Describe("Pool", func() {
 
-	table.DescribeTable("Calculate new VM names on scale out", func(existing []string, expected []string, count int) {
+	DescribeTable("Calculate new VM names on scale out", func(existing []string, expected []string, count int) {
 
 		namespace := "test"
 		baseName := "my-pool"
@@ -69,11 +69,11 @@ var _ = Describe("Pool", func() {
 		Expect(newNames).To(Equal(expected))
 
 	},
-		table.Entry("should fill in name gaps",
+		Entry("should fill in name gaps",
 			[]string{"my-pool-1", "my-pool-3"},
 			[]string{"my-pool-0", "my-pool-2", "my-pool-4"},
 			3),
-		table.Entry("should append to end if no name gaps exist",
+		Entry("should append to end if no name gaps exist",
 			[]string{"my-pool-0", "my-pool-1", "my-pool-2"},
 			[]string{"my-pool-3", "my-pool-4"},
 			2),

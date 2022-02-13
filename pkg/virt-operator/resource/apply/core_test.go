@@ -380,7 +380,7 @@ var _ = Describe("Apply", func() {
 
 		config := getConfig("fake-registry", "v9.9.9")
 
-		table.DescribeTable("with either patch",
+		DescribeTable("with either patch",
 			func(cachedService *corev1.Service,
 				targetService *corev1.Service,
 				expectLabelsAnnotationsPatch bool,
@@ -412,7 +412,7 @@ var _ = Describe("Apply", func() {
 					Expect(len(ops)).To(Equal(0))
 				}
 			},
-			table.Entry("should do nothing if cached service has ClusterIP set and target does not (clusterIP is dynamically assigned when empty)",
+			Entry("should do nothing if cached service has ClusterIP set and target does not (clusterIP is dynamically assigned when empty)",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -447,7 +447,7 @@ var _ = Describe("Apply", func() {
 					},
 				},
 				false, false),
-			table.Entry("should update labels, annotations on update",
+			Entry("should update labels, annotations on update",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -507,7 +507,7 @@ var _ = Describe("Apply", func() {
 					},
 				},
 				true, false),
-			table.Entry("no-op with identical specs",
+			Entry("no-op with identical specs",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -585,7 +585,7 @@ var _ = Describe("Apply", func() {
 					},
 				},
 				false, false),
-			table.Entry("should patch spec when selectors differ",
+			Entry("should patch spec when selectors differ",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -663,14 +663,14 @@ var _ = Describe("Apply", func() {
 				true, true),
 		)
 
-		table.DescribeTable("complete replacement",
+		DescribeTable("complete replacement",
 			func(cachedService *corev1.Service,
 				targetService *corev1.Service) {
 
 				shouldDeleteAndReplace := hasImmutableFieldChanged(targetService, cachedService)
 				Expect(shouldDeleteAndReplace).To(BeTrue())
 			},
-			table.Entry("should delete and recreate service if of mixed 'type'.",
+			Entry("should delete and recreate service if of mixed 'type'.",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -691,7 +691,7 @@ var _ = Describe("Apply", func() {
 						Type: corev1.ServiceTypeNodePort,
 					},
 				}),
-			table.Entry("should delete and recreate service if not of type ClusterIP.",
+			Entry("should delete and recreate service if not of type ClusterIP.",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -712,7 +712,7 @@ var _ = Describe("Apply", func() {
 						Type: corev1.ServiceTypeNodePort,
 					},
 				}),
-			table.Entry("should delete and recreate service if ClusterIP changes (clusterIP is not mutable)",
+			Entry("should delete and recreate service if ClusterIP changes (clusterIP is not mutable)",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{

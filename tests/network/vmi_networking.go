@@ -133,7 +133,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				outboundVMI = runVMI(outboundVMI)
 			})
 
-			table.DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
+			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
 				var cmdCheck, addrShow, addr string
 				if vmiRef == nil {
 					addr = "kubevirt.io"
@@ -214,10 +214,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
 			},
-				table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
-				table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
-				table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
-				table.Entry("[test_id:1542]the internet", nil),
+				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
+				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+				Entry("[test_id:1542]the internet", nil),
 			)
 		})
 
@@ -230,7 +230,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				tests.StartTCPServer(inboundVMI, testPort)
 			})
 
-			table.DescribeTable("should be able to reach", func(op v12.NodeSelectorOperator, hostNetwork bool) {
+			DescribeTable("should be able to reach", func(op v12.NodeSelectorOperator, hostNetwork bool) {
 
 				ip := inboundVMI.Status.Interfaces[0].IP
 
@@ -262,10 +262,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 			},
-				table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
-				table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
-				table.Entry("[test_id:1545]on the same node from Node", v12.NodeSelectorOpIn, true),
-				table.Entry("[test_id:1546]on a different node from Node", v12.NodeSelectorOpNotIn, true),
+				Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
+				Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
+				Entry("[test_id:1545]on the same node from Node", v12.NodeSelectorOpIn, true),
+				Entry("[test_id:1546]on a different node from Node", v12.NodeSelectorOpNotIn, true),
 			)
 		})
 
@@ -678,7 +678,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				return nil
 			}
 
-			table.DescribeTable("ipv4", func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("ipv4", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				var clientVMI *v1.VirtualMachineInstance
 				var serverVMI *v1.VirtualMachineInstance
 
@@ -709,11 +709,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
-				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
-				table.Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
-				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
-				table.Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
+				Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
+				Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
+				Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
+				Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
@@ -736,7 +736,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 			})
 
-			table.DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 				var serverVMI *v1.VirtualMachineInstance
 				var clientVMI *v1.VirtualMachineInstance
@@ -767,10 +767,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
-				table.Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
-				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
+				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
+				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
+				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
@@ -850,7 +850,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily, ports []v1.Port) {
+			DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily, ports []v1.Port) {
 				if ipFamily == k8sv1.IPv6Protocol {
 					libnet.SkipWhenNotDualStackCluster(virtClient)
 				}
@@ -908,9 +908,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 				Expect(ping(podIP)).To(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol, []v1.Port{}),
-				table.Entry("IPv4 with explicit ports used by live migration", k8sv1.IPv4Protocol, portsUsedByLiveMigration()),
-				table.Entry("IPv6", k8sv1.IPv6Protocol, []v1.Port{}),
+				Entry("IPv4", k8sv1.IPv4Protocol, []v1.Port{}),
+				Entry("IPv4 with explicit ports used by live migration", k8sv1.IPv4Protocol, portsUsedByLiveMigration()),
+				Entry("IPv6", k8sv1.IPv6Protocol, []v1.Port{}),
 			)
 		})
 
@@ -1011,7 +1011,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			table.DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
 					libnet.SkipWhenNotDualStackCluster(virtClient)
 				}
@@ -1050,8 +1050,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 	})

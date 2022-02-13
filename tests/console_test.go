@@ -115,13 +115,13 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					return vmi
 				}
 
-				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
+				DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
 					vmi := createVMI()
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
 					expectConsoleOutput(vmi, "login")
 				},
-					table.Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
-					table.Entry("[test_id:4638][storage-req]with Block Disk", newVirtualMachineInstanceWithAlpineBlockDisk),
+					Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
+					Entry("[test_id:4638][storage-req]with Block Disk", newVirtualMachineInstanceWithAlpineBlockDisk),
 				)
 			})
 

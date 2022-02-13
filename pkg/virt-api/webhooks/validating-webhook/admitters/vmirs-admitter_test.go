@@ -40,7 +40,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -56,14 +56,14 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
-		table.Entry("VirtualMachineInstanceReplicaSet creation and update",
+		Entry("VirtualMachineInstanceReplicaSet creation and update",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 			`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required, spec.template in body is required`,
 			webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
 			vmirsAdmitter.Admit,
 		),
 	)
-	table.DescribeTable("reject invalid VirtualMachineInstance spec", func(vmirs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
+	DescribeTable("reject invalid VirtualMachineInstance spec", func(vmirs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
 		vmirsBytes, _ := json.Marshal(&vmirs)
 
 		ar := &admissionv1.AdmissionReview{
@@ -82,7 +82,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			Expect(resp.Result.Details.Causes[i].Field).To(Equal(cause))
 		}
 	},
-		table.Entry("with missing volume and missing labels", &v1.VirtualMachineInstanceReplicaSet{
+		Entry("with missing volume and missing labels", &v1.VirtualMachineInstanceReplicaSet{
 			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "this"},
@@ -95,7 +95,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			"spec.template.spec.domain.devices.disks[0].name",
 			"spec.selector",
 		}),
-		table.Entry("with mismatching label selectors", &v1.VirtualMachineInstanceReplicaSet{
+		Entry("with mismatching label selectors", &v1.VirtualMachineInstanceReplicaSet{
 			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "not"},

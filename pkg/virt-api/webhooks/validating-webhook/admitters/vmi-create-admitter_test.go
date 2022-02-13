@@ -148,13 +148,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.EvictionStrategy = nil
 		})
 
-		table.DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
+		DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
 			vmi.Spec.EvictionStrategy = &policy
 			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(resp).To(BeEmpty())
 		},
-			table.Entry("migration policy to be set to LiveMigrate", v1.EvictionStrategyLiveMigrate),
-			table.Entry("migration policy to be set None", v1.EvictionStrategyNone),
+			Entry("migration policy to be set to LiveMigrate", v1.EvictionStrategyLiveMigrate),
+			Entry("migration policy to be set None", v1.EvictionStrategyNone),
 		)
 
 		It("should block setting eviction policies if the feature gate is disabled", func() {
@@ -337,7 +337,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
 	})
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -353,7 +353,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
-		table.Entry("VirtualMachineInstance creation",
+		Entry("VirtualMachineInstance creation",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 			`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
 			webhooks.VirtualMachineInstanceGroupVersionResource,
@@ -362,7 +362,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	)
 
 	Context("with VirtualMachineInstance metadata", func() {
-		table.DescribeTable(
+		DescribeTable(
 			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
 			func(vmiLabels map[string]string, userAccount string, positive bool) {
 				vmi := api.NewMinimalVMI("testvmi")
@@ -387,33 +387,33 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
 				}
 			},
-			table.Entry("Create restricted label by API",
+			Entry("Create restricted label by API",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				rbac.ApiServiceAccountName,
 				true,
 			),
-			table.Entry("Create restricted label by Handler",
+			Entry("Create restricted label by Handler",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				rbac.HandlerServiceAccountName,
 				true,
 			),
-			table.Entry("Create restricted label by Controller",
+			Entry("Create restricted label by Controller",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				rbac.ControllerServiceAccountName,
 				true,
 			),
-			table.Entry("Create restricted label by non kubevirt user",
+			Entry("Create restricted label by non kubevirt user",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				"user-account",
 				false,
 			),
-			table.Entry("Create non restricted kubevirt.io prefixed label by non kubevirt user",
+			Entry("Create non restricted kubevirt.io prefixed label by non kubevirt user",
 				map[string]string{"kubevirt.io/l": "someValue"},
 				"user-account",
 				true,
 			),
 		)
-		table.DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
+		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta = metav1.ObjectMeta{
 				Annotations: annotations,
@@ -424,17 +424,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
 		},
-			table.Entry("without ExperimentalIgnitionSupport feature gate enabled",
+			Entry("without ExperimentalIgnitionSupport feature gate enabled",
 				map[string]string{v1.IgnitionAnnotation: "fake-data"},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.IgnitionAnnotation),
 			),
-			table.Entry("without sidecar feature gate enabled",
+			Entry("without sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
 		)
 
-		table.DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
+		DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
 			enableFeatureGate(featureGate)
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta = metav1.ObjectMeta{
@@ -443,11 +443,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
 			Expect(len(causes)).To(Equal(0))
 		},
-			table.Entry("with ExperimentalIgnitionSupport feature gate enabled",
+			Entry("with ExperimentalIgnitionSupport feature gate enabled",
 				map[string]string{v1.IgnitionAnnotation: "fake-data"},
 				virtconfig.IgnitionGate,
 			),
-			table.Entry("with sidecar feature gate enabled",
+			Entry("with sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				virtconfig.SidecarGate,
 			),
@@ -665,7 +665,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
 
-		table.DescribeTable("should verify input device",
+		DescribeTable("should verify input device",
 			func(input v1.Input, expectedErrors int, expectedErrorTypes []string, expectMessage string) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
@@ -675,42 +675,42 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Expect(causes[i].Field).To(Equal(errorType), expectMessage)
 				}
 			},
-			table.Entry("and accept input with virtio bus",
+			Entry("and accept input with virtio bus",
 				v1.Input{
 					Type: "tablet",
 					Name: "tablet0",
 					Bus:  "virtio",
 				}, 0, []string{}, "Expect no errors"),
-			table.Entry("and accept input with usb bus",
+			Entry("and accept input with usb bus",
 				v1.Input{
 					Type: "tablet",
 					Name: "tablet0",
 					Bus:  "usb",
 				}, 0, []string{}, "Expect no errors"),
-			table.Entry("and accept input without bus",
+			Entry("and accept input without bus",
 				v1.Input{
 					Type: "tablet",
 					Name: "tablet0",
 				}, 0, []string{}, "Expect no errors"),
-			table.Entry("and reject input with ps2 bus",
+			Entry("and reject input with ps2 bus",
 				v1.Input{
 					Type: "tablet",
 					Name: "tablet0",
 					Bus:  "ps2",
 				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
-			table.Entry("and reject input with keyboard type and virtio bus",
+			Entry("and reject input with keyboard type and virtio bus",
 				v1.Input{
 					Type: "keyboard",
 					Name: "tablet0",
 					Bus:  "virtio",
 				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
-			table.Entry("and reject input with keyboard type and usb bus",
+			Entry("and reject input with keyboard type and usb bus",
 				v1.Input{
 					Type: "keyboard",
 					Name: "tablet0",
 					Bus:  "usb",
 				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
-			table.Entry("and reject input with wrong type and wrong bus",
+			Entry("and reject input with wrong type and wrong bus",
 				v1.Input{
 					Type: "keyboard",
 					Name: "tablet0",
@@ -964,7 +964,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
-		table.DescribeTable("should verify LUN is mapped to PVC volume",
+		DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -978,14 +978,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(expectedErrors))
 			},
-			table.Entry("and reject non PVC sources",
+			Entry("and reject non PVC sources",
 				&v1.Volume{
 					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
 						ContainerDisk: testutils.NewFakeContainerDiskSource(),
 					},
 				}, 1),
-			table.Entry("and accept PVC sources",
+			Entry("and accept PVC sources",
 				&v1.Volume{
 					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
@@ -2102,7 +2102,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
-		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
+		DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.DNSPolicy = dnsPolicy
@@ -2110,22 +2110,22 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(0))
 			},
-			table.Entry("with DNSPolicy ClusterFirstWithHostNet", k8sv1.DNSClusterFirstWithHostNet, &k8sv1.PodDNSConfig{}),
-			table.Entry("with DNSPolicy ClusterFirst", k8sv1.DNSClusterFirst, &k8sv1.PodDNSConfig{}),
-			table.Entry("with DNSPolicy Default", k8sv1.DNSDefault, &k8sv1.PodDNSConfig{}),
-			table.Entry("with DNSPolicy None and one nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{Nameservers: []string{"1.2.3.4"}}),
-			table.Entry("with DNSPolicy None max nameservers and max search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy ClusterFirstWithHostNet", k8sv1.DNSClusterFirstWithHostNet, &k8sv1.PodDNSConfig{}),
+			Entry("with DNSPolicy ClusterFirst", k8sv1.DNSClusterFirst, &k8sv1.PodDNSConfig{}),
+			Entry("with DNSPolicy Default", k8sv1.DNSDefault, &k8sv1.PodDNSConfig{}),
+			Entry("with DNSPolicy None and one nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{Nameservers: []string{"1.2.3.4"}}),
+			Entry("with DNSPolicy None max nameservers and max search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1"},
 				Searches:    []string{"1", "2", "3", "4", "5", "6"},
 			}),
-			table.Entry("with DNSPolicy None max nameservers and max length search domain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None max nameservers and max length search domain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1"},
 				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", (maxDNSSearchListChars/2)-1)},
 			}),
-			table.Entry("with empty DNSPolicy", nil, nil),
+			Entry("with empty DNSPolicy", nil, nil),
 		)
 
-		table.DescribeTable("Should reject invalid DNSPolicy and DNSConfig",
+		DescribeTable("Should reject invalid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig, causeCount int, causeMessage []string) {
 				vmi := api.NewMinimalVMI("testvmi")
 				vmi.Spec.DNSPolicy = dnsPolicy
@@ -2136,35 +2136,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Expect(causes[i].Message).To(Equal(causeMessage[i]))
 				}
 			},
-			table.Entry("with invalid DNSPolicy FakePolicy", k8sv1.DNSPolicy("FakePolicy"), &k8sv1.PodDNSConfig{}, 1,
+			Entry("with invalid DNSPolicy FakePolicy", k8sv1.DNSPolicy("FakePolicy"), &k8sv1.PodDNSConfig{}, 1,
 				[]string{"DNSPolicy: FakePolicy is not supported, valid values: [ClusterFirstWithHostNet ClusterFirst Default None ]"}),
-			table.Entry("with DNSPolicy None and no nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{}, 1,
+			Entry("with DNSPolicy None and no nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{}, 1,
 				[]string{"must provide at least one DNS nameserver when `dnsPolicy` is None"}),
-			table.Entry("with DNSPolicy None and too many nameservers", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None and too many nameservers", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1", "2.3.4.5"},
 			}, 1, []string{"must not have more than 3 nameservers: [1.2.3.4 5.6.7.8 9.8.0.1 2.3.4.5]"}),
-			table.Entry("with DNSPolicy None and a non ip nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None and a non ip nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.c"},
 			}, 1, []string{"must be valid IP address: 1.2.3.c"}),
-			table.Entry("with DNSPolicy None and too many search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None and too many search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{"1", "2", "3", "4", "5", "6", "7"},
 			}, 1, []string{"must not have more than 6 search paths"}),
-			table.Entry("with DNSPolicy None and search domain exceeding max length", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None and search domain exceeding max length", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", maxDNSSearchListChars/2)},
 			}, 1, []string{fmt.Sprintf("must not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars)}),
-			table.Entry("with DNSPolicy None and bad IsDNS1123Subdomain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None and bad IsDNS1123Subdomain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1)},
 			}, 1, []string{fmt.Sprintf("must be no more than %v characters", validation.DNS1123SubdomainMaxLength)}),
-			table.Entry("with DNSPolicy None and bad options", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			Entry("with DNSPolicy None and bad options", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
 				Options: []k8sv1.PodDNSConfigOption{
 					{Value: &dnsConfigTestOption},
 				},
 			}, 1, []string{fmt.Sprintf("Option.Name must not be empty for value: %s", dnsConfigTestOption)}),
-			table.Entry("with DNSPolicy None and nil DNSConfig", k8sv1.DNSNone, interface{}(nil), 1,
+			Entry("with DNSPolicy None and nil DNSConfig", k8sv1.DNSNone, interface{}(nil), 1,
 				[]string{fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone)}),
 		)
 		It("should accept valid start strategy", func() {
@@ -2220,7 +2220,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				fakeKernel     = "kernel"
 			)
 
-			table.DescribeTable("", func(kernelArgs, initrdPath, kernelPath, image string, defineContainerNil bool, shouldBeValid bool) {
+			DescribeTable("", func(kernelArgs, initrdPath, kernelPath, image string, defineContainerNil bool, shouldBeValid bool) {
 				vmi := utils.GetVMIKernelBoot()
 
 				kb := vmi.Spec.Domain.Firmware.KernelBoot
@@ -2243,23 +2243,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Expect(causes).ToNot(BeEmpty())
 				}
 			},
-				table.Entry("without kernel args and null container - should approve",
+				Entry("without kernel args and null container - should approve",
 					"", "", "", "", true, true),
-				table.Entry("with kernel args and null container - should approve",
+				Entry("with kernel args and null container - should approve",
 					fakeKernelArgs, "", "", "", true, true),
-				table.Entry("without kernel args, with container that has image & kernel & initrd defined - should approve",
+				Entry("without kernel args, with container that has image & kernel & initrd defined - should approve",
 					"", fakeInitrd, fakeKernel, fakeImage, false, true),
-				table.Entry("with kernel args, with container that has image & kernel & initrd defined - should approve",
+				Entry("with kernel args, with container that has image & kernel & initrd defined - should approve",
 					fakeKernelArgs, fakeInitrd, fakeKernel, fakeImage, false, true),
-				table.Entry("with kernel args, with container that has image & kernel defined - should approve",
+				Entry("with kernel args, with container that has image & kernel defined - should approve",
 					fakeKernelArgs, "", fakeKernel, fakeImage, false, true),
-				table.Entry("with kernel args, with container that has image & initrd defined - should approve",
+				Entry("with kernel args, with container that has image & initrd defined - should approve",
 					fakeKernelArgs, fakeInitrd, "", fakeImage, false, true),
-				table.Entry("with kernel args, with container that has only image defined - should reject",
+				Entry("with kernel args, with container that has only image defined - should reject",
 					fakeKernelArgs, "", "", fakeImage, false, false),
-				table.Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
+				Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
 					fakeKernelArgs, fakeInitrd, fakeKernel, "", false, false),
-				table.Entry("with kernel args, with container that has nothing defined", "", "", "", "", false, false),
+				Entry("with kernel args, with container that has nothing defined", "", "", "", "", false, false),
 			)
 		})
 	})
@@ -2289,7 +2289,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
 		})
-		table.DescribeTable("should reject NUMA passthrough without hugepages", func(memory *v1.Memory) {
+		DescribeTable("should reject NUMA passthrough without hugepages", func(memory *v1.Memory) {
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 			vmi.Spec.Domain.CPU.Cores = 4
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
@@ -2301,8 +2301,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
 		},
-			table.Entry("with no memory element", nil),
-			table.Entry("with no hugepages element", &v1.Memory{Hugepages: nil}),
+			Entry("with no memory element", nil),
+			Entry("with no hugepages element", &v1.Memory{Hugepages: nil}),
 		)
 		It("should accept NUMA passthrough with DedicatedCPUPlacement", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
@@ -2651,7 +2651,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with Disk", func() {
-		table.DescribeTable("should accept valid disks",
+		DescribeTable("should accept valid disks",
 			func(disk v1.Disk) {
 				vmi := api.NewMinimalVMI("testvmi")
 
@@ -2661,13 +2661,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Expect(len(causes)).To(Equal(0))
 
 			},
-			table.Entry("with Disk target",
+			Entry("with Disk target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
 			),
-			table.Entry("with LUN target",
+			Entry("with LUN target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{}}},
 			),
-			table.Entry("with CDRom target",
+			Entry("with CDRom target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{}}},
 			),
 		)
@@ -2913,7 +2913,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0].cache"))
 			Expect(causes[0].Message).To(Equal("fake[0].cache has invalid value unspported"))
 		})
-		table.DescribeTable("It should accept a disk with a valid cache mode", func(mode v1.DriverCache) {
+		DescribeTable("It should accept a disk with a valid cache mode", func(mode v1.DriverCache) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk", Cache: mode, DiskDevice: v1.DiskDevice{
@@ -2922,9 +2922,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(0))
 		},
-			table.Entry("none", v1.CacheNone),
-			table.Entry("writethrough", v1.CacheWriteThrough),
-			table.Entry("writeback", v1.CacheWriteBack),
+			Entry("none", v1.CacheNone),
+			Entry("writethrough", v1.CacheWriteThrough),
+			Entry("writeback", v1.CacheWriteBack),
 		)
 
 		It("should reject disk count > arrayLenMax", func() {
@@ -3037,7 +3037,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		Context("With block size", func() {
 
-			table.DescribeTable("It should accept a disk with a valid block size of", func(logicalSize, physicalSize int) {
+			DescribeTable("It should accept a disk with a valid block size of", func(logicalSize, physicalSize int) {
 				vmi := api.NewMinimalVMI("testvmi")
 
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -3053,13 +3053,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 				Expect(len(causes)).To(Equal(0))
 			},
-				table.Entry("a 512n disk", 512, 512),
-				table.Entry("a 512e disk", 512, 4096),
-				table.Entry("a 4096n (4kn) disk", 4096, 4096),
-				table.Entry("a custom 1 MiB disk", 1048576, 1048576),
+				Entry("a 512n disk", 512, 512),
+				Entry("a 512e disk", 512, 4096),
+				Entry("a 4096n (4kn) disk", 4096, 4096),
+				Entry("a custom 1 MiB disk", 1048576, 1048576),
 			)
 
-			table.DescribeTable("It should deny a disk's block size configuration when", func(logicalSize, physicalSize int) {
+			DescribeTable("It should deny a disk's block size configuration when", func(logicalSize, physicalSize int) {
 				vmi := api.NewMinimalVMI("testvmi")
 
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -3077,9 +3077,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.logical"))
 				Expect(causes[1].Field).To(Equal("fake[0].blockSize.custom.physical"))
 			},
-				table.Entry("less than 512", 128, 128),
-				table.Entry("greater than 2 MiB", 3000000, 3000000),
-				table.Entry("not a power of 2", 1234, 1234),
+				Entry("less than 512", 128, 128),
+				Entry("greater than 2 MiB", 3000000, 3000000),
+				Entry("not a power of 2", 1234, 1234),
 			)
 
 			It("Should deny a disk's block size configuration when logical > physical", func() {

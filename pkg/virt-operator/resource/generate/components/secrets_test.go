@@ -145,7 +145,7 @@ var _ = Describe("Certificate Management", func() {
 			Expect(crt.Leaf.NotBefore).To(Equal(caCrt.Leaf.NotBefore))
 		})
 
-		table.DescribeTable("should set the notAfter on the certificate according to the supplied duration", func(caDuration time.Duration) {
+		DescribeTable("should set the notAfter on the certificate according to the supplied duration", func(caDuration time.Duration) {
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			caSecret := NewCACertSecret("test")
 			now := time.Now()
@@ -159,11 +159,11 @@ var _ = Describe("Certificate Management", func() {
 
 			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 10))
 		},
-			table.Entry("with a long valid CA", 24*time.Hour),
-			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
+			Entry("with a long valid CA", 24*time.Hour),
+			Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
 		)
 
-		table.DescribeTable("should suggest a rotation on the certificate according to its expiration", func(caDuration time.Duration) {
+		DescribeTable("should suggest a rotation on the certificate according to its expiration", func(caDuration time.Duration) {
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			crtRenewBefore := &v1.Duration{Duration: 1 * time.Hour}
 			caSecret := NewCACertSecret("test")
@@ -182,11 +182,11 @@ var _ = Describe("Certificate Management", func() {
 			// seconds.
 			Expect(NextRotationDeadline(crt, caCrt, crtRenewBefore, nil).Unix()).To(BeNumerically("==", deadline.Unix(), 3))
 		},
-			table.Entry("with a long valid CA", 24*time.Hour),
-			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
+			Entry("with a long valid CA", 24*time.Hour),
+			Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
 		)
 
-		table.DescribeTable("should successfully sign with the current CA the certificate for", func(scretName string) {
+		DescribeTable("should successfully sign with the current CA the certificate for", func(scretName string) {
 			duration := &v1.Duration{Duration: 5 * time.Hour}
 			caSecret := NewCACertSecret("test")
 			Expect(PopulateSecretWithCertificate(caSecret, nil, duration)).To(Succeed())
@@ -205,10 +205,10 @@ var _ = Describe("Certificate Management", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(crt).ToNot(BeNil())
 		},
-			table.Entry("virt-handler", VirtHandlerCertSecretName),
-			table.Entry("virt-controller", VirtControllerCertSecretName),
-			table.Entry("virt-api", VirtApiCertSecretName),
-			table.Entry("virt-operator", VirtOperatorCertSecretName),
+			Entry("virt-handler", VirtHandlerCertSecretName),
+			Entry("virt-controller", VirtControllerCertSecretName),
+			Entry("virt-api", VirtApiCertSecretName),
+			Entry("virt-operator", VirtOperatorCertSecretName),
 		)
 
 		It("should suggest earlier rotation if CA expires before cert", func() {

@@ -97,7 +97,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 		})
 
-		table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
+		DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -150,11 +150,11 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			log.Log.Infof("%v", output)
 			Expect(err).To(HaveOccurred())
 		},
-			table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-			table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+			Entry("VirtualMachineInstance with slirp interface", &genericVmi),
+			Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 		)
 
-		table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
+		DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -173,8 +173,8 @@ var _ = SIGDescribe("Slirp Networking", func() {
 				&expect.BExp{R: "301"},
 			}, 180)).To(Succeed())
 		},
-			table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-			table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+			Entry("VirtualMachineInstance with slirp interface", &genericVmi),
+			Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 		)
 	})
 

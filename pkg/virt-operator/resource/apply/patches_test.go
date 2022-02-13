@@ -192,15 +192,15 @@ var _ = Describe("Patches", func() {
 		})
 	})
 
-	table.DescribeTable("valueMatchesKey", func(value, key string, expected bool) {
+	DescribeTable("valueMatchesKey", func(value, key string, expected bool) {
 
 		matches := valueMatchesKey(value, key)
 		Expect(matches).To(Equal(expected))
 
 	},
-		table.Entry("should match wildcard", "*", "Deployment", true),
-		table.Entry("should match with different cases", "deployment", "Deployment", true),
-		table.Entry("should not match", "Service", "Deployment", false),
+		Entry("should match wildcard", "*", "Deployment", true),
+		Entry("should match with different cases", "deployment", "Deployment", true),
+		Entry("should not match", "Service", "Deployment", false),
 	)
 
 	Describe("Config controller flags", func() {

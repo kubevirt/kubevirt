@@ -279,7 +279,7 @@ var _ = Describe("RBAC test", func() {
 			}
 		})
 
-		table.DescribeTable("Check reconciliation of PolocyRules for", func(resourceType string, changeExisting bool) {
+		DescribeTable("Check reconciliation of PolocyRules for", func(resourceType string, changeExisting bool) {
 
 			Expect(resourceType).To(Or(Equal(roleType), Equal(clusterRoleType)))
 			existing := newEmptyResource(resourceType)
@@ -296,13 +296,13 @@ var _ = Describe("RBAC test", func() {
 			err := updateResource(required)
 			Expect(err).ShouldNot(HaveOccurred())
 		},
-			table.Entry("Role resource where resource had changed", roleType, true),
-			table.Entry("Role resource where resource had not changed", roleType, false),
-			table.Entry("ClusterRole resource where resource had changed", clusterRoleType, true),
-			table.Entry("ClusterRole resource where resource had not changed", clusterRoleType, false),
+			Entry("Role resource where resource had changed", roleType, true),
+			Entry("Role resource where resource had not changed", roleType, false),
+			Entry("ClusterRole resource where resource had changed", clusterRoleType, true),
+			Entry("ClusterRole resource where resource had not changed", clusterRoleType, false),
 		)
 
-		table.DescribeTable("Check reconciliation of Subjects and RoleRef for", func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
+		DescribeTable("Check reconciliation of Subjects and RoleRef for", func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
 
 			Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
 			existing := newEmptyResource(resourceType)
@@ -324,18 +324,18 @@ var _ = Describe("RBAC test", func() {
 			err := updateResource(required)
 			Expect(err).ShouldNot(HaveOccurred())
 		},
-			table.Entry("RoleBinding resource where resource had changed Subjects and RoleRef", roleBindingType, true, true),
-			table.Entry("RoleBinding resource where resource had changed Subjects", roleBindingType, true, false),
-			table.Entry("RoleBinding resource where resource had changed RoleRef", roleBindingType, false, true),
-			table.Entry("RoleBinding resource where resource had not changed", roleBindingType, false, false),
+			Entry("RoleBinding resource where resource had changed Subjects and RoleRef", roleBindingType, true, true),
+			Entry("RoleBinding resource where resource had changed Subjects", roleBindingType, true, false),
+			Entry("RoleBinding resource where resource had changed RoleRef", roleBindingType, false, true),
+			Entry("RoleBinding resource where resource had not changed", roleBindingType, false, false),
 
-			table.Entry("ClusterRoleBinding resource where resource had changed Subjects and RoleRef", clusterRoleBindingType, true, true),
-			table.Entry("ClusterRoleBinding resource where resource had changed Subjects", clusterRoleBindingType, true, false),
-			table.Entry("ClusterRoleBinding resource where resource had changed RoleRef", clusterRoleBindingType, false, true),
-			table.Entry("ClusterRoleBinding resource where resource had not changed", clusterRoleBindingType, false, false),
+			Entry("ClusterRoleBinding resource where resource had changed Subjects and RoleRef", clusterRoleBindingType, true, true),
+			Entry("ClusterRoleBinding resource where resource had changed Subjects", clusterRoleBindingType, true, false),
+			Entry("ClusterRoleBinding resource where resource had changed RoleRef", clusterRoleBindingType, false, true),
+			Entry("ClusterRoleBinding resource where resource had not changed", clusterRoleBindingType, false, false),
 		)
 
-		table.DescribeTable("when subjects are same but in different order, expect no update for", func(resourceType string) {
+		DescribeTable("when subjects are same but in different order, expect no update for", func(resourceType string) {
 			Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
 			existing := newEmptyResource(resourceType)
 			required := newEmptyResource(resourceType)
@@ -349,8 +349,8 @@ var _ = Describe("RBAC test", func() {
 			err := updateResource(required)
 			Expect(err).ShouldNot(HaveOccurred())
 		},
-			table.Entry("RoleBindings", roleBindingType),
-			table.Entry("ClusterRoleBinding", clusterRoleBindingType),
+			Entry("RoleBindings", roleBindingType),
+			Entry("ClusterRoleBinding", clusterRoleBindingType),
 		)
 
 	})
