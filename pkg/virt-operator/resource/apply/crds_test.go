@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	jsonpatch "github.com/evanphx/json-patch"

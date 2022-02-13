@@ -2,7 +2,7 @@ package launchsecurity
 
 import (
 	expect "github.com/google/goexpect"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

@@ -26,7 +26,7 @@ import (
 	"net/url"
 
 	restful "github.com/emicklei/go-restful"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"

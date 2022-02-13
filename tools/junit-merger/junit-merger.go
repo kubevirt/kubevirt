@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/reporters"
 	flag "github.com/spf13/pflag"
 
 	"kubevirt.io/client-go/log"

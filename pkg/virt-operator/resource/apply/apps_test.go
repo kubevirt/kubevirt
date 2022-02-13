@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

@@ -24,7 +24,7 @@ import (
 	"os"
 	"strconv"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 var (

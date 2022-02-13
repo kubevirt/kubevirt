@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	"github.com/gorilla/websocket"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
 
