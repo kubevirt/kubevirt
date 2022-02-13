@@ -3,7 +3,7 @@ package tests_test
 import (
 	"encoding/xml"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/util"

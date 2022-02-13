@@ -20,7 +20,7 @@
 package storage
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 func SIGDescribe(text string, body func()) bool {

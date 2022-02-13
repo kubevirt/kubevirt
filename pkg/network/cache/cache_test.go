@@ -3,7 +3,7 @@ package cache_test
 import (
 	"os"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"

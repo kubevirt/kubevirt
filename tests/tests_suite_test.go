@@ -26,9 +26,9 @@ import (
 	"strconv"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	ginkgo_reporters "github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/config"
+	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
 	"kubevirt.io/kubevirt/tests/flags"
 

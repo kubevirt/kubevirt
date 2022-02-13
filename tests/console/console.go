@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
