@@ -22,7 +22,6 @@ package install
 import (
 	"strings"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -63,31 +62,31 @@ var _ = Describe("Install Strategy", func() {
 	config := getConfig("fake-registry", "v9.9.9")
 
 	Context("monitoring detection", func() {
-		table.DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
+		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
 			client := fake.NewSimpleClientset(objects...)
 			ns, err := getMonitorNamespace(client.CoreV1(), config)
 			Expect(ns).To(Equal(expectedNS))
 			Expect(err).To(BeNil())
 		},
-			table.Entry("match first entry if namespace and SA exist",
+			Entry("match first entry if namespace and SA exist",
 				"openshift-monitoring",
 				newSA("openshift-monitoring", "prometheus-k8s"),
 				newNS("openshift-monitoring"),
 			),
-			table.Entry("should match second namespace if SA for the first namespace does not exist",
+			Entry("should match second namespace if SA for the first namespace does not exist",
 				"monitoring",
 				newSA("monitoring", "prometheus-k8s"),
 				newNS("openshift-monitoring"),
 				newNS("monitoring"),
 			),
-			table.Entry("should match first namespace if SA for both namespaces exist",
+			Entry("should match first namespace if SA for both namespaces exist",
 				"openshift-monitoring",
 				newSA("openshift-monitoring", "prometheus-k8s"),
 				newSA("monitoring", "prometheus-k8s"),
 				newNS("openshift-monitoring"),
 				newNS("monitoring"),
 			),
-			table.Entry("succeed fail if SA does not exist in both namespaces",
+			Entry("succeed fail if SA does not exist in both namespaces",
 				"",
 				newNS("openshift-monitoring"),
 				newNS("monitoring"),

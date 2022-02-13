@@ -10,7 +10,6 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,7 +32,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	table.DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
+	DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
 		output, stderr, err := tests.RunCommand(k8sClient, "explain", resource)
 		// kubectl will not find resource for the first time this command is issued
 		if err != nil {
@@ -46,12 +45,12 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 		Expect(output).To(ContainSubstring("status	<Object>"))
 	},
-		table.Entry("[test_id:3810]explain vm", "vm"),
-		table.Entry("[test_id:3811]explain vmi", "vmi"),
-		table.Entry("[test_id:5178]explain vmim", "vmim"),
-		table.Entry("[test_id:5179]explain kv", "kv"),
-		table.Entry("[test_id:5180]explain vmsnapshot", "vmsnapshot"),
-		table.Entry("[test_id:5181]explain vmsnapshotcontent", "vmsnapshotcontent"),
+		Entry("[test_id:3810]explain vm", "vm"),
+		Entry("[test_id:3811]explain vmi", "vmi"),
+		Entry("[test_id:5178]explain vmim", "vmim"),
+		Entry("[test_id:5179]explain kv", "kv"),
+		Entry("[test_id:5180]explain vmsnapshot", "vmsnapshot"),
+		Entry("[test_id:5181]explain vmsnapshotcontent", "vmsnapshotcontent"),
 	)
 
 	It("[test_id:5182]vmipreset have validation", func() {
@@ -98,7 +97,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			virtCli.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 		})
 
-		table.DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
+		DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
 			result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 			if err != nil {
@@ -115,11 +114,11 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			// Name will be there in all the cases, so verify name
 			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 		},
-			table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "STATUS", "READY"}),
-			table.Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY"}),
+			Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "STATUS", "READY"}),
+			Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY"}),
 		)
 
-		table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
+		DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
 
 			result, _, err := tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
@@ -140,8 +139,8 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
 
 		},
-			table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "READY"}, 1, "True"),
-			table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
+			Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "READY"}, 1, "True"),
+			Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 		)
 
 	})

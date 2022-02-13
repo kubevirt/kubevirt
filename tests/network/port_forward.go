@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/extensions/table"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -99,13 +98,13 @@ var _ = SIGDescribe("Port-forward", func() {
 				vmiHttpServerPort = declaredPort
 			})
 
-			table.DescribeTable("should reach the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("should reach the vmi", func(ipFamily k8sv1.IPFamily) {
 				setup(ipFamily)
 				By(fmt.Sprintf("checking that service running on port %d can be reached", declaredPort))
 				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).To(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 
@@ -116,13 +115,13 @@ var _ = SIGDescribe("Port-forward", func() {
 				vmiHttpServerPort = nonDeclaredPort
 			})
 
-			table.DescribeTable("should reach the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("should reach the vmi", func(ipFamily k8sv1.IPFamily) {
 				setup(ipFamily)
 				By(fmt.Sprintf("checking that service running on port %d can be reached", nonDeclaredPort))
 				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).To(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 
@@ -134,13 +133,13 @@ var _ = SIGDescribe("Port-forward", func() {
 				vmiHttpServerPort = nonDeclaredPort
 			})
 
-			table.DescribeTable("should not reach the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("should not reach the vmi", func(ipFamily k8sv1.IPFamily) {
 				setup(ipFamily)
 				By(fmt.Sprintf("checking that service running on port %d can not be reached", nonDeclaredPort))
 				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).ToNot(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 	})

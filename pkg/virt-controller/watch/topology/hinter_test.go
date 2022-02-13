@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	g "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +73,7 @@ var _ = Describe("Hinter", func() {
 		g.Expect(hinter.TSCFrequenciesInUse()).To(g.ConsistOf(int64(100), int64(90), int64(123), int64(80)))
 	})
 
-	table.DescribeTable("should not propose a TSC frequency on architectures like", func(arch string) {
+	DescribeTable("should not propose a TSC frequency on architectures like", func(arch string) {
 		hinter := hinterWithNodes(
 			NodeWithInvalidTSC("node0"),
 			NodeWithTSC("node1", 1234, true),
@@ -86,8 +85,8 @@ var _ = Describe("Hinter", func() {
 		).To(g.BeFalse())
 		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.BeNil())
 	},
-		table.Entry("arm64", "arm64"),
-		table.Entry("ppc64le", "ppc64le"),
+		Entry("arm64", "arm64"),
+		Entry("ppc64le", "ppc64le"),
 	)
 })
 

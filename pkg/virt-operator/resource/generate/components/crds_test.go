@@ -2,14 +2,13 @@ package components
 
 import (
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var _ = Describe("CRDs", func() {
 
-	table.DescribeTable("Should patch validation", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
+	DescribeTable("Should patch validation", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
 		crd, err := crdFunc()
 		Expect(err).NotTo(HaveOccurred())
 		for i := range crd.Spec.Versions {
@@ -17,15 +16,15 @@ var _ = Describe("CRDs", func() {
 			Expect(crd.Spec.Versions[i].Schema).NotTo(BeNil())
 		}
 	},
-		table.Entry("for VM", NewVirtualMachineCrd),
-		table.Entry("for VMI", NewVirtualMachineInstanceCrd),
-		table.Entry("for VMIPRESET", NewPresetCrd),
-		table.Entry("for VMIRS", NewReplicaSetCrd),
-		table.Entry("for VMIM", NewVirtualMachineInstanceMigrationCrd),
-		table.Entry("for KV", NewKubeVirtCrd),
-		table.Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd),
-		table.Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd),
-		table.Entry("for VMPOOL", NewVirtualMachinePoolCrd),
+		Entry("for VM", NewVirtualMachineCrd),
+		Entry("for VMI", NewVirtualMachineInstanceCrd),
+		Entry("for VMIPRESET", NewPresetCrd),
+		Entry("for VMIRS", NewReplicaSetCrd),
+		Entry("for VMIM", NewVirtualMachineInstanceMigrationCrd),
+		Entry("for KV", NewKubeVirtCrd),
+		Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd),
+		Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd),
+		Entry("for VMPOOL", NewVirtualMachinePoolCrd),
 	)
 
 	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {

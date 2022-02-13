@@ -23,8 +23,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/onsi/ginkgo/extensions/table"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,7 +32,7 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("URL Parsing", func() {
 	Context("with resource and operation", func() {
-		table.DescribeTable("accurately parse resource and operation", func(urlStr, method, expectedResource, expectedOperation string) {
+		DescribeTable("accurately parse resource and operation", func(urlStr, method, expectedResource, expectedOperation string) {
 
 			request := &http.Request{
 				Method: method,
@@ -48,23 +46,23 @@ var _ = Describe("URL Parsing", func() {
 			Expect(operation).To(Equal(expectedOperation))
 
 		},
-			table.Entry("should handle an empty URL and method", "", "", "", ""),
-			table.Entry("should handle an empty URL", "", "GET", "", ""),
-			table.Entry("should handle an empty Method", "/api/v1/watch/namespaces/kubevirt/pods", "", "", ""),
-			table.Entry("should handle watching namespaced resource", "/api/v1/watch/namespaces/kubevirt/pods", "GET", "pods", "WATCH"),
-			table.Entry("should handle watching globally scoped resource", "/api/v1/watch/pods", "GET", "pods", "WATCH"),
-			table.Entry("should handle list of namespaced resources", "/api/v1/namespaces/kubevirt/pods", "GET", "pods", "LIST"),
-			table.Entry("should handle get of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "GET", "pods", "GET"),
-			table.Entry("should handle list of custom namespaced resources", "/apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances", "GET", "virtualmachineinstances", "LIST"),
-			table.Entry("should handle get of custom namespaced resources", "/apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances/my-vmi", "GET", "virtualmachineinstances", "GET"),
-			table.Entry("should handle list of custom globally scoped resources", "/apis/kubevirt.io/v1/kubevirts", "GET", "kubevirts", "LIST"),
-			table.Entry("should handle get of custom globally scoped resources", "/apis/kubevirt.io/v1/kubevirts/my-kv", "GET", "kubevirts", "GET"),
-			table.Entry("should handle UPDATE of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "PUT", "pods", "UPDATE"),
-			table.Entry("should handle PATCH of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "PATCH", "pods", "PATCH"),
-			table.Entry("should handle CREATE of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "POST", "pods", "CREATE"),
-			table.Entry("should handle DELETE of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "DELETE", "pods", "DELETE"),
-			table.Entry("should handle UPDATE to status subresource", "/api/v1/namespaces/kubevirt/pods/my-pod/status", "PUT", "pods", "UPDATE"),
-			table.Entry("should handle UPDATE to custom subresource", "/apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances/my-vmi/some-subresource", "PUT", "virtualmachineinstances", "UPDATE"),
+			Entry("should handle an empty URL and method", "", "", "", ""),
+			Entry("should handle an empty URL", "", "GET", "", ""),
+			Entry("should handle an empty Method", "/api/v1/watch/namespaces/kubevirt/pods", "", "", ""),
+			Entry("should handle watching namespaced resource", "/api/v1/watch/namespaces/kubevirt/pods", "GET", "pods", "WATCH"),
+			Entry("should handle watching globally scoped resource", "/api/v1/watch/pods", "GET", "pods", "WATCH"),
+			Entry("should handle list of namespaced resources", "/api/v1/namespaces/kubevirt/pods", "GET", "pods", "LIST"),
+			Entry("should handle get of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "GET", "pods", "GET"),
+			Entry("should handle list of custom namespaced resources", "/apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances", "GET", "virtualmachineinstances", "LIST"),
+			Entry("should handle get of custom namespaced resources", "/apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances/my-vmi", "GET", "virtualmachineinstances", "GET"),
+			Entry("should handle list of custom globally scoped resources", "/apis/kubevirt.io/v1/kubevirts", "GET", "kubevirts", "LIST"),
+			Entry("should handle get of custom globally scoped resources", "/apis/kubevirt.io/v1/kubevirts/my-kv", "GET", "kubevirts", "GET"),
+			Entry("should handle UPDATE of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "PUT", "pods", "UPDATE"),
+			Entry("should handle PATCH of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "PATCH", "pods", "PATCH"),
+			Entry("should handle CREATE of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "POST", "pods", "CREATE"),
+			Entry("should handle DELETE of namespaced resources", "/api/v1/namespaces/kubevirt/pods/my-pod", "DELETE", "pods", "DELETE"),
+			Entry("should handle UPDATE to status subresource", "/api/v1/namespaces/kubevirt/pods/my-pod/status", "PUT", "pods", "UPDATE"),
+			Entry("should handle UPDATE to custom subresource", "/apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances/my-vmi/some-subresource", "PUT", "virtualmachineinstances", "UPDATE"),
 		)
 	})
 

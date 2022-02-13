@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -84,15 +83,15 @@ var _ = Describe("NumaPlacement", func() {
 		Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
 	})
 
-	table.DescribeTable("it should do nothing", func(givenTopology *cmdv1.Topology) {
+	DescribeTable("it should do nothing", func(givenTopology *cmdv1.Topology) {
 		expectedSpec := givenSpec.DeepCopy()
 		Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
 		Expect(givenSpec.CPUTune).To(Equal(expectedSpec.CPUTune))
 		Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
 		Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
 	},
-		table.Entry("if no topology is provided", nil),
-		table.Entry("if no numa cells are reported", &cmdv1.Topology{NumaCells: nil}),
+		Entry("if no topology is provided", nil),
+		Entry("if no numa cells are reported", &cmdv1.Topology{NumaCells: nil}),
 	)
 
 	It("should detect invalid cpu pinning", func() {

@@ -27,7 +27,6 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -144,23 +143,23 @@ var _ = Describe("Authorizer", func() {
 				close(done)
 			}, 5)
 
-			table.DescribeTable("should allow all users for info endpoints", func(path string) {
+			DescribeTable("should allow all users for info endpoints", func(path string) {
 				req.Request.URL.Path = path
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeTrue())
 			},
-				table.Entry("root", "/"),
-				table.Entry("apis", "/apis"),
-				table.Entry("group", "/apis/subresources.kubevirt.io"),
-				table.Entry("version", "/apis/subresources.kubevirt.io/version"),
-				table.Entry("healthz", "/apis/subresources.kubevirt.io/healthz"),
-				table.Entry("start profiler", "/apis/subresources.kubevirt.io/start-cluster-profiler"),
-				table.Entry("stop profiler", "/apis/subresources.kubevirt.io/stop-cluster-profiler"),
-				table.Entry("dump profiler", "/apis/subresources.kubevirt.io/dump-cluster-profiler"),
+				Entry("root", "/"),
+				Entry("apis", "/apis"),
+				Entry("group", "/apis/subresources.kubevirt.io"),
+				Entry("version", "/apis/subresources.kubevirt.io/version"),
+				Entry("healthz", "/apis/subresources.kubevirt.io/healthz"),
+				Entry("start profiler", "/apis/subresources.kubevirt.io/start-cluster-profiler"),
+				Entry("stop profiler", "/apis/subresources.kubevirt.io/stop-cluster-profiler"),
+				Entry("dump profiler", "/apis/subresources.kubevirt.io/dump-cluster-profiler"),
 			)
 
-			table.DescribeTable("should reject all users for unknown endpoint paths", func(path string) {
+			DescribeTable("should reject all users for unknown endpoint paths", func(path string) {
 				req.Request.TLS = &tls.ConnectionState{}
 				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
 				req.Request.URL.Path = path
@@ -169,10 +168,10 @@ var _ = Describe("Authorizer", func() {
 				Expect(allowed).To(BeFalse())
 
 			},
-				table.Entry("random1", "/apis/subresources.kubevirt.io/v1alpha3/madethisup"),
-				table.Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),
-				table.Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
-				table.Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/madeupresource/testvmi/console"),
+				Entry("random1", "/apis/subresources.kubevirt.io/v1alpha3/madethisup"),
+				Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),
+				Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
+				Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/madeupresource/testvmi/console"),
 			)
 		})
 
@@ -182,16 +181,16 @@ var _ = Describe("Authorizer", func() {
 
 	})
 
-	table.DescribeTable("should map verbs", func(httpVerb string, resourceName string, expectedRbacVerb string) {
+	DescribeTable("should map verbs", func(httpVerb string, resourceName string, expectedRbacVerb string) {
 		Expect(mapHttpVerbToRbacVerb(httpVerb, resourceName)).To(Equal(expectedRbacVerb))
 	},
-		table.Entry("http post to create", http.MethodPost, "", "create"),
-		table.Entry("http get with resource to get", http.MethodGet, "foo", "get"),
-		table.Entry("http get without resource to list", http.MethodGet, "", "list"),
-		table.Entry("http put to update", http.MethodPut, "", "update"),
-		table.Entry("http patch to patch", http.MethodPatch, "", "patch"),
-		table.Entry("http delete with reource to delete", http.MethodDelete, "foo", "delete"),
-		table.Entry("http delete without resource to deletecollection", http.MethodDelete, "", "deletecollection"),
+		Entry("http post to create", http.MethodPost, "", "create"),
+		Entry("http get with resource to get", http.MethodGet, "foo", "get"),
+		Entry("http get without resource to list", http.MethodGet, "", "list"),
+		Entry("http put to update", http.MethodPut, "", "update"),
+		Entry("http patch to patch", http.MethodPatch, "", "patch"),
+		Entry("http delete with reource to delete", http.MethodDelete, "foo", "delete"),
+		Entry("http delete without resource to deletecollection", http.MethodDelete, "", "deletecollection"),
 	)
 
 })

@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
@@ -287,7 +286,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			os.RemoveAll(fakeMdevBasePath)
 			ctrl.Finish()
 		})
-		table.DescribeTable("should create and remove relevant mdev types", func(scenario func() *scenarioValues) {
+		DescribeTable("should create and remove relevant mdev types", func(scenario func() *scenarioValues) {
 			sc := scenario()
 			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
 			mdevManager := NewMDEVTypesManager()
@@ -326,12 +325,12 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(files)).To(BeZero())
 		},
-			table.Entry("spread types accoss identical cards", spreadTypesAccossIdenticalCard),
-			table.Entry("one yype many cards", oneTypeManyCards),
-			table.Entry("many types many cards", multipleTypeOneCards),
-			table.Entry("no cards support requeted types", noCardsSupportTypes),
+			Entry("spread types accoss identical cards", spreadTypesAccossIdenticalCard),
+			Entry("one yype many cards", oneTypeManyCards),
+			Entry("many types many cards", multipleTypeOneCards),
+			Entry("no cards support requeted types", noCardsSupportTypes),
 		)
-		table.DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues) {
+		DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues) {
 			sc := scenario()
 			clientTest = fake.NewSimpleClientset()
 			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
@@ -438,10 +437,10 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(files)).To(BeZero())
 		},
-			table.Entry("configure default mdev types", deafultTypesNotNodeSpecific),
-			table.Entry("configure mdev types that match all node selectors", matchAllNodeLabels),
-			table.Entry("configure mdev types that match a node selector", matchSingleNodeLabel),
-			table.Entry("configure a merged list of mdev types when multiple selectors match node", mergeAllTypesMatchedByNodeLabels),
+			Entry("configure default mdev types", deafultTypesNotNodeSpecific),
+			Entry("configure mdev types that match all node selectors", matchAllNodeLabels),
+			Entry("configure mdev types that match a node selector", matchSingleNodeLabel),
+			Entry("configure a merged list of mdev types when multiple selectors match node", mergeAllTypesMatchedByNodeLabels),
 		)
 	})
 })

@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +37,7 @@ import (
 var _ = Describe("Validating VMIPreset Admitter", func() {
 	vmiPresetAdmitter := &VMIPresetAdmitter{}
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
@@ -54,7 +53,7 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(Equal(validationResult))
 	},
-		table.Entry("VirtualMachineInstancePreset creation and update",
+		Entry("VirtualMachineInstancePreset creation and update",
 			`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 			`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required`,
 			webhooks.VirtualMachineInstancePresetGroupVersionResource,

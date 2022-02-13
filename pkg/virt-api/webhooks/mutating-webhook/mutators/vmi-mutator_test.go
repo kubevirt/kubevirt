@@ -25,7 +25,6 @@ import (
 	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	v12 "k8s.io/api/authentication/v1"
@@ -240,12 +239,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
 	})
 
-	table.DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
+	DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
 		vmi.Spec.Volumes = given
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Volumes).To(Equal(expected))
 	},
-		table.Entry("set the ImagePullPolicy to Always if :latest is specified",
+		Entry("set the ImagePullPolicy to Always if :latest is specified",
 			[]v1.Volume{
 				{
 					Name: "a",
@@ -268,7 +267,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 		),
-		table.Entry("set the ImagePullPolicy to Always if no tag or shasum is specified",
+		Entry("set the ImagePullPolicy to Always if no tag or shasum is specified",
 			[]v1.Volume{
 				{
 					Name: "a",
@@ -291,7 +290,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 		),
-		table.Entry("set the ImagePullPolicy to IfNotPresent if arbitrary tags are specified",
+		Entry("set the ImagePullPolicy to IfNotPresent if arbitrary tags are specified",
 			[]v1.Volume{
 				{
 					Name: "a",
@@ -314,7 +313,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 		),
-		table.Entry("set the right ImagePullPolicy on a mixture of sources",
+		Entry("set the right ImagePullPolicy on a mixture of sources",
 			[]v1.Volume{
 				{
 					Name: "a",
@@ -409,7 +408,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		),
 	)
 
-	table.DescribeTable("should add the default network interface",
+	DescribeTable("should add the default network interface",
 		func(iface string) {
 			expectedIface := "bridge"
 			switch iface {
@@ -441,12 +440,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Expect(vmiSpec.Domain.Devices.Interfaces[0].Slirp).NotTo(BeNil())
 			}
 		},
-		table.Entry("as bridge", "bridge"),
-		table.Entry("as masquerade", "masquerade"),
-		table.Entry("as slirp", "slirp"),
+		Entry("as bridge", "bridge"),
+		Entry("as masquerade", "masquerade"),
+		Entry("as slirp", "slirp"),
 	)
 
-	table.DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
+	DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
 		vmi.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
 		vmi.Spec.Networks = append([]v1.Network{}, networks...)
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
@@ -461,9 +460,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(vmiSpec.Networks).To(Equal(networks))
 		}
 	},
-		table.Entry("interfaces and networks are non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{{Name: "b"}}),
-		table.Entry("interfaces is non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{}),
-		table.Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
+		Entry("interfaces and networks are non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{{Name: "b"}}),
+		Entry("interfaces is non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{}),
+		Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
 	)
 
 	It("should not override specified properties with defaults on VMI create", func() {
@@ -749,7 +748,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		Expect(ok).To(BeTrue())
 	})
-	table.DescribeTable("modify the VMI status", func(user string, shouldChange bool) {
+	DescribeTable("modify the VMI status", func(user string, shouldChange bool) {
 		oldVMI := &v1.VirtualMachineInstance{}
 		oldVMI.Status = v1.VirtualMachineInstanceStatus{
 			Phase: v1.Running,
@@ -765,8 +764,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(&oldVMI.Status).To(Equal(status))
 		}
 	},
-		table.Entry("if our service accounts modfies it", privilegedUser, true),
-		table.Entry("not if the user is not one of ours", "unknown", false),
+		Entry("if our service accounts modfies it", privilegedUser, true),
+		Entry("not if the user is not one of ours", "unknown", false),
 	)
 
 	// Check following convert for ARM64
@@ -793,7 +792,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 	)
 
-	table.DescribeTable("modify the VMI cpu feature ", func(vmi *v1.VirtualMachineInstance, hyperv *v1.FeatureHyperv, resultCPUTopology *v1.CPU) {
+	DescribeTable("modify the VMI cpu feature ", func(vmi *v1.VirtualMachineInstance, hyperv *v1.FeatureHyperv, resultCPUTopology *v1.CPU) {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: hyperv,
 		}
@@ -806,21 +805,21 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 
 	},
-		table.Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
+		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
 					Enabled: &_true,
 				},
 			}, nil),
 
-		table.Entry("if hyperV does contain EVMCS", api.NewMinimalVMI("testvmi"),
+		Entry("if hyperV does contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{},
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),
 
-		table.Entry("if hyperV does contain EVMCS and cpu sockets ", &v1.VirtualMachineInstance{
+		Entry("if hyperV does contain EVMCS and cpu sockets ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					CPU: &v1.CPU{
@@ -836,7 +835,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Features: cpuFeatures,
 			}),
 
-		table.Entry("if hyperV does contain EVMCS and 0 cpu features ", &v1.VirtualMachineInstance{
+		Entry("if hyperV does contain EVMCS and 0 cpu features ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					CPU: &v1.CPU{
@@ -851,7 +850,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Features: cpuFeatures,
 			}),
 
-		table.Entry("if hyperV does contain EVMCS and 1 different cpu feature ", &v1.VirtualMachineInstance{
+		Entry("if hyperV does contain EVMCS and 1 different cpu feature ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					CPU: &v1.CPU{
@@ -877,7 +876,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			}),
 
-		table.Entry("if hyperV does contain EVMCS and disabled vmx cpu feature ", &v1.VirtualMachineInstance{
+		Entry("if hyperV does contain EVMCS and disabled vmx cpu feature ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					CPU: &v1.CPU{
@@ -896,7 +895,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),
-		table.Entry("if hyperV does contain EVMCS and enabled vmx cpu feature ", &v1.VirtualMachineInstance{
+		Entry("if hyperV does contain EVMCS and enabled vmx cpu feature ", &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					CPU: &v1.CPU{

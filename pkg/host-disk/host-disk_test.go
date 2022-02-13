@@ -28,7 +28,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -377,7 +376,7 @@ var _ = Describe("HostDisk", func() {
 			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		})
 
-		table.DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
+		DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
 
 			pvcName := "madeup"
 
@@ -449,9 +448,9 @@ var _ = Describe("HostDisk", func() {
 
 		},
 
-			table.Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
-			table.Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
-			table.Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),
+			Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
+			Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
+			Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),
 		)
 	})
 

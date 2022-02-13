@@ -31,7 +31,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/pborman/uuid"
@@ -552,7 +551,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
-		table.DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmiNew VMICreationFuncWithEFI, loginTo console.LoginToFunction, msg string, fileName string) {
+		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmiNew VMICreationFuncWithEFI, loginTo console.LoginToFunction, msg string, fileName string) {
 			vmi := vmiNew()
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -580,8 +579,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			table.Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
+			Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
@@ -1064,7 +1063,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
-			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
+			DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
 				v, err := cluster.GetKubernetesVersion()
 				Expect(err).ShouldNot(HaveOccurred())
@@ -1111,9 +1110,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				table.Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
-				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				table.Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", "64Mi"),
+				Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
+				Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
+				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
@@ -2785,7 +2784,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi = tests.NewRandomFedoraVMIWithDmidecode()
 		})
 
-		table.DescribeTable("For various bus types", func(bus string, errMsg string) {
+		DescribeTable("For various bus types", func(bus string, errMsg string) {
 			tests.AddEphemeralCdrom(vmi, "cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By(fmt.Sprintf("Starting a VMI with a %s CD-ROM", bus))
@@ -2797,10 +2796,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err.Error()).To(ContainSubstring(errMsg))
 			}
 		},
-			table.Entry("[test_id:3777] Should be accepted when using sata", "sata", ""),
-			table.Entry("[test_id:3809] Should be accepted when using scsi", "scsi", ""),
-			table.Entry("[test_id:3776] Should be rejected when using virtio", "virtio", "Bus type virtio is invalid"),
-			table.Entry("[test_id:3808] Should be rejected when using ide", "ide", "IDE bus is not supported"),
+			Entry("[test_id:3777] Should be accepted when using sata", "sata", ""),
+			Entry("[test_id:3809] Should be accepted when using scsi", "scsi", ""),
+			Entry("[test_id:3776] Should be rejected when using virtio", "virtio", "Bus type virtio is invalid"),
+			Entry("[test_id:3808] Should be rejected when using ide", "ide", "IDE bus is not supported"),
 		)
 	})
 
@@ -2863,7 +2862,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
 
-		table.DescribeTable("should configure custom pci address", func(startIndex, numOfDevices int, testingPciFunctions bool) {
+		DescribeTable("should configure custom pci address", func(startIndex, numOfDevices int, testingPciFunctions bool) {
 			currentDisks := len(vmi.Spec.Domain.Devices.Disks)
 			numOfDisksToAdd := numOfDevices - currentDisks
 
@@ -2881,8 +2880,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("[test_id:5269]across all available PCI root bus slots", 2, numOfSlotsToTest, false),
-			table.Entry("[test_id:5270]across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
+			Entry("[test_id:5269]across all available PCI root bus slots", 2, numOfSlotsToTest, false),
+			Entry("[test_id:5270]across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
 		)
 	})
 

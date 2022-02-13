@@ -3,7 +3,6 @@ package pause_test
 import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/api"
@@ -45,7 +44,7 @@ var _ = Describe("Pausing", func() {
 		})
 	})
 
-	table.DescribeTable("should pause VMI", func(pauseOptions *v1.PauseOptions) {
+	DescribeTable("should pause VMI", func(pauseOptions *v1.PauseOptions) {
 
 		vmi := api.NewMinimalVMI(vmName)
 
@@ -60,11 +59,11 @@ var _ = Describe("Pausing", func() {
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
-		table.Entry("", &v1.PauseOptions{}),
-		table.Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		Entry("", &v1.PauseOptions{}),
+		Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
 
-	table.DescribeTable("should unpause VMI", func(unpauseOptions *v1.UnpauseOptions) {
+	DescribeTable("should unpause VMI", func(unpauseOptions *v1.UnpauseOptions) {
 
 		vmi := api.NewMinimalVMI(vmName)
 
@@ -79,11 +78,11 @@ var _ = Describe("Pausing", func() {
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
-		table.Entry("", &v1.UnpauseOptions{}),
-		table.Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		Entry("", &v1.UnpauseOptions{}),
+		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
 
-	table.DescribeTable("should pause VM", func(pauseOptions *v1.PauseOptions) {
+	DescribeTable("should pause VM", func(pauseOptions *v1.PauseOptions) {
 
 		vmi := api.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
@@ -105,11 +104,11 @@ var _ = Describe("Pausing", func() {
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
-		table.Entry("", &v1.PauseOptions{}),
-		table.Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		Entry("", &v1.PauseOptions{}),
+		Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
 
-	table.DescribeTable("should unpause VM", func(unpauseOptions *v1.UnpauseOptions) {
+	DescribeTable("should unpause VM", func(unpauseOptions *v1.UnpauseOptions) {
 
 		vmi := api.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
@@ -130,8 +129,8 @@ var _ = Describe("Pausing", func() {
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
-		table.Entry("", &v1.UnpauseOptions{}),
-		table.Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		Entry("", &v1.UnpauseOptions{}),
+		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
 
 	AfterEach(func() {

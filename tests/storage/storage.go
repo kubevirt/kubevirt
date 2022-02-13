@@ -36,7 +36,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
@@ -252,7 +251,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.DeleteAlpineWithNonQEMUPermissions()
 					}
 				})
-				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
+				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
 					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
 
 					var nodeName string
@@ -278,15 +277,15 @@ var _ = SIGDescribe("Storage", func() {
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil, true),
-					table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil, true),
-					table.Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
-					table.Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
-					table.Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
+					Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil, true),
+					Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil, true),
+					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
+					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
+					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
 				)
 			})
 
-			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
+			DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
 				vmi = newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
@@ -306,8 +305,8 @@ var _ = SIGDescribe("Storage", func() {
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			},
-				table.Entry("[test_id:3132]with Disk PVC", tests.NewRandomVMIWithPVC),
-				table.Entry("[test_id:3133]with CDRom PVC", tests.NewRandomVMIWithCDRom),
+				Entry("[test_id:3132]with Disk PVC", tests.NewRandomVMIWithPVC),
+				Entry("[test_id:3133]with CDRom PVC", tests.NewRandomVMIWithCDRom),
 			)
 		})
 
@@ -547,7 +546,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
+				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
 					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, family)
 
 					// Start the VirtualMachineInstance with the PVC attached
@@ -568,9 +567,9 @@ var _ = SIGDescribe("Storage", func() {
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
-					table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
-					table.Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
+					Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
+					Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
+					Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
 				)
 			})
 
@@ -731,7 +730,7 @@ var _ = SIGDescribe("Storage", func() {
 						diskPath = filepath.Join(hostDiskDir, diskName)
 					})
 
-					table.DescribeTable("Should create a disk image and start", func(driver string) {
+					DescribeTable("Should create a disk image and start", func(driver string) {
 						By(startingVMInstance)
 						// do not choose a specific node to run the test
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
@@ -751,8 +750,8 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath(hostDiskName, diskPath)))
 					},
-						table.Entry("[test_id:851]with virtio driver", "virtio"),
-						table.Entry("[test_id:3057]with sata driver", "sata"),
+						Entry("[test_id:851]with virtio driver", "virtio"),
+						Entry("[test_id:3057]with sata driver", "sata"),
 					)
 
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {

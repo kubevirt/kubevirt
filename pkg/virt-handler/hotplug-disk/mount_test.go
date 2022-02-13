@@ -30,7 +30,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/api"
@@ -402,7 +401,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(m.isBlockFile(testFileName)).To(BeFalse())
 		})
 
-		table.DescribeTable("Should return proper values", func(stat func(fileName string) ([]byte, error), major, minor int, perm string, expectErr bool) {
+		DescribeTable("Should return proper values", func(stat func(fileName string) ([]byte, error), major, minor int, perm string, expectErr bool) {
 			testFileName := "test-file"
 			statCommand = stat
 			majorRes, minorRes, permRes, err := m.getBlockFileMajorMinor(testFileName)
@@ -416,22 +415,22 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(int64(minor)).To(Equal(minorRes))
 			Expect(perm).To(Equal(permRes))
 		},
-			table.Entry("Should return values if stat command successful", func(fileName string) ([]byte, error) {
+			Entry("Should return values if stat command successful", func(fileName string) ([]byte, error) {
 				return []byte("245,32,0664,block special file"), nil
 			}, 581, 50, "0664", false),
-			table.Entry("Should not return values if stat command errors", func(fileName string) ([]byte, error) {
+			Entry("Should not return values if stat command errors", func(fileName string) ([]byte, error) {
 				return []byte("245,32,0664,block special file"), fmt.Errorf("Error")
 			}, -1, -1, "", true),
-			table.Entry("Should not return values if stat command doesn't return 4 fields", func(fileName string) ([]byte, error) {
+			Entry("Should not return values if stat command doesn't return 4 fields", func(fileName string) ([]byte, error) {
 				return []byte("245,32,0664"), nil
 			}, -1, -1, "", true),
-			table.Entry("Should not return values if stat command doesn't return block special file", func(fileName string) ([]byte, error) {
+			Entry("Should not return values if stat command doesn't return block special file", func(fileName string) ([]byte, error) {
 				return []byte("245,32,0664, block file"), nil
 			}, -1, -1, "", true),
-			table.Entry("Should not return values if stat command doesn't int major", func(fileName string) ([]byte, error) {
+			Entry("Should not return values if stat command doesn't int major", func(fileName string) ([]byte, error) {
 				return []byte("kk,32,0664,block special file"), nil
 			}, -1, -1, "", true),
-			table.Entry("Should not return values if stat command doesn't int minor", func(fileName string) ([]byte, error) {
+			Entry("Should not return values if stat command doesn't int minor", func(fileName string) ([]byte, error) {
 				return []byte("254,gg,0664,block special file"), nil
 			}, -1, -1, "", true),
 		)

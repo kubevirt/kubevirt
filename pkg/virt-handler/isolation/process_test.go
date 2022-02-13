@@ -23,7 +23,6 @@ import (
 	"github.com/mitchellh/go-ps"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -41,18 +40,18 @@ var _ = Describe("process", func() {
 	testProcesses := []ps.Process{procStub1, procStub3, procStub2, procStub4}
 
 	Context("find child processes", func() {
-		table.DescribeTable("should return the correct child processes of the given pid",
+		DescribeTable("should return the correct child processes of the given pid",
 			func(processes []ps.Process, ppid int, expectedProcesses []ps.Process) {
 				Expect(childProcesses(processes, ppid)).
 					To(ConsistOf(expectedProcesses))
 			},
-			table.Entry("given no input processes, there are no child processes",
+			Entry("given no input processes, there are no child processes",
 				emptyProcessList, nonExistPPid, emptyProcessList,
 			),
-			table.Entry("given process list and non-exist pid, should return no child processes",
+			Entry("given process list and non-exist pid, should return no child processes",
 				testProcesses, nonExistPPid, emptyProcessList,
 			),
-			table.Entry("given process list and pid where there are child processes of the given pid",
+			Entry("given process list and pid where there are child processes of the given pid",
 				testProcesses, processTestPID, []ps.Process{procStub2, procStub4},
 			),
 		)
@@ -61,30 +60,30 @@ var _ = Describe("process", func() {
 	Context("lookup process by executable", func() {
 		procStub5 := ProcessStub{ppid: 100, pid: 220, binary: processTestExecPath}
 
-		table.DescribeTable("should find no process",
+		DescribeTable("should find no process",
 			func(processes []ps.Process, executable string) {
 				Expect(lookupProcessByExecutable(processes, executable)).To(BeNil())
 			},
-			table.Entry("given no input processes and empty string as executable",
+			Entry("given no input processes and empty string as executable",
 				emptyProcessList, "",
 			),
-			table.Entry("given no input processes and executable",
+			Entry("given no input processes and executable",
 				emptyProcessList, "processA",
 			),
-			table.Entry("given processes list and empty string",
+			Entry("given processes list and empty string",
 				testProcesses, "",
 			),
 		)
 
-		table.DescribeTable("should return the first occurrence of a process that runs the given executable",
+		DescribeTable("should return the first occurrence of a process that runs the given executable",
 			func(processes []ps.Process, executable string, expectedProcess ps.Process) {
 				Expect(lookupProcessByExecutable(processes, executable)).
 					To(Equal(expectedProcess))
 			},
-			table.Entry("given processes list that includes exactly one process that runs the executable",
+			Entry("given processes list that includes exactly one process that runs the executable",
 				testProcesses, processTestExecPath, procStub1,
 			),
-			table.Entry("given processes list that includes more than one process that runs the executable",
+			Entry("given processes list that includes more than one process that runs the executable",
 				append(testProcesses, procStub5), processTestExecPath, procStub1,
 			),
 		)

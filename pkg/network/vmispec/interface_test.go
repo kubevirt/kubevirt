@@ -21,7 +21,6 @@ package vmispec_test
 
 import (
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -92,13 +91,13 @@ var _ = Describe("VMI network spec", func() {
 
 	const iface1, iface2, iface3, iface4, iface5 = "iface1", "iface2", "iface3", "iface4", "iface5"
 
-	table.DescribeTable("return VMI spec interface names, given",
+	DescribeTable("return VMI spec interface names, given",
 		func(interfaces []v1.Interface, expectedNames []string) {
 			Expect(netvmispec.InterfacesNames(interfaces)).To(Equal(expectedNames))
 		},
-		table.Entry("no interfaces", nil, nil),
-		table.Entry("single interface", vmiSpecInterfaces(iface1), []string{iface1}),
-		table.Entry("more then one interface", vmiSpecInterfaces(iface1, iface2, iface3), []string{iface1, iface2, iface3}),
+		Entry("no interfaces", nil, nil),
+		Entry("single interface", vmiSpecInterfaces(iface1), []string{iface1}),
+		Entry("more then one interface", vmiSpecInterfaces(iface1, iface2, iface3), []string{iface1, iface2, iface3}),
 	)
 
 	It("filter status interfaces, given 0 interfaces and 0 names", func() {
