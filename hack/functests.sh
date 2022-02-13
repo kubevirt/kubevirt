@@ -97,7 +97,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA}
     exit "$return_value"
 else
-    trap "mv junit.functest.xml ${ARTIFACTS}" EXIT
+    trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml serial.junit.functest.xml' ${ARTIFACTS}" EXIT
     additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
         additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
@@ -108,6 +108,6 @@ else
     fi
 
     # TODO-OR fix path
-    KUBEVIRT_FUNC_TEST_GINKGO_ARGS="--junit-report junit.functest.xml ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
+    KUBEVIRT_FUNC_TEST_GINKGO_ARGS="--junit-report serial.junit.functest.xml ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 fi

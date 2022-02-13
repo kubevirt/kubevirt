@@ -51,7 +51,7 @@ func main() {
 	}
 }
 
-func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuite, err error) {
+func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuites, err error) {
 	for _, fileglob := range fileGlobs {
 		files, err := filepath.Glob(fileglob)
 		if err != nil {
@@ -62,7 +62,7 @@ func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuite, err 
 			if err != nil {
 				return nil, fmt.Errorf("failed to open file %s: %v", file, err)
 			}
-			suite := reporters.JUnitTestSuite{}
+			suite := reporters.JUnitTestSuites{}
 			err = xml.NewDecoder(f).Decode(&suite)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode suite %s: %v", file, err)
@@ -73,7 +73,7 @@ func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuite, err 
 	return suites, nil
 }
 
-func mergeJUnitFiles(suites []reporters.JUnitTestSuite) (result *reporters.JUnitTestSuite, err error) {
+func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *reporters.JUnitTestSuite, err error) {
 	result = &reporters.JUnitTestSuite{}
 	ran := map[string]reporters.JUnitTestCase{}
 	skipped := map[string]reporters.JUnitTestCase{}
@@ -82,25 +82,27 @@ func mergeJUnitFiles(suites []reporters.JUnitTestSuite) (result *reporters.JUnit
 	// If tests ran in any of the suites, ensure it ends up in the ran-map and not in the skipped map.
 	// If it only ever got skipped, keep it in the skip map
 	for _, suite := range suites {
-		for _, testcase := range suite.TestCases {
-			if testcase.Skipped == nil {
-				if _, exists := skipped[testcase.Name]; exists {
-					delete(skipped, testcase.Name)
-				}
-
-				if _, exists := ran[testcase.Name]; exists {
-					return nil, fmt.Errorf("test '%s' was executed multiple times", testcase.Name)
-				}
-				ran[testcase.Name] = testcase
-				result.TestCases = append(result.TestCases, testcase)
-			} else if testcase.Skipped != nil {
-				if _, exists := ran[testcase.Name]; !exists {
+		for _, testSuite := range suite.TestSuites {
+			for _, testcase := range testSuite.TestCases {
+				if testcase.Skipped == nil {
 					if _, exists := skipped[testcase.Name]; exists {
-						testcase.Time = skipped[testcase.Name].Time + testcase.Time
-					} else {
-						skippedList = append(skippedList, testcase.Name)
+						delete(skipped, testcase.Name)
 					}
-					skipped[testcase.Name] = testcase
+
+					if _, exists := ran[testcase.Name]; exists {
+						return nil, fmt.Errorf("test '%s' was executed multiple times", testcase.Name)
+					}
+					ran[testcase.Name] = testcase
+					result.TestCases = append(result.TestCases, testcase)
+				} else if testcase.Skipped != nil {
+					if _, exists := ran[testcase.Name]; !exists {
+						if _, exists := skipped[testcase.Name]; exists {
+							testcase.Time = skipped[testcase.Name].Time + testcase.Time
+						} else {
+							skippedList = append(skippedList, testcase.Name)
+						}
+						skipped[testcase.Name] = testcase
+					}
 				}
 			}
 		}
