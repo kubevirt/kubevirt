@@ -31,10 +31,12 @@ import (
 	"sync"
 
 	"kubevirt.io/api/migrations/v1alpha1"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -3093,13 +3095,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
 					vmi := cirrosVMIWithEvictionStrategy()
-					vmi.Spec.NodeSelector = map[string]string{"tests.kubevirt.io": "target"}
+					vmi.Spec.NodeSelector = map[string]string{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "target"}
 					vmis = append(vmis, vmi)
 				}
 
 				By("selecting a node as the source")
 				sourceNode := util.GetAllSchedulableNodes(virtClient).Items[0]
-				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
+				tests.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("starting four VMIs on that node")
 				for _, vmi := range vmis {
@@ -3114,7 +3116,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("selecting a node as the target")
 				targetNode := util.GetAllSchedulableNodes(virtClient).Items[1]
-				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
+				tests.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("tainting the source node as non-schedulabele")
 				tests.Taint(sourceNode.Name, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)

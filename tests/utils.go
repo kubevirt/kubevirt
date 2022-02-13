@@ -567,7 +567,7 @@ func CleanNodes() {
 		new.Spec.Taints = taints
 
 		for k := range node.Labels {
-			if strings.HasPrefix(k, "tests.kubevirt.io") {
+			if strings.HasPrefix(k, cleanup.KubeVirtTestLabelPrefix) {
 				found = true
 				delete(new.Labels, k)
 			}
