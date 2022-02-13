@@ -109,6 +109,9 @@ type KubeInformerFactory interface {
 	// Watches for nodes
 	KubeVirtNode() cache.SharedIndexInformer
 
+	// Watches for single node
+	KubeVirtSingleNode(hostName string) cache.SharedIndexInformer
+
 	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
@@ -475,6 +478,18 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
 	return f.getInformer("kubeVirtNodeInformer", func() cache.SharedIndexInformer {
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Node{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) KubeVirtSingleNode(hostName string) cache.SharedIndexInformer {
+	labelSelector, err := labels.Parse(fmt.Sprintf(k8sv1.LabelHostname+" in (%s)", hostName))
+	if err != nil {
+		panic(err)
+	}
+
+	return f.getInformer("kubeVirtSingleNodeInformer", func() cache.SharedIndexInformer {
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Node{}, f.defaultResync, cache.Indexers{})
 	})
 }

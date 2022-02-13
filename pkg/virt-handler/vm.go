@@ -20,7 +20,6 @@
 package virthandler
 
 import (
-	"context"
 	"encoding/json"
 	goerror "errors"
 	"fmt"
@@ -172,6 +171,7 @@ func NewController(
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
+	virtHandlerNodeInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -193,6 +193,7 @@ func NewController(
 		vmiTargetInformer:           vmiTargetInformer,
 		domainInformer:              domainInformer,
 		gracefulShutdownInformer:    gracefulShutdownInformer,
+		virtHandlerNodeInformer:     virtHandlerNodeInformer,
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
@@ -249,7 +250,7 @@ func NewController(
 		permissions = "rwm"
 	}
 
-	c.deviceManagerController = device_manager.NewDeviceController(c.host, device_manager.PermanentHostDevicePlugins(maxDevices, permissions), clusterConfig, clientset.CoreV1())
+	c.deviceManagerController = device_manager.NewDeviceController(c.host, device_manager.PermanentHostDevicePlugins(maxDevices, permissions), clusterConfig, virtHandlerNodeInformer)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c
@@ -267,6 +268,7 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
+	virtHandlerNodeInformer  cache.SharedIndexInformer
 	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
@@ -1297,7 +1299,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.deviceManagerController.Run(stopCh)
 
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced, c.virtHandlerNodeInformer.HasSynced)
 
 	// Queue keys for previous Domains on the host that no longer exist
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
@@ -2802,10 +2804,14 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 
 func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineInstance) error {
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == v1.CPUModeHostModel {
-		node, err := d.clientset.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+		obj, exists, err := d.virtHandlerNodeInformer.GetStore().GetByKey(vmi.Status.NodeName)
 		if err != nil {
 			return err
 		}
+		if !exists {
+			return fmt.Errorf("the node \"%s\" does not exist in cache", vmi.Status.NodeName)
+		}
+		node := obj.(*k8sv1.Node)
 
 		if !nodeHasHostModelLabel(node) {
 			err = fmt.Errorf("the node \"%s\" has no (%s/...) label to allow migration with host-model", node.Name, v1.HostModelCPULabel)

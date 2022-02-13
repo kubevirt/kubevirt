@@ -306,10 +306,15 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
+
+	virtHandlerNodeInformer := factory.KubeVirtSingleNode(app.HostOverride)
+	factory.Start(stop)
+	cache.WaitForCacheSync(stop, virtHandlerNodeInformer.HasSynced)
+
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, virtHandlerNodeInformer)
 		if err != nil {
 			panic(err)
 		}
@@ -336,6 +341,7 @@ func (app *virtHandlerApp) Run() {
 		vmiTargetInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
+		virtHandlerNodeInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
@@ -368,7 +374,6 @@ func (app *virtHandlerApp) Run() {
 
 	// Bootstrapping. From here on the startup order matters
 
-	factory.Start(stop)
 	go gracefulShutdownInformer.Run(stop)
 	go domainSharedInformer.Run(stop)
 

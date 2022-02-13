@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -61,13 +62,14 @@ type NodeLabeller struct {
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
+	virtHandlerNodeInformer cache.SharedIndexInformer
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, virtHandlerNodeInformer cache.SharedIndexInformer) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, virtHandlerNodeInformer)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, virtHandlerNodeInformer cache.SharedIndexInformer) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		clientset:               clientset,
 		host:                    host,
@@ -78,6 +80,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+		virtHandlerNodeInformer: virtHandlerNodeInformer,
 	}
 
 	err := n.loadAll()
@@ -164,10 +167,14 @@ func (n *NodeLabeller) run() error {
 	cpuFeatures := n.getSupportedCpuFeatures()
 	hostCPUModel := n.getHostCpuModel()
 
-	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
+	obj, exists, err := n.virtHandlerNodeInformer.GetStore().GetByKey(n.host)
 	if err != nil {
 		return err
 	}
+	if !exists {
+		return fmt.Errorf("the node \"%s\" does not exist in cache", n.host)
+	}
+	originalNode := obj.(*v1.Node)
 
 	node := originalNode.DeepCopy()
 

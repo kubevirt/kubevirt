@@ -32,9 +32,6 @@ import (
 
 	"k8s.io/utils/pointer"
 
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
-
 	api2 "kubevirt.io/client-go/api"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
@@ -91,6 +88,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
 	var gracefulShutdownInformer cache.SharedIndexInformer
+	var virtHandlerNodeInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
 	var mockGracefulShutdown *MockGracefulShutdown
@@ -167,6 +165,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
+		virtHandlerNodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -203,6 +202,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiTargetInformer,
 			domainInformer,
 			gracefulShutdownInformer,
+			virtHandlerNodeInformer,
 			1,
 			10,
 			config,
@@ -230,12 +230,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		wg.Add(5)
+		wg.Add(6)
 		go func() { vmiSourceInformer.Run(stop); wg.Done() }()
 		go func() { vmiTargetInformer.Run(stop); wg.Done() }()
 		go func() { domainInformer.Run(stop); wg.Done() }()
 		go func() { gracefulShutdownInformer.Run(stop); wg.Done() }()
-		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+		go func() { virtHandlerNodeInformer.Run(stop); wg.Done() }()
+		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced, virtHandlerNodeInformer.HasSynced)).To(BeTrue())
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
@@ -2196,11 +2197,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		table.DescribeTable("when host model labels", func(toDefineHostModelLabels bool) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			vmi.Status.NodeName = host
 
 			node := &k8sv1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   host,
-					Labels: map[string]string{},
+					Labels: map[string]string{k8sv1.LabelHostname: host},
 				},
 			}
 
@@ -2210,7 +2212,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					v1.HostModelRequiredFeaturesLabel + "fake": "true",
 				}
 			}
-			addNode(clientTest, node)
+			virtHandlerNodeInformer.GetStore().Add(node)
 
 			err := controller.isHostModelMigratable(vmi)
 
@@ -3051,12 +3053,6 @@ func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Vi
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
-}
-
-func addNode(client *fake.Clientset, node *k8sv1.Node) {
-	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-		return true, node, nil
-	})
 }
 
 type netConfStub struct {
