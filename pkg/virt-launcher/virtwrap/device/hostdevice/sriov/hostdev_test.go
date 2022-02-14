@@ -31,6 +31,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
+	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
@@ -184,7 +185,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	Context("safe detachment", func() {
-		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "net1")}
+		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net1")}
 
 		It("ignores an empty list of devices", func() {
 			domainSpec := newDomainSpec()
@@ -245,7 +246,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "net2")}
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net2")}
 			domainSpec := newDomainSpec(hostDevice, hostDevice2)
 
 			c := newCallbackerStub(false, false)
@@ -264,7 +265,7 @@ func newDomainSpec(hostDevices ...api.HostDevice) *api.DomainSpec {
 }
 
 func newSRIOVAlias(netName string) *api.Alias {
-	return api.NewUserDefinedAlias(sriov.AliasPrefix + netName)
+	return api.NewUserDefinedAlias(netsriov.AliasPrefix + netName)
 }
 
 type stubPCIAddressPool struct {

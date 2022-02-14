@@ -26,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -256,9 +257,7 @@ var _ = Describe("netstat", func() {
 		}), "the pod IP/s should be reported in the status")
 	})
 
-	// The reporting of the SR-IOV interface when no guest-agent exists is missing.
-	// See https://github.com/kubevirt/kubevirt/issues/7050 for more information.
-	It("should not report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
+	It("should report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
 		const (
 			networkName = "sriov-network"
 			ifaceMAC    = "C0:01:BE:E7:15:G0:0D"
@@ -274,12 +273,12 @@ var _ = Describe("netstat", func() {
 
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
-		Expect(setup.Vmi.Status.Interfaces).To(BeEmpty(), "the SR-IOV interface should not be reported in the status.")
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(networkName, nil, ifaceMAC, "", netvmispec.InfoSourceDomain),
+		}), "the SR-IOV interface should be reported in the status.")
 	})
 
-	// The reporting of the SR-IOV interface when no guest-agent exists is missing.
-	// See https://github.com/kubevirt/kubevirt/issues/7050 for more information.
-	It("should not report SR-IOV interface when guest-agent is inactive and a regular interface exists", func() {
+	It("should report SR-IOV interface when guest-agent is inactive and a regular interface exists", func() {
 		const (
 			networkName        = "sriov-network"
 			primaryNetworkName = "primary"
@@ -303,7 +302,8 @@ var _ = Describe("netstat", func() {
 
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 			newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4}, "", "", netvmispec.InfoSourceDomain),
-		}), "the SR-IOV interface should not be reported in the status.")
+			newVMIStatusIface(networkName, nil, "", "", netvmispec.InfoSourceDomain),
+		}), "the SR-IOV interface should be reported in the status.")
 	})
 
 	It("should report SR-IOV interface with MAC and network name, based on VMI spec and guest-agent data", func() {
@@ -326,7 +326,7 @@ var _ = Describe("netstat", func() {
 		setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)
 
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName, netvmispec.InfoSourceGuestAgent),
+			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName, netvmispec.InfoSourceDomainAndGA),
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
 	})
 
@@ -588,6 +588,10 @@ func (t *testSetup) addSRIOVNetworkInterface(vmiIface v1.Interface, vmiNetwork v
 	}
 	t.Vmi.Spec.Domain.Devices.Interfaces = append(t.Vmi.Spec.Domain.Devices.Interfaces, vmiIface)
 	t.Vmi.Spec.Networks = append(t.Vmi.Spec.Networks, vmiNetwork)
+
+	t.Domain.Spec.Devices.HostDevices = append(t.Domain.Spec.Devices.HostDevices, api.HostDevice{
+		Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + vmiNetwork.Name),
+	})
 }
 
 // addGuestAgentInterfaces adds guest agent data.
