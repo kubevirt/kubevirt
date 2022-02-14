@@ -8,6 +8,7 @@ metadata:
     capabilities: Deep Insights
     categories: OpenShift Optional
     certified: "false"
+    console.openshift.io/disable-operand-delete: "true"
     containerImage: +IMAGE_TO_REPLACE+
     createdAt: "2020-10-23 08:58:25"
     description: A unified operator deploying and controlling KubeVirt and its supporting
