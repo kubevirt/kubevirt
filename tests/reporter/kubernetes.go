@@ -65,6 +65,12 @@ const (
 
 type JustAfterEachReporter interface {
 	JustAfterEach(specSummary ginkgo.GinkgoTestDescription)
+	AfterSuiteDidRun(setupSummary *types.SetupSummary)
+	BeforeSuiteDidRun(setupSummary *types.SetupSummary)
+	SpecDidComplete(specSummary *types.SpecSummary)
+	SpecWillRun(specSummary *types.SpecSummary)
+	SuiteDidEnd(suiteSummary *types.SuiteSummary)
+	SuiteWillBegin(ginkgoConfigType config.GinkgoConfigType, suiteSummary *types.SuiteSummary)
 }
 
 type KubernetesReporter struct {
@@ -86,7 +92,7 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 	}
 }
 
-func (r *KubernetesReporter) SpecSuiteWillBegin(_ config.GinkgoConfigType, _ *types.SuiteSummary) {
+func (r *KubernetesReporter) SuiteWillBegin(_ config.GinkgoConfigType, _ *types.SuiteSummary) {
 
 }
 
@@ -95,7 +101,7 @@ func (r *KubernetesReporter) BeforeSuiteDidRun(_ *types.SetupSummary) {
 }
 
 func (r *KubernetesReporter) SpecWillRun(_ *types.SpecSummary) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
+
 }
 
 func (r *KubernetesReporter) SpecDidComplete(_ *types.SpecSummary) {}
@@ -987,13 +993,13 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 }
 
 func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
-	if setupSummary.State.IsFailure() {
+	if setupSummary.State.Is(types.SpecStateFailureStates) {
 		r.failureCount++
 		r.DumpTestNamespaces(setupSummary.RunTime)
 	}
 }
 
-func (r *KubernetesReporter) SpecSuiteDidEnd(_ *types.SuiteSummary) {
+func (r *KubernetesReporter) SuiteDidEnd(_ *types.SuiteSummary) {
 
 }
 
