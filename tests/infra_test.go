@@ -366,7 +366,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		)
 	})
 
-	// start a VMI, wait for it to run and ret'urn the node it runs on
+	// start a VMI, wait for it to run and return the node it runs on
 	startVMI := func(vmi *v1.VirtualMachineInstance) string {
 		By("Starting a new VirtualMachineInstance")
 		obj, err := virtClient.
