@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -325,7 +326,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					case k8sv1.IPFamilyPolicySingleStack:
 						return 1
 					case k8sv1.IPFamilyPolicyPreferDualStack:
-						isClusterDualStack, err := libnet.IsClusterDualStack(virtClient)
+						isClusterDualStack, err := cluster.DualStack(virtClient)
 						ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster is dual stack")
 						if isClusterDualStack {
 							return 2

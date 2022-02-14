@@ -3,6 +3,8 @@ package libnet
 import (
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -26,7 +28,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 		panic(err)
 	}
 
-	clusterSupportsIpv6, err := ClusterSupportsIpv6(virtClient)
+	clusterSupportsIpv6, err := cluster.SupportsIpv6(virtClient)
 	if err != nil {
 		return err
 	}

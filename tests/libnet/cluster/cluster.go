@@ -1,8 +1,9 @@
-package libnet
+package cluster
 
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,25 +14,38 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-func IsClusterDualStack(virtClient kubecli.KubevirtClient) (bool, error) {
-	supportsIpv4, err := ClusterSupportsIpv4(virtClient)
+var onceIPv4 sync.Once
+var clusterSupportsIpv4 bool
+var errIPv4 error
+var onceIPv6 sync.Once
+var clusterSupportsIpv6 bool
+var errIPv6 error
+
+func DualStack(virtClient kubecli.KubevirtClient) (bool, error) {
+	supportsIpv4, err := SupportsIpv4(virtClient)
 	if err != nil {
 		return false, err
 	}
 
-	supportsIpv6, err := ClusterSupportsIpv6(virtClient)
+	supportsIpv6, err := SupportsIpv6(virtClient)
 	if err != nil {
 		return false, err
 	}
 	return supportsIpv4 && supportsIpv6, nil
 }
 
-func ClusterSupportsIpv4(virtClient kubecli.KubevirtClient) (bool, error) {
-	return clusterAnswersIpCondition(virtClient, netutils.IsIPv4String)
+func SupportsIpv4(virtClient kubecli.KubevirtClient) (bool, error) {
+	onceIPv4.Do(func() {
+		clusterSupportsIpv4, errIPv4 = clusterAnswersIpCondition(virtClient, netutils.IsIPv4String)
+	})
+	return clusterSupportsIpv4, errIPv4
 }
 
-func ClusterSupportsIpv6(virtClient kubecli.KubevirtClient) (bool, error) {
-	return clusterAnswersIpCondition(virtClient, netutils.IsIPv6String)
+func SupportsIpv6(virtClient kubecli.KubevirtClient) (bool, error) {
+	onceIPv6.Do(func() {
+		clusterSupportsIpv6, errIPv6 = clusterAnswersIpCondition(virtClient, netutils.IsIPv6String)
+	})
+	return clusterSupportsIpv6, errIPv6
 }
 
 func clusterAnswersIpCondition(virtClient kubecli.KubevirtClient, ipCondition func(ip string) bool) (bool, error) {
