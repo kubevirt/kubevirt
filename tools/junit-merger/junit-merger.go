@@ -89,11 +89,22 @@ func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *reporters.JUni
 						delete(skipped, testcase.Name)
 					}
 
-					if _, exists := ran[testcase.Name]; exists {
-						return nil, fmt.Errorf("test '%s' was executed multiple times", testcase.Name)
+					if testcase.Name == "[SynchronizedBeforeSuite]" || testcase.Name == "[SynchronizedAfterSuite]" {
+						if testcase.Status != "passed" {
+							if _, exists := ran[testcase.Name]; !exists {
+								ran[testcase.Name] = testcase
+								result.TestCases = append(result.TestCases, testcase)
+							} else {
+								log.DefaultLogger().Reason(err).Warning("Synchronized failed more than once, only first included")
+							}
+						}
+					} else {
+						if _, exists := ran[testcase.Name]; exists {
+							return nil, fmt.Errorf("test '%s' was executed multiple times", testcase.Name)
+						}
+						ran[testcase.Name] = testcase
+						result.TestCases = append(result.TestCases, testcase)
 					}
-					ran[testcase.Name] = testcase
-					result.TestCases = append(result.TestCases, testcase)
 				} else if testcase.Skipped != nil {
 					if _, exists := ran[testcase.Name]; !exists {
 						if _, exists := skipped[testcase.Name]; exists {
