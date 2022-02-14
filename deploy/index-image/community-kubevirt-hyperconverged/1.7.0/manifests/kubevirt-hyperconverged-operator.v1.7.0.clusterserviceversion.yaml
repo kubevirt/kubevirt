@@ -291,6 +291,14 @@ spec:
           - get
           - list
         - apiGroups:
+          - ""
+          resources:
+          - endpoints
+          verbs:
+          - get
+          - list
+          - delete
+        - apiGroups:
           - apps
           resources:
           - deployments
