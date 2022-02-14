@@ -334,7 +334,7 @@ genrule(
 genrule(
     name = "build-ginkgo",
     srcs = [
-        "//vendor/github.com/onsi/ginkgo/ginkgo",
+        "//vendor/github.com/onsi/ginkgo/v2/ginkgo",
     ],
     outs = ["ginkgo-copier"],
     cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
