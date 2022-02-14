@@ -409,7 +409,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
-		}, 3)
+		})
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -431,7 +431,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
-		}, 3)
+		})
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -449,7 +449,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
-		}, 3)
+		})
 
 		It("should do nothing if vmi and domain do not match", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -469,7 +469,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeFalse())
-		}, 3)
+		})
 
 		It("should silently retry if the command socket is not yet ready", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
@@ -546,7 +546,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(os.IsNotExist(err)).To(BeTrue())
 			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 			Expect(controller.netConf.SetupCompleted(oldVMI)).To(BeFalse())
-		}, 3)
+		})
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -564,7 +564,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeTrue())
 			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
-		}, 3)
+		})
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -593,7 +593,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeFalse())
-		}, 3)
+		})
 
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -615,7 +615,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIStopping)
-		}, 3)
+		})
 
 		It("should immediately kill domain with grace period of 0", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -632,7 +632,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIStopping)
-		}, 3)
+		})
 
 		It("should re-enqueue if the Key is unparseable", func() {
 			Expect(mockQueue.Len()).Should(Equal(0))
@@ -1101,7 +1101,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			time.Sleep(2 * time.Second)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMICrashed)
-		}, 2)
+		})
 
 		It("should move VirtualMachineInstance from Running to Failed if domain does not exist in cache", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1546,7 +1546,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
 			testutils.ExpectEvent(recorder, "Migration Target is listening")
-		}, 3)
+		})
 
 		It("should signal target pod to early exit on failed migration", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1570,7 +1570,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().Ping()
 			client.EXPECT().SignalTargetPodCleanup(vmi)
 			controller.Execute()
-		}, 3)
+		})
 
 		It("should abort target prep if VMI is deleted", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1616,7 +1616,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Close()
 			controller.Execute()
-		}, 3)
+		})
 
 		// handles case where a failed migration to this node has left overs still on local storage
 		It("should clean stale clients when preparing migration target", func() {
@@ -1664,7 +1664,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			exists = virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeFalse())
 
-		}, 3)
+		})
 
 		It("should migrate vmi once target address is known", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1705,7 +1705,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().MigrateVirtualMachine(vmi, options)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIMigrating)
-		}, 3)
+		})
 
 		It("should abort vmi migration vmi when migration object indicates deletion", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1746,7 +1746,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(gomock.Any())
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIAbortingMigration)
-		}, 3)
+		})
 
 		It("Handoff domain to other node after completed migration", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1793,7 +1793,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, "The VirtualMachineInstance migrated to node")
-		}, 3)
+		})
 
 		It("should apply post-migration operations on guest VM after migration completed", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -1832,7 +1832,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
 			controller.Execute()
-		}, 3)
+		})
 	})
 
 	Context("check if migratable", func() {

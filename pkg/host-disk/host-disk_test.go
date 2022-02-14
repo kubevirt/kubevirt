@@ -200,7 +200,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(true).To(Equal(os.IsNotExist(err)))
 				})
 
-				It("Should NOT subtract reserve if there is enough space on storage for requested size", func(done Done) {
+				It("Should NOT subtract reserve if there is enough space on storage for requested size", func() {
 					By("Creating a new minimal vmi")
 					vmi := api.NewMinimalVMI("fake-vmi")
 
@@ -214,10 +214,9 @@ var _ = Describe("HostDisk", func() {
 					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
-					close(done)
-				}, 5)
+				})
 
-				It("Should subtract reserve if there is NOT enough space on storage for requested size", func(done Done) {
+				It("Should subtract reserve if there is NOT enough space on storage for requested size", func() {
 					By("Creating a new minimal vmi")
 					vmi := api.NewMinimalVMI("fake-vmi")
 					dirAvailable := uint64(64 << 20)
@@ -236,10 +235,9 @@ var _ = Describe("HostDisk", func() {
 					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(BeNumerically("==", dirAvailable-hostDiskCreatorWithReserve.minimumPVCReserveBytes)) // 64Mi minus reserve
-					close(done)
-				}, 5)
+				})
 
-				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func(done Done) {
+				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func() {
 					By("Creating a new minimal vmi")
 					vmi := api.NewMinimalVMI("fake-vmi")
 					dirAvailable := uint64(64 << 20)
@@ -259,11 +257,9 @@ var _ = Describe("HostDisk", func() {
 
 					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
+				})
 
-					close(done)
-				}, 5)
-
-				It("Should take lessPVCSpaceToleration into account when creating disk images", func(done Done) {
+				It("Should take lessPVCSpaceToleration into account when creating disk images", func() {
 					By("Creating a new minimal vmi")
 					vmi := api.NewMinimalVMI("fake-vmi")
 
@@ -314,8 +310,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
 					testutils.ExpectEvent(recorder, "PV size too small")
-					close(done)
-				}, 5)
+				})
 
 			})
 		})

@@ -3180,7 +3180,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						}
 						return nil
 					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				}, 400)
+				})
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
 					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
