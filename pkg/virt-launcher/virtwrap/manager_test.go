@@ -1104,10 +1104,10 @@ var _ = Describe("Manager", func() {
 				Expect(err).To(BeNil())
 				return string(xmlOriginal), nil
 			})
-			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).AnyTimes().Return(nil)
+			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).Return(nil)
 			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
 				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
-					metadata, err := xml.MarshalIndent(domainSpec.Metadata, "", "\t")
+					metadata, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
 					Expect(err).ShouldNot(HaveOccurred())
 					return string(metadata), nil
 				}).AnyTimes()
