@@ -241,7 +241,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	}
 
 	Context("Subresource api", func() {
-		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
+		It("should find matching pod for running VirtualMachineInstance", func() {
 			vmi := api.NewMinimalVMI(testVMIName)
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
@@ -253,10 +253,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).ToNot(HaveOccurred())
 			ip, _, _ := result.ConnectionDetails()
 			Expect(ip).To(Equal(backendIP))
-			close(done)
-		}, 5)
+		})
 
-		It("should fail if VirtualMachineInstance is not in running state", func(done Done) {
+		It("should fail if VirtualMachineInstance is not in running state", func() {
 			vmi := api.NewMinimalVMI(testVMIName)
 			vmi.Status.Phase = v1.Succeeded
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
@@ -264,10 +263,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			_, err := app.getVirtHandlerConnForVMI(vmi)
 
 			Expect(err).To(HaveOccurred())
-			close(done)
-		}, 5)
+		})
 
-		It("should fail no matching pod is found", func(done Done) {
+		It("should fail no matching pod is found", func() {
 			vmi := api.NewMinimalVMI(testVMIName)
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
@@ -283,20 +281,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, _, err = conn.ConnectionDetails()
 			Expect(err).To(HaveOccurred())
-			close(done)
-		}, 5)
+		})
 
 		Context("VNC", func() {
-			It("should fail with no 'name' path param", func(done Done) {
+			It("should fail with no 'name' path param", func() {
 
 				vmiClient.EXPECT().Get("", &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with no 'namespace' path param", func(done Done) {
+			It("should fail with no 'namespace' path param", func() {
 
 				request.PathParameters()["name"] = testVMIName
 
@@ -304,10 +300,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail if vmi is not found", func(done Done) {
+			It("should fail if vmi is not found", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -316,10 +311,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with internal at fetching vmi errors", func(done Done) {
+			It("should fail with internal at fetching vmi errors", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -328,10 +322,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with no graphics device at VNC connections", func(done Done) {
+			It("should fail with no graphics device at VNC connections", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -346,22 +339,20 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-				close(done)
-			}, 5)
+			})
 
 		})
 
 		Context("PortForward", func() {
-			It("should fail with no 'name' path param", func(done Done) {
+			It("should fail with no 'name' path param", func() {
 
 				vmiClient.EXPECT().Get("", &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with no 'namespace' path param", func(done Done) {
+			It("should fail with no 'namespace' path param", func() {
 
 				request.PathParameters()["name"] = testVMIName
 
@@ -369,10 +360,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail if vmi is not found", func(done Done) {
+			It("should fail if vmi is not found", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -381,10 +371,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with internal at fetching vmi errors", func(done Done) {
+			It("should fail with internal at fetching vmi errors", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -393,13 +382,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
 		})
 
 		Context("console", func() {
-			It("should fail with no serial console at console connections", func(done Done) {
+			It("should fail with no serial console at console connections", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -414,10 +402,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail to connect to the serial console if the VMI is Failed", func(done Done) {
+			It("should fail to connect to the serial console if the VMI is Failed", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -426,13 +413,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-				close(done)
-			}, 5)
+			})
 
 		})
 
 		Context("restart", func() {
-			It("should fail if VirtualMachine not exists", func(done Done) {
+			It("should fail if VirtualMachine not exists", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -441,10 +427,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.RestartVMRequestHandler(request, response)
 
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail if VirtualMachine is not in running state", func(done Done) {
+			It("should fail if VirtualMachine is not in running state", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -461,7 +446,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 				// check the msg string that would be presented to virtctl output
 				Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
-				close(done)
 			})
 
 			DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
@@ -518,7 +502,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 
-			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func(done Done) {
+			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -548,10 +532,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
 			})
 
-			It("should restart VirtualMachine", func(done Done) {
+			It("should restart VirtualMachine", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -570,10 +553,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
 			})
 
-			It("should start VirtualMachine if VMI doesn't exist", func(done Done) {
+			It("should start VirtualMachine if VMI doesn't exist", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -587,7 +569,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.RestartVMRequestHandler(request, response)
 				Expect(response.Error()).NotTo(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
 			})
 		})
 

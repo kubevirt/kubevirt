@@ -363,6 +363,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			}, time.Minute*10, time.Second*60).ShouldNot(HaveOccurred())
 			By("Checking that the Windows VirtualMachineInstance has expected UUID")
 			Expect(output).Should(ContainSubstring("works"))
-		}, 720)
+		})
 	})
 })

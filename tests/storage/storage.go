@@ -397,12 +397,12 @@ var _ = SIGDescribe("Storage", func() {
 				checks.SkipIfNonRoot("VirtioFS")
 				tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
 				tests.CreateHostPathPVC(pvc, "1G")
-			}, 120)
+			})
 
 			AfterEach(func() {
 				tests.DeletePVC(pvc)
 				tests.DeletePV(pvc)
-			}, 120)
+			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
 				pvcName := fmt.Sprintf("disk-%s", pvc)
@@ -635,7 +635,7 @@ var _ = SIGDescribe("Storage", func() {
 				// Setup second PVC to use in this context
 				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
 				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
-			}, 120)
+			})
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
@@ -872,14 +872,14 @@ var _ = SIGDescribe("Storage", func() {
 							tests.RunPodAndExpectCompletion(pod)
 						}
 					}
-				}, 120)
+				})
 
 				AfterEach(func() {
 					for _, pvc := range pvcs {
 						tests.DeletePVC(pvc)
 						tests.DeletePV(pvc)
 					}
-				}, 120)
+				})
 
 				// Not a candidate for NFS testing because multiple VMIs are started
 				It("[test_id:868] Should initialize an empty PVC by creating a disk.img", func() {

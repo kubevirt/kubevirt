@@ -67,12 +67,12 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 		Context("with correct permissions", func() {
 			It("[test_id:3170]should be allowed to access subresource endpoint", func() {
 				testClientJob(virtCli, true, resource)
-			}, 15)
+			})
 		})
 		Context("Without permissions", func() {
 			It("[test_id:3171]should not be able to access subresource endpoint", func() {
 				testClientJob(virtCli, false, resource)
-			}, 15)
+			})
 		})
 	})
 

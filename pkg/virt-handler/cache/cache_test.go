@@ -359,7 +359,7 @@ var _ = Describe("Domain informer", func() {
 
 			Expect(timedOut).To(BeFalse())
 
-		}, 5)
+		})
 
 		It("should detect unresponsive sockets.", func() {
 
@@ -393,7 +393,7 @@ var _ = Describe("Domain informer", func() {
 
 			Expect(timedOut).To(BeFalse())
 
-		}, 6)
+		})
 
 		It("should detect responsive sockets and not mark for deletion.", func() {
 
@@ -437,7 +437,7 @@ var _ = Describe("Domain informer", func() {
 			}
 
 			Expect(timedOut).To(BeTrue())
-		}, 6)
+		})
 
 		It("should not return errors when encountering disconnected clients at startup.", func() {
 			var list []*api.Domain
