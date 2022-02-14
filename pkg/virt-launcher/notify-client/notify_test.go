@@ -317,7 +317,7 @@ var _ = Describe("Notify", func() {
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 			close(done)
-		}, 5)
+		})
 
 		It("Should generate a k8s event on IO errors", func(done Done) {
 			faultDisk := []libvirt.DomainDiskError{
@@ -353,7 +353,7 @@ var _ = Describe("Notify", func() {
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 			close(done)
 
-		}, 20)
+		})
 
 	})
 

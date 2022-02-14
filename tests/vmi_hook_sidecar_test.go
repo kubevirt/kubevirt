@@ -81,7 +81,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
-			}, 300)
+			})
 
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
@@ -89,7 +89,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
-			}, 300)
+			})
 
 			It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
@@ -105,7 +105,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 					11*time.Second,
 					500*time.Millisecond).
 					Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
-			}, 300)
+			})
 
 			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
@@ -117,7 +117,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
-			}, 300)
+			})
 
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
@@ -143,7 +143,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				}, 15*time.Second, time.Second).Should(
 					BeTrue(),
 					fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
-			}, 30)
+			})
 		})
 
 		Context("[Serial]with sidecar feature gate disabled", func() {
@@ -156,7 +156,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
 				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
-			}, 30)
+			})
 		})
 	})
 })

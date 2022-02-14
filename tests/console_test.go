@@ -157,7 +157,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 				By("opening 2nd console connection")
 				expectConsoleOutput(vmi, "login")
-			}, 220)
+			})
 
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := libvmi.NewAlpine()

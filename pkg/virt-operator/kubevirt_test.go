@@ -1587,7 +1587,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Now when the controller runs, if the namespace will be patched, the test will fail
 			// because the patch is not expected here.
 			kvTestData.controller.Execute()
-		}, 60)
+		})
 
 		It("should delete install strategy configmap once kubevirt install is deleted", func(done Done) {
 			defer close(done)
@@ -1618,7 +1618,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(0))
-		}, 30)
+		})
 
 		It("should observe custom image tag in status during deploy", func(done Done) {
 			defer close(done)
@@ -1665,7 +1665,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = kvTestData.getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
-		}, 60)
+		})
 
 		It("delete temporary validation webhook once virt-api is deployed", func(done Done) {
 			defer close(done)
@@ -1711,7 +1711,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(1))
 
-		}, 60)
+		})
 
 		It("should do nothing if KubeVirt object is deployed", func(done Done) {
 			defer close(done)
@@ -1753,7 +1753,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-		}, 60)
+		})
 
 		It("should update KubeVirt object if generation IDs do not match", func(done Done) {
 			defer close(done)
@@ -1815,7 +1815,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["validatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["deployements"][Patched]).To(Equal(kvTestData.resourceChanges["deployements"][Added]))
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(kvTestData.resourceChanges["daemonsets"][Added]))
-		}, 60)
+		})
 
 		It("should delete operator managed resources not in the deployed installstrategy", func() {
 			kvTestData := KubeVirtTestData{}
@@ -1861,7 +1861,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(numResources))
-		}, 60)
+		})
 
 		It("should fail if KubeVirt object already exists", func() {
 
@@ -1902,7 +1902,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
 
-		}, 30)
+		})
 
 		It("should generate install strategy creation job for update version", func(done Done) {
 			defer close(done)
@@ -1943,7 +1943,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectJobCreation()
 			kvTestData.controller.Execute()
 
-		}, 30)
+		})
 
 		It("should create an install strategy creation job with passthrough env vars, if provided in config", func(done Done) {
 			defer close(done)
@@ -1960,7 +1960,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
-		}, 30)
+		})
 
 		It("should create an api server deployment with passthrough env vars, if provided in config", func(done Done) {
 			defer close(done)
@@ -1973,7 +1973,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
-		}, 30)
+		})
 
 		It("should create a controller deployment with passthrough env vars, if provided in config", func(done Done) {
 			defer close(done)
@@ -1986,7 +1986,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
-		}, 30)
+		})
 
 		It("should create a handler daemonset with passthrough env vars, if provided in config", func(done Done) {
 			defer close(done)
@@ -1999,7 +1999,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
-		}, 30)
+		})
 
 		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
 			defer close(done)
@@ -2024,7 +2024,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectJobCreation()
 			kvTestData.controller.Execute()
 
-		}, 30)
+		})
 
 		It("should label install strategy creation job", func(done Done) {
 			defer close(done)
@@ -2046,7 +2046,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(job.Spec.Template.ObjectMeta.Labels).Should(HaveKeyWithValue(v1.AppLabel, virtOperatorJobAppLabel))
-		}, 30)
+		})
 
 		It("should delete install strategy creation job if job has failed", func(done Done) {
 			defer close(done)
@@ -2083,7 +2083,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-		}, 30)
+		})
 
 		It("should not delete completed install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
 			defer GinkgoRecover()
@@ -2116,7 +2116,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-		}, 30)
+		})
 
 		It("should add resources on create", func() {
 
@@ -2182,7 +2182,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
-		}, 60)
+		})
 
 		It("should pause rollback until api server is rolled over.", func(done Done) {
 			defer close(done)
@@ -2251,7 +2251,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
-		}, 60)
+		})
 
 		It("should pause update after daemonsets are rolled over", func(done Done) {
 			defer close(done)
@@ -2319,7 +2319,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["deployments"][Patched]).To(Equal(0))          // virt-controller and virt-api unpatched
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(0)) // PDBs unpatched
 			Expect(kvTestData.resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
-		}, 60)
+		})
 
 		It("should pause update after controllers are rolled over", func(done Done) {
 			defer close(done)
@@ -2392,7 +2392,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1)) // 1 of 2 PDBs patched
 			Expect(kvTestData.resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))           // namespace unpatched
-		}, 60)
+		})
 
 		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func() {
 			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
@@ -2461,7 +2461,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(2))
 
-		}, 60)
+		})
 
 		It("should update resources when changing KubeVirt version.", func() {
 			updatedConfig := getConfig("otherregistry", "1.1.1")
@@ -2528,7 +2528,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// - 1 is for virt-handler.
 			Expect(kvTestData.totalUpdates + kvTestData.totalPatches).To(Equal(resourceCount))
 
-		}, 60)
+		})
 
 		It("should patch poddisruptionbudgets when changing KubeVirt version.", func() {
 			updatedConfig := getConfig("otherregistry", "1.1.1")
@@ -2593,7 +2593,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(2))
 
-		}, 60)
+		})
 
 		It("should remove resources on deletion", func() {
 
@@ -2634,7 +2634,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
 			Expect(len(kv.Status.Conditions)).To(Equal(3))
 			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
-		}, 60)
+		})
 
 		It("should remove poddisruptionbudgets on deletion", func() {
 
@@ -2666,7 +2666,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Deleted]).To(Equal(2))
-		}, 60)
+		})
 
 		Context("test checkIfConfigMapStillExists", func() {
 			It("should emit an event if the kubevirt-config configMap still exists", func() {
@@ -2693,7 +2693,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				event := <-kvTestData.recorder.Events
 				Expect(event).Should(ContainSubstring(obsoleteCMReason))
 				Expect(event).Should(ContainSubstring("the kubevirt-config configMap is still deployed. KubeVirt does not support this configMap and it can be safely removed"))
-			}, 60)
+			})
 
 			It("should not emit an event if the kubevirt-config configMap does not exist", func() {
 
@@ -2711,7 +2711,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				time.Sleep(time.Millisecond * 10)
 				Expect(kvTestData.recorder.Events).To(BeEmpty())
-			}, 60)
+			})
 
 			It("should do nothing if failed to read the CM (not NotFound)", func() {
 				kvTestData := KubeVirtTestData{}
@@ -2728,7 +2728,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				time.Sleep(time.Millisecond * 10)
 				Expect(kvTestData.recorder.Events).To(BeEmpty())
-			}, 60)
+			})
 		})
 	})
 
@@ -2772,7 +2772,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(2))
 			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(2))
 			Expect(len(kvTestData.controller.stores.ServiceMonitorCache.List())).To(Equal(0))
-		}, 30)
+		})
 	})
 
 	Context("On install strategy dump", func() {
@@ -2813,7 +2813,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// This generates and posts the install strategy config map
 			install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
-		}, 30)
+		})
 	})
 })
 

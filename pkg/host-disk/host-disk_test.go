@@ -215,7 +215,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
 					close(done)
-				}, 5)
+				})
 
 				It("Should subtract reserve if there is NOT enough space on storage for requested size", func(done Done) {
 					By("Creating a new minimal vmi")
@@ -237,7 +237,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(BeNumerically("==", dirAvailable-hostDiskCreatorWithReserve.minimumPVCReserveBytes)) // 64Mi minus reserve
 					close(done)
-				}, 5)
+				})
 
 				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func(done Done) {
 					By("Creating a new minimal vmi")
@@ -261,7 +261,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
 					close(done)
-				}, 5)
+				})
 
 				It("Should take lessPVCSpaceToleration into account when creating disk images", func(done Done) {
 					By("Creating a new minimal vmi")
@@ -315,7 +315,7 @@ var _ = Describe("HostDisk", func() {
 
 					testutils.ExpectEvent(recorder, "PV size too small")
 					close(done)
-				}, 5)
+				})
 
 			})
 		})

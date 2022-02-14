@@ -139,7 +139,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
-	}, 300)
+	})
 
 	It("[test_id:488]should succeed to stop a running vmi", func() {
 		By("Starting the vmi")
@@ -150,7 +150,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		By("Stopping the vmi")
 		err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
-	}, 300)
+	})
 
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
@@ -201,7 +201,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 				}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 				By("Checking that the Windows VirtualMachineInstance has expected UUID")
 				Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
-			}, 360)
+			})
 
 			It("[test_id:3159]should have default masquerade IP", func() {
 				command := append(cli, "ipconfig /all")
@@ -218,7 +218,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 				By("Checking that the Windows VirtualMachineInstance has expected IP address")
 				Expect(output).Should(ContainSubstring("10.0.2.2"))
-			}, 360)
+			})
 
 			It("[test_id:3160]should have the domain set properly", func() {
 				searchDomain := getPodSearchDomain(windowsVMI)
@@ -229,7 +229,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					cli,
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+searchDomain+`[\n\r\t ]+`)
-			}, 360)
+			})
 		})
 
 		Context("VMI with subdomain is created", func() {
@@ -254,7 +254,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					cli,
 					"wmic nicconfig get dnsdomain",
 					`DNSDomain[\n\r\t ]+`+expectedSearchDomain+`[\n\r\t ]+`)
-			}, 360)
+			})
 		})
 
 		Context("with bridge binding", func() {
@@ -303,7 +303,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					)
 					return err
 				}, time.Minute*1, time.Second*15).Should(Succeed())
-			}, 360)
+			})
 		})
 	})
 

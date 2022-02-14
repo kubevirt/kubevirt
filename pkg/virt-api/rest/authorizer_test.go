@@ -67,16 +67,14 @@ var _ = Describe("Authorizer", func() {
 		})
 
 		Context("Subresource api", func() {
-			It("should reject unauthenticated user", func(done Done) {
+			It("should reject unauthenticated user", func() {
 				allowed, reason, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeFalse())
 				Expect(reason).To(Equal("request is not authenticated"))
+			})
 
-				close(done)
-			}, 5)
-
-			It("should reject unauthorized user", func(done Done) {
+			It("should reject unauthorized user", func() {
 
 				req.Request.TLS = &tls.ConnectionState{}
 				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
@@ -97,11 +95,9 @@ var _ = Describe("Authorizer", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeFalse())
 				Expect(reason).To(Equal("just because"))
+			})
 
-				close(done)
-			}, 5)
-
-			It("should allow authorized user", func(done Done) {
+			It("should allow authorized user", func() {
 
 				req.Request.TLS = &tls.ConnectionState{}
 				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
@@ -120,11 +116,9 @@ var _ = Describe("Authorizer", func() {
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeTrue())
+			})
 
-				close(done)
-			}, 5)
-
-			It("should not allow user if auth check fails", func(done Done) {
+			It("should not allow user if auth check fails", func() {
 
 				req.Request.TLS = &tls.ConnectionState{}
 				req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
@@ -139,9 +133,7 @@ var _ = Describe("Authorizer", func() {
 				allowed, _, err := app.Authorize(req)
 				Expect(err).To(HaveOccurred())
 				Expect(allowed).To(BeFalse())
-
-				close(done)
-			}, 5)
+			})
 
 			DescribeTable("should allow all users for info endpoints", func(path string) {
 				req.Request.URL.Path = path

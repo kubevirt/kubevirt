@@ -1177,7 +1177,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStart(obj)
-			}, 150)
+			})
 		})
 
 	})
