@@ -24,8 +24,7 @@ kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
 _prometheus_port_forward_pid=""
 trap "clean_up" EXIT SIGINT SIGTERM SIGQUIT
 clean_up() {
-  kill -9 $_prometheus_port_forward_pid 2> /dev/null
-  make cluster-clean
+  kill -9 $_prometheus_port_forward_pid 2> /dev/null | exit 0
 }
 
 echo "Nodes are ready:"
@@ -92,3 +91,6 @@ fi
 
 # Run performance tests
 ./hack/perfscale-tests.sh
+
+# Undeploy kubevirt from the cluster
+make cluster-clean
