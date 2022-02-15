@@ -453,7 +453,7 @@ func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstanc
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
 		}
-		c.recorder.Eventf(vmi, corev1.EventTypeNormal, SuccessfulUpdatePodDisruptionBudgetReason, "shrank PodDisruptionBudget", pdb.Name)
+		c.recorder.Eventf(vmi, corev1.EventTypeNormal, SuccessfulUpdatePodDisruptionBudgetReason, "shrank PodDisruptionBudget %s", pdb.Name)
 	}
 	return nil
 }
