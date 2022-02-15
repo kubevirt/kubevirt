@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/golang/mock/gomock"
@@ -1216,34 +1218,72 @@ var _ = Describe("Manager", func() {
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
 		})
+		//This is incomplete as it is not verifying that we abort. Previously it wasn't even testing anything at all
 		It("migration should be canceled when requested", func() {
+			migrationUid := types.UID("111222333")
+
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
-			fake_jobinfo := func() *libvirt.DomainJobInfo {
+
+			now := metav1.Now()
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   migrationUid,
+				StartTimestamp: &now,
+			}
+
+			domainToXml := func(domain *api.DomainSpec) string {
+				xml, err := xml.MarshalIndent(domain, "", "\t")
+				Expect(err).To(BeNil())
+				return string(xml)
+			}
+
+			domainToMetadataXml := func(domain *api.DomainSpec) string {
+				xml, err := xml.MarshalIndent(domain.Metadata.KubeVirt, "", "\t")
+				Expect(err).To(BeNil())
+				return string(xml)
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+				StartTimestamp: &now,
+				UID:            migrationUid,
+			}
+
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+
+			//expect domainspecwithruntimeinfo todo this can be useful for other tests
+			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Times(1).DoAndReturn(
+				func(_ libvirt.DomainXMLFlags) (string, error) {
+					return domainToXml(domainSpec), nil
+				})
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				Times(1).
+				DoAndReturn(func(_, _, _ interface{}) (string, error) {
+					return domainToMetadataXml(domainSpec), nil
+				})
+
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).Times(1).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
+				Expect(domainXml).To(ContainSubstring(string(v1.MigrationAbortInProgress)))
+				return mockDomain, nil
+			})
+
+			//These lines do not test anything but needs to be here because otherwise test will panic
+			mockDomain.EXPECT().AbortJob().MaxTimes(1)
+			migrationInProgress := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
 					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining: uint64(32479827394),
 				}
 			}()
+			mockDomain.EXPECT().GetJobInfo().MaxTimes(1).Return(migrationInProgress, nil)
 
-			vmi := newVMI(testNamespace, testVmName)
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID: "111222333",
-			}
-
-			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).To(BeNil())
-			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			mockDomain.EXPECT().AbortJob().MaxTimes(1)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
-			manager.CancelVMIMigration(vmi)
+			Expect(manager.CancelVMIMigration(vmi)).To(BeNil())
 
 		})
+
 		It("shouldn't be able to call cancel migration more than once", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
