@@ -1254,12 +1254,12 @@ var _ = Describe("Manager", func() {
 
 			//expect domainspecwithruntimeinfo todo this can be useful for other tests
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Times(1).DoAndReturn(
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(
 				func(_ libvirt.DomainXMLFlags) (string, error) {
 					return domainToXml(domainSpec), nil
 				})
 			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
-				Times(1).
+				AnyTimes().
 				DoAndReturn(func(_, _, _ interface{}) (string, error) {
 					return domainToMetadataXml(domainSpec), nil
 				})
@@ -1289,6 +1289,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free().AnyTimes()
 
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
+			secondBefore := metav1.Time{Time: now.Add(-time.Second)}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:   "111222333",
@@ -1297,9 +1298,9 @@ var _ = Describe("Manager", func() {
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
-
-				UID:         vmi.Status.MigrationState.MigrationUID,
-				AbortStatus: string(v1.MigrationAbortInProgress),
+				UID:            vmi.Status.MigrationState.MigrationUID,
+				AbortStatus:    string(v1.MigrationAbortInProgress),
+				StartTimestamp: &secondBefore,
 			}
 
 			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")

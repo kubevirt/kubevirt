@@ -465,12 +465,25 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 }
 
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
-	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed ||
-		vmi.Status.MigrationState.Failed || vmi.Status.MigrationState.StartTimestamp == nil {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		return err
+	}
+	defer dom.Free()
 
+	domain, err := util.GetDomainSpecWithRuntimeInfo(dom)
+	if err != nil {
+		return err
+	}
+
+	migration := domain.Metadata.KubeVirt.Migration
+	if migration == nil || migration.Completed ||
+		migration.Failed || migration.StartTimestamp == nil {
 		return fmt.Errorf("failed to cancel migration - vmi is not migrating")
 	}
-	err := l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)
+
+	err = l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)
 	if err != nil {
 		if err == domainerrors.MigrationAbortInProgressError {
 			return nil
