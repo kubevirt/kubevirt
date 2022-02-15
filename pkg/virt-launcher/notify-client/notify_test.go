@@ -301,7 +301,7 @@ var _ = Describe("Notify", func() {
 			os.RemoveAll(shareDir)
 		})
 
-		It("Should send a k8s event", func(done Done) {
+		It("Should send a k8s event", func() {
 
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
@@ -316,10 +316,9 @@ var _ = Describe("Notify", func() {
 
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
-			close(done)
 		})
 
-		It("Should generate a k8s event on IO errors", func(done Done) {
+		It("Should generate a k8s event on IO errors", func() {
 			faultDisk := []libvirt.DomainDiskError{
 				{
 					Disk:  "vda",
@@ -351,8 +350,6 @@ var _ = Describe("Notify", func() {
 			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil)
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
-			close(done)
-
 		})
 
 	})

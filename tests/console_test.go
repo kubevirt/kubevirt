@@ -133,7 +133,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 			})
 
-			It("[test_id:1591]should close console connection when new console connection is opened", func(done Done) {
+			It("[test_id:1591]should close console connection when new console connection is opened", func() {
 				vmi := libvmi.NewAlpine()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -149,7 +149,6 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					select {
 					case receivedErr := <-errChan:
 						Expect(receivedErr.Error()).To(ContainSubstring("close"))
-						close(done)
 					case <-time.After(60 * time.Second):
 						Fail("timed out waiting for closed 1st connection")
 					}

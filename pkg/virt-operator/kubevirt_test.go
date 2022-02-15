@@ -1541,8 +1541,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	Context("On valid KubeVirt object", func() {
 
-		It("Should not patch kubevirt namespace when labels are already defined", func(done Done) {
-			defer close(done)
+		It("Should not patch kubevirt namespace when labels are already defined", func() {
 
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -1589,9 +1588,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 		})
 
-		It("should delete install strategy configmap once kubevirt install is deleted", func(done Done) {
-			defer close(done)
-
+		It("should delete install strategy configmap once kubevirt install is deleted", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1620,8 +1617,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(0))
 		})
 
-		It("should observe custom image tag in status during deploy", func(done Done) {
-			defer close(done)
+		It("should observe custom image tag in status during deploy", func() {
 			defer GinkgoRecover()
 
 			kvTestData := KubeVirtTestData{}
@@ -1667,9 +1663,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("delete temporary validation webhook once virt-api is deployed", func(done Done) {
-			defer close(done)
-
+		It("delete temporary validation webhook once virt-api is deployed", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1713,9 +1707,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should do nothing if KubeVirt object is deployed", func(done Done) {
-			defer close(done)
-
+		It("should do nothing if KubeVirt object is deployed", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1755,9 +1747,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should update KubeVirt object if generation IDs do not match", func(done Done) {
-			defer close(done)
-
+		It("should update KubeVirt object if generation IDs do not match", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1904,9 +1894,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should generate install strategy creation job for update version", func(done Done) {
-			defer close(done)
-
+		It("should generate install strategy creation job for update version", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1945,9 +1933,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should create an install strategy creation job with passthrough env vars, if provided in config", func(done Done) {
-			defer close(done)
-
+		It("should create an install strategy creation job with passthrough env vars, if provided in config", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1962,8 +1948,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
-		It("should create an api server deployment with passthrough env vars, if provided in config", func(done Done) {
-			defer close(done)
+		It("should create an api server deployment with passthrough env vars, if provided in config", func() {
 			config := getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
@@ -1975,8 +1960,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
-		It("should create a controller deployment with passthrough env vars, if provided in config", func(done Done) {
-			defer close(done)
+		It("should create a controller deployment with passthrough env vars, if provided in config", func() {
 			config := getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
@@ -1988,8 +1972,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
-		It("should create a handler daemonset with passthrough env vars, if provided in config", func(done Done) {
-			defer close(done)
+		It("should create a handler daemonset with passthrough env vars, if provided in config", func() {
 			config := getConfig("registry", "v1.1.1")
 			envKey := rand.String(10)
 			envVal := rand.String(10)
@@ -2001,9 +1984,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
-		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
-			defer close(done)
-
+		It("should generate install strategy creation job if no install strategy exists", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2026,9 +2007,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should label install strategy creation job", func(done Done) {
-			defer close(done)
-
+		It("should label install strategy creation job", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2048,9 +2027,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(job.Spec.Template.ObjectMeta.Labels).Should(HaveKeyWithValue(v1.AppLabel, virtOperatorJobAppLabel))
 		})
 
-		It("should delete install strategy creation job if job has failed", func(done Done) {
-			defer close(done)
-
+		It("should delete install strategy creation job if job has failed", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2085,9 +2062,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should not delete completed install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
+		It("should not delete completed install strategy creation job if job has failed less that 10 seconds ago", func() {
 			defer GinkgoRecover()
-			defer close(done)
 
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -2184,8 +2160,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
-		It("should pause rollback until api server is rolled over.", func(done Done) {
-			defer close(done)
+		It("should pause rollback until api server is rolled over.", func() {
 			defer GinkgoRecover()
 
 			kvTestData := KubeVirtTestData{}
@@ -2253,9 +2228,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
 		})
 
-		It("should pause update after daemonsets are rolled over", func(done Done) {
-			defer close(done)
-
+		It("should pause update after daemonsets are rolled over", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2321,9 +2294,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
 		})
 
-		It("should pause update after controllers are rolled over", func(done Done) {
-			defer close(done)
-
+		It("should pause update after controllers are rolled over", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2776,9 +2747,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	})
 
 	Context("On install strategy dump", func() {
-		It("should generate latest install strategy and post as config map", func(done Done) {
-			defer close(done)
-
+		It("should generate latest install strategy and post as config map", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
