@@ -399,6 +399,9 @@ var _ = Describe("HostDisk", func() {
 					Name: volumeName,
 					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						VolumeMode: &mode,
+						Capacity: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceStorage: *resource.NewQuantity(1024*1024, resource.BinarySI),
+						},
 					},
 				},
 			}
