@@ -725,6 +725,17 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 		err := c.stopVMI(vm, vmi)
 		return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+	case virtv1.RunStrategyOnce:
+		if vmi == nil {
+			log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
+
+			err := c.startVMI(vm)
+			if err != nil {
+				return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+			}
+		}
+
+		return nil
 	default:
 		return &syncErrorImpl{fmt.Errorf("unknown runstrategy: %s", runStrategy), FailedCreateReason}
 	}
@@ -787,6 +798,11 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 			return vmi.Status.Phase != virtv1.Succeeded
 		}
 		return true
+	case virtv1.RunStrategyOnce:
+		if vmi == nil {
+			return true
+		}
+		return false
 	default:
 		// Shouldn't ever be here, but...
 		return false
@@ -908,7 +924,9 @@ func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		return false
 	}
 
-	if runStrategy != virtv1.RunStrategyAlways && runStrategy != virtv1.RunStrategyRerunOnFailure {
+	if runStrategy != virtv1.RunStrategyAlways &&
+		runStrategy != virtv1.RunStrategyRerunOnFailure &&
+		runStrategy != virtv1.RunStrategyOnce {
 		return true
 	}
 
@@ -1663,7 +1681,7 @@ func (c *VMController) isVirtualMachineStatusCrashLoopBackOff(vm *virtv1.Virtual
 
 	if vm.Status.StartFailure != nil &&
 		vm.Status.StartFailure.ConsecutiveFailCount > 0 &&
-		(runStrategy == virtv1.RunStrategyAlways || runStrategy == virtv1.RunStrategyRerunOnFailure) {
+		(runStrategy == virtv1.RunStrategyAlways || runStrategy == virtv1.RunStrategyRerunOnFailure || runStrategy == virtv1.RunStrategyOnce) {
 		return true
 	}
 

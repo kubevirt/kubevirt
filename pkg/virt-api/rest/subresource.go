@@ -320,6 +320,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	// RunStrategyManual         -> send restart request
 	// RunStrategyAlways         -> send restart request
 	// RunStrategyRerunOnFailure -> send restart request
+	// RunStrategyOnce           -> doesn't make sense
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
@@ -356,8 +357,8 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
-	if runStrategy == v1.RunStrategyHalted {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual restart requests", v1.RunStrategyHalted)), response)
+	if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyOnce {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual restart requests", runStrategy)), response)
 		return
 	}
 
@@ -499,6 +500,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	// RunStrategyManual         -> send start request
 	// RunStrategyAlways         -> doesn't make sense
 	// RunStrategyRerunOnFailure -> doesn't make sense
+	// RunStrategyOnce           -> doesn't make sense
 	switch runStrategy {
 	case v1.RunStrategyHalted:
 		pausedStartStrategy := v1.StartStrategyPaused
@@ -546,8 +548,8 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
 		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
-	case v1.RunStrategyAlways:
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", v1.RunStrategyAlways)), response)
+	case v1.RunStrategyAlways, v1.RunStrategyOnce:
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", runStrategy)), response)
 		return
 	}
 
@@ -568,6 +570,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	// RunStrategyManual         -> send stop request
 	// RunStrategyAlways         -> spec.running = false
 	// RunStrategyRerunOnFailure -> spec.running = false
+	// RunStrategyOnce           -> spec.running = false
 
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
@@ -641,7 +644,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
 		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
-	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
+	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways, v1.RunStrategyOnce:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
 		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})

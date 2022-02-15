@@ -1412,6 +1412,89 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 			})
 
+			Context("Using RunStrategyOnce", func() {
+				It("[Serial] Should leave a failed VMI", func() {
+					By("creating a VM with RunStrategyOnce")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("killing qemu process")
+					err = pkillAllVMIs(virtClient, vmi.Status.NodeName)
+					Expect(err).To(BeNil(), "Should kill VMI successfully")
+
+					By("Ensuring the VirtualMachineInstance enters Failed phase")
+					Eventually(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 240*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+
+					By("Ensuring the VirtualMachine remains stopped")
+					Consistently(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 1*time.Minute, 5*time.Second).Should(Equal(v1.Failed))
+
+					By("Ensuring the VirtualMachine remains Ready=false")
+					vm, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.Ready).To(BeFalse())
+				})
+
+				It("Should leave a succeeded VMI", func() {
+					By("creating a VM with RunStrategyOnce")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+					By("Issuing a poweroff command from inside VM")
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "sudo poweroff\n"},
+						&expect.BExp{R: console.PromptExpression},
+					}, 10)).To(Succeed())
+
+					By("Ensuring the VirtualMachineInstance enters Succeeded phase")
+					Eventually(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 240*time.Second, 1*time.Second).Should(Equal(v1.Succeeded))
+
+					By("Ensuring the VirtualMachine remains stopped")
+					Consistently(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 1*time.Minute, 5*time.Second).Should(Equal(v1.Succeeded))
+
+					By("Ensuring the VirtualMachine remains Ready=false")
+					vm, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.Ready).To(BeFalse())
+				})
+			})
+
 			Context("Using RunStrategyManual", func() {
 				It("[test_id:2036] should start", func() {
 					By("creating a VM with RunStrategyManual")
