@@ -105,7 +105,7 @@ var _ = Describe("Manager", func() {
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
 	})
 
-	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+	expectedDomainFor := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
 		hotplugVolumes := make(map[string]v1.VolumeStatus)
 		permanentVolumes := make(map[string]v1.VolumeStatus)
@@ -138,7 +138,7 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
@@ -159,7 +159,7 @@ var _ = Describe("Manager", func() {
 			vmi.Spec.StartStrategy = &strategy
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
@@ -181,7 +181,7 @@ var _ = Describe("Manager", func() {
 			userData := "fake\nuser\ndata\n"
 			networkData := ""
 			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
@@ -201,7 +201,7 @@ var _ = Describe("Manager", func() {
 			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
@@ -217,7 +217,7 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -234,7 +234,7 @@ var _ = Describe("Manager", func() {
 				// Make sure that we always free the domain after use
 				mockDomain.EXPECT().Free()
 				vmi := newVMI(testNamespace, testVmName)
-				domainSpec := expectIsolationDetectionForVMI(vmi)
+				domainSpec := expectedDomainFor(vmi)
 				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).NotTo(HaveOccurred())
 
@@ -256,7 +256,7 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -273,7 +273,7 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -461,7 +461,7 @@ var _ = Describe("Manager", func() {
 				},
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Devices.Disks = []api.Disk{
 				{
 					Device: "disk",
@@ -563,7 +563,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
@@ -692,7 +692,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			detachDisk := api.Disk{
@@ -802,7 +802,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
@@ -881,7 +881,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
@@ -925,7 +925,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free().AnyTimes()
 
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 
 			oldXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
@@ -954,7 +954,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free().AnyTimes()
 
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
@@ -996,7 +996,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			manager := &LibvirtDomainManager{
@@ -1041,7 +1041,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			manager := &LibvirtDomainManager{
@@ -1095,7 +1095,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			manager := &LibvirtDomainManager{
 				virConn:      mockConn,
 				virtShareDir: testVirtShareDir,
@@ -1166,7 +1166,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			manager := &LibvirtDomainManager{
 				virConn:      mockConn,
 				virtShareDir: testVirtShareDir,
@@ -1244,7 +1244,7 @@ var _ = Describe("Manager", func() {
 				return string(xml)
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				StartTimestamp: &now,
 				UID:            migrationUid,
@@ -1296,7 +1296,7 @@ var _ = Describe("Manager", func() {
 				StartTimestamp: &now,
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            vmi.Status.MigrationState.MigrationUID,
 				AbortStatus:    string(v1.MigrationAbortInProgress),
@@ -1351,7 +1351,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 
 				UID:         vmi.Status.MigrationState.MigrationUID,
@@ -1426,7 +1426,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID: vmi.Status.MigrationState.MigrationUID,
 			}
@@ -1513,7 +1513,7 @@ var _ = Describe("Manager", func() {
 			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
@@ -1568,7 +1568,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 
 				UID: vmi.Status.MigrationState.MigrationUID,
@@ -1808,7 +1808,7 @@ var _ = Describe("Manager", func() {
 
 			vmi := newVMI(testNamespace, testVmName)
 
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec := expectedDomainFor(vmi)
 
 			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
@@ -1910,7 +1910,7 @@ var _ = Describe("Manager", func() {
 				}},
 		)
 
-		domainSpec := expectIsolationDetectionForVMI(vmi)
+		domainSpec := expectedDomainFor(vmi)
 		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 		Expect(err).NotTo(HaveOccurred())
 
