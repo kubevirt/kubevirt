@@ -450,6 +450,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						virtv1.AppLabel:    VirtOperatorName,
+						virtv1.AppName:     VirtOperatorName,
 						prometheusLabelKey: prometheusLabelValue,
 					},
 					Name: VirtOperatorName,

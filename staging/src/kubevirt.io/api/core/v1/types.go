@@ -668,9 +668,10 @@ const (
 )
 
 const (
-	// This label marks resources that belong to KubeVirt. An optional value
+	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
 	AppLabel string = "kubevirt.io"
+	AppName  string = "name"
 	// This annotation is used to match virtual machine instances represented as
 	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
