@@ -651,7 +651,10 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
-	size = util2.AlignImageSizeTo4k(size, log.Log.With("image", imagePath))
+	size = util2.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
+	if size == 0 {
+		return fmt.Errorf("%s must be at least 1MiB", imagePath)
+	}
 	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -676,7 +679,10 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		return 0, false
 	}
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
-	size = util2.AlignImageSizeTo4k(size, log.DefaultLogger())
+	size = util2.AlignImageSizeTo1MiB(size, log.DefaultLogger())
+	if size == 0 {
+		return 0, false
+	}
 	return size, true
 }
 

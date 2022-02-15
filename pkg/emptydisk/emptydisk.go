@@ -1,6 +1,7 @@
 package emptydisk
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -26,8 +27,11 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 		if volume.EmptyDisk != nil {
 			// qemu-img takes the size in bytes or in Kibibytes/Mebibytes/...; lets take bytes
 			intSize := volume.EmptyDisk.Capacity.ToDec().ScaledValue(0)
-			// round down the size to the nearest 4KiB multiple
-			intSize = util.AlignImageSizeTo4k(intSize, logger.With("volume", volume.Name))
+			// round down the size to the nearest 1MiB multiple
+			intSize = util.AlignImageSizeTo1MiB(intSize, logger.With("volume", volume.Name))
+			if intSize == 0 {
+				return fmt.Errorf("the size for volume %s is too low", volume.Name)
+			}
 			// convert the size to string for qemu-img
 			size := strconv.FormatInt(intSize, 10)
 			file := filePathForVolumeName(c.emptyDiskBaseDir, volume.Name)

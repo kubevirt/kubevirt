@@ -2298,7 +2298,7 @@ var _ = Describe("Manager helper functions", func() {
 		BeforeEach(func() {
 			fakePercentFloat = 0.7648
 			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
-			fakeCapacity := int64(123000)
+			fakeCapacity := int64(2345 * 3456) // We need (1-0.7648)*fakeCapacity to be > 1MiB and misaligned
 
 			properDisk = api.Disk{
 				FilesystemOverhead: &fakePercent,
@@ -2313,8 +2313,8 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(capacity).ToNot(Equal(nil))
 
 			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
-			// The size is expected to be 4k-aligned
-			expectedSize = expectedSize - expectedSize%4096
+			// The size is expected to be 1MiB-aligned
+			expectedSize = expectedSize - expectedSize%(1024*1024)
 
 			Expect(size).To(Equal(expectedSize))
 		})
