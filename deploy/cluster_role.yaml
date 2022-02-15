@@ -166,6 +166,45 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
+    name: node-maintenance-operator
+  name: node-maintenance-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
     name: hostpath-provisioner-operator
   name: hostpath-provisioner-operator
 rules:
@@ -2062,32 +2101,9 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - services
-  - endpoints
-  - events
-  - configmaps
-  - serviceaccounts
-  verbs:
-  - '*'
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
+  - namespaces
   verbs:
   - get
-  - list
-  - update
-  - patch
-  - watch
-  - create
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -2095,8 +2111,8 @@ rules:
   verbs:
   - get
   - list
-  - update
   - patch
+  - update
   - watch
 - apiGroups:
   - ""
@@ -2113,39 +2129,86 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-- apiGroups:
   - apps
   resources:
-  - deployments
   - daemonsets
+  - deployments
   - replicasets
   - statefulsets
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:
   - servicemonitors
   verbs:
-  - get
   - create
+  - get
 - apiGroups:
   - nodemaintenance.kubevirt.io
   resources:
-  - '*'
+  - nodemaintenances
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nodemaintenance.kubevirt.io
+  resources:
+  - nodemaintenances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nodemaintenance.kubevirt.io
+  resources:
+  - nodemaintenances/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - oauth.openshift.io
   resources:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

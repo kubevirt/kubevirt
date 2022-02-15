@@ -62,7 +62,7 @@ spec:
         - name: SSP_VERSION
           value: v0.13.2
         - name: NMO_VERSION
-          value: v0.10.0
+          value: v0.11.2
         - name: HPPO_VERSION
           value: v0.12.1
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
@@ -579,26 +579,59 @@ spec:
         app.kubernetes.io/version: 1.7.0
         name: node-maintenance-operator
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
       containers:
-      - env:
-        - name: WATCH_NAMESPACE
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8080
+        - --leader-elect
+        command:
+        - /manager
+        env:
+        - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['olm.targetNamespaces']
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: node-maintenance-operator
-        image: quay.io/kubevirt/node-maintenance-operator@sha256:c4636d17a446b0491362d4c5ef9d91c5059f5c5f6305fc7750afc1780c384c0c
-        imagePullPolicy: Always
-        name: node-maintenance-operator
-        resources: {}
+              fieldPath: metadata.namespace
+        image: quay.io/kubevirt/node-maintenance-operator@sha256:02f6fc6de339c644b79696206f6b2ed6f81806db9e4ff4499a4a3619ba572b34
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        securityContext:
+          allowPrivilegeEscalation: false
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
+      securityContext:
+        runAsNonRoot: true
       serviceAccountName: node-maintenance-operator
+      terminationGracePeriodSeconds: 10
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
@@ -761,10 +794,10 @@ metadata:
   name: node-maintenance-operator-service
 spec:
   ports:
-  - name: "8443"
-    port: 8443
+  - name: "443"
+    port: 443
     protocol: TCP
-    targetPort: 8443
+    targetPort: 443
   selector:
     name: node-maintenance-operator
   type: ClusterIP
