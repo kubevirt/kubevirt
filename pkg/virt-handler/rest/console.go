@@ -33,11 +33,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
+
+//const failedRetrieveVMI = "Failed to retrieve VMI"
 
 type ConsoleHandler struct {
 	podIsolationDetector isolation.PodIsolationDetector
@@ -70,7 +72,7 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -133,7 +135,7 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -152,7 +154,7 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}

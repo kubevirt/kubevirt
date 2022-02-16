@@ -14,6 +14,7 @@ aliases:
       - jean-edouard
       - mhenriks
       - enp0s3
+      - zcahana
   emeritus_approvers:
       - cynepco3hahue
       - slintes
@@ -26,7 +27,6 @@ aliases:
       - rmohr
       - stu-gott
       - vladikr
-      - phoracek
       - dhiller
       - vatsalparekh
       - enp0s3
@@ -39,6 +39,7 @@ aliases:
       - yuhaohaoyu
       - acardace
       - zcahana
+      - xpivarc
   ux-reviewers:
       - matthewcarleton
   test-reviewers:

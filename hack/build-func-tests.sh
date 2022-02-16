@@ -20,6 +20,7 @@
 set -e
 
 source hack/common.sh
+source hack/bootstrap.sh
 source hack/config.sh
 
 rm -rf "${TESTS_OUT_DIR}"

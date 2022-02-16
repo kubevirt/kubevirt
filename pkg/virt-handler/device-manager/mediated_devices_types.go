@@ -48,7 +48,11 @@ func NewMDEVTypesManager() *MDEVTypesManager {
 	}
 }
 
-func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string) error {
+func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string) (bool, error) {
+	isConfigUpdated := false
+	m.mdevsConfigurationMutex.Lock()
+	defer m.mdevsConfigurationMutex.Unlock()
+
 	desiredTypesBytes := []byte(strings.Join(desiredTypesList, ","))
 	if bytes.Compare(m.configuredMdevTypes, desiredTypesBytes) != 0 {
 
@@ -57,21 +61,20 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 		for _, mdevType := range desiredTypesList {
 			desiredTypesMap[mdevType] = struct{}{}
 		}
-		m.mdevsConfigurationMutex.Lock()
-		defer m.mdevsConfigurationMutex.Unlock()
 		removeUndesiredMDEVs(desiredTypesMap)
 		err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
-			return err
+			return isConfigUpdated, err
 		}
 		if len(desiredTypesMap) > 0 {
 			m.configureDesiredMDEVTypes()
 		}
 		// store the configured list of types
 		m.configuredMdevTypes = desiredTypesBytes
+		isConfigUpdated = true
 	}
-	return nil
+	return isConfigUpdated, nil
 }
 
 // discoverConfigurableMDEVTypes will create an intersection of desired and configurable available mdev types

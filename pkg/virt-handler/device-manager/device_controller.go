@@ -26,6 +26,10 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
+
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -34,10 +38,12 @@ var permanentDevicePluginPaths = map[string]string{
 	"kvm":       "/dev/kvm",
 	"tun":       "/dev/net/tun",
 	"vhost-net": "/dev/vhost-net",
+	"sev":       "/dev/sev",
 }
 
 type DeviceControllerInterface interface {
 	Initialized() bool
+	RefreshMediatedDevicesTypes()
 }
 
 type DeviceController struct {
@@ -49,6 +55,7 @@ type DeviceController struct {
 	virtConfig         *virtconfig.ClusterConfig
 	stop               chan struct{}
 	mdevTypesManager   *MDEVTypesManager
+	clientset          k8scli.CoreV1Interface
 }
 
 type ControlledDevice struct {
@@ -67,7 +74,7 @@ func getPermanentHostDevicePlugins(maxDevices int, permissions string) map[strin
 	return ret
 }
 
-func NewDeviceController(host string, maxDevices int, permissions string, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
+func NewDeviceController(host string, maxDevices int, permissions string, clusterConfig *virtconfig.ClusterConfig, clientset k8scli.CoreV1Interface) *DeviceController {
 	controller := &DeviceController{
 		devicePlugins:    getPermanentHostDevicePlugins(maxDevices, permissions),
 		host:             host,
@@ -75,6 +82,7 @@ func NewDeviceController(host string, maxDevices int, permissions string, cluste
 		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 		virtConfig:       clusterConfig,
 		mdevTypesManager: NewMDEVTypesManager(),
+		clientset:        clientset,
 	}
 
 	return controller
@@ -195,12 +203,27 @@ func removeSelectorSpaces(selectorName string) string {
 
 }
 
-func (c *DeviceController) refreshMediatedDevicesTypes() {
-	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(c.host)
-	err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
+func (c *DeviceController) RefreshMediatedDevicesTypes() {
+	go func() {
+		if c.refreshMediatedDevicesTypes() {
+			c.refreshPermittedDevices()
+		}
+	}()
+}
+
+func (c *DeviceController) refreshMediatedDevicesTypes() bool {
+	requiresDevicePluginsUpdate := false
+	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
+		return requiresDevicePluginsUpdate
+	}
+	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
+	requiresDevicePluginsUpdate, err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
 	}
+	return requiresDevicePluginsUpdate
 }
 
 func (c *DeviceController) refreshPermittedDevices() {
@@ -243,7 +266,10 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev)
 	}
-	c.virtConfig.SetConfigModifiedCallback(c.refreshMediatedDevicesTypes)
+	refreshMediatedDevicesTypesFn := func() {
+		c.refreshMediatedDevicesTypes()
+	}
+	c.virtConfig.SetConfigModifiedCallback(refreshMediatedDevicesTypesFn)
 	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
 	c.refreshPermittedDevices()
 

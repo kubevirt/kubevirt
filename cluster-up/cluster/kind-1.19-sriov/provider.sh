@@ -24,7 +24,7 @@ function set_kind_params() {
 }
 
 function print_sriov_data() {
-    nodes=$(_kubectl get nodes -o=custom-columns=:.metadata.name | awk NF)
+    nodes="$(_kubectl get nodes -o=custom-columns=:.metadata.name | awk NF)"
     for node in $nodes; do
         if [[ ! "$node" =~ .*"control-plane".* ]]; then
             echo "Node: $node"
@@ -53,7 +53,7 @@ function up() {
     # In order to support live migration on containerized cluster we need to workaround
     # Libvirt uuid check for source and target nodes.
     # To do that we create PodPreset that mounts fake random product_uuid to virt-launcher pods,
-    # and kubevirt SRIOV tests namespace for the PodPrest beforhand.
+    # and kubevirt SRIOV tests namespace for the PodPreset beforehand.
     podpreset::expose_unique_product_uuid_per_node "$CLUSTER_NAME" "$SRIOV_TESTS_NS"
 
     print_sriov_data

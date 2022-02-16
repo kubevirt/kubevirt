@@ -24,12 +24,12 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -124,5 +124,5 @@ func JSONEqual(a, b io.Reader) (bool, error) {
 	if err := d.Decode(&j2); err != nil {
 		return false, err
 	}
-	return reflect.DeepEqual(j2, j), nil
+	return equality.Semantic.DeepEqual(j2, j), nil
 }

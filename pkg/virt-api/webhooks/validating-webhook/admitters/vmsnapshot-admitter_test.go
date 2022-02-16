@@ -33,8 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -45,7 +45,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	vmName := "vm"
 	apiGroup := "kubevirt.io"
 
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&corev1.ConfigMap{})
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {
@@ -62,13 +62,26 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{
-				Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featureGate},
+						},
+					},
+				},
 			})
 		}
-
 		disableFeatureGates := func() {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{})
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: make([]string, 0),
+						},
+					},
+				},
+			})
 		}
 
 		BeforeEach(func() {

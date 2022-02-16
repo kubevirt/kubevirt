@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -41,11 +42,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
@@ -224,11 +227,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
 
-			tests.BeforeAll(func() {
-				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
-			})
-
 			BeforeEach(func() {
+				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+
 				requiredNumberOfCpus := 3
 				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
 					fmt.Sprintf("Test requires %d cpus, but only %d available!", requiredNumberOfCpus, availableNumberOfCPUs))
@@ -984,17 +985,19 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					},
 				}
 
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start vmi")
-				tests.WaitForSuccessfulVMIStart(vmi)
+				By("Creating a VMI")
+				Eventually(func() bool {
+					createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred(), "should create vmi")
 
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
-				Expect(vmi.Spec.Domain.Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(512)))
-				Expect(vmi.Spec.Domain.Resources.Requests.Cpu().MilliValue()).To(Equal(int64(500)))
-				Expect(vmi.Spec.Domain.Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
+					err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(createdVMI.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred(), "should delete vmi")
 
-				Expect(err).ToNot(HaveOccurred())
+					return reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega), int64(64)) &&
+						reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega), int64(512)) &&
+						reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Requests.Cpu().MilliValue(), int64(500)) &&
+						reflect.DeepEqual(createdVMI.Spec.Domain.Resources.Limits.Cpu().MilliValue(), int64(1000))
+				}, 30*time.Second, time.Second).Should(BeTrue())
 			})
 		})
 
@@ -1694,13 +1697,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			return updatedCPUName
 		}
 
-		// Collect capabilities once for all tests
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			nodes = util.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-		})
 
-		BeforeEach(func() {
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		})
 
@@ -1909,15 +1909,26 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", func() {
+		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
 			// create a new PV and PVC (PVs can't be reused)
-			tests.CreateBlockVolumePvAndPvc("1Gi")
+			dataVolume = tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 		}, 60)
+
+		AfterEach(func() {
+			err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
 			vmi := tests.NewRandomVMI()
@@ -1976,7 +1987,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 
 			// disk[1]:  Block, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
+			tests.AddPVCDisk(vmi, "block-pvc", "virtio", dataVolume.Name)
 
 			// disk[2]: File, not-sparsed, no user-input, cache=none
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
@@ -2027,11 +2038,16 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", func() {
+		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", func() {
 			By("creating a block volume")
-			tests.CreateBlockVolumePvAndPvc("1Gi")
+			dataVolume := tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
-			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+
+			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 			By("setting the disk to use custom block sizes")
 			logicalSize := uint(16384)
@@ -2059,11 +2075,16 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", func() {
+		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices", func() {
 			By("creating a block volume")
-			tests.CreateBlockVolumePvAndPvc("1Gi")
+			dataVolume := tests.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
-			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(ThisDV(dataVolume), 240).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+
+			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
@@ -2360,6 +2381,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
+
+				By("Check values in domain XML")
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
+				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
+				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")

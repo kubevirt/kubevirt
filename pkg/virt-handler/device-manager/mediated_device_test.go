@@ -12,10 +12,11 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -35,12 +36,14 @@ var _ = Describe("Mediated Device", func() {
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var ctrl *gomock.Controller
 	var fakeSupportedTypesPath string
+	var clientTest *fake.Clientset
 	resourceNameToTypeName := func(rawName string) string {
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		return typeNameStr
 	}
 	BeforeEach(func() {
+		clientTest = fake.NewSimpleClientset()
 		By("creating a temporary fake mdev directory tree")
 		// create base mdev dir instead of /sys/bus/mdev/devices
 		fakeMdevBasePath, err := ioutil.TempDir("/tmp", "mdevs")
@@ -180,10 +183,10 @@ var _ = Describe("Mediated Device", func() {
 					Phase: v1.KubeVirtPhaseDeploying,
 				},
 			}
-			fakeClusterConfig, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 			By("creating an empty device controller")
-			deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig)
+			deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig, clientTest.CoreV1())
 			deviceController.devicePlugins = make(map[string]ControlledDevice)
 
 			By("adding a host device to the cluster config")

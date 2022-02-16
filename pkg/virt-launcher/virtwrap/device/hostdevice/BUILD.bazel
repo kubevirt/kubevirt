@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "addresspool.go",
         "hostdev.go",
+        "hotplug.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice",
     visibility = ["//visibility:public"],
@@ -12,7 +13,9 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
 
@@ -22,13 +25,16 @@ go_test(
         "addresspool_test.go",
         "hostdev_test.go",
         "hostdevice_suite_test.go",
+        "hotplug_test.go",
     ],
     deps = [
         ":go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )

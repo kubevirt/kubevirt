@@ -34,6 +34,8 @@ import (
 	log2 "github.com/go-kit/kit/log"
 )
 
+const timestampNow = "2006-01-02T15:04:05.000000Z"
+
 type logLevel int32
 
 const (
@@ -388,7 +390,7 @@ func doLogf(skipFrames int, severity logLevel, format string, args ...interface{
 	_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
 	logger.Log(
 		"level", logLevelNames[severity],
-		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"timestamp", now.Format(timestampNow),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 		"component", glogComponent,
 		"msg", fmt.Sprintf(format, args...),
@@ -403,7 +405,7 @@ func doLog(skipFrames int, severity logLevel, args ...interface{}) {
 	_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
 	logger.Log(
 		"level", logLevelNames[severity],
-		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"timestamp", now.Format(timestampNow),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 		"component", glogComponent,
 		"msg", fmt.Sprint(args...),
@@ -417,7 +419,7 @@ func doLogPos(severity logLevel, fileName string, lineNumber int, args ...interf
 	now := time.Now()
 	logger.Log(
 		"level", logLevelNames[severity],
-		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"timestamp", now.Format(timestampNow),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 		"component", glogComponent,
 		"msg", fmt.Sprint(args...),

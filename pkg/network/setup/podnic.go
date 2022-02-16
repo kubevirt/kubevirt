@@ -25,7 +25,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -270,14 +270,16 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 			l.handler,
 			l.podInterfaceName,
 			l.vmi.Spec.Domain.Devices.Interfaces,
-			l.vmiSpecIface)
+			l.vmiSpecIface,
+			l.vmi.Spec.Subdomain)
 	} else if l.vmiSpecIface.Masquerade != nil {
 		dhcpConfigurator = dhcpconfigurator.NewMasqueradeConfigurator(
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
 			l.handler,
 			l.vmiSpecIface,
 			l.vmiSpecNetwork,
-			l.podInterfaceName)
+			l.podInterfaceName,
+			l.vmi.Spec.Subdomain)
 	}
 	return dhcpConfigurator
 }

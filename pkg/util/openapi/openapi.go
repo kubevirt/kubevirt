@@ -16,8 +16,7 @@ import (
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	"kubevirt.io/client-go/api"
 )
 
 type Validator struct {
@@ -109,9 +108,8 @@ func createConfig() *common.Config {
 			},
 		},
 		GetDefinitions: func(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
-			m := v1.GetOpenAPIDefinitions(ref)
-			m2 := snapshotv1.GetOpenAPIDefinitions(ref)
-			for k, v := range m2 {
+			m := api.GetOpenAPIDefinitions(ref)
+			for k, v := range m {
 				if _, ok := m[k]; !ok {
 					m[k] = v
 				}

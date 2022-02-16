@@ -27,10 +27,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	k6tv1 "kubevirt.io/client-go/api/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
+
+const none = "<none>"
 
 var (
 
@@ -119,9 +121,9 @@ func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) 
 func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
 	vmc := vmiCountMetric{
 		Phase:    strings.ToLower(string(vmi.Status.Phase)),
-		OS:       "<none>",
-		Workload: "<none>",
-		Flavor:   "<none>",
+		OS:       none,
+		Workload: none,
+		Flavor:   none,
 		NodeName: vmi.Status.NodeName,
 	}
 	vmc.UpdateFromAnnotations(vmi.Annotations)

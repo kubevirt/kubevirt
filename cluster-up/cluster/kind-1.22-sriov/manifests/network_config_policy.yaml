@@ -1,0 +1,16 @@
+apiVersion: sriovnetwork.openshift.io/v1
+kind: SriovNetworkNodePolicy
+metadata:
+  name: policy-1
+  namespace: sriov-network-operator
+spec:
+  deviceType: vfio-pci
+  mtu: 1500
+  nodeSelector:
+    sriov: "true"
+  numVfs: $NODE_PF_NUM_VFS
+  nicSelector:
+    pfNames:
+      - $NODE_PF
+  priority: 90
+  resourceName: sriov_net

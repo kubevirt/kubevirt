@@ -26,18 +26,16 @@ go_library(
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
-        "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
         "//pkg/virt-handler/node-labeller:go_default_library",
         "//pkg/virt-handler/node-labeller/api:go_default_library",
-        "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-handler/rest:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/watchdog:go_default_library",
         "//staging/src/github.com/golang/glog:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
@@ -131,6 +129,25 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
+pkg_tar(
+    name = "nsswitch-tar",
+    srcs = [
+        ":nsswitch.conf",
+    ],
+    mode = "0644",
+    package_dir = "/etc",
+)
+
+pkg_tar(
+    name = "nftables-tar",
+    srcs = [
+        ":ipv4-nat.nft",
+        ":ipv6-nat.nft",
+    ],
+    mode = "0644",
+    package_dir = "/etc/nftables",
+)
+
 container_image(
     name = "version-container",
     directory = "/",
@@ -141,10 +158,14 @@ container_image(
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":passwd-tar",
+            ":nsswitch-tar",
+            ":nftables-tar",
             "//rpm:handlerbase_aarch64",
         ],
         "//conditions:default": [
             ":passwd-tar",
+            ":nsswitch-tar",
+            ":nftables-tar",
             "//rpm:handlerbase_x86_64",
         ],
     }),

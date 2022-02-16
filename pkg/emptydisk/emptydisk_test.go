@@ -10,7 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("EmptyDisk", func() {
@@ -50,7 +52,7 @@ var _ = Describe("EmptyDisk", func() {
 
 	Describe("a vmi with emptyDisks attached", func() {
 		It("should get a new qcow2 image if not already present", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			AppendEmptyDisk(vmi, "testdisk")
 			err := creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -60,7 +62,7 @@ var _ = Describe("EmptyDisk", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should not override ", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			AppendEmptyDisk(vmi, "testdisk")
 			err := creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -73,7 +75,7 @@ var _ = Describe("EmptyDisk", func() {
 			Expect(NewEmptyDiskCreator().FilePathForVolumeName("volume1")).ToNot(Equal(NewEmptyDiskCreator().FilePathForVolumeName("volume2")))
 		})
 		It("should leave pre-existing disks alone", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			AppendEmptyDisk(vmi, "testdisk")
 			ioutil.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
 			err := creator.CreateTemporaryDisks(vmi)

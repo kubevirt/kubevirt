@@ -27,12 +27,29 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var RunPerfTests = false
+var (
+	RunPerfTests                bool
+	cyclicTestDurationInSeconds uint
+	RunPerfRealtime             bool
+	realtimeThreshold           uint
+)
 
 func init() {
 	flag.BoolVar(&RunPerfTests, "performance-test", false, "run performance tests. If false, all performance tests will be skiped.")
 	if ptest, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_E2E_PERF_TEST")); ptest {
 		RunPerfTests = true
+	}
+	flag.BoolVar(&RunPerfRealtime, "realtime-test", false, "run realtime performance tests only.")
+	if run, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_E2E_REALTIME_PERF_TEST")); run {
+		RunPerfRealtime = true
+	}
+	flag.UintVar(&cyclicTestDurationInSeconds, "cyclictest-duration", 60, "time in seconds to run the cyclic test (for realtime performance)")
+	if duration, err := strconv.ParseUint(os.Getenv("KUBEVIRT_E2E_CYCLIC_DURATION_IN_SECONDS"), 10, 64); err != nil {
+		cyclicTestDurationInSeconds = uint(duration)
+	}
+	flag.UintVar(&realtimeThreshold, "realtime-threshold", 40, "sets the threshold for maximum cpu latency time in microseconds (for realtime performance)")
+	if threshold, err := strconv.ParseUint(os.Getenv("KUBEVIRT_E2E_REALTIME_LATENCY_THRESHOLD_IN_MICROSECONDS"), 10, 64); err != nil {
+		realtimeThreshold = uint(threshold)
 	}
 }
 
@@ -42,4 +59,16 @@ func SIGDescribe(text string, body func()) bool {
 
 func FSIGDescribe(text string, body func()) bool {
 	return FDescribe("[sig-performance][Serial] "+text, body)
+}
+
+func skipIfNoPerformanceTests() {
+	if !RunPerfTests {
+		Skip("Performance tests are not enabled.")
+	}
+}
+
+func skipIfNoRealtimePerformanceTests() {
+	if !RunPerfRealtime {
+		Skip("Realtime performance tests are not enabled")
+	}
 }

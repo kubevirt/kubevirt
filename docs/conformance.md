@@ -14,8 +14,8 @@ anything outside of the explicitly created test namespaces by the binary.
 To execute the conformance tests for a released conformance test suite, run:
 
 ```bash
-VERSION=v0.33.0
-sonobuoy run --plugin https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/conformance.yaml
+KUBEVIRT_VERSION=v0.41.0
+sonobuoy run --plugin https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/conformance.yaml
 ```
 
 The execution can be monitored using the `status` command:
@@ -65,7 +65,19 @@ make conformance
 To run without outside connectivity tests add the argument:
 
 ```bash
-make conformance SKIP_OUTSIDE_CONN_TESTS=true
+SKIP_OUTSIDE_CONN_TESTS=true make conformance
+```
+
+To focus on specific tests pass KUBEVIRT_E2E_FOCUS argument:
+
+```bash
+KUBEVIRT_E2E_FOCUS=sig-network make conformance
+```
+
+To use on specific images tag on test suite override DOCKER_TAG argument:
+
+```bash
+DOCKER_TAG=mybuild make conformance
 ```
 
 ## Generate manifests

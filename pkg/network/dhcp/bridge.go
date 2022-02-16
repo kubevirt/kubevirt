@@ -3,7 +3,7 @@ package dhcp
 import (
 	"github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
@@ -16,6 +16,7 @@ type BridgeConfigGenerator struct {
 	launcherPID      string
 	vmiSpecIfaces    []v1.Interface
 	vmiSpecIface     *v1.Interface
+	subdomain        string
 }
 
 func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
@@ -40,6 +41,7 @@ func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 		return nil, err
 	}
 	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
+	dhcpConfig.Subdomain = d.subdomain
 
 	return dhcpConfig, nil
 }

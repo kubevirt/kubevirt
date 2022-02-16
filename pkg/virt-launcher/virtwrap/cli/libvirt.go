@@ -459,12 +459,15 @@ type VirDomain interface {
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
 	Suspend() error
 	Resume() error
+	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
+	GetBlockInfo(disk string, flags uint32) (*libvirt.DomainBlockInfo, error)
 	AttachDevice(xml string) error
 	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DetachDevice(xml string) error
 	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
+	Reboot(flags libvirt.DomainRebootFlagValues) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)

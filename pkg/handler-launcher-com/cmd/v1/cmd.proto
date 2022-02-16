@@ -7,8 +7,9 @@ service Cmd {
   rpc SyncVirtualMachine(VMIRequest) returns (Response) {}
   rpc PauseVirtualMachine(VMIRequest) returns (Response) {}
   rpc UnpauseVirtualMachine(VMIRequest) returns (Response) {}
-  rpc FreezeVirtualMachine(VMIRequest) returns (Response) {}
+  rpc FreezeVirtualMachine(FreezeRequest) returns (Response) {}
   rpc UnfreezeVirtualMachine(VMIRequest) returns (Response) {}
+  rpc SoftRebootVirtualMachine(VMIRequest) returns (Response) {}
   rpc ShutdownVirtualMachine(VMIRequest) returns (Response) {}
   rpc KillVirtualMachine(VMIRequest) returns (Response) {}
   rpc DeleteVirtualMachine(VMIRequest) returns (Response) {}
@@ -85,6 +86,7 @@ message VirtualMachineOptions {
   repeated string PreallocatedVolumes = 3;
   Topology topology = 4;
   map<string, DiskInfo> DisksInfo = 5;
+  bool ExpandDisksEnabled = 6;
 }
 
 message VMIRequest {
@@ -149,4 +151,9 @@ message GuestPingRequest {
 
 message GuestPingResponse {
   Response response = 1;
+}
+
+message FreezeRequest {
+  VMI vmi = 1;
+  int32 unfreezeTimeoutSeconds = 2;
 }

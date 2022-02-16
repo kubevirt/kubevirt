@@ -41,7 +41,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
 )
@@ -150,6 +151,7 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
+		Header: map[string][]string{},
 	}
 
 	return req, nil
@@ -232,26 +234,52 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 	}
 }
 
-func (v *vmis) Freeze(name string) error {
-	log.Log.Infof("Freeze VMI")
+func (v *vmis) Freeze(name string, unfreezeTimeout time.Duration) error {
+	log.Log.Infof("Freeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "freeze")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+
+	freezeUnfreezeTimeout := &v1.FreezeUnfreezeTimeout{
+		UnfreezeTimeout: &metav1.Duration{
+			Duration: unfreezeTimeout,
+		},
+	}
+
+	JSON, err := json.Marshal(freezeUnfreezeTimeout)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
 func (v *vmis) Unfreeze(name string) error {
-	log.Log.Infof("Unfreeze VMI")
+	log.Log.Infof("Unfreeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unfreeze")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Pause(name string) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
+func (v *vmis) SoftReboot(name string) error {
+	log.Log.Infof("SoftReboot VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "softreboot")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Unpause(name string) error {
+func (v *vmis) Pause(name string, pauseOptions *v1.PauseOptions) error {
+	body, err := json.Marshal(pauseOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+}
+
+func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
+	body, err := json.Marshal(unpauseOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
@@ -317,13 +345,14 @@ func (v *vmis) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Error()
 }
 
-func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource(subresources...).
 		Name(name).
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Body(data).
 		Do(context.Background()).
 		Into(result)

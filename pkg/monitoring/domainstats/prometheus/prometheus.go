@@ -32,7 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	k6tv1 "kubevirt.io/client-go/api/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
@@ -151,8 +151,8 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.TotalSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_used_total_bytes",
-			"The amount of memory in bytes used by the domain.",
+			"kubevirt_vmi_memory_domain_total_bytes",
+			"The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file.",
 			prometheus.GaugeValue,
 			float64(mem.Total)*1024,
 		)
@@ -561,11 +561,6 @@ func NewPrometheusScraper(ch chan<- prometheus.Metric) *prometheusScraper {
 
 type prometheusScraper struct {
 	ch chan<- prometheus.Metric
-}
-
-type vmiStatsInfo struct {
-	vmiSpec  *k6tv1.VirtualMachineInstance
-	vmiStats *stats.DomainStats
 }
 
 func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {

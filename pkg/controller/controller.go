@@ -35,9 +35,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -61,8 +61,8 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.FieldSelector = fieldSelector.String()
 		options.LabelSelector = labelSelector.String()
+		options.Watch = true
 		return c.Get().
-			Prefix("watch").
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
@@ -124,6 +124,14 @@ func VirtualMachineInstanceKeys(vmis []*v1.VirtualMachineInstance) []string {
 	keys := []string{}
 	for _, vmi := range vmis {
 		keys = append(keys, VirtualMachineInstanceKey(vmi))
+	}
+	return keys
+}
+
+func VirtualMachineKeys(vms []*v1.VirtualMachine) []string {
+	keys := []string{}
+	for _, vm := range vms {
+		keys = append(keys, VirtualMachineKey(vm))
 	}
 	return keys
 }

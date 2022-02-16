@@ -3,11 +3,11 @@ package disruptionbudget
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -16,13 +16,15 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 )
+
+const deleteNotifFail = "Failed to process delete notification"
 
 const (
 	// FailedCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget failed.
@@ -150,12 +152,12 @@ func (c *DisruptionBudgetController) enqueueVMI(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
 		}
 	}
@@ -204,7 +206,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 	}
 
 	if curPodDisruptionBudget.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
 		// having a pdb marked for deletion is enough to count as a deletion expectation
 		c.deletePodDisruptionBudget(curPodDisruptionBudget)
 		if labelChanged {
@@ -216,7 +218,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 
 	curControllerRef := v1.GetControllerOf(curPodDisruptionBudget)
 	oldControllerRef := v1.GetControllerOf(oldPodDisruptionBudget)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPodDisruptionBudget.Namespace, oldControllerRef); vmi != nil {
@@ -245,12 +247,12 @@ func (c *DisruptionBudgetController) deletePodDisruptionBudget(obj interface{}) 
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
 		pdb, ok = tombstone.Obj.(*v1beta1.PodDisruptionBudget)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
 		}
 	}

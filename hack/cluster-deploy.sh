@@ -20,8 +20,10 @@
 set -ex pipefail
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
+KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
 
 source hack/common.sh
+# shellcheck disable=SC1090
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
@@ -34,8 +36,8 @@ function dump_kubevirt() {
 
 function _deploy_infra_for_tests() {
     if [[ "$KUBEVIRT_DEPLOY_CDI" == "false" ]]; then
-        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-* ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
-            ${MANIFESTS_OUT_DIR}/testing/local-block-storage.yaml ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
+        rm -f ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
+            ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
     fi
 
     # Deploy infra for testing first
@@ -43,25 +45,22 @@ function _deploy_infra_for_tests() {
 }
 
 function _ensure_cdi_deployment() {
-    _kubectl apply -f - <<EOF
----
-apiVersion: cdi.kubevirt.io/v1beta1
-kind: CDI
-metadata:
-  name: ${cdi_namespace}
-spec:
-  config:
-    featureGates:
-    - HonorWaitForFirstConsumer
-    insecureRegistries:
-    - registry:5000
-    - fakeregistry:5000
-EOF
+    # enable featuregate
+    _kubectl patch cdi ${cdi_namespace:?} --type merge -p '{"spec": {"config": {"featureGates": [ "HonorWaitForFirstConsumer" ]}}}'
+
+    # add insecure registries
+    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"insecureRegistries": [ "registry:5000", "fakeregistry:5000" ]}}}'
 
     # Configure uploadproxy override for virtctl imageupload
     host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
+}
+
+function configure_prometheus() {
+    if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && _kubectl get crd prometheuses.monitoring.coreos.com; then
+        _kubectl patch prometheus k8s -n monitoring --type=json -p '[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {"kubevirt.io": ""}}}]'
+    fi
 }
 
 trap dump_kubevirt EXIT
@@ -74,23 +73,8 @@ _kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ${namespace}
+  name: ${namespace:?}
 EOF
-
-if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/external-snapshotter
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/common.yaml
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/operator.yaml
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/cluster.yaml
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/pool.yaml
-
-    # wait for ceph
-    until _kubectl get cephblockpools -n rook-ceph replicapool -o jsonpath='{.status.phase}' | grep Ready; do
-        ((count++)) && ((count == 120)) && echo "Ceph not ready in time" && exit 1
-        echo "Error waiting for Ceph to be Ready, sleeping 5s and retrying"
-        sleep 5
-    done
-fi
 
 if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
     # Don't install CDI and loopback devices it's crashing with dind because loopback devices are shared with the host
@@ -146,5 +130,7 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m
 done
+
+configure_prometheus
 
 echo "Done $0"

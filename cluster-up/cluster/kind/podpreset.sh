@@ -1,10 +1,11 @@
  #!/usr/bin/env bash
 
-set -e
+set -ex
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
-VALIDATE_PODPRESET_TIMEOUT="60"
+VALIDATE_PODPRESET_TIMEOUT="3m"
+SYSTEM_CONTAINERS_READY_TIMEOUT="8m"
 
 function podpreset::enable_admission_plugin() {
     local -r cluster_name=$1
@@ -20,7 +21,7 @@ function podpreset::validate_admission_plugin_is_enabled() {
     local -r wait_time=$2
     local -r control_plane_container="$cluster_name-control-plane"
 
-    if ! timeout "${wait_time}s" bash <<EOT
+    if ! timeout "${wait_time}" bash <<EOT
 function is_admission_plugin_enabled() {
     docker top $control_plane_container |
         grep -Po "kube-apiserver.*--enable-admission-plugins=.*\KPodPreset"
@@ -35,6 +36,11 @@ EOT
         container:  $control_plane_container" >&2
         return 1
     fi
+}
+
+function podpreset::wait_for_kube_system_components_ready() {
+    local -r timeout=$1
+    until _kubectl wait --for=condition=Ready pod --all -n kube-system --timeout "${timeout}"; do sleep 1 ;done
 }
 
 function podpreset::create_virt_launcher_fake_product_uuid_podpreset() {
@@ -53,5 +59,6 @@ function podpreset::expose_unique_product_uuid_per_node() {
 
     podpreset::enable_admission_plugin "$cluster_name"
     podpreset::validate_admission_plugin_is_enabled "$cluster_name" "$VALIDATE_PODPRESET_TIMEOUT"
+    podpreset::wait_for_kube_system_components_ready "$SYSTEM_CONTAINERS_READY_TIMEOUT"
     podpreset::create_virt_launcher_fake_product_uuid_podpreset "$namespace"
 }

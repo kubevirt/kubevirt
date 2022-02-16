@@ -7,7 +7,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbInformer cache.SharedIndexInformer) ([]*v1beta1.PodDisruptionBudget, error) {
@@ -29,6 +29,15 @@ func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbInformer cache.SharedInde
 
 func IsPDBFromOldMigrationController(pdb *v1beta1.PodDisruptionBudget) bool {
 	// The pdb might be from an old migration-controller that used to create 2-pdbs per migration
-	_, isOld := pdb.ObjectMeta.Labels[virtv1.MigrationNameLabel]
-	return isOld && strings.HasPrefix(pdb.Name, "kubevirt-migration-pdb-")
+	_, migrationLabelExists := pdb.ObjectMeta.Labels[virtv1.MigrationNameLabel]
+	if migrationLabelExists && strings.HasPrefix(pdb.Name, "kubevirt-migration-pdb-") {
+		return true
+	}
+
+	owner := v1.GetControllerOf(pdb)
+	ownedByVMI := owner != nil && owner.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind
+	if ownedByVMI && !migrationLabelExists && pdb.Spec.MinAvailable.IntValue() == 2 {
+		return true
+	}
+	return false
 }

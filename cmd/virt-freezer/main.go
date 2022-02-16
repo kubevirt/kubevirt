@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -49,6 +49,7 @@ func main() {
 	unfreeze := pflag.Bool("unfreeze", false, "Freeze VM")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
+	unfreezeTimeoutSeconds := pflag.Int32("unfreezeTimeoutSeconds", 300, "Timeout in seconds to automatically unfreeze the VirtualMachineInstance")
 
 	pflag.Parse()
 
@@ -75,7 +76,7 @@ func main() {
 	}
 
 	if *freeze {
-		err = client.FreezeVirtualMachine(vmi)
+		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
 		if err != nil {
 			log.Log.Reason(err).Error("Freezeing VMI failed")
 			os.Exit(1)

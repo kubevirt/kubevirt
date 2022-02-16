@@ -24,21 +24,19 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("VirtualMachine Mutator", func() {
 	var vm *v1.VirtualMachine
-	var configMapInformer cache.SharedIndexInformer
+	var kvInformer cache.SharedIndexInformer
 	var mutator *VMsMutator
 
 	machineTypeFromConfig := "pc-q35-3.0"
@@ -82,7 +80,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 
 		mutator = &VMsMutator{}
-		mutator.ClusterConfig, configMapInformer, _, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	})
 
 	It("should apply defaults on VM create", func() {
@@ -97,19 +95,24 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	})
 
 	It("should apply configurable defaults on VM create", func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{
-				virtconfig.MachineTypeKey: machineTypeFromConfig,
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType: machineTypeFromConfig,
+				},
 			},
 		})
+
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 	})
 
 	It("should not override specified properties with defaults on VM create", func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{
-				virtconfig.MachineTypeKey: machineTypeFromConfig,
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType: machineTypeFromConfig,
+				},
 			},
 		})
 

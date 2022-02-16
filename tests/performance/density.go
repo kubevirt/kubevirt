@@ -29,7 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kvv1 "kubevirt.io/client-go/api/v1"
+	kvv1 "kubevirt.io/api/core/v1"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -46,9 +46,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	)
 
 	BeforeEach(func() {
-		if !RunPerfTests {
-			Skip("Performance tests are not enabled.")
-		}
+		skipIfNoPerformanceTests()
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()

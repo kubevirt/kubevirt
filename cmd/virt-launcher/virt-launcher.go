@@ -42,7 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/util/retry"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
@@ -65,7 +65,7 @@ import (
 )
 
 const defaultStartTimeout = 3 * time.Minute
-const httpRequestTimeout = 10 * time.Second
+const httpRequestTimeout = 2 * time.Second
 
 func init() {
 	// must registry the event impl before doing anything else.
@@ -459,9 +459,9 @@ func main() {
 
 		if err != nil {
 			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
+		} else {
+			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
 		}
-
-		log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
 	}
 
 	finalShutdownCallback := func(pid int) {

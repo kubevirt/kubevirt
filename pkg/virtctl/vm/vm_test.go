@@ -8,13 +8,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	corev1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 
 	"k8s.io/client-go/kubernetes/fake"
@@ -35,7 +36,9 @@ var _ = Describe("VirtualMachine", func() {
 	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
 
-	startOpts := v1.StartOptions{Paused: false}
+	startOpts := v1.StartOptions{Paused: false, DryRun: nil}
+	stopOpts := v1.StopOptions{DryRun: nil}
+	restartOpts := v1.RestartOptions{DryRun: nil}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -81,7 +84,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = &running
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Stop(vm.Name).Return(nil).Times(1)
+			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("stop", vmName)
 			Expect(cmd.Execute()).To(BeNil())
@@ -92,7 +95,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = &notRunning
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Stop(vm.Name).Return(nil).Times(1)
+			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("stop", vmName)
 			Expect(cmd.Execute()).To(BeNil())
@@ -115,7 +118,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategyAlways
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Stop(vm.Name).Return(nil).Times(1)
+				vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 				cmd := tests.NewVirtctlCommand("stop", vmName)
 				Expect(cmd.Execute()).To(BeNil())
@@ -126,7 +129,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategyHalted
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Stop(vm.Name).Return(nil).Times(1)
+				vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
 
 				cmd := tests.NewVirtctlCommand("stop", vmName)
 				Expect(cmd.Execute()).To(BeNil())
@@ -137,7 +140,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm := kubecli.NewMinimalVM(vmName)
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{Paused: true}).Return(nil).Times(1)
+				vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{Paused: true, DryRun: nil}).Return(nil).Times(1)
 
 				cmd := tests.NewVirtctlCommand("start", vmName, "--paused")
 				Expect(cmd.Execute()).To(BeNil())
@@ -156,15 +159,23 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("with migrate VM cmd", func() {
-		It("should migrate vm", func() {
+		table.DescribeTable("should migrate a vm according to options", func(migrateOptions *v1.MigrateOptions) {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Migrate(vm.Name).Return(nil).Times(1)
+			vmInterface.EXPECT().Migrate(vm.Name, migrateOptions).Return(nil).Times(1)
 
-			cmd := tests.NewVirtctlCommand("migrate", vmName)
+			var cmd *cobra.Command
+			if len(migrateOptions.DryRun) == 0 {
+				cmd = tests.NewVirtctlCommand("migrate", vmName)
+			} else {
+				cmd = tests.NewVirtctlCommand("migrate", "--dry-run", vmName)
+			}
 			Expect(cmd.Execute()).To(BeNil())
-		})
+		},
+			table.Entry("with default", &v1.MigrateOptions{}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 	})
 
 	Context("with restart VM cmd", func() {
@@ -172,7 +183,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Restart(vm.Name).Return(nil).Times(1)
+			vmInterface.EXPECT().Restart(vm.Name, &restartOpts).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("restart", vmName)
 			Expect(cmd.Execute()).To(BeNil())
@@ -184,7 +195,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategyManual
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Restart(vm.Name).Return(nil).Times(1)
+				vmInterface.EXPECT().Restart(vm.Name, &restartOpts).Return(nil).Times(1)
 
 				cmd := tests.NewVirtctlCommand("restart", vmName)
 				Expect(cmd.Execute()).To(BeNil())
@@ -195,7 +206,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().ForceRestart(vm.Name, 0).Return(nil).Times(1)
+			gracePeriod := int64(0)
+			restartOptions := v1.RestartOptions{
+				GracePeriodSeconds: &gracePeriod,
+				DryRun:             nil,
+			}
+			vmInterface.EXPECT().ForceRestart(vm.Name, &restartOptions).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
 			Expect(cmd.Execute()).To(BeNil())
@@ -205,11 +221,53 @@ var _ = Describe("VirtualMachine", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().ForceStop(vm.Name, 0).Return(nil).Times(1)
+			gracePeriod := int64(0)
+			stopOptions := v1.StopOptions{
+				GracePeriod: &gracePeriod,
+				DryRun:      nil,
+			}
+			vmInterface.EXPECT().ForceStop(vm.Name, &stopOptions).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("stop", vmName, "--force", "--grace-period=0")
 			Expect(cmd.Execute()).To(BeNil())
 		})
+	})
+
+	Context("with dry-run parameter", func() {
+
+		It("should not start VM", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+			vm.Spec.Running = &notRunning
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("start", vmName, "--dry-run")
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
+		It("should not restart VM", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+			vm.Spec.Running = &running
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().Restart(vm.Name, &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("restart", vmName, "--dry-run")
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
+		It("should not stop VM", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+			vm.Spec.Running = &running
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().Stop(vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("stop", vmName, "--dry-run")
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
 	})
 
 	Context("guest agent", func() {
@@ -376,8 +434,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		table.DescribeTable("should fail with missing required or invalid parameters", func(commandName, errorString string, args ...string) {
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, commandName)
+			commandAndArgs := []string{commandName}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
 			res := cmdAdd()
@@ -391,15 +448,21 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("removevolume name, missing required volume-name", "removevolume", "required flag(s)", "testvmi"),
 			table.Entry("removevolume name, invalid extra parameter", "removevolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
 		)
-
-		It("addvolume should fail when no source is found", func() {
+		table.DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {
 			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-			cmd := tests.NewVirtctlCommand("addvolume", "testvmi", "--volume-name=testvolume")
-			res := cmd.Execute()
+			commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume"}
+			if isDryRun {
+				commandAndArgs = append(commandAndArgs, "--dry-run")
+			}
+			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
 			Expect(res).ToNot(BeNil())
 			Expect(res.Error()).To(ContainSubstring("Volume testvolume is not a DataVolume or PersistentVolumeClaim"))
-		})
+		},
+			table.Entry("with default", false),
+			table.Entry("with dry-run arg", true),
+		)
 
 		table.DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, useDv bool), args ...string) {
 			if commandName == "addvolume" {
@@ -412,31 +475,44 @@ var _ = Describe("VirtualMachine", func() {
 				}
 			}
 			expectFunc(vmiName, volumeName, useDv)
-			commandAndArgs := make([]string, 0)
-			commandAndArgs = append(commandAndArgs, commandName)
-			commandAndArgs = append(commandAndArgs, vmiName)
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf("--volume-name=%s", volumeName))
+			commandAndArgs := []string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}
 			commandAndArgs = append(commandAndArgs, args...)
 			cmd := tests.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(BeNil())
 		},
-			table.Entry("addvolume dv, no persist shoud call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
-			table.Entry("addvolume pvc, no persist shoud call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
-			table.Entry("addvolume dv, with persist shoud call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist"),
-			table.Entry("addvolume pvc, with persist shoud call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist"),
-			table.Entry("removevolume dv, no persist shoud call VMI endpoint", "removevolume", "testvmi", "testvolume", true, expectVMIEndpointRemoveVolume),
-			table.Entry("removevolume pvc, no persist shoud call VMI endpoint", "removevolume", "testvmi", "testvolume", false, expectVMIEndpointRemoveVolume),
-			table.Entry("removevolume dv, with persist shoud call VM endpoint", "removevolume", "testvmi", "testvolume", true, expectVMEndpointRemoveVolume, "--persist"),
-			table.Entry("removevolume pvc, with persist shoud call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist"),
+			table.Entry("addvolume dv, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
+			table.Entry("addvolume pvc, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
+			table.Entry("addvolume dv, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist"),
+			table.Entry("addvolume pvc, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist"),
+			table.Entry("removevolume dv, no persist should call VMI endpoint", "removevolume", "testvmi", "testvolume", true, expectVMIEndpointRemoveVolume),
+			table.Entry("removevolume pvc, no persist should call VMI endpoint", "removevolume", "testvmi", "testvolume", false, expectVMIEndpointRemoveVolume),
+			table.Entry("removevolume dv, with persist should call VM endpoint", "removevolume", "testvmi", "testvolume", true, expectVMEndpointRemoveVolume, "--persist"),
+			table.Entry("removevolume pvc, with persist should call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist"),
+
+			table.Entry("addvolume dv, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--dry-run"),
+			table.Entry("addvolume pvc, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume, "--dry-run"),
+			table.Entry("addvolume dv, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+			table.Entry("addvolume pvc, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+			table.Entry("removevolume dv, no persist with dry-run should call VMI endpoint", "removevolume", "testvmi", "testvolume", true, expectVMIEndpointRemoveVolume, "--dry-run"),
+			table.Entry("removevolume pvc, no persist with dry-run should call VMI endpoint", "removevolume", "testvmi", "testvolume", false, expectVMIEndpointRemoveVolume, "--dry-run"),
+			table.Entry("removevolume dv, with persist with dry-run should call VM endpoint", "removevolume", "testvmi", "testvolume", true, expectVMEndpointRemoveVolume, "--persist", "--dry-run"),
+			table.Entry("removevolume pvc, with persist with dry-run should call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist", "--dry-run"),
 		)
 
-		It("removevolume should report error if call returns error", func() {
+		table.DescribeTable("removevolume should report error if call returns error according to option", func(isDryRun bool) {
 			expectVMIEndpointRemoveVolumeError("testvmi", "testvolume")
-			cmd := tests.NewVirtctlCommand("removevolume", "testvmi", "--volume-name=testvolume")
-			res := cmd.Execute()
+			commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
+			if isDryRun {
+				commandAndArgs = append(commandAndArgs, "--dry-run")
+			}
+			cmdAdd := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
 			Expect(res).ToNot(BeNil())
 			Expect(res.Error()).To(ContainSubstring("error removing"))
-		})
+		},
+			table.Entry("with default", false),
+			table.Entry("with dry-run arg", true),
+		)
 	})
 
 	AfterEach(func() {

@@ -27,7 +27,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Ignition", func() {
@@ -54,7 +56,7 @@ var _ = Describe("Ignition", func() {
 
 	Describe("A new VirtualMachineInstance definition", func() {
 		Context("with ignition data", func() {
-			vmi = v1.NewMinimalVMI(vmName)
+			vmi = api.NewMinimalVMI(vmName)
 			It("should success", func() {
 				data := "{ \"ignition\": { \"config\": {}, \"version\": \"2.2.0\" }, \"networkd\": {}, \"storage\": { \"files\": [ { \"contents\": { \"source\": \"data:,test\", \"verification\": {} }, \"filesystem\": \"root\", \"mode\": 420, \"path\": \"/etc/hostname\" } ] }, \"systemd\": {} }"
 				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}

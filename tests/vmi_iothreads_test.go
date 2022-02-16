@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"encoding/xml"
-
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -36,14 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][sig-compute]IOThreads", func() {
+var _ = Describe("[sig-compute]IOThreads", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -61,7 +60,7 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 	Context("IOThreads Policies", func() {
 		var availableCPUs int
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 

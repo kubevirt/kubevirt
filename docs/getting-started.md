@@ -78,13 +78,13 @@ make cluster-up
 make cluster-sync
 ```
 
-This will create a virtual machine called `node01` which acts as node and master. To create
-more nodes which will register themselves on master, you can use the
-`KUBEVIRT_NUM_NODES` environment variable. This would create a master and one
+This will create a virtual machine called `node01` which acts as node and control-plane. To create
+more nodes which will register themselves on control-plane, you can use the
+`KUBEVIRT_NUM_NODES` environment variable. This would create a control-plane and one
 node:
 
 ```bash
-export KUBEVIRT_NUM_NODES=2 # schedulable master + one additional node
+export KUBEVIRT_NUM_NODES=2 # schedulable control-plane + one additional node
 make cluster-up
 ```
 
@@ -95,13 +95,6 @@ because default node memory size is set.
 ```bash
 export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
-```
-
-To skip CDI installation when running make cluster-sync locally please export KUBEVIRT_DEPLOY_CDI=false.
-
-```bash
-export KUBEVIRT_DEPLOY_CDI=false
-make cluster-sync
 ```
 
 **Note:** If you see the error below, 
@@ -156,8 +149,8 @@ You can get the names from following command:
 
 ```bash
 # cluster-up/kubectl.sh get nodes
-NAME     STATUS   ROLES           AGE   VERSION
-node01   Ready    master,worker   13s   v1.18.3
+NAME     STATUS   ROLES                   AGE   VERSION
+node01   Ready    control-plane,worker    13s   v1.18.3
 ```
 
 Then you can execute the following command to access the node:
@@ -248,7 +241,7 @@ Finally start a VMI called `vmi-ephemeral`:
     ./cluster-up/kubectl.sh -n kubevirt get pods
 ```
 
-This will start a VMI on master or one of the running nodes with a macvtap and a
+This will start a VMI on control-plane or one of the running nodes with a macvtap and a
 tap networking device attached.
 
 #### Example

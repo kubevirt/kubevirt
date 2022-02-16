@@ -6,7 +6,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 type PodIfaceState int
@@ -35,6 +35,7 @@ type DHCPConfig struct {
 	Mtu                 uint16
 	IPAMDisabled        bool
 	Gateway             net.IP
+	Subdomain           string
 }
 
 func (d DHCPConfig) String() string {

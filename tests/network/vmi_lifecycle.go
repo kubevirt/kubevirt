@@ -33,7 +33,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -55,8 +55,8 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 	})
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
-		Context("[Serial]when virt-handler is responsive", func() {
-			It("VMIs with Bridge Networking shouldn't fail after the kubelet restarts", func() {
+		Context("when virt-handler is responsive", func() {
+			It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", func() {
 				bridgeVMI := vmi
 				// Remove the masquerade interface to use the default bridge one
 				bridgeVMI.Spec.Domain.Devices.Interfaces = nil

@@ -1,9 +1,6 @@
 {
-    "storageClassLocal":       "local",
-    "storageClassHostPath":    "host-path",
-    "storageClassBlockVolume": "block-volume",
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
-    "manageStorageClasses":     false
+    "storageRWOFileSystem":    "local"
 }
 

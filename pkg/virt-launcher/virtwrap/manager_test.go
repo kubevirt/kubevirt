@@ -21,13 +21,17 @@ package virtwrap
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -38,11 +42,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	api2 "kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -78,11 +85,6 @@ var _ = Describe("Manager", func() {
 		defer os.RemoveAll(tmpDir)
 		ephemeraldiskutils.MockDefaultOwnershipManager()
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
-		setOSChosenMigrationProxyPort(true)
-	})
-
-	AfterSuite(func() {
-		setOSChosenMigrationProxyPort(false)
 	})
 
 	BeforeEach(func() {
@@ -91,6 +93,7 @@ var _ = Describe("Manager", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 		mockDomain.EXPECT().IsPersistent().AnyTimes().Return(true, nil)
+		mockDomain.EXPECT().GetBlockInfo(gomock.Any(), gomock.Any()).AnyTimes().Return(&libvirt.DomainBlockInfo{Capacity: 0}, nil)
 		mockDirectIOChecker = converter.NewMockDirectIOChecker(ctrl)
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
@@ -285,6 +288,60 @@ var _ = Describe("Manager", func() {
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
+		})
+		It("should freeze a VirtualMachineInstance", func() {
+			vmi := newVMI(testNamespace, testVmName)
+
+			expectedOutput := `{"return":"thawed"}`
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			err := manager.FreezeVMI(vmi, 0)
+			Expect(err).To(BeNil())
+		})
+		It("should unfreeze a VirtualMachineInstance", func() {
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			err := manager.UnfreezeVMI(vmi)
+			Expect(err).To(BeNil())
+		})
+		It("should automatically unfreeze after a timeout a frozen VirtualMachineInstance", func() {
+			vmi := newVMI(testNamespace, testVmName)
+
+			expectedOutput := `{"return":"thawed"}`
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			var unfreezeTimeout time.Duration = 3 * time.Second
+			err := manager.FreezeVMI(vmi, int32(unfreezeTimeout.Seconds()))
+			Expect(err).To(BeNil())
+			// wait for the unfreeze timeout
+			time.Sleep(unfreezeTimeout + 2*time.Second)
+		})
+		It("should freeze and unfreeze a VirtualMachineInstance without a trigger to the unfreeze timeout", func() {
+			vmi := newVMI(testNamespace, testVmName)
+
+			expectedOutput := `{"return":"thawed"}`
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			var unfreezeTimeout time.Duration = 3 * time.Second
+			err := manager.FreezeVMI(vmi, int32(unfreezeTimeout.Seconds()))
+			Expect(err).To(BeNil())
+			time.Sleep(time.Second)
+			err = manager.UnfreezeVMI(vmi)
+			Expect(err).To(BeNil())
+			// wait for the unfreeze timeout
+			time.Sleep(unfreezeTimeout + 2*time.Second)
 		})
 		It("should pause a VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
@@ -1207,7 +1264,7 @@ var _ = Describe("Manager", func() {
 				return false
 			}, 20*time.Second, 2).Should(BeTrue(), "migration cancelled result wasn't set")
 		})
-		It("migration failure should be finilized even if we missed status update", func() {
+		It("migration failure should be finalized even if we missed status update", func() {
 			isMigrationFailedSet := make(chan bool, 1)
 			defer close(isMigrationFailedSet)
 
@@ -1699,12 +1756,14 @@ var _ = Describe("Manager", func() {
 			It("should return merged list when interfaces exists on both the cache and argument", func() {
 				expectedResult := []api.InterfaceStatus{
 					{
-						Name: fakeInterfaces[0].Name,
-						Mac:  fakeInterfaces[0].Mac,
+						Name:       fakeInterfaces[0].Name,
+						Mac:        fakeInterfaces[0].Mac,
+						InfoSource: netvmispec.InfoSourceGuestAgent,
 					},
 					{
-						Name: fakeDomInterfaces[0].Alias.GetName(),
-						Mac:  fakeDomInterfaces[0].MAC.MAC,
+						Name:       fakeDomInterfaces[0].Alias.GetName(),
+						Mac:        fakeDomInterfaces[0].MAC.MAC,
+						InfoSource: netvmispec.InfoSourceDomain,
 					},
 				}
 				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
@@ -1716,8 +1775,9 @@ var _ = Describe("Manager", func() {
 			It("should return merged list when interfaces exists on the cache only", func() {
 				expectedResult := []api.InterfaceStatus{
 					{
-						Name: fakeInterfaces[0].Name,
-						Mac:  fakeInterfaces[0].Mac,
+						Name:       fakeInterfaces[0].Name,
+						Mac:        fakeInterfaces[0].Mac,
+						InfoSource: netvmispec.InfoSourceGuestAgent,
 					},
 				}
 				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
@@ -2052,6 +2112,7 @@ var _ = Describe("migratableDomXML", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockDomain.EXPECT().Free()
 	})
 	It("should remove only the kubevirt migration metadata", func() {
 		domXML := `<domain type="kvm" id="1">
@@ -2104,17 +2165,226 @@ var _ = Describe("migratableDomXML", func() {
   </metadata>
   <kubevirt><migration>this should stay</migration></kubevirt>
 </domain>`
-		mockDomain.EXPECT().Free()
 		vmi := newVMI("testns", "kubevirt")
-		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(string(domXML), nil)
-		newXML, err := migratableDomXML(mockDomain, vmi)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domain := &api.Domain{}
+		err := xml.Unmarshal([]byte(domXML), domain)
+		Expect(err).NotTo(HaveOccurred())
+		newXML, err := migratableDomXML(mockDomain, vmi, &domain.Spec)
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
+	It("should change CPU pinning according to migration metadata", func() {
+		domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      <migration>
+         <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+         <failed>false</failed>
+      </migration>
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <vcpu placement="static">2</vcpu>
+  <cputune>
+    <vcpupin vcpu="0" cpuset="4"></vcpupin>
+    <vcpupin vcpu="1" cpuset="5"></vcpupin>
+  </cputune>
+</domain>`
+		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <vcpu placement="static">2</vcpu>
+  <cputune>
+    <vcpupin vcpu="0" cpuset="6"></vcpupin>
+    <vcpupin vcpu="1" cpuset="7"></vcpupin>
+  </cputune>
+</domain>`
+
+		By("creating a VMI with dedicated CPU cores")
+		vmi := newVMI("testns", "kubevirt")
+		vmi.Spec.Domain.CPU = &v1.CPU{
+			Cores:                 2,
+			DedicatedCPUPlacement: true,
+		}
+
+		By("making up a target topology")
+		topology := &cmdv1.Topology{NumaCells: []*cmdv1.Cell{{
+			Id: 0,
+			Cpus: []*cmdv1.CPU{
+				{
+					Id:       6,
+					Siblings: []uint32{6},
+				},
+				{
+					Id:       7,
+					Siblings: []uint32{7},
+				},
+			},
+		}}}
+		targetNodeTopology, err := json.Marshal(topology)
+		Expect(err).NotTo(HaveOccurred(), "failed to marshall the topology")
+
+		By("saving that topology in the migration state of the VMI")
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetCPUSet:       []int{6, 7},
+			TargetNodeTopology: string(targetNodeTopology),
+		}
+
+		By("generated the domain XML for a migration to that target")
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domain := &api.Domain{}
+		err = xml.Unmarshal([]byte(domXML), domain)
+		Expect(err).NotTo(HaveOccurred())
+		newXML, err := migratableDomXML(mockDomain, vmi, &domain.Spec)
+		Expect(err).To(BeNil(), "failed to generate target domain XML")
+
+		By("ensuring the generated XML is accurate")
+		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
+	})
+})
+
+var _ = Describe("Manager helper functions", func() {
+
+	Context("getVMIEphemeralDisksTotalSize", func() {
+
+		var tmpDir string
+		var zeroQuantity resource.Quantity
+
+		BeforeEach(func() {
+			var err error
+			tmpDir, err = os.MkdirTemp("", "tempdir")
+			Expect(err).ToNot(HaveOccurred())
+
+			getEphemeralDiskBaseDir = func() string {
+				return tmpDir
+			}
+
+			zeroQuantity = *resource.NewScaledQuantity(0, 0)
+		})
+
+		AfterEach(func() {
+			_ = os.RemoveAll(tmpDir)
+		})
+
+		expectNonZeroQuantity := func() {
+			By("Expecting quantity larger than zero")
+			quantity := getVMIEphemeralDisksTotalSize()
+
+			Expect(quantity).ToNot(BeNil())
+			Expect(quantity).ToNot(Equal(zeroQuantity))
+			quantityValue := quantity.Value()
+			Expect(quantityValue).To(BeNumerically(">", 0))
+		}
+
+		expectZeroQuantity := func() {
+			By("Expecting zero quantity")
+			quantity := getVMIEphemeralDisksTotalSize()
+
+			Expect(quantity).ToNot(BeNil())
+			Expect(*quantity).To(Equal(zeroQuantity))
+			quantityValue := quantity.Value()
+			Expect(quantityValue).To(BeNumerically("==", 0))
+		}
+
+		It("successful run with non-zero size", func() {
+			By("Creating a file with non-zero size")
+			err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expectNonZeroQuantity()
+		})
+
+		It("successful run with zero size", func() {
+			By("Creating a file with non-zero size")
+			err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			expectNonZeroQuantity()
+		})
+
+		It("expect zero quantity when path does not exist", func() {
+			By("Mocking base directory that doesn't exist")
+			getEphemeralDiskBaseDir = func() string {
+				return "path_that_doesnt_exist"
+			}
+
+			expectZeroQuantity()
+		})
+
+		It("expect zero quantity in an empty directory", func() {
+			expectZeroQuantity()
+		})
+
+	})
+
+	Context("possibleGuestSize", func() {
+
+		var properDisk api.Disk
+		var fakePercentFloat float64
+
+		BeforeEach(func() {
+			fakePercentFloat = 0.7648
+			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
+			fakeCapacity := int64(123000)
+
+			properDisk = api.Disk{
+				FilesystemOverhead: &fakePercent,
+				Capacity:           &fakeCapacity,
+			}
+		})
+
+		It("should return correct value", func() {
+			size, ok := possibleGuestSize(properDisk)
+			Expect(ok).To(BeTrue())
+			capacity := properDisk.Capacity
+			Expect(capacity).ToNot(Equal(nil))
+
+			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
+
+			Expect(size).To(Equal(expectedSize))
+		})
+
+		table.DescribeTable("should return error when", func(createDisk func() api.Disk) {
+
+		},
+			table.Entry("disk capacity is nil", func() api.Disk {
+				disk := properDisk
+				disk.Capacity = nil
+				return disk
+			}),
+			table.Entry("filesystem overhead is nil", func() api.Disk {
+				disk := properDisk
+				disk.FilesystemOverhead = nil
+				return disk
+			}),
+			table.Entry("filesystem overhead is non-float", func() api.Disk {
+				disk := properDisk
+				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
+				disk.FilesystemOverhead = &fakePercent
+				return disk
+			}),
+		)
+
+	})
+
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi := api2.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

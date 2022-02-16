@@ -8,12 +8,17 @@ go_library(
     deps = [
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
+        "numa_placement_test.go",
         "vcpu_suite_test.go",
         "vcpu_test.go",
     ],
@@ -21,10 +26,12 @@ go_test(
     deps = [
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )

@@ -17,15 +17,6 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-# CI considerations: $TARGET is used by the jenkins build, to distinguish what to test
-# Currently considered $TARGET values:
-#     vagrant-dev: Runs all functional tests on a development vagrant setup (deprecated)
-#     vagrant-release: Runs all possible functional tests on a release deployment in vagrant (deprecated)
-#     kubernetes-dev: Runs all functional tests on a development kubernetes setup
-#     kubernetes-release: Runs all functional tests on a release kubernetes setup
-#     openshift-release: Runs all functional tests on a release openshift setup
-#     TODO: vagrant-tagged-release: Runs all possible functional tests on a release deployment in vagrant on a tagged release
-
 set -ex
 
 export TIMESTAMP=${TIMESTAMP:-1}
@@ -52,16 +43,24 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
   fi
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
+elif [[ $TARGET =~ sig-compute-realtime ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
+  export KUBEVIRT_HUGEPAGES_2M=512
+  export KUBEVIRT_REALTIME_SCHEDULER=true
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}
+elif [[ $TARGET =~ sig-monitoring ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -73,15 +72,15 @@ fi
 
 if [[ $TARGET =~ sriov.* ]]; then
   export KUBEVIRT_NUM_NODES=3
-  export KUBEVIRT_DEPLOY_CDI=false
+  export KUBEVIRT_DEPLOY_CDI="false"
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
-  export KUBEVIRT_NUM_NODES=2
+  export KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-2}
 fi
 
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
-export KUBEVIRT_MEMORY_SIZE=9216M
+export KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
 
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
@@ -359,12 +358,16 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-network ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]"
+    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
   elif [[ $TARGET =~ vgpu.* ]]; then
     export KUBEVIRT_E2E_FOCUS=MediatedDevices
+  elif [[ $TARGET =~ sig-compute-realtime ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+  elif [[ $TARGET =~ sig-monitoring ]]; then
+      export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
@@ -378,8 +381,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   fi
 
   if ! [[ $TARGET =~ sig-storage ]]; then
-    if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" || "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
-        export KUBEVIRT_E2E_FOCUS=rook-ceph
+    if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
+        export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
     fi
   fi
 fi

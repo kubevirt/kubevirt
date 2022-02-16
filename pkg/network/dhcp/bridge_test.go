@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -20,6 +20,7 @@ import (
 const (
 	ifaceName   = "eth0"
 	launcherPID = "self"
+	subdomain   = "subdomain"
 )
 
 var _ = Describe("Bridge DHCP configurator", func() {
@@ -67,6 +68,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 				vmiSpecIfaces:    []v1.Interface{iface},
 				vmiSpecIface:     &iface,
 				handler:          mockHandler,
+				subdomain:        subdomain,
 			}
 
 			mtu := 1410
@@ -82,6 +84,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			advertisingIPAddr, _ := netlink.ParseAddr(fakeBridgeIP)
 			expectedConfig.AdvertisingIPAddr = advertisingIPAddr.IP
 			expectedConfig.Mtu = 1410
+			expectedConfig.Subdomain = subdomain
 			Expect(*config).To(Equal(expectedConfig))
 		})
 		It("Should succeed with no ipam", func() {
@@ -91,6 +94,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 				cacheFactory:     cacheFactory,
 				launcherPID:      launcherPID,
 				podInterfaceName: ifaceName,
+				subdomain:        subdomain,
 			}
 			config, err := generator.Generate()
 			Expect(err).ToNot(HaveOccurred())

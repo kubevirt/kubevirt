@@ -20,10 +20,10 @@
 package install
 
 import (
-	"reflect"
 	"strings"
 
 	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -38,7 +38,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	//"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -131,7 +131,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.clusterRoles {
@@ -141,7 +141,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.clusterRoleBindings {
@@ -151,7 +151,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.roles {
@@ -161,7 +161,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.roleBindings {
@@ -171,7 +171,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.crds {
@@ -181,7 +181,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.services {
@@ -191,7 +191,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.daemonSets {
@@ -201,7 +201,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.deployments {
@@ -211,7 +211,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.configMaps {
@@ -225,7 +225,7 @@ var _ = Describe("Install Strategy", func() {
 				//dumpInstallStrategyToBytes function deletes it, and then
 				//original and converted configmaps are not the same
 				delete(original.Labels, v1.ManagedByLabel)
-				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 		})
 	})

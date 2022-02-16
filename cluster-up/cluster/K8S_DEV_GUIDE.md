@@ -49,8 +49,8 @@ CONTAINER ID        IMAGE                   COMMAND                  CREATED    
 Nodes:
 ```
 [root@modi01 kubevirtci]# oc get nodes
-NAME     STATUS   ROLES    AGE   VERSION
-node01   Ready    master   83m   v1.21.0
+NAME     STATUS   ROLES             AGE   VERSION
+node01   Ready    control-plane     83m   v1.21.0
 ```
 
 # Inner look of a deployed cluster

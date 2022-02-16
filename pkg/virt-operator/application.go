@@ -64,6 +64,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const VirtOperator = "virt-operator"
+
 const (
 	controllerThreads = 3
 
@@ -130,7 +132,7 @@ func Execute() {
 
 	service.Setup(&app)
 
-	log.InitializeLogging("virt-operator")
+	log.InitializeLogging(VirtOperator)
 
 	err = util.VerifyEnv()
 	if err != nil {
@@ -269,7 +271,7 @@ func Execute() {
 
 	app.prepareCertManagers()
 
-	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
+	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
 	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
 
 	image := os.Getenv(util.OperatorImageEnvName)
@@ -278,8 +280,7 @@ func Execute() {
 	}
 	log.Log.Infof("Operator image: %s", image)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.ConfigMap(),
-		app.informerFactory.CRD(),
+	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.CRD(),
 		app.informerFactory.KubeVirt(),
 		app.operatorNamespace)
 
@@ -319,7 +320,7 @@ func (app *VirtOperatorApp) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	endpointName := "virt-operator"
+	endpointName := VirtOperator
 
 	recorder := app.getNewRecorder(k8sv1.NamespaceAll, endpointName)
 
@@ -383,11 +384,16 @@ func (app *VirtOperatorApp) Run() {
 				OnStartedLeading: func(ctx context.Context) {
 					leaderGauge.Set(1)
 					log.Log.Infof("Started leading")
+
+					log.Log.V(5).Info("start monitoring the kubevirt-config configMap")
+					app.kubeVirtController.checkIfConfigMapStillExists(log.Log, stop)
+
 					// run app
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},
 				OnStoppedLeading: func() {
 					leaderGauge.Set(0)
+					log.Log.V(5).Info("stop monitoring the kubevirt-config configMap")
 					golog.Fatal("leaderelection lost")
 				},
 			},

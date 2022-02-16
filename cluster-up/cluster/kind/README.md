@@ -10,4 +10,4 @@ A kind cluster must specify:
 
 The provider is supposed to copy a valid `kind.yaml` file under `${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml`
 
-Check [kind-k8s-1.17](../kind-k8s-1.17) or [kind-k8s-sriov-1.17.0](kind-k8s-sriov-1.17.0) as examples on how to implement a kind cluster provider.
+Check [kind-k8s-1.19](../kind-k8s-1.19) or [kind-1.22-sriov](kind-1.22-sriov) as examples on how to implement a kind cluster provider.

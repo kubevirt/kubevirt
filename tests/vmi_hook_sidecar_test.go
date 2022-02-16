@@ -22,25 +22,23 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
-
-	"kubevirt.io/kubevirt/pkg/hooks"
-	putil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -65,14 +63,16 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
-		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, bool, error) {
 			podSelector := tests.UnfinishedVMIPodSelector(vmi)
 			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
 
-			if err != nil || len(vmiPods.Items) != 1 {
-				return nil, fmt.Errorf("could not retrieve the VMI pod: %v", err)
+			if err != nil {
+				return nil, false, fmt.Errorf("could not retrieve the VMI pod: %v", err)
+			} else if len(vmiPods.Items) == 0 {
+				return nil, false, nil
 			}
-			return &vmiPods.Items[0], nil
+			return &vmiPods.Items[0], true, nil
 		}
 
 		Context("with SM BIOS hook sidecar", func() {
@@ -126,8 +126,12 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 
 				Eventually(func() bool {
-					vmiPod, err := getVMIPod(vmi)
-					Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+					vmiPod, exists, err := getVMIPod(vmi)
+					if err != nil {
+						Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+					} else if !exists {
+						return false
+					}
 
 					for _, container := range vmiPod.Status.ContainerStatuses {
 						if container.Name == sidecarContainerName && container.State.Terminated != nil {
@@ -172,26 +176,6 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	Expect(err).To(BeNil())
 
 	return string(logsRaw)
-}
-
-func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
-	podName := tests.GetVmPodName(virtCli, vmi)
-
-	arg := ""
-	if putil.IsNonRootVMI(vmi) {
-		arg = "-c " + "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
-	}
-
-	// passing an empty namespace allows to position --namespace argument correctly
-	vmNameListRaw, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", arg, "list", "--name")
-	Expect(err).ToNot(HaveOccurred())
-
-	vmName := strings.Split(vmNameListRaw, "\n")[0]
-	// passing an empty namespace allows to position --namespace argument correctly
-	vmDomainXML, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", arg, "dumpxml", vmName)
-	Expect(err).ToNot(HaveOccurred())
-
-	return vmDomainXML
 }
 
 func RenderSidecar(version string) map[string]string {

@@ -25,11 +25,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -37,15 +38,29 @@ import (
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
-	_, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	_, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featureGate},
+					},
+				},
+			},
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: make([]string, 0),
+					},
+				},
+			},
+		})
 	}
 
 	AfterEach(func() {
@@ -122,7 +137,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should reject Migration on update if labels include our selector and are removed", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
+		vmi := api.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -165,7 +180,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should reject Migration on update if our selector label is removed", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
+		vmi := api.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -208,7 +223,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should accept Migration on update if non-selector label is removed", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate-otherremoved")
+		vmi := api.NewMinimalVMI("testmigratevmiupdate-otherremoved")
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
