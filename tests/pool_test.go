@@ -33,6 +33,7 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -89,11 +90,10 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tests.NotDeletedVMs(vms)).To(HaveLen(int(scale)))
 	}
-	newVirtualMachinePoolWithTemplate := func(template *v1.VirtualMachineInstance, running bool) *poolv1.VirtualMachinePool {
-		newPool := tests.NewRandomPoolFromVMI(template, int32(0), running)
-		newPool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
+	createVirtualMachinePool := func(pool *poolv1.VirtualMachinePool) *poolv1.VirtualMachinePool {
+		pool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Create(context.Background(), pool, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		return newPool
+		return pool
 	}
 
 	newPersistentStorageVirtualMachinePool := func() *poolv1.VirtualMachinePool {
@@ -114,13 +114,14 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		return newVirtualMachinePoolWithTemplate(template, true)
+		running := true
+		return createVirtualMachinePool(tests.NewRandomPoolFromVMI(libvmi.NewCirros(), int32(0), running))
 	}
+
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		return newVirtualMachinePoolWithTemplate(template, false)
+		running := false
+		return createVirtualMachinePool(tests.NewRandomPoolFromVMI(libvmi.NewCirros(), int32(0), running))
 	}
 
 	table.DescribeTable("[Serial]pool should scale", func(startScale int, stopScale int) {
