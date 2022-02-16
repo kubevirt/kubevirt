@@ -1125,6 +1125,92 @@ var _ = Describe("Manager", func() {
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
 		})
+
+		It("migration should switch to PostCopy eventually", func() {
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
+			// Make sure that we always free the domain after use
+			var migrationData = 32479827394
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				// stop decreasing data and send a different event otherwise this
+				// job will run indefinitely until timeout
+				if migrationData <= 32479826519 {
+					return &libvirt.DomainJobInfo{
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
+					}
+				}
+
+				migrationData -= 125
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining: uint64(migrationData),
+				}
+			}
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 1,
+				AllowPostCopy:           true,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			manager := &LibvirtDomainManager{
+				virConn:      mockConn,
+				virtShareDir: testVirtShareDir,
+			}
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Times(2).Return(mockDomain, nil)
+
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
+				return fake_jobinfo(), nil
+			})
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).To(BeNil())
+				return string(xmlOriginal), nil
+			})
+
+			counter := 0
+			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(2).DoAndReturn(func(flag uint32) error {
+				if counter == 0 {
+					counter += 1
+					return libvirt.Error{
+
+						Code:    1,
+						Domain:  1,
+						Message: "internal error: unable to execute QEMU command 'migrate-start-postcopy': Postcopy must be started after migration has been started",
+						Level:   libvirt.ERR_ERROR,
+					}
+				}
+				return nil
+			})
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
+					metadata, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+					Expect(err).ShouldNot(HaveOccurred())
+
+					return string(metadata), nil
+				}).AnyTimes()
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
+				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
+
+				if domainSpec.Metadata.KubeVirt.Migration == nil {
+					domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
+				}
+				domainSpec.Metadata.KubeVirt.Migration.Mode = v1.MigrationPostCopy
+
+				return mockDomain, nil
+			})
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
+		})
 		It("migration should be canceled when requested", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
