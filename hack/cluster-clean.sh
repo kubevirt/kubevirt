@@ -85,6 +85,12 @@ function delete_resources() {
 
     # Not namespaced resources
     for label in ${labels[@]}; do
+        # Remove the finalizers added by virt-operator from CRDs
+        _kubectl get customresourcedefinitions --no-headers -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers -l ${label} | grep -e "kubevirt.io/virtOperatorFinalizer" | while read p; do
+            local arr=($p)
+            local name="${arr[0]}"
+            patch_remove_finalizers customresourcedefinitions ${name}
+        done
         _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
     done
 }
