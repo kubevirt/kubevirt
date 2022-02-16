@@ -238,24 +238,8 @@ var _ = Describe("Migration watcher", func() {
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
 	}
 
-	BeforeEach(func() {
-		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-
-		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
-		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		pdbInformer, _ = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
-		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
-		recorder = record.NewFakeRecorder(100)
-		recorder.IncludeObject = true
-		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
-
-		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
+	initController := func(kvConfig *virtv1.KubeVirtConfiguration) {
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
 		controller = NewMigrationController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
@@ -274,6 +258,27 @@ var _ = Describe("Migration watcher", func() {
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
+	}
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+
+		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
+		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		pdbInformer, _ = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
+		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
+
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+
+		initController(&virtv1.KubeVirtConfiguration{})
 
 		// Set up mock client
 		kubeClient = fake.NewSimpleClientset()
@@ -1305,6 +1310,28 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+		})
+
+		Context("when cluster EvictionStrategy is set to 'LiveMigrate'", func() {
+			BeforeEach(func() {
+				evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+				initController(&virtv1.KubeVirtConfiguration{EvictionStrategy: &evictionStrategy})
+			})
+
+			It("should update PDB", func() {
+				vmi := newVirtualMachine("testvmi", virtv1.Running)
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+				pdb := newPDB("pdb-test", vmi, 1)
+
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPDB(pdb)
+
+				shouldExpectPDBPatch(vmi, migration)
+				controller.Execute()
+
+				testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
+			})
 		})
 	})
 

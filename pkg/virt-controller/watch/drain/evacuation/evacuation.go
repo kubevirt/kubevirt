@@ -485,7 +485,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 		}
 
 		// does not want to migrate
-		if vmi.Spec.EvictionStrategy == nil || *vmi.Spec.EvictionStrategy != virtv1.EvictionStrategyLiveMigrate {
+		if !migrationutils.VMIMigratableOnEviction(c.clusterConfig, vmi) {
 			continue
 		}
 		// can't migrate

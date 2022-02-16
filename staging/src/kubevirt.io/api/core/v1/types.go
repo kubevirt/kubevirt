@@ -354,10 +354,6 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
-func (v *VirtualMachineInstance) IsEvictable() bool {
-	return v.Spec.EvictionStrategy != nil && *v.Spec.EvictionStrategy == EvictionStrategyLiveMigrate
-}
-
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
@@ -1801,6 +1797,7 @@ const (
 )
 
 const (
+	EvictionStrategyNone        EvictionStrategy = "None"
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
 
@@ -2057,6 +2054,12 @@ type KubeVirtConfiguration struct {
 	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
+
+	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
+	// field is set it overrides the cluster level one.
+	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
+
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`

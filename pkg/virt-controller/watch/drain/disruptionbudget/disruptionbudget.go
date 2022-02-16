@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const deleteNotifFail = "Failed to process delete notification"
@@ -43,6 +44,7 @@ const (
 
 type DisruptionBudgetController struct {
 	clientset                       kubecli.KubevirtClient
+	clusterConfig                   *virtconfig.ClusterConfig
 	Queue                           workqueue.RateLimitingInterface
 	vmiInformer                     cache.SharedIndexInformer
 	pdbInformer                     cache.SharedIndexInformer
@@ -59,6 +61,7 @@ func NewDisruptionBudgetController(
 	migrationInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *DisruptionBudgetController {
 
 	c := &DisruptionBudgetController{
@@ -69,6 +72,7 @@ func NewDisruptionBudgetController(
 		migrationInformer:               migrationInformer,
 		recorder:                        recorder,
 		clientset:                       clientset,
+		clusterConfig:                   clusterConfig,
 		podDisruptionBudgetExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
@@ -498,7 +502,7 @@ func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisrupt
 }
 
 func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
-	migratableOnDrain := vmiMigratableOnDrain(vmiExists, vmi)
+	migratableOnDrain := c.vmiMigratableOnDrain(vmiExists, vmi)
 
 	// check for deletions if pod exists
 	if pdb != nil {
@@ -538,9 +542,9 @@ func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv
 	return nil
 }
 
-func vmiMigratableOnDrain(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
-	if !vmiExists || vmi.DeletionTimestamp != nil || vmi.Spec.EvictionStrategy == nil {
+func (c *DisruptionBudgetController) vmiMigratableOnDrain(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
+	if !vmiExists || vmi.DeletionTimestamp != nil {
 		return false
 	}
-	return migrations.MigrationNeedsProtection(vmi)
+	return migrations.VMIMigratableOnEviction(c.clusterConfig, vmi)
 }
