@@ -43,3 +43,18 @@
               storage: 5Gi
     garbageCollect: Outdated
     managedDataSource: fedora
+- metadata:
+    name: centos-7-image-cron
+  spec:
+    schedule: "0 */12 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            url: docker://quay.io/containerdisks/centos:7-2009
+        storage:
+          resources:
+            requests:
+              storage: 10Gi
+    garbageCollect: Outdated
+    managedDataSource: centos7
