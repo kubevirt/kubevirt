@@ -20,8 +20,6 @@
 package api
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -29,8 +27,6 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/client-go/log"
 )
 
 var _ = Describe("PodSelectors", func() {
@@ -189,9 +185,3 @@ var _ = Describe("PodSelectors", func() {
 		})
 	})
 })
-
-func TestSelectors(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "PodSelectors")
-}
