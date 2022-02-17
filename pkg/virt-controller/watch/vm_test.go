@@ -911,7 +911,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).To(BeNil())
@@ -940,7 +940,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
 					if runStrategy == virtv1.RunStrategyHalted || runStrategy == virtv1.RunStrategyManual {
@@ -1417,7 +1417,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiSource.Add(nonMatchingVMI)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(2).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
 
 			controller.Execute()
 
@@ -1816,7 +1816,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1)
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).AnyTimes()
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopped))
@@ -2273,7 +2273,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
-					vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1)
+					vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).AnyTimes()
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
