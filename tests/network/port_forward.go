@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/extensions/table"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -38,8 +39,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
+
+const skipIPv6Message = "port-forwarding over ipv6 is not supported yet. Tracking issue https://github.com/kubevirt/kubevirt/issues/7276"
 
 var _ = SIGDescribe("Port-forward", func() {
 	var (
@@ -62,9 +66,15 @@ var _ = SIGDescribe("Port-forward", func() {
 			vmiDeclaredPorts  []v1.Port
 		)
 
-		JustBeforeEach(func() {
+		setup := func(ipFamily k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+
+			if ipFamily == k8sv1.IPv6Protocol {
+				Skip(skipIPv6Message)
+			}
+
 			vmi := createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
-			tests.StartHTTPServer(vmi, vmiHttpServerPort)
+			tests.StartHTTPServerWithSourceIp(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily))
 
 			localPort = 1500 + config.GinkgoConfig.ParallelNode
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -75,8 +85,8 @@ var _ = SIGDescribe("Port-forward", func() {
 			stdout, err := portForwardCmd.StdoutPipe()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(portForwardCmd.Start()).To(Succeed())
-			waitForPortForwardCmd(stdout, localPort, vmiHttpServerPort)
-		})
+			waitForPortForwardCmd(ipFamily, stdout, localPort, vmiHttpServerPort)
+		}
 
 		AfterEach(func() {
 			Expect(killPortForwardCommand(portForwardCmd)).To(Succeed())
@@ -89,10 +99,14 @@ var _ = SIGDescribe("Port-forward", func() {
 				vmiHttpServerPort = declaredPort
 			})
 
-			It("should reach the vmi", func() {
+			table.DescribeTable("should reach the vmi", func(ipFamily k8sv1.IPFamily) {
+				setup(ipFamily)
 				By(fmt.Sprintf("checking that service running on port %d can be reached", declaredPort))
-				Expect(testConnectivityThroughLocalPort(localPort)).To(Succeed())
-			})
+				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).To(Succeed())
+			},
+				table.Entry("IPv4", k8sv1.IPv4Protocol),
+				table.Entry("IPv6", k8sv1.IPv6Protocol),
+			)
 		})
 
 		When("performing port-forward from a local port to a VMI with no declared ports", func() {
@@ -102,10 +116,14 @@ var _ = SIGDescribe("Port-forward", func() {
 				vmiHttpServerPort = nonDeclaredPort
 			})
 
-			It("should reach the vmi", func() {
+			table.DescribeTable("should reach the vmi", func(ipFamily k8sv1.IPFamily) {
+				setup(ipFamily)
 				By(fmt.Sprintf("checking that service running on port %d can be reached", nonDeclaredPort))
-				Expect(testConnectivityThroughLocalPort(localPort)).To(Succeed())
-			})
+				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).To(Succeed())
+			},
+				table.Entry("IPv4", k8sv1.IPv4Protocol),
+				table.Entry("IPv6", k8sv1.IPv6Protocol),
+			)
 		})
 
 		When("performing port-forward from a local port to a VMI's non-declared port", func() {
@@ -116,10 +134,14 @@ var _ = SIGDescribe("Port-forward", func() {
 				vmiHttpServerPort = nonDeclaredPort
 			})
 
-			It("should not reach the vmi", func() {
+			table.DescribeTable("should not reach the vmi", func(ipFamily k8sv1.IPFamily) {
+				setup(ipFamily)
 				By(fmt.Sprintf("checking that service running on port %d can not be reached", nonDeclaredPort))
-				Expect(testConnectivityThroughLocalPort(localPort)).ToNot(Succeed())
-			})
+				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).ToNot(Succeed())
+			},
+				table.Entry("IPv4", k8sv1.IPv4Protocol),
+				table.Entry("IPv6", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 })
@@ -148,20 +170,27 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 
 	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
-	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+	vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 	return vmi
 }
 
-func testConnectivityThroughLocalPort(portNumber int) error {
-	return exec.Command("curl", fmt.Sprintf("127.0.0.1:%d", portNumber)).Run()
+func testConnectivityThroughLocalPort(ipFamily k8sv1.IPFamily, portNumber int) error {
+	return exec.Command("curl", fmt.Sprintf("%s:%d", libnet.GetLoopbackAddressForUrl(ipFamily), portNumber)).Run()
 }
 
-func waitForPortForwardCmd(stdout io.ReadCloser, src, dst int) {
+func waitForPortForwardCmd(ipFamily k8sv1.IPFamily, stdout io.ReadCloser, src, dst int) {
 	Eventually(func() string {
 		tmp := make([]byte, 1024)
 		_, err := stdout.Read(tmp)
 		Expect(err).NotTo(HaveOccurred())
 		return string(tmp)
-	}, 30*time.Second, 1*time.Second).Should(ContainSubstring(fmt.Sprintf("Forwarding from 127.0.0.1:%d -> %d", src, dst)))
+	}, 30*time.Second, 1*time.Second).Should(ContainSubstring(fmt.Sprintf("Forwarding from %s:%d -> %d", libnet.GetLoopbackAddressForUrl(ipFamily), src, dst)))
+}
+
+func getMasqueradeInternalAddress(ipFamily k8sv1.IPFamily) string {
+	if ipFamily == k8sv1.IPv4Protocol {
+		return "10.0.2.2"
+	}
+	return "fd10:0:2::2"
 }
