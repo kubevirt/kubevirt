@@ -2022,10 +2022,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
 			// As such, it behaves as plugging in a hostDisk - check disks[6].
 			if tests.IsRunningOnKindInfra() {
-				// The chache mode is set to cacheWritethrough
+				// The cache mode is set to cacheWritethrough
 				Expect(string(disks[2].Driver.IO)).To(Equal(ioNone))
 			} else {
-				// The chache mode is set to cacheNone
+				// The cache mode is set to cacheNone
 				Expect(disks[2].Driver.IO).To(Equal(ioNative))
 			}
 

@@ -38,6 +38,8 @@ import (
 	"sync"
 	"time"
 
+	util2 "kubevirt.io/kubevirt/pkg/util"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -609,10 +611,14 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
+	size = util2.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
+	if size == 0 {
+		return fmt.Errorf("%s must be at least 1MiB", imagePath)
+	}
 	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Expanding image failed with error: %v, output: %s", err, out)
+		return fmt.Errorf("expanding image failed with error: %v, output: %s", err, out)
 	}
 	return nil
 }
@@ -632,7 +638,12 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
 		return 0, false
 	}
-	return int64((1 - filesystemOverhead) * float64(preferredSize)), true
+	size := int64((1 - filesystemOverhead) * float64(preferredSize))
+	size = util2.AlignImageSizeTo1MiB(size, log.DefaultLogger())
+	if size == 0 {
+		return 0, false
+	}
+	return size, true
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
