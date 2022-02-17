@@ -78,7 +78,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient).AnyTimes()
 		migrationCreateAdmitter = &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient}
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	Context("with no conflicting migration", func() {
 
 		BeforeEach(func() {
-			migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).Times(1)
+			migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
 
 		})
 
@@ -192,7 +192,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		It("should reject valid Migration spec on create when feature gate isn't enabled", func() {
 			vmi := api.NewMinimalVMI("testvmimigrate1")
 
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil).MaxTimes(1)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
