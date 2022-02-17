@@ -44,15 +44,10 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	// Mock VirtualMachineInstanceMigration
-	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
 	var vmiInformer cache.SharedIndexInformer
 	var migrationCreateAdmitter *MigrationCreateAdmitter
-
-	ctrl = gomock.NewController(GinkgoT())
-	migrationInterface := kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
-	virtClient = kubecli.NewMockKubevirtClient(ctrl)
-	virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
+	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
@@ -78,9 +73,16 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	}
 
 	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
+	})
+
+	BeforeEach(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		migrationCreateAdmitter = &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient, VMIInformer: vmiInformer}
-		migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).Times(1)
+		migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).AnyTimes()
 	})
 
 	AfterEach(func() {
