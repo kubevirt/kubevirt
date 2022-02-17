@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "annotations.go",
+        "const.go",
         "ports.go",
         "proxy.go",
     ],

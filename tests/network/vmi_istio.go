@@ -28,6 +28,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -408,9 +409,12 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
 
 				BeforeEach(func() {
-					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
-					registryOnlySidecar := generateRegistryOnlySidecar()
-					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
+					sidecarGVR := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
+					_, err = virtClient.DynamicClient().Resource(sidecarGVR).Namespace(util.NamespaceTestDefault).Create(context.TODO(), generateRegistryOnlySidecar(), metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					serviceEntryGVR := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: istio.ServiceEntriesResource}
+					_, err = virtClient.DynamicClient().Resource(serviceEntryGVR).Namespace(util.NamespaceTestDefault).Create(context.TODO(), generateServiceEntry(), metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				})
 
@@ -533,6 +537,32 @@ func generateVirtualService() *unstructured.Unstructured {
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func generateServiceEntry() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
+			"kind":       "ServiceEntry",
+			"metadata": map[string]interface{}{
+				"name": "vmi-server-se",
+			},
+			"spec": map[string]interface{}{
+				"hosts": []string{
+					fmt.Sprintf("%s.example.com", vmiServerHostName),
+				},
+				"location": "MESH_EXTERNAL",
+				"ports": []map[string]interface{}{
+					{
+						"name":     "example-http",
+						"protocol": "HTTP",
+						"number":   80,
+					},
+				},
+				"resolution": "DNS",
 			},
 		},
 	}

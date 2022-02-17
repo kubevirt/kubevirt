@@ -49,6 +49,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -1939,8 +1940,8 @@ func cleanNamespaces() {
 			util2.PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
 		}
 
-		// Remove all Istio Sidecars, VirtualServices, DestinationRules and Gateways
-		for _, res := range []string{"sidecars", "virtualservices", "destinationrules", "gateways"} {
+		// Remove all Istio Resources
+		for _, res := range []string{istio.SidecarsResource, istio.VirtualServices, istio.DestinationRules, istio.Gateways, istio.ServiceEntriesResource} {
 			util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: res}, namespace))
 		}
 
