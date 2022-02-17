@@ -3,11 +3,9 @@ package ssh_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
-func TestSsh(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ssh Suite")
+func TestSSH(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
