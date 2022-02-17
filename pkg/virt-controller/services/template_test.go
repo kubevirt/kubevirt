@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -44,8 +43,6 @@ import (
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
 
-	testutils2 "kubevirt.io/client-go/testutils"
-
 	v1 "kubevirt.io/api/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -64,9 +61,8 @@ var _ = Describe("Template", func() {
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	var svc TemplateService
 
-	ctrl := gomock.NewController(GinkgoT())
-	virtClient := kubecli.NewMockKubevirtClient(ctrl)
-
+	var ctrl *gomock.Controller
+	var virtClient *kubecli.MockKubevirtClient
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
 
@@ -94,6 +90,11 @@ var _ = Describe("Template", func() {
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 	}
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+	})
 
 	BeforeEach(func() {
 		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, TemplateService) {
@@ -3444,10 +3445,6 @@ func True() *bool {
 func False() *bool {
 	b := false
 	return &b
-}
-
-func TestTemplate(t *testing.T) {
-	testutils2.KubeVirtTestSuiteSetup(t)
 }
 
 func validateAndExtractQemuTimeoutArg(args []string) string {
