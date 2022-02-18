@@ -206,7 +206,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 			}
 
-			By("Checking that the VMI is still running after a minute")
+			By("Checking that the VMI is still running after a while")
 			Consistently(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -226,7 +226,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			vmi.Spec.LivenessProbe = livenessProbe
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
-			By("Checking that the VMI is in a final state after a minute")
+			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
