@@ -68,19 +68,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
-		isVMIReady := func() bool {
-			readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return vmiReady(readVmi) == corev1.ConditionTrue
-		}
-
 		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
-			checkStatus := func(ready bool, condition corev1.ConditionStatus, timeout int) {
-				By("Checking that the VMI and the pod will be marked as ready to receive traffic")
-				Eventually(isVMIReady, timeout, 1).Should(Equal(ready))
-				Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(condition))
-			}
-
 			if ipFamily == corev1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 				By("Create a support pod which will reply to kubelet's probes ...")
@@ -99,7 +87,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyCirrosVMIWithReadinessProbe(readinessProbe)
 
-				assertPodNotReady(virtClient, vmi)
+				Expect(getVMIConditions(virtClient, vmi)).NotTo(ContainElement(v1.VirtualMachineInstanceReady))
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, readinessProbe, 1500)
@@ -113,7 +101,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 			}
 
-			checkStatus(true, corev1.ConditionTrue, 120)
+			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
 
 			if disableEnableCycle {
 				By("Disabling the guest-agent")
@@ -125,7 +113,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				}, 120)).ToNot(HaveOccurred())
 
 				// Marking the status to not ready can take a little more time
-				checkStatus(false, corev1.ConditionFalse, 300)
+				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 300)
 
 				By("Enabling the guest-agent again")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -133,7 +121,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 					&expect.BExp{R: console.PromptExpression},
 				}, 120)).ToNot(HaveOccurred())
 
-				checkStatus(true, corev1.ConditionTrue, 120)
+				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
 			}
 		},
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
@@ -152,7 +140,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is consistently non-ready")
-			Consistently(isVMIReady).Should(Equal(false))
+			Consistently(func() []v1.VirtualMachineInstanceCondition {
+				return getVMIConditions(virtClient, vmi)
+			}).ShouldNot(ContainElement(v1.VirtualMachineInstanceReady))
 		},
 			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
 			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
@@ -253,22 +243,6 @@ func createReadyCirrosVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineIn
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
-func vmiReady(vmi *v1.VirtualMachineInstance) corev1.ConditionStatus {
-	for _, cond := range vmi.Status.Conditions {
-		if cond.Type == v1.VirtualMachineInstanceConditionType(corev1.PodReady) {
-			return cond.Status
-		}
-	}
-	return corev1.ConditionFalse
-}
-
-func assertPodNotReady(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
-	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(vmiReady(readVmi)).To(Equal(corev1.ConditionFalse))
-}
-
 func createTCPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
 	httpHandler := v1.Handler{
 		TCPSocket: &corev1.TCPSocketAction{
@@ -334,4 +308,10 @@ func pointIpv6ProbeToSupportPod(pod *corev1.Pod, probe *v1.Probe) (*v1.Probe, er
 	}
 
 	return patchProbeWithIPAddr(probe, supportPodIP), nil
+}
+
+func getVMIConditions(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) []v1.VirtualMachineInstanceCondition {
+	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return readVmi.Status.Conditions
 }
