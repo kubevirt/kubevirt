@@ -120,7 +120,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo systemctl stop qemu-guest-agent -\n"},
+					&expect.BSnd{S: "sudo systemctl stop qemu-guest-agent\n"},
 					&expect.BExp{R: console.PromptExpression},
 				}, 120)).ToNot(HaveOccurred())
 
@@ -129,7 +129,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By("Enabling the guest-agent again")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo systemctl start qemu-guest-agent -\n"},
+					&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
 					&expect.BExp{R: console.PromptExpression},
 				}, 120)).ToNot(HaveOccurred())
 
