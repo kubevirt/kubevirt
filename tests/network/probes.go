@@ -74,14 +74,14 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			return vmiReady(readVmi) == corev1.ConditionTrue
 		}
 
-		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
+		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
 			checkStatus := func(ready bool, condition corev1.ConditionStatus, timeout int) {
 				By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 				Eventually(isVMIReady, timeout, 1).Should(Equal(ready))
 				Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(condition))
 			}
 
-			if IPFamily == corev1.IPv6Protocol {
+			if ipFamily == corev1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
@@ -172,9 +172,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-		table.DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool) {
+		table.DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool) {
 
-			if IPFamily == corev1.IPv6Protocol {
+			if ipFamily == corev1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 
 				By("Create a support pod which will reply to kubelet's probes ...")
