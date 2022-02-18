@@ -95,10 +95,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
 
 				By(specifyingVMReadinessProbe)
-				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+				vmi = createReadyCirrosVMIWithReadinessProbe(readinessProbe)
 			} else if !isExecProbe {
 				By(specifyingVMReadinessProbe)
-				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+				vmi = createReadyCirrosVMIWithReadinessProbe(readinessProbe)
 
 				assertPodNotReady(virtClient, vmi)
 
@@ -197,10 +197,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
 
 				By(specifyingVMLivenessProbe)
-				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+				vmi = createReadyCirrosVMIWithLivenessProbe(livenessProbe)
 			} else if !isExecProbe {
 				By(specifyingVMLivenessProbe)
-				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+				vmi = createReadyCirrosVMIWithLivenessProbe(livenessProbe)
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, livenessProbe, 1500)
@@ -235,7 +235,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi.Spec.LivenessProbe = livenessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 			} else {
-				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+				vmi = createReadyCirrosVMIWithLivenessProbe(livenessProbe)
 			}
 
 			By("Checking that the VMI is in a final state after a minute")
@@ -252,14 +252,14 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	})
 })
 
-func createReadyCirrosVMIWithReadinessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
+func createReadyCirrosVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewCirros()
 	vmi.Spec.ReadinessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
-func createReadyCirrosVMIWithLivenessProbe(virtClient kubecli.KubevirtClient, probe *v1.Probe) *v1.VirtualMachineInstance {
+func createReadyCirrosVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewCirros()
 	vmi.Spec.LivenessProbe = probe
 
