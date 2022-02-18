@@ -220,15 +220,11 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
 		)
 
-		table.DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, isExecProbe bool) {
+		table.DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
-			if isExecProbe {
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.LivenessProbe = livenessProbe
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
-			} else {
-				vmi = createReadyCirrosVMIWithLivenessProbe(livenessProbe)
-			}
+			vmi = vmiFactory()
+			vmi.Spec.LivenessProbe = livenessProbe
+			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is in a final state after a minute")
 			Eventually(func() bool {
@@ -237,9 +233,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			table.Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
-			table.Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
-			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
+			table.Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
+			table.Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
+			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
 		)
 	})
 })
