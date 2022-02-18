@@ -90,7 +90,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				}()
 
 				By("Attaching the readiness probe to an external pod server")
-				readinessProbe, err = pointProbeToSupportPod(probeBackendPod, IPFamily, readinessProbe)
+				readinessProbe, err = pointIpv6ProbeToSupportPod(probeBackendPod, readinessProbe)
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
 
 				By(specifyingVMReadinessProbe)
@@ -184,7 +184,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				}()
 
 				By("Attaching the liveness probe to an external pod server")
-				livenessProbe, err = pointProbeToSupportPod(probeBackendPod, IPFamily, livenessProbe)
+				livenessProbe, err = pointIpv6ProbeToSupportPod(probeBackendPod, livenessProbe)
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
 
 				By(specifyingVMLivenessProbe)
@@ -327,10 +327,10 @@ func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
 	}
 }
 
-func pointProbeToSupportPod(pod *corev1.Pod, IPFamily corev1.IPFamily, probe *v1.Probe) (*v1.Probe, error) {
-	supportPodIP := libnet.GetPodIpByFamily(pod, IPFamily)
+func pointIpv6ProbeToSupportPod(pod *corev1.Pod, probe *v1.Probe) (*v1.Probe, error) {
+	supportPodIP := libnet.GetPodIpByFamily(pod, corev1.IPv6Protocol)
 	if supportPodIP == "" {
-		return nil, fmt.Errorf("pod's %s %s IP address does not exist", pod.Name, IPFamily)
+		return nil, fmt.Errorf("pod/%s does not have an IPv6 address", pod.Name)
 	}
 
 	return patchProbeWithIPAddr(probe, supportPodIP), nil
