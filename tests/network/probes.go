@@ -146,15 +146,11 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
 		)
 
-		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
+		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By(specifyingVMReadinessProbe)
-			if isExecProbe {
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.ReadinessProbe = readinessProbe
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
-			} else {
-				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
-			}
+			vmi = vmiFactory()
+			vmi.Spec.ReadinessProbe = readinessProbe
+			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			// pod is not ready until our probe contacts the server
 			assertPodNotReady(virtClient, vmi)
@@ -163,10 +159,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Consistently(isVMIReady).Should(Equal(false))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
 		},
-			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
-			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
-			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
-			table.Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), true),
+			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
+			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
+			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
+			table.Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmi.NewFedora),
 		)
 	})
 
