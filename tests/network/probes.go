@@ -43,9 +43,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	})
 
 	buildProbeBackendPodSpec := func(probe *v1.Probe) (*corev1.Pod, func() error) {
-		isHTTPProbe := probe.Handler.HTTPGet != nil
 		var probeBackendPod *corev1.Pod
-		if isHTTPProbe {
+		if isHTTPProbe(*probe) {
 			port := probe.HTTPGet.Port.IntVal
 			probeBackendPod = tests.StartHTTPServerPod(int(port))
 		} else {
