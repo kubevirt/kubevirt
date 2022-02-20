@@ -33,6 +33,7 @@ var (
 	WorkloadConfigFile string
 	ContainerPrefix    string
 	ContainerTag       string
+	Delete             bool
 )
 
 func init() {
@@ -44,6 +45,7 @@ func init() {
 	flag.StringVar(&WorkloadConfigFile, "workload", "tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml", "path to the file containing the worload configuration")
 	flag.StringVar(&ContainerPrefix, "container-prefix", "registry:5000/kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&ContainerTag, "container-tag", "devel", "Set the image tag or digest to use")
+	flag.BoolVar(&Delete, "delete", false, "Delete a workload")
 
 	if Kubeconfig == "" {
 		if os.Getenv("KUBECONFIG") != "" {

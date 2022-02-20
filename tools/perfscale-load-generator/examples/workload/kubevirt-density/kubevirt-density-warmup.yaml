@@ -1,6 +1,3 @@
-globalConfig:
-    qps: 0
-    burst: 0
 workloads:
   - name: kubevirt-density-1
     iterationCount: 1

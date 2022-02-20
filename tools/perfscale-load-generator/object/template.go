@@ -64,8 +64,8 @@ func init() {
 	codecs = serializer.NewCodecFactory(scheme)
 }
 
-// RendereObject creates a Kubernetes Unstructured object from a template
-func RendereObject(templateData map[string]interface{}, objectSpec []byte) (*unstructured.Unstructured, error) {
+// RenderObject creates a Kubernetes Unstructured object from a template
+func RenderObject(templateData map[string]interface{}, objectSpec []byte) (*unstructured.Unstructured, error) {
 	var renderedObj bytes.Buffer
 
 	var t *template.Template
@@ -84,17 +84,12 @@ func RendereObject(templateData map[string]interface{}, objectSpec []byte) (*uns
 	return newObject, nil
 }
 
-func GenerateObjectTemplateData(obj *config.ObjectSpec, iteration, replica int, namespacedIterations bool) map[string]interface{} {
+func GenerateObjectTemplateData(obj *config.ObjectSpec, replica int) map[string]interface{} {
 	templateData := map[string]interface{}{
-		config.Iteration: iteration,
-		config.Replica:   replica,
+		config.Replica: replica,
 	}
 
 	for k, v := range obj.InputVars {
-		if k == config.Namespace {
-			v = generateNamespace(v, iteration, namespacedIterations)
-		}
-
 		// Verify if the containerPrefix and containerTag are defined in the template, otherwise use the default values
 		if k == containerPrefix {
 			if v == "" {
@@ -110,12 +105,4 @@ func GenerateObjectTemplateData(obj *config.ObjectSpec, iteration, replica int, 
 		templateData[k] = v
 	}
 	return templateData
-}
-
-func generateNamespace(namespacePrefix interface{}, i int, namespacedIterations bool) string {
-	namespace := fmt.Sprintf("%s-1", namespacePrefix)
-	if namespacedIterations {
-		namespace = fmt.Sprintf("%s-%d", namespacePrefix, i)
-	}
-	return namespace
 }

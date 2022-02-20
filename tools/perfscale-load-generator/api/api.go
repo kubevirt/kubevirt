@@ -17,28 +17,20 @@
  *
  */
 
-package main
+package api
 
 import (
-	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/burst"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func main() {
-	log.Log.SetVerbosityLevel(flags.Verbosity)
+type LoadGenerator interface {
+	CreateWorkload()
+	DeleteWorkload()
+	Watch(*unstructured.Unstructured)
+}
 
-	log.Log.V(1).Infof("Running Load Generator Banchmark")
-
-	workload := config.NewWorkload(flags.WorkloadConfigFile)
-	client := config.NewKubevirtClient()
-
-	lg := burst.NewBurstLoadGenerator(client, workload)
-
-	if flags.Delete {
-		lg.DeleteWorkload()
-	} else {
-		lg.CreateWorkload()
-	}
+type Object interface {
+	Create()
+	Delete()
+	Watch()
 }
