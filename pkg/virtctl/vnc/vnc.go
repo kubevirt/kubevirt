@@ -39,8 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-const loopbackIPAddressFmt = "127.0.0.1:%d"
-
 const (
 	LISTEN_TIMEOUT = 60 * time.Second
 
@@ -61,6 +59,8 @@ const (
 	TIGER_VNC     = "vncviewer"
 )
 
+var listenAddressFmt string
+var listenAddress = "127.0.0.1"
 var proxyOnly bool
 var customPort = 0
 
@@ -75,7 +75,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
-	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the localhost port where VNC viewers can connect")
+	cmd.Flags().StringVar(&listenAddress, "address", listenAddress, "--address=127.0.0.1: Setting this will change the listening address of the VNC server. Example: --address=0.0.0.0 will make the server listen on all interfaces.")
+	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the port where VNC viewers can connect")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -104,8 +105,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
 	}
-
-	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(loopbackIPAddressFmt, customPort))
+	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
+	listenAddressFmt = listenAddress + ":%d"
+	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(listenAddressFmt, customPort))
 	if err != nil {
 		return fmt.Errorf("Can't resolve the address: %s", err.Error())
 	}
@@ -288,7 +290,7 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 }
 
 func tigerVncArgs(port int) (args []string) {
-	args = append(args, fmt.Sprintf(loopbackIPAddressFmt, port))
+	args = append(args, fmt.Sprintf(listenAddressFmt, port))
 	if glog.V(4) {
 		args = append(args, "Log=*:stderr:100")
 	}
@@ -296,12 +298,12 @@ func tigerVncArgs(port int) (args []string) {
 }
 
 func chickenVncArgs(port int) (args []string) {
-	args = append(args, fmt.Sprintf(loopbackIPAddressFmt, port))
+	args = append(args, fmt.Sprintf(listenAddressFmt, port))
 	return
 }
 
 func realVncArgs(port int) (args []string) {
-	args = append(args, fmt.Sprintf(loopbackIPAddressFmt, port))
+	args = append(args, fmt.Sprintf(listenAddressFmt, port))
 	args = append(args, "-WarnUnencrypted=0")
 	args = append(args, "-Shared=0")
 	args = append(args, "-ShareFiles=0")
@@ -321,5 +323,5 @@ func remoteViewerArgs(port int) (args []string) {
 
 func usage() string {
 	return `  # Connect to 'testvmi' via remote-viewer:\n"
-  {{ProgramName}} vnc testvmi`
+   {{ProgramName}} vnc testvmi`
 }
