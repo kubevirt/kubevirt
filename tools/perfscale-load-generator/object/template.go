@@ -31,7 +31,6 @@ import (
 
 	kvv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 )
 
 const (
@@ -93,12 +92,12 @@ func GenerateObjectTemplateData(obj *config.ObjectSpec, replica int) map[string]
 		// Verify if the containerPrefix and containerTag are defined in the template, otherwise use the default values
 		if k == containerPrefix {
 			if v == "" {
-				v = flags.ContainerPrefix
+				v = config.ContainerPrefix
 			}
 		}
 		if k == containerTag {
 			if v == "" {
-				v = flags.ContainerTag
+				v = config.ContainerTag
 			}
 		}
 

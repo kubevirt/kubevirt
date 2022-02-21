@@ -194,7 +194,8 @@ func (w *ObjListWatcher) WaitRunning(timeout time.Duration) error {
 }
 
 func (w *ObjListWatcher) WaitDeletion(timeout time.Duration) error {
-	if w.getRunningCount() == 0 {
+	runningCount := w.getRunningCount()
+	if runningCount == 0 || runningCount == w.desiredObjRunningCount {
 		return nil
 	}
 	for {
@@ -204,7 +205,7 @@ func (w *ObjListWatcher) WaitDeletion(timeout time.Duration) error {
 
 		case <-w.updateChannel:
 			count := w.getRunningCount()
-			if count == 0 {
+			if count == 0 || count == w.desiredObjRunningCount {
 				return nil
 			}
 			log.Log.V(6).Infof("Still %d Running %v", count, w.ResourceKind)

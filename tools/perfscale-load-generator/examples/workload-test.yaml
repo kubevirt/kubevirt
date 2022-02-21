@@ -1,7 +1,8 @@
 name: kubevirt-workload-test
 timeout: 5m
-count: 2
-type: "Burst"
+count: 10
+churn: 2
+type: "steady-state"
 object:
   templateFile: vmi-ephemeral.yaml
   inputVars:

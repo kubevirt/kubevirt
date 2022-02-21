@@ -26,11 +26,6 @@ import (
 type LoadGenerator interface {
 	CreateWorkload()
 	DeleteWorkload()
-	Watch(*unstructured.Unstructured)
-}
-
-type Object interface {
-	Create()
-	Delete()
-	Watch()
+	Watch(*unstructured.Unstructured, bool)
+	Wait()
 }

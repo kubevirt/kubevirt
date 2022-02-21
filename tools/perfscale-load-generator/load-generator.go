@@ -20,25 +20,67 @@
 package main
 
 import (
+	"time"
+
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/api"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/burst"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
+	steadyState "kubevirt.io/kubevirt/tools/perfscale-load-generator/steady-state"
 )
 
 func main() {
 	log.Log.SetVerbosityLevel(flags.Verbosity)
 
-	log.Log.V(1).Infof("Running Load Generator Banchmark")
+	log.Log.V(1).Infof("Running Load Generator")
 
 	workload := config.NewWorkload(flags.WorkloadConfigFile)
 	client := config.NewKubevirtClient()
+	if workload.Type == "" {
+		workload.Type = config.Type
+	}
+	// Minimum 30s timeout
+	if workload.Timeout.Duration <= time.Duration(30*time.Second) {
+		workload.Timeout.Duration = config.Timeout
+	}
 
-	lg := burst.NewBurstLoadGenerator(client, workload)
+	var lg api.LoadGenerator
+	if workload.Type == "burst" {
+		lg = burst.NewBurstLoadGenerator(client, workload)
+	} else if workload.Type == "steady-state" {
+		lg = steadyState.NewSteadyStateLoadGenerator(client, workload)
+	} else {
+		log.Log.V(1).Errorf("Load Generator doesn't have type %s", workload.Type)
+		return
+	}
 
 	if flags.Delete {
 		lg.DeleteWorkload()
 	} else {
-		lg.CreateWorkload()
+		timeout := time.After(workload.Timeout.Duration)
+		working := true
+		for working {
+			select {
+			case <-timeout:
+				log.Log.V(1).Infof("Load Generator duration has timed out")
+				working = false
+			default:
+			}
+
+			log.Log.V(1).Infof("Load Generator CreateWorkload")
+			lg.CreateWorkload()
+			// Burst workload should only be run once and only call Create
+			if workload.Type == "burst" {
+				return
+			}
+			log.Log.V(1).Infof("Load Generator Wait")
+			lg.Wait()
+			log.Log.V(1).Infof("Load Generator DeleteWorkload")
+			lg.DeleteWorkload()
+			log.Log.V(1).Infof("Load Generator Wait")
+			lg.Wait()
+		}
 	}
+	return
 }

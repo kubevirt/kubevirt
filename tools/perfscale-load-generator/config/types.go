@@ -27,15 +27,18 @@ import (
 
 // Object template global input variable name
 const (
-	// Replicas number of replicas to create of the given object
-	Replica = "replica"
-	// Iteration how many times to execute the workload
-	Iteration = "iteration"
-	// Namespace prefix to be create to create objects
+	Replica   = "replica"
 	Namespace = "namespace"
+)
+
+// Default config values
+const (
 	// WorkloadLabel identifies all namespaces and objects created within the workload
-	// It is mostly used to cleanup
-	WorkloadLabel = "kubevirt-load-generator-workload"
+	WorkloadLabel   = "kubevirt-load-generator-workload"
+	Type            = "burst"
+	ContainerPrefix = "registry:5000/kubevirt"
+	ContainerTag    = "devel"
+	Timeout         = time.Duration(5 * time.Minute)
 )
 
 type Duration struct {
@@ -87,4 +90,5 @@ type Workload struct {
 	Type    TestType    `yaml:"type" json:"type"`
 	Timeout Duration    `yaml:"timeout" json:"timeout,omitempty"`
 	Count   int         `yaml:"count" json:"count"`
+	Churn   int         `yaml:"churn" json:"churn,omitempty"`
 }

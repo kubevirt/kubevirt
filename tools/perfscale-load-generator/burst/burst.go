@@ -28,7 +28,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 	objUtil "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
@@ -55,7 +54,7 @@ func (b *BurstLoadGenerator) CreateWorkload() {
 	var wg sync.WaitGroup
 
 	obj := b.Workload.Object
-	for replica := 0; replica < b.Workload.Count; replica++ {
+	for replica := 1; replica <= b.Workload.Count; replica++ {
 		log.Log.V(2).Infof("Replica %d of %d", replica, b.Workload.Count)
 		templateData := objUtil.GenerateObjectTemplateData(obj, replica)
 
@@ -75,7 +74,7 @@ func (b *BurstLoadGenerator) CreateWorkload() {
 		wg.Add(1)
 		go func(newObject *unstructured.Unstructured) {
 			defer wg.Done()
-			b.Watch(newObject)
+			b.Watch(newObject, false)
 			log.Log.Infof("obj %s is available", newObject.GroupVersionKind().Kind)
 		}(newObject)
 	}
@@ -84,26 +83,26 @@ func (b *BurstLoadGenerator) CreateWorkload() {
 
 func (b *BurstLoadGenerator) DeleteWorkload() {
 	obj := b.Workload.Object
-	getObject, objType := objUtil.GetObject(b.virtClient, obj, b.Workload.Count)
+	getObject, objType := objUtil.FindObject(b.virtClient, obj, b.Workload.Count)
 	b.objType = objType
 	if getObject != nil {
 		labels := getObject.GetLabels()
 		jobUUID := labels[config.WorkloadLabel]
 		log.Log.V(2).Infof("Deleting all workloads for job %s", jobUUID)
 		objUtil.DeleteAllObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadLabel, jobUUID))
-		b.Watch(getObject)
+		b.Watch(getObject, true)
 	}
 	log.Log.V(2).Infof("All workloads for job have been deleted")
 }
 
-func (b *BurstLoadGenerator) Watch(obj *unstructured.Unstructured) {
+func (b *BurstLoadGenerator) Watch(obj *unstructured.Unstructured, delete bool) {
 	objWatcher := watcher.NewObjListWatcher(
 		b.virtClient,
 		b.objType,
 		b.Workload.Count,
 		*config.GetListOpts(config.WorkloadLabel, b.UUID))
 	objWatcher.Run()
-	if flags.Delete {
+	if delete {
 		log.Log.Infof("Wait for obj(s) %s to be deleted", b.objType)
 		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
 	} else {
@@ -111,4 +110,8 @@ func (b *BurstLoadGenerator) Watch(obj *unstructured.Unstructured) {
 		objWatcher.WaitRunning(b.Workload.Timeout.Duration)
 	}
 	objWatcher.Stop()
+}
+
+func (b *BurstLoadGenerator) Wait() {
+	return
 }

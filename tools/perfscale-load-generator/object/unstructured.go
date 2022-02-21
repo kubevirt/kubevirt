@@ -44,9 +44,37 @@ func CreateObject(virtCli kubecli.KubevirtClient, obj *unstructured.Unstructured
 	return result, err
 }
 
-func GetObject(virtCli kubecli.KubevirtClient, obj *config.ObjectSpec, count int) (*unstructured.Unstructured, string) {
+func DeleteObject(virtCli kubecli.KubevirtClient, obj unstructured.Unstructured, resourceKind string, gracePeriod int64) {
+	err := virtCli.RestClient().Delete().
+		Namespace(obj.GetNamespace()).
+		Name(obj.GetName()).
+		Resource(resourceKind).
+		Body(&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}).
+		Do(context.Background()).Error()
+	if err != nil && !errors.IsNotFound(err) {
+		log.Log.V(2).Errorf("Error deleting obj %s %s: %v", resourceKind, obj.GetName(), err)
+	}
+	return
+}
+
+func ListObjects(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions, namespace string) (*unstructured.UnstructuredList, error) {
+	result := &unstructured.UnstructuredList{}
+	err := virtCli.RestClient().Get().
+		Resource(resourceKind).
+		Namespace(namespace).
+		VersionedParams(listOpts, scheme.ParameterCodec).
+		Do(context.Background()).
+		Into(result)
+	if err != nil {
+		log.Log.V(3).Infof("error LISTing obj(s) %s", resourceKind)
+		return nil, err
+	}
+	return result, err
+}
+
+func FindObject(virtCli kubecli.KubevirtClient, obj *config.ObjectSpec, count int) (*unstructured.Unstructured, string) {
 	result := &unstructured.Unstructured{}
-	for replica := 0; replica < count; replica++ {
+	for replica := 1; replica <= count; replica++ {
 		templateData := GenerateObjectTemplateData(obj, replica)
 		newObject, err := RenderObject(templateData, obj.ObjectTemplate)
 		objType := GetObjectResource(newObject)
@@ -74,29 +102,14 @@ func GetObject(virtCli kubecli.KubevirtClient, obj *config.ObjectSpec, count int
 // DeleteAllObjectsInNamespaces deletes a collection of objects in a set of namespace with a given selector
 func DeleteAllObjectsInNamespaces(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions) {
 	gracePeriod := int64(0)
-	result := &unstructured.UnstructuredList{}
-	err := virtCli.RestClient().Get().
-		Resource(resourceKind).
-		Namespace("").
-		VersionedParams(listOpts, scheme.ParameterCodec).
-		Do(context.Background()).
-		Into(result)
+	result, err := ListObjects(virtCli, resourceKind, listOpts, "")
 	if err != nil {
-		log.Log.V(3).Infof("error LISTing obj(s) %s", resourceKind)
 		return
 	}
 
 	log.Log.V(3).Infof("Number of %s to delete: %d", resourceKind, len(result.Items))
 	for _, item := range result.Items {
 		log.Log.V(3).Infof("Deleting obj %s", item.GetName())
-		err := virtCli.RestClient().Delete().
-			Namespace(item.GetNamespace()).
-			Name(item.GetName()).
-			Resource(resourceKind).
-			Body(&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}).
-			Do(context.Background()).Error()
-		if err != nil && !errors.IsNotFound(err) {
-			log.Log.V(2).Errorf("Error deleting obj %s %s: %v", resourceKind, item.GetName(), err)
-		}
+		DeleteObject(virtCli, item, resourceKind, gracePeriod)
 	}
 }
