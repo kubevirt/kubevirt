@@ -100,7 +100,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -3081,34 +3080,6 @@ func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) 
 
 func NewInt32(x int32) *int32 {
 	return &x
-}
-
-func NewRandomPoolFromVMI(vmi *v1.VirtualMachineInstance, replicas int32, running bool) *poolv1.VirtualMachinePool {
-	selector := "pool" + rand.String(5)
-	pool := &poolv1.VirtualMachinePool{
-		ObjectMeta: metav1.ObjectMeta{Name: "pool" + rand.String(5)},
-		Spec: poolv1.VirtualMachinePoolSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"select": selector},
-			},
-			VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"select": selector},
-				},
-				Spec: v1.VirtualMachineSpec{
-					Running: &running,
-					Template: &v1.VirtualMachineInstanceTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"select": selector},
-						},
-						Spec: vmi.Spec,
-					},
-				},
-			},
-		},
-	}
-	return pool
 }
 
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
