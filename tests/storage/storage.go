@@ -426,7 +426,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("should be successfully started and virtiofs could be accessed", func() {
 				pvcName := fmt.Sprintf("disk-%s", pvc)
-				vmi := tests.NewRandomVMIWithPVCFS(pvcName)
+				vmi := libvmi.NewFedora(libvmi.WithVirtioFS(pvcName))
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 				vmi.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 
@@ -477,7 +477,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
-				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
+				vmi := libvmi.NewFedora(libvmi.WithDatavolumeVirtioFS(dataVolume.Name))
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Waiting until the DataVolume is ready")
@@ -701,7 +701,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 			It("VirtioFS, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
-				vmi := tests.NewRandomVMIWithFSFromDataVolume("something")
+				vmi := libvmi.NewFedora(libvmi.WithDatavolumeVirtioFS("something"))
 				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

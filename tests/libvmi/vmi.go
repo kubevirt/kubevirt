@@ -171,6 +171,41 @@ func WithSEV() Option {
 	}
 }
 
+func WithVirtioFS(pvcName string) Option {
+	pvcVolumeSource := v1.VolumeSource{
+		PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvcName,
+			},
+		},
+	}
+	return withVirtioFS(pvcVolumeSource)
+}
+
+func WithDatavolumeVirtioFS(datavolumeName string) Option {
+	datavolumeSource := v1.VolumeSource{
+		DataVolume: &v1.DataVolumeSource{
+			Name: datavolumeName,
+		},
+	}
+	return withVirtioFS(datavolumeSource)
+}
+
+func withVirtioFS(volumeSource v1.VolumeSource) Option {
+	volumeName := "disk" + rand.String(5)
+
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     volumeName,
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name:         volumeName,
+			VolumeSource: volumeSource,
+		})
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}

@@ -4,6 +4,9 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
+
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/kubecli"
@@ -36,10 +39,9 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 				Skip(fmt.Sprintf("Missing %s, enable %s featureGate.", virtconfig.VirtIOFSGate, virtconfig.VirtIOFSGate))
 			}
 
-			vmi := tests.NewRandomVMIWithPVCFS("test")
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(And(ContainSubstring("VirtioFS"), ContainSubstring("nonroot")))
+			vmi := libvmi.NewFedora(libvmi.WithVirtioFS("something"))
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(And(MatchError(ContainSubstring("VirtioFS")), MatchError(ContainSubstring("nonroot"))))
 
 		})
 	})
