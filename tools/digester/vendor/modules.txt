@@ -60,7 +60,7 @@ github.com/containers/storage/pkg/reexec
 github.com/containers/storage/pkg/stringid
 github.com/containers/storage/pkg/system
 github.com/containers/storage/pkg/unshare
-# github.com/docker/distribution v2.7.1+incompatible
+# github.com/docker/distribution v2.8.0+incompatible
 ## explicit
 github.com/docker/distribution
 github.com/docker/distribution/digestset
