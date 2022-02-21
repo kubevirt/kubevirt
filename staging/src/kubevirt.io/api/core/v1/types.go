@@ -821,12 +821,6 @@ const (
 	// It's used as a readiness gate to prevent paused VMs from being marked as ready.
 	VirtualMachineUnpaused k8sv1.PodConditionType = "kubevirt.io/virtual-machine-unpaused"
 
-	// VirtualMahcineTemplateHash is used by the pool controller to determine when a VM needs to be updated
-	VirtualMachineTemplateHash string = "kubevirt.io/vm-template-hash"
-
-	// VirtualMahcineInstanceTemplateHash is used by the pool controller to determine when a VMI needs to be updated
-	VirtualMachineInstanceTemplateHash string = "kubevirt.io/vmi-template-hash"
-
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
 
@@ -835,6 +829,10 @@ const (
 
 	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
 	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
+
+	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
+	// originated from.
+	VirtualMachinePoolRevisionName string = "kubevirt.io/vm-pool-revision-name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
