@@ -1,7 +1,10 @@
 package tests_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega/gmeasure"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -10,14 +13,18 @@ import (
 // Replace PDescribe with FDescribe in order to measure if your changes made
 // VMI startup any worse
 var _ = PDescribe("Ensure stable functionality", func() {
-
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Measure("by repeately starting vmis many times without issues", func(b Benchmarker) {
-		b.Time("from_start_to_ready", func() {
-			tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), 30)
-		})
-	}, 15)
+	It("by repeately starting vmis many times without issues", func() {
+		experiment := gmeasure.NewExperiment("VMs creation")
+		AddReportEntry(experiment.Name, experiment)
+
+		experiment.Sample(func(idx int) {
+			experiment.MeasureDuration("Create VM", func() {
+				tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), 30)
+			})
+		}, gmeasure.SamplingConfig{N: 15, Duration: 10 * time.Minute})
+	})
 })
