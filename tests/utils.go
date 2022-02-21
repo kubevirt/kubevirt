@@ -2162,7 +2162,7 @@ func newDataVolume(namespace, storageClass string, size string, accessMode k8sv1
 }
 
 func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
-	size := "1Gi"
+	size := "512Mi"
 	dataVolumeSource := cdiv1.DataVolumeSource{
 		Registry: &cdiv1.DataVolumeSourceRegistry{
 			URL: &imageUrl,
