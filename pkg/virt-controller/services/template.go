@@ -119,6 +119,13 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 const ephemeralStorageOverheadSize = "50M"
 
+const (
+	VirtLauncherOverhead = "150Mi" // The sum of the `ps` RSS for the 2 virt-launcher processes
+	VirtlogdOverhead     = "16Mi"  // The RSS for virtlogd
+	LibvirtdOverhead     = "33Mi"  // The RSS for libvirtd
+	QemuOverhead         = "30Mi"  // The RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
+)
+
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -1857,9 +1864,13 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	pagetableMemory.Set(pagetableMemory.Value() / 512)
 	overhead.Add(*pagetableMemory)
 
-	// Add fixed overhead for shared libraries and such
-	// TODO account for the overhead of kubevirt components running in the pod
-	overhead.Add(resource.MustParse("138Mi"))
+	// Add fixed overhead for KubeVirt components, as seen in a random run, rounded up to the nearest MiB
+	// Note: shared libraries are included in the size, so every library is counted (wrongly) as many times as there are
+	//   processes using it. However, the extra memory is only in the order of 10MiB and makes for a nice safety margin.
+	overhead.Add(resource.MustParse(VirtLauncherOverhead))
+	overhead.Add(resource.MustParse(VirtlogdOverhead))
+	overhead.Add(resource.MustParse(LibvirtdOverhead))
+	overhead.Add(resource.MustParse(QemuOverhead))
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
