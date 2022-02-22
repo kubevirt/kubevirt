@@ -3441,18 +3441,6 @@ func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
 }
 
-// Deprecated: BeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
-// parallel execution.
-func BeforeAll(fn func()) {
-	first := true
-	BeforeEach(func() {
-		if first {
-			fn()
-			first = false
-		}
-	})
-}
-
 func SkipIfNonRoot(virtClient kubecli.KubevirtClient, feature string) {
 	if checks.HasFeature(virtconfig.NonRoot) {
 		Skip(fmt.Sprintf("NonRoot implementation doesn't support %s", feature))

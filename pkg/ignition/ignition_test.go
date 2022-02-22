@@ -32,7 +32,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("Ignition", func() {
+var _ = Describe("Ignition", Ordered, func() {
 
 	const vmName = "my-vm"
 	const namespace = "my-namespace"
@@ -40,7 +40,7 @@ var _ = Describe("Ignition", func() {
 	// const ignitionLocalDir = "/var/run/libvirt/ignition-dir"
 	var vmi *v1.VirtualMachineInstance
 
-	BeforeSuite(func() {
+	BeforeAll(func() {
 		var err error
 		tmpDir, err = ioutil.TempDir("", "ignitiontest")
 		Expect(err).ToNot(HaveOccurred())
@@ -50,7 +50,7 @@ var _ = Describe("Ignition", func() {
 		}
 	})
 
-	AfterSuite(func() {
+	AfterAll(func() {
 		os.RemoveAll(tmpDir)
 	})
 

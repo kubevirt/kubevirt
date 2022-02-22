@@ -43,7 +43,7 @@ const (
 	x86PenrynXml = "x86_Penryn.xml"
 )
 
-var _ = Describe("Node-labeller config", func() {
+var _ = Describe("Node-labeller config", Ordered, func() {
 	var nlController *NodeLabeller
 	var virtClient *kubecli.MockKubevirtClient
 
@@ -62,7 +62,7 @@ var _ = Describe("Node-labeller config", func() {
 
 	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
-	BeforeSuite(func() {
+	BeforeAll(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 

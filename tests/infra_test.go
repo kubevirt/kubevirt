@@ -516,14 +516,14 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 	})
 
-	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", Ordered, func() {
 
 		/*
 			This test is querying the metrics from Prometheus *after* they were
 			scraped and processed by the different components on the way.
 		*/
 
-		tests.BeforeAll(func() {
+		BeforeAll(func() {
 			onOCP, err := clusterutil.IsOnOpenShift(virtClient)
 			Expect(err).ToNot(HaveOccurred(), "failed to detect cluster type")
 
@@ -622,7 +622,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 	})
 
-	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", Ordered, func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
 		var handlerMetricIPs []string
@@ -713,7 +713,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			return nodeName
 		}
 
-		tests.BeforeAll(func() {
+		BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
 			By("Finding the virt-controller prometheus endpoint")
