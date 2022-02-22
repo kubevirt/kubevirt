@@ -33,6 +33,14 @@ type DHCPInterfaceCache struct {
 	cache *Cache
 }
 
+func RemoveDHCPInterfaceCache(c cacheCreator, pid, ifaceName string) error {
+	dhcpCache, err := NewDHCPInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return dhcpCache.Remove()
+}
+
 func ReadDHCPInterfaceCache(c cacheCreator, pid, ifaceName string) (*DHCPConfig, error) {
 	dhcpCache, err := NewDHCPInterfaceCache(c, pid).IfaceEntry(ifaceName)
 	if err != nil {
@@ -63,6 +71,11 @@ func (d DHCPInterfaceCache) IfaceEntry(ifaceName string) (DHCPInterfaceCache, er
 	}
 
 	return DHCPInterfaceCache{&cache}, nil
+}
+
+func (d DHCPInterfaceCache) Remove() error {
+	cachedIface := &DHCPConfig{}
+	return d.cache.Delete(cachedIface)
 }
 
 func (d DHCPInterfaceCache) Read() (*DHCPConfig, error) {

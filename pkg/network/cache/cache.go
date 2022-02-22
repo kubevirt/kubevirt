@@ -40,6 +40,7 @@ type cacheFS interface {
 	Stat(name string) (os.FileInfo, error)
 	MkdirAll(path string, perm os.FileMode) error
 	RemoveAll(path string) error
+	Remove(path string) error
 	ReadFile(filename string) ([]byte, error)
 	WriteFile(filename string, data []byte, perm fs.FileMode) error
 }
@@ -79,7 +80,11 @@ func (c Cache) Write(data interface{}) error {
 	return writeToCachedFile(c.fs, data, c.path)
 }
 
-func (c Cache) Delete() error {
+func (c Cache) Delete(data interface{}) error {
+	return c.fs.Remove(c.path)
+}
+
+func (c Cache) DeleteAll() error {
 	return c.fs.RemoveAll(c.path)
 }
 

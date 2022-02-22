@@ -106,6 +106,10 @@ func (b *MasqueradePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *c
 	return nil
 }
 
+func (b *MasqueradePodNetworkConfigurator) CleanPodNetworkInterface() error {
+	return nil
+}
+
 func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	if err := b.createBridge(); err != nil {
 		return err

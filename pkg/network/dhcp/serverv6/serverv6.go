@@ -22,6 +22,7 @@ package serverv6
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/insomniacslk/dhcp/dhcpv6"
@@ -40,7 +41,7 @@ type DHCPv6Handler struct {
 	modifiers []dhcpv6.Modifier
 }
 
-func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
+func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string, stopChan chan string) error {
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 
 	iface, err := net.InterfaceByName(serverIfaceName)
@@ -64,6 +65,18 @@ func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create DHCPv6 server: %v", err)
 	}
+
+	go func() {
+		for {
+			select {
+			case currIface := <-stopChan:
+				if strings.Compare(currIface, serverIfaceName) == 0 { //stop dhcp server condition - check interface name
+					conn.Close()
+					return
+				}
+			}
+		}
+	}()
 
 	err = s.Serve()
 	if err != nil {

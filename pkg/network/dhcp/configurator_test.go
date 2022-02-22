@@ -34,7 +34,7 @@ var _ = Describe("DHCP configurator", func() {
 	})
 
 	AfterEach(func() {
-		cacheCreator.New("").Delete()
+		cacheCreator.New("").DeleteAll()
 		Expect(os.RemoveAll(fakeDhcpStartedDir)).To(Succeed())
 	})
 
@@ -54,11 +54,13 @@ var _ = Describe("DHCP configurator", func() {
 		var advertisingAddr netlink.Addr
 		var dhcpConfig cache.DHCPConfig
 		var dhcpOptions *v1.DHCPOptions
+		var stopCh chan string
 
 		BeforeEach(func() {
 			addr, err := netlink.ParseAddr(advertisingCIDR)
 			Expect(err).NotTo(HaveOccurred())
 			advertisingAddr = *addr
+			stopCh = make(chan string)
 		})
 
 		BeforeEach(func() {
@@ -74,7 +76,7 @@ var _ = Describe("DHCP configurator", func() {
 		table.DescribeTable("should succeed when DHCP server started", func(configurator *configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(nil)
 
-			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions, stopCh)).To(Succeed())
 		},
 			table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
 			table.Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
@@ -83,8 +85,8 @@ var _ = Describe("DHCP configurator", func() {
 		table.DescribeTable("should succeed when DHCP server is started multiple times", func(configurator *configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(nil)
 
-			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
-			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions, stopCh)).To(Succeed())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions, stopCh)).To(Succeed())
 		},
 			table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
 			table.Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
@@ -93,7 +95,7 @@ var _ = Describe("DHCP configurator", func() {
 		table.DescribeTable("should fail when DHCP server failed", func(configurator *configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(fmt.Errorf("failed to start DHCP server"))
 
-			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(HaveOccurred())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions, stopCh)).To(HaveOccurred())
 		},
 			table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
 			table.Entry("with masquerade configurator", newMasqueradeConfigurator(bridgeName)),
@@ -113,7 +115,7 @@ var _ = Describe("DHCP configurator", func() {
 			table.DescribeTable("shouldn't fail when DHCP server failed", func(configurator *configurator) {
 				configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil).Return(nil).Times(0)
 
-				Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+				Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions, stopCh)).To(Succeed())
 			},
 				table.Entry("with bridge configurator", newBridgeConfigurator(launcherPID, bridgeName)),
 				table.Entry("with masquerade", newMasqueradeConfigurator(bridgeName)),

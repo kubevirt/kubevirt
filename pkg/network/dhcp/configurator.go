@@ -33,7 +33,8 @@ import (
 const defaultDHCPStartedDirectory = "/var/run/kubevirt-private"
 
 type Configurator interface {
-	EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error
+	EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions, stopChan chan string) error
+	StopDHCPServer(podInterfaceName string, stopChan chan string) error
 	Generate() (*cache.DHCPConfig, error)
 }
 
@@ -80,14 +81,16 @@ func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.Ne
 	}
 }
 
-func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
+func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig,
+	dhcpOptions *v1.DHCPOptions, stopChan chan string) error {
+
 	if dhcpConfig.IPAMDisabled {
 		return nil
 	}
 	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
-		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
+		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions, stopChan); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)
@@ -95,6 +98,22 @@ func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConf
 			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
 		}
 		newFile.Close()
+		return nil
+	}
+	return nil
+}
+
+func (d *configurator) StopDHCPServer(podInterfaceName string, stopChan chan string) error {
+	//stop corresponding dhcp server
+	stopChan <- podInterfaceName
+
+	dhcpStartedFilePath := d.getDHCPStartedFilePath(podInterfaceName)
+	_, err := os.Stat(dhcpStartedFilePath)
+	if err == nil { //if file exist
+		err := os.Remove(dhcpStartedFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to remove dhcp started file %s: %s", dhcpStartedFilePath, err)
+		}
 	}
 	return nil
 }

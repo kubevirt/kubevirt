@@ -31,6 +31,14 @@ type DomainInterfaceCache struct {
 	cache *Cache
 }
 
+func RemoveDomainInterfaceCache(c cacheCreator, pid, ifaceName string) error {
+	domainCache, err := NewDomainInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return domainCache.Remove()
+}
+
 func ReadDomainInterfaceCache(c cacheCreator, pid, ifaceName string) (*api.Interface, error) {
 	domainCache, err := NewDomainInterfaceCache(c, pid).IfaceEntry(ifaceName)
 	if err != nil {
@@ -61,6 +69,11 @@ func (d DomainInterfaceCache) IfaceEntry(ifaceName string) (DomainInterfaceCache
 	}
 
 	return DomainInterfaceCache{&cache}, nil
+}
+
+func (d DomainInterfaceCache) Remove() error {
+	iface := &api.Interface{}
+	return d.cache.Delete(iface)
 }
 
 func (d DomainInterfaceCache) Read() (*api.Interface, error) {

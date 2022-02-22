@@ -65,12 +65,13 @@ type NetworkHandler interface {
 	LinkSetUp(link netlink.Link) error
 	LinkSetName(link netlink.Link, name string) error
 	LinkAdd(link netlink.Link) error
+	LinkDel(link netlink.Link) error
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
-	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
+	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, stopChan chan string) error
 	HasNatIptables(proto iptables.Protocol) bool
 	IsIpv6Enabled(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
@@ -83,6 +84,7 @@ type NetworkHandler interface {
 	NftablesLoad(proto iptables.Protocol) error
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
+	DeleteTapDevice(tapName string, launcherPID int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
 }
@@ -115,6 +117,9 @@ func (h *NetworkUtilsHandler) LinkSetName(link netlink.Link, name string) error 
 }
 func (h *NetworkUtilsHandler) LinkAdd(link netlink.Link) error {
 	return netlink.LinkAdd(link)
+}
+func (h *NetworkUtilsHandler) LinkDel(link netlink.Link) error {
+	return netlink.LinkDel(link)
 }
 func (h *NetworkUtilsHandler) LinkSetLearningOff(link netlink.Link) error {
 	return netlink.LinkSetLearning(link, false)
@@ -337,7 +342,8 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
+func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions,
+	stopChan chan string) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -364,6 +370,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 			searchDomains,
 			nic.Mtu,
 			dhcpOptions,
+			stopChan,
 		); err != nil {
 			log.Log.Errorf("failed to run DHCP: %v", err)
 			panic(err)
@@ -375,6 +382,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 			if err = DHCPv6Server(
 				nic.IPv6.IP,
 				bridgeInterfaceName,
+				stopChan,
 			); err != nil {
 				log.Log.Reason(err).Error("failed to run DHCPv6")
 				panic(err)
@@ -386,7 +394,15 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
-	tapDeviceSELinuxCmdExecutor, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID, mtu, tapOwner)
+	createTapDeviceArgs := []string{
+		"create-tap",
+		"--tap-name", tapName,
+		"--uid", tapOwner,
+		"--gid", tapOwner,
+		"--queue-number", fmt.Sprintf("%d", queueNumber),
+		"--mtu", fmt.Sprintf("%d", mtu),
+	}
+	tapDeviceSELinuxCmdExecutor, err := buildTapDeviceExecuter(createTapDeviceArgs, launcherPID)
 	if err != nil {
 		return err
 	}
@@ -398,17 +414,26 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32
 	return nil
 }
 
-func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int, tapOwner string) (*selinux.ContextExecutor, error) {
-	createTapDeviceArgs := []string{
-		"create-tap",
+func (h *NetworkUtilsHandler) DeleteTapDevice(tapName string, launcherPID int) error {
+	deleteTapDeviceArgs := []string{
+		"delete-tap",
 		"--tap-name", tapName,
-		"--uid", tapOwner,
-		"--gid", tapOwner,
-		"--queue-number", fmt.Sprintf("%d", queueNumber),
-		"--mtu", fmt.Sprintf("%d", mtu),
 	}
-	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
-	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
+	tapDeviceSELinuxCmdExecutor, err := buildTapDeviceExecuter(deleteTapDeviceArgs, launcherPID)
+	if err != nil {
+		return err
+	}
+	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
+		return fmt.Errorf("error deleting tap device named %s; %v", tapName, err)
+	}
+
+	log.Log.Infof("Deleted tap device: %s in PID: %d", tapName, launcherPID)
+	return nil
+}
+
+func buildTapDeviceExecuter(execTapDeviceArgs []string, virtLauncherPID int) (*selinux.ContextExecutor, error) {
+	// #nosec No risk for attacket injection. execTapDeviceArgs includes predefined strings
+	cmd := exec.Command("virt-chroot", execTapDeviceArgs...)
 	return selinux.NewContextExecutor(virtLauncherPID, cmd)
 }
 

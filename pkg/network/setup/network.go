@@ -47,34 +47,49 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator)
 }
 
-func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
-	var nics []podNIC
+func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, ifaceName string) ([]podNIC, error) {
+	nics := []podNIC{}
 
 	for i := range v.vmi.Spec.Networks {
 		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, launcherPID)
 		if err != nil {
 			return nil, err
 		}
-		nics = append(nics, *nic)
+		if len(ifaceName) > 0 { //get NIC by iface name
+			if ifaceName == v.vmi.Spec.Networks[i].Name {
+				nics = append(nics, *nic)
+				return nics, nil
+			}
+		} else { //get all NICs
+			nics = append(nics, *nic)
+		}
 	}
+
 	return nics, nil
 }
 
-func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain) ([]podNIC, error) {
-	var nics []podNIC
+func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, ifaceName string) ([]podNIC, error) {
+	nics := []podNIC{}
 
 	for i := range v.vmi.Spec.Networks {
 		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheCreator, domain)
 		if err != nil {
 			return nil, err
 		}
-		nics = append(nics, *nic)
+		if len(ifaceName) > 0 { //get NIC by iface name
+			if ifaceName == v.vmi.Spec.Networks[i].Name {
+				nics = append(nics, *nic)
+				return nics, nil
+			}
+		} else { //get all NICs
+			nics = append(nics, *nic)
+		}
 	}
 	return nics, nil
 }
 
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int) error {
-	nics, err := n.getPhase1NICs(&launcherPID)
+	nics, err := n.getPhase1NICs(&launcherPID, "")
 	if err != nil {
 		return err
 	}
@@ -86,15 +101,50 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int) error {
 	return nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {
-	nics, err := n.getPhase2NICs(domain)
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, stopChan chan string) error {
+	nics, err := n.getPhase2NICs(domain, "")
 	if err != nil {
 		return err
 	}
 	for _, nic := range nics {
-		if err := nic.PlugPhase2(domain); err != nil {
+		if err := nic.PlugPhase2(domain, stopChan); err != nil {
 			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
 		}
 	}
+	return nil
+}
+
+//UnplugPodNetworkPhase2
+func (n *VMNetworkConfigurator) RemovePodAuxiliaryInfraForInterface(pid int, ifaceName string) error {
+	launcherPID := &pid
+	//we use setupPhase1NICs to create NIC instance with infraConfigurator inside
+	nics, err := n.getPhase1NICs(launcherPID, ifaceName)
+	if err != nil {
+		return err
+	} else if len(nics) != 1 {
+		return fmt.Errorf("could not find a single interface named %s. Found %d", ifaceName, len(nics))
+	}
+
+	if err := nics[0].UnplugPhase2(); err != nil {
+		return fmt.Errorf("failed unplugging phase2 at nic '%s': %w", nics[0].podInterfaceName, err)
+	}
+
+	return nil
+}
+
+//UnplugPodNetworkPhase1
+func (n *VMNetworkConfigurator) StopDHCPServerForInterface(domain *api.Domain, ifaceName string, stopChan chan string) error {
+	//we use setupPhase2NICs to create NIC instance with dhcpConfigurator inside
+	nics, err := n.getPhase2NICs(domain, ifaceName)
+	if err != nil {
+		return err
+	} else if len(nics) != 1 {
+		return fmt.Errorf("could not find a single interface named %s. Found %d", ifaceName, len(nics))
+	}
+
+	if err := nics[0].UnplugPhase1(stopChan); err != nil {
+		return fmt.Errorf("failed unplugging phase1 at nic '%s': %w", nics[0].podInterfaceName, err)
+	}
+
 	return nil
 }

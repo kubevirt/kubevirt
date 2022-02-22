@@ -49,6 +49,15 @@ func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu i
 	return nil
 }
 
+func deleteTapDevice(name string) error {
+	tapDevice, err := netlink.LinkByName(name)
+	if err != nil {
+		return fmt.Errorf("failed to find tap device named %s. Reason: %v", name, err)
+	}
+
+	return netlink.LinkDel(tapDevice)
+}
+
 func NewCreateTapCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create-tap",
@@ -76,6 +85,18 @@ func NewCreateTapCommand() *cobra.Command {
 			}
 
 			return createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu))
+		},
+	}
+}
+
+func NewDeleteTapCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete-tap",
+		Short: "delete a tap device in a given PID net ns",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tapName := cmd.Flag("tap-name").Value.String()
+
+			return deleteTapDevice(tapName)
 		},
 	}
 }

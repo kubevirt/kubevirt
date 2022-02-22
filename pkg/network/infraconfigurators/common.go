@@ -33,6 +33,7 @@ import (
 type PodNetworkInfraConfigurator interface {
 	DiscoverPodNetworkInterface(podIfaceName string) error
 	PreparePodNetworkInterface() error
+	CleanPodNetworkInterface() error
 	GenerateNonRecoverableDomainIfaceSpec() *api.Interface
 	// The method should return dhcp configuration that cannot be calculated in virt-launcher's phase2
 	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
@@ -44,6 +45,10 @@ func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName strin
 		return err
 	}
 	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
+}
+
+func deleteTapDevice(handler netdriver.NetworkHandler, deviceName string, launcherPID int) error {
+	return handler.DeleteTapDevice(deviceName, launcherPID)
 }
 
 func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {

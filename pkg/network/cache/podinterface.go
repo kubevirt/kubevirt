@@ -32,6 +32,8 @@ const (
 	PodIfaceNetworkPreparationPending PodIfaceState = iota
 	PodIfaceNetworkPreparationStarted
 	PodIfaceNetworkPreparationFinished
+	PodIfaceNetworkCleanStarted
+	PodIfaceNetworkCleanFinished
 )
 
 type PodIfaceCacheData struct {
@@ -43,6 +45,14 @@ type PodIfaceCacheData struct {
 
 type PodInterfaceCache struct {
 	cache *Cache
+}
+
+func RemovePodInterfaceCache(c cacheCreator, uid, ifaceName string) error {
+	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return podCache.Remove()
 }
 
 func ReadPodInterfaceCache(c cacheCreator, uid, ifaceName string) (*PodIfaceCacheData, error) {
@@ -86,5 +96,7 @@ func (p PodInterfaceCache) Write(cacheInterface *PodIfaceCacheData) error {
 }
 
 func (p PodInterfaceCache) Remove() error {
-	return p.cache.Delete()
+	iface := &PodIfaceCacheData{}
+	err := p.cache.Delete(iface)
+	return err
 }

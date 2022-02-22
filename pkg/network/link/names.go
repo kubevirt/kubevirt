@@ -21,6 +21,7 @@ package link
 
 import (
 	"fmt"
+	"strings"
 )
 
 func GenerateTapDeviceName(podInterfaceName string) string {
@@ -29,5 +30,8 @@ func GenerateTapDeviceName(podInterfaceName string) string {
 
 func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) string {
 	return fmt.Sprintf("%s-nic", originalPodInterfaceName)
+}
 
+func RecoverOriginalPodInterfaceName(generatedPodInterfaceName string) string {
+	return strings.TrimSuffix(generatedPodInterfaceName, "--nic")
 }

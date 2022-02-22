@@ -20,6 +20,11 @@ type MockNetworkHandler struct {
 	recorder *_MockNetworkHandlerRecorder
 }
 
+func (_m *MockNetworkHandler) DeleteTapDevice(tapName string, launcherPID int) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 // Recorder for MockNetworkHandler (not exported)
 type _MockNetworkHandlerRecorder struct {
 	mock *MockNetworkHandler
@@ -146,6 +151,11 @@ func (_m *MockNetworkHandler) LinkAdd(link netlink.Link) error {
 	return ret0
 }
 
+func (_m *MockNetworkHandler) LinkDel(link netlink.Link) error {
+	//todo impl
+	return nil
+}
+
 func (_mr *_MockNetworkHandlerRecorder) LinkAdd(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkAdd", arg0)
 }
@@ -203,8 +213,8 @@ func (_mr *_MockNetworkHandlerRecorder) LinkSetMaster(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetMaster", arg0, arg1)
 }
 
-func (_m *MockNetworkHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
-	ret := _m.ctrl.Call(_m, "StartDHCP", nic, bridgeInterfaceName, dhcpOptions)
+func (_m *MockNetworkHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, stopChan chan string) error {
+	ret := _m.ctrl.Call(_m, "StartDHCP", nic, bridgeInterfaceName, dhcpOptions, stopChan)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

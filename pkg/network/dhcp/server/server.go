@@ -59,7 +59,8 @@ func SingleClientDHCPServer(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	customDHCPOptions *v1.DHCPOptions) error {
+	customDHCPOptions *v1.DHCPOptions,
+	stopChan chan string) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -86,10 +87,24 @@ func SingleClientDHCPServer(
 		return err
 	}
 	defer l.Close()
+
+	go func() {
+		for {
+			select {
+			case currIface := <-stopChan:
+				if strings.Compare(currIface, serverIface) == 0 { //stop dhcp server condition - check interface name
+					l.Close()
+					return
+				}
+			}
+		}
+	}()
+
 	err = dhcp.Serve(l, handler)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

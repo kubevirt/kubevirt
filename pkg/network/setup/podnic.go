@@ -149,6 +149,15 @@ func (l *podNIC) setPodInterfaceCache() error {
 	return nil
 }
 
+func (l *podNIC) removePodInterfaceCache() error {
+	if err := cache.RemovePodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name); err != nil {
+		log.Log.Reason(err).Errorf("failed to remove pod Interface from ifCache, %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
 // The operation clones the Pod status IP list order logic.
 func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
@@ -232,7 +241,52 @@ func (l *podNIC) PlugPhase1() error {
 	return nil
 }
 
-func (l *podNIC) PlugPhase2(domain *api.Domain) error {
+func (l *podNIC) UnplugPhase2() error {
+
+	// There is nothing to unplug for SR-IOV devices
+	if l.vmiSpecIface.SRIOV != nil {
+		return nil
+	}
+
+	if err := l.setState(cache.PodIfaceNetworkCleanStarted); err != nil {
+		return fmt.Errorf("failed setting state to PodIfaceNetworkDeleteStarted: %w", err)
+	}
+
+	if l.infraConfigurator == nil {
+		return nil
+	}
+
+	if err := l.infraConfigurator.DiscoverPodNetworkInterface(l.podInterfaceName); err != nil {
+		return err
+	}
+
+	if err := l.infraConfigurator.CleanPodNetworkInterface(); err != nil {
+		return fmt.Errorf("failed to delete pod networking: %w", err)
+	}
+
+	if err := l.setState(cache.PodIfaceNetworkCleanFinished); err != nil {
+		return fmt.Errorf("failed setting state to PodIfaceNetworkDeleteFinished: %w", err)
+	}
+
+	//remove iface data from DomainInterfaceCache if exist
+	if err := cache.RemoveDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name); err != nil {
+		return fmt.Errorf("failed to clean domain interface cache: %w", err)
+	}
+
+	//assuming DHCPServer is already stopped - remove iface data from DHCPConfigCache if exist
+	if err := cache.RemoveDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.podInterfaceName); err != nil {
+		return fmt.Errorf("failed to clean DHCP configuration cache: %w", err)
+	}
+
+	//remove iface data from PodInterfaceCache if exist
+	if err := l.removePodInterfaceCache(); err != nil {
+		return fmt.Errorf("failed to clean Pod interface cache: %w", err)
+	}
+
+	return nil
+}
+
+func (l *podNIC) PlugPhase2(domain *api.Domain, stopChan chan string) error {
 	precond.MustNotBeNil(domain)
 
 	// There is nothing to plug for SR-IOV devices
@@ -251,12 +305,27 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 			return err
 		}
 		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
-		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions); err != nil {
+		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions, stopChan); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
 		}
 	}
 
+	return nil
+}
+
+func (l *podNIC) UnplugPhase1(stopCh chan string) error {
+	// There is nothing to unplug for SR-IOV devices
+	if l.vmiSpecIface.SRIOV != nil {
+		return nil
+	}
+	//stop dhcp server if exist
+	if l.dhcpConfigurator != nil {
+		if err := l.dhcpConfigurator.StopDHCPServer(l.podInterfaceName, stopCh); err != nil {
+			log.Log.Reason(err).Errorf("failed to stop dhcp server for: %s", l.podInterfaceName)
+			return err
+		}
+	}
 	return nil
 }
 

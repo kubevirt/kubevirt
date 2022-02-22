@@ -156,6 +156,37 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	return nil
 }
 
+func (b *BridgePodNetworkConfigurator) CleanPodNetworkInterface() error {
+
+	// Set interface link down before removal
+	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
+		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podNicLink.Attrs().Name)
+		return err
+	}
+
+	//delete dummy interface
+	if b.ipamEnabled {
+		if err := b.deletePodInterface(); err != nil {
+			log.Log.Reason(err).Error("failed to delete pod dummy interface")
+			return err
+		}
+	}
+
+	//delete bridge
+	if err := b.deleteBridge(); err != nil {
+		return err
+	}
+
+	//delete tap device
+	err := deleteTapDevice(b.handler, b.tapDeviceName, b.launcherPID)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
+		return err
+	}
+
+	return nil
+}
+
 func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
 	return &api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
@@ -220,6 +251,41 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 
 	if err = b.handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
 		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
+		return err
+	}
+
+	return nil
+}
+
+func (b *BridgePodNetworkConfigurator) deleteBridge() error {
+	bridge, err := b.handler.LinkByName(b.bridgeInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get link: %s", b.bridgeInterfaceName)
+		return err
+	}
+
+	err = b.handler.LinkDel(bridge)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to delete bridge: %s", b.bridgeInterfaceName)
+		return err
+	}
+
+	return nil
+}
+
+func (b *BridgePodNetworkConfigurator) deletePodInterface() error {
+	//delete an original interface (with the generated name), assuming multus will delete the dummy interface that has an original name
+	podIfaceName := b.podNicLink.Attrs().Name
+	podIface, err := b.handler.LinkByName(podIfaceName)
+
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get link: %s", podIfaceName)
+		return err
+	}
+
+	err = b.handler.LinkDel(podIface)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for pod interface : %s", podIfaceName)
 		return err
 	}
 

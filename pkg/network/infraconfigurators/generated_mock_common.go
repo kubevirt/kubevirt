@@ -41,6 +41,11 @@ func (_mr *_MockPodNetworkInfraConfiguratorRecorder) DiscoverPodNetworkInterface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoverPodNetworkInterface", arg0)
 }
 
+func (_m *MockPodNetworkInfraConfigurator) CleanPodNetworkInterface() error {
+	//TODO impl
+	return nil
+}
+
 func (_m *MockPodNetworkInfraConfigurator) PreparePodNetworkInterface() error {
 	ret := _m.ctrl.Call(_m, "PreparePodNetworkInterface")
 	ret0, _ := ret[0].(error)
