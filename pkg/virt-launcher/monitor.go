@@ -238,7 +238,9 @@ func FindPid(commandNamePrefix string) (int, error) {
 	for _, entry := range entries {
 		// #nosec No risk for path injection. Reading specific entries under /proc
 		content, err := ioutil.ReadFile(entry)
-		if err != nil {
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
 			return 0, err
 		}
 
