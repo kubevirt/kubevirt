@@ -64,33 +64,28 @@ var (
 	expectedFrozenOutput = `{"return":"frozen"}`
 )
 
+var _ = BeforeSuite(func() {
+	tmpDir, err := ioutil.TempDir("", "cloudinittest")
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(os.RemoveAll, tmpDir)
+
+	err = cloudinit.SetLocalDirectory(tmpDir)
+	Expect(err).ToNot(HaveOccurred())
+
+	ephemeraldiskutils.MockDefaultOwnershipManager()
+	cloudinit.SetIsoCreationFunction(isoCreationFunc)
+})
+
 var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
 	var mockDirectIOChecker *converter.MockDirectIOChecker
 	var ctrl *gomock.Controller
-	var testVirtShareDir, tmpDir string
+	var testVirtShareDir string
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
-
-	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
-		_, err := os.Create(isoOutFile)
-		return err
-	}
-	BeforeSuite(func() {
-		var err error
-		tmpDir, err = ioutil.TempDir("", "cloudinittest")
-		Expect(err).ToNot(HaveOccurred())
-		err = cloudinit.SetLocalDirectory(tmpDir)
-		if err != nil {
-			panic(err)
-		}
-		defer os.RemoveAll(tmpDir)
-		ephemeraldiskutils.MockDefaultOwnershipManager()
-		cloudinit.SetIsoCreationFunction(isoCreationFunc)
-	})
 
 	BeforeEach(func() {
 		testVirtShareDir = fmt.Sprintf("fake-%d", GinkgoRandomSeed())
@@ -2501,4 +2496,9 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 			},
 		},
 	})
+}
+
+func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
+	_, err := os.Create(isoOutFile)
+	return err
 }

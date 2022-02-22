@@ -147,7 +147,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		fetchVirtHandlerCommand                func() string
 	)
 
-	tests.BeforeAll(func() {
+	tests.DeprecatedBeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util2.PanicOnError(err)
 		config, err := kubecli.GetKubevirtClientConfig()

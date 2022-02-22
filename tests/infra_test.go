@@ -523,7 +523,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			scraped and processed by the different components on the way.
 		*/
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			onOCP, err := clusterutil.IsOnOpenShift(virtClient)
 			Expect(err).ToNot(HaveOccurred(), "failed to detect cluster type")
 
@@ -713,7 +713,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			return nodeName
 		}
 
-		tests.BeforeAll(func() {
+		tests.DeprecatedBeforeAll(func() {
 			tests.BeforeTestCleanup()
 
 			By("Finding the virt-controller prometheus endpoint")
