@@ -4,14 +4,14 @@ import (
 	"reflect"
 
 	fuzz "github.com/google/gofuzz"
-	. "github.com/onsi/ginkgo/v2"
+	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Generated deepcopy functions", func() {
+var _ = ginkgo.Describe("Generated deepcopy functions", func() {
 
 	var structs []interface{}
-	BeforeEach(func() {
+	ginkgo.BeforeEach(func() {
 
 		structs = []interface{}{
 			&Domain{},
@@ -87,7 +87,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 		}
 	})
 
-	It("should work for fuzzed structs", func() {
+	ginkgo.It("should work for fuzzed structs", func() {
 		for _, s := range structs {
 			fuzz.New().NilChance(0).Fuzz(s)
 			Expect(reflect.ValueOf(s).MethodByName("DeepCopy").Call(nil)[0].Interface()).To(Equal(s))
