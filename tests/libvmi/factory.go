@@ -80,9 +80,12 @@ func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualM
 
 // NewCirros instantiates a new CirrOS based VMI configuration
 func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	// Supplied with no user data, Cirros image takes 230s to allow login
+	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
+
 	cirrosOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		withNonEmptyUserData,
 		WithResourceMemory("128Mi"),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
@@ -94,7 +97,6 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
 		WithResourceMemory("128Mi"),
 		WithRng(),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
