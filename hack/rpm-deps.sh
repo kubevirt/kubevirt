@@ -98,6 +98,9 @@ launcherbase_extra="
   selinux-policy-targeted
   tar
   xorriso
+  ipset
+  tcpdump
+  net-tools
 "
 
 handler_base="
