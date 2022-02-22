@@ -26,11 +26,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
-	vmSchema "kubevirt.io/client-go/api/v1"
+	vmSchema "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
@@ -40,8 +41,9 @@ import (
 )
 
 const (
-	diskQosAnnotation =  "disk.vm.kubevirt.io/qos"
-	onDefineDomainLoggingMessage    = "Hook's OnDefineDomain callback method has been called"
+	diskQosAnnotation            = "disk.vm.kubevirt.io/qos"
+	onDefineDomainLoggingMessage = "Hook's OnDefineDomain callback method has been called"
+	cloudInit                    = "cloud-init"
 )
 
 type DiskQos struct {
@@ -116,7 +118,7 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 
 	var qosList []DiskQos
 	annotations := vmiSpec.GetAnnotations()
-	diskQos, found := annotations[diskQosAnnotation]; 
+	diskQos, found := annotations[diskQosAnnotation]
 	if !found {
 		log.Log.Info("Disk qos hook sidecar was requested, but no attributes provided. Returning original domain spec")
 		return domainXML, nil
@@ -135,16 +137,21 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	}
 
 	// have one cloud-init cdrom disk
-	if len(qosList) != len(domainSpec.Devices.Disks) - 1 {
+	if len(qosList) != len(domainSpec.Devices.Disks)-1 {
 		log.Log.Reason(err).Errorf("disk qos not match disk number: %s", diskQos)
 		panic(err)
 	}
 
 	diskList := make([]domainSchema.Disk, 0, len(domainSpec.Devices.Disks))
+	index := 0
 	for _, disk := range domainSpec.Devices.Disks {
+		// cloud-init 跳过
+		if strings.Contains(disk.Source.File, cloudInit) {
+			continue
+		}
+
 		if disk.Device == "disk" {
-			index := 0
-			if len(qosList) <=  index {
+			if len(qosList) <= index {
 				break
 			}
 			qos := qosList[index]
@@ -152,21 +159,20 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 			//  TotalIopsSec cannot appear with read_iops_sec or write_iops_sec
 			//  TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.
 			// https://libvirt.org/formatdomain.html#elementsDisks
-			if qos.TotalBytesSec != 0  {
+			if qos.TotalBytesSec != 0 {
 				ioTune.TotalBytesSec = qos.TotalBytesSec
-			}else{
+			} else {
 				ioTune.ReadBytesSec = qos.ReadBytesSec
 				ioTune.WriteBytesSec = qos.WriteBytesSec
 			}
 			if qos.TotalIopsSec != 0 {
 				ioTune.TotalIopsSec = qos.TotalIopsSec
-			}else{
+			} else {
 				ioTune.ReadIopsSec = qos.ReadBytesSec
 				ioTune.WriteIopsSec = qos.WriteIopsSec
 			}
 			disk.IOTune = ioTune
 			log.Log.Infof("disk after set ioTune: %+v", disk)
-			
 			index++
 		}
 		diskList = append(diskList, disk)
