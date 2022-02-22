@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
-	vmSchema "kubevirt.io/api/core/v1"
+	vmSchema "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
