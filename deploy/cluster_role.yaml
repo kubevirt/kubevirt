@@ -161,6 +161,12 @@ rules:
   - delete
   - update
   - patch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -2076,6 +2082,20 @@ rules:
   - secrets
   verbs:
   - create
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
