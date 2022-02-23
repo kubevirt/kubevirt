@@ -73,8 +73,18 @@ func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuites, err
 	return suites, nil
 }
 
-func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *reporters.JUnitTestSuite, err error) {
-	result = &reporters.JUnitTestSuite{}
+type DeprecatedJUnitTestSuite struct {
+	XMLName   xml.Name                  `xml:"testsuite"`
+	TestCases []reporters.JUnitTestCase `xml:"testcase"`
+	Name      string                    `xml:"name,attr"`
+	Tests     int                       `xml:"tests,attr"`
+	Failures  int                       `xml:"failures,attr"`
+	Errors    int                       `xml:"errors,attr"`
+	Time      float64                   `xml:"time,attr"`
+}
+
+func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *DeprecatedJUnitTestSuite, err error) {
+	result = &DeprecatedJUnitTestSuite{}
 	ran := map[string]reporters.JUnitTestCase{}
 	skipped := map[string]reporters.JUnitTestCase{}
 	skippedList := []string{}
@@ -133,7 +143,8 @@ func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *reporters.JUni
 		if _, exists := skipped[casename]; !exists {
 			panic("can't happen if we don't have a bug")
 		}
-		result.TestCases = append(result.TestCases, skipped[casename])
+		// TODO return it fixed
+		//result.TestCases = append(result.TestCases, skipped[casename])
 	}
 	result.TestCases = append(result.TestCases)
 
@@ -151,7 +162,7 @@ func prepareOutput(output string) (writer io.Writer, err error) {
 	return writer, nil
 }
 
-func writeJunitFile(writer io.Writer, suite *reporters.JUnitTestSuite) error {
+func writeJunitFile(writer io.Writer, suite *DeprecatedJUnitTestSuite) error {
 	encoder := xml.NewEncoder(writer)
 	encoder.Indent("", "  ")
 	err := encoder.Encode(suite)

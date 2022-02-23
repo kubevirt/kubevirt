@@ -43,7 +43,7 @@ function main() {
     local test_results_file="$1"
 
     number_of_testcases=$(grep -c '<testcase' "$test_results_file")
-    number_of_skipped_testcases=$(grep -c '<skipped' "$test_results_file")
+    ! number_of_skipped_testcases=$(grep -c '<skipped' "$test_results_file")
 
     echo "Testcases executed:" "$number_of_testcases"
     echo "Testcases skipped:" "$number_of_skipped_testcases"
