@@ -24,6 +24,10 @@ case "${CLUSTER_PLATFORM}" in
     HPP_BACKEND_STORAGE_CLASS=managed-premium
     HPP_VOLUME_SIZE=128Gi
     ;;
+  AWS)
+    HPP_BACKEND_STORAGE_CLASS=gp2
+    HPP_VOLUME_SIZE=128Gi
+    ;;
   BareMetal|None)
     HPP_BACKEND_STORAGE_CLASS=local-block-hpp
     HPP_VOLUME_SIZE=5Gi
