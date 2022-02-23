@@ -50,13 +50,5 @@ KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_defaults.sh
 # check golden images
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
 
-# TODO: workaround for https://bugzilla.redhat.com/show_bug.cgi?id=2037312
-# remove once fixed
-echo "Explictly disabling CommonBootImageImport to be able to safely remove the product"
-./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n kubevirt-hyperconverged kubevirt-hyperconverged --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": \"/spec/featureGates/enableCommonBootImageImport\", \"value\": false }]'"
-sleep 10
-./hack/retry.sh 10 30 "[[ $(${KUBECTL_BINARY} get DataImportCron -A --no-headers | wc -l) -eq 0 ]]"
-# ---
-
 # Check the webhook, to see if it allow deleteing of the HyperConverged CR
 ./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged"
