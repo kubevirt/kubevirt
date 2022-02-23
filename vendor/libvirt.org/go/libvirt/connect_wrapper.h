@@ -499,6 +499,12 @@ virNWFilterDefineXMLWrapper(virConnectPtr conn,
                             virErrorPtr err);
 
 virNWFilterPtr
+virNWFilterDefineXMLFlagsWrapper(virConnectPtr conn,
+                                 const char *xmlDesc,
+                                 unsigned int flags,
+                                 virErrorPtr err);
+
+virNWFilterPtr
 virNWFilterLookupByNameWrapper(virConnectPtr conn,
                                const char *name,
                                virErrorPtr err);
@@ -519,9 +525,21 @@ virNetworkCreateXMLWrapper(virConnectPtr conn,
                            virErrorPtr err);
 
 virNetworkPtr
+virNetworkCreateXMLFlagsWrapper(virConnectPtr conn,
+				const char *xmlDesc,
+				unsigned int flags,
+				virErrorPtr err);
+
+virNetworkPtr
 virNetworkDefineXMLWrapper(virConnectPtr conn,
                            const char *xml,
                            virErrorPtr err);
+
+virNetworkPtr
+virNetworkDefineXMLFlagsWrapper(virConnectPtr conn,
+                                const char *xml,
+                                unsigned int flags,
+                                virErrorPtr err);
 
 virNetworkPtr
 virNetworkLookupByNameWrapper(virConnectPtr conn,

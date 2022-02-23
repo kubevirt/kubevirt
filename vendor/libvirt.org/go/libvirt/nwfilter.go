@@ -37,6 +37,12 @@ import (
 	"unsafe"
 )
 
+type NWFilterDefineFlags uint
+
+const (
+	NWFILTER_DEFINE_VALIDATE = NWFilterDefineFlags(C.VIR_NWFILTER_DEFINE_VALIDATE)
+)
+
 type NWFilter struct {
 	ptr C.virNWFilterPtr
 }

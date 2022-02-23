@@ -67,6 +67,12 @@ const (
 	STORAGE_POOL_CREATE_WITH_BUILD_NO_OVERWRITE = StoragePoolCreateFlags(C.VIR_STORAGE_POOL_CREATE_WITH_BUILD_NO_OVERWRITE)
 )
 
+type StoragePoolDefineFlags uint
+
+const (
+	STORAGE_POOL_DEFINE_VALIDATE = StoragePoolDefineFlags(C.VIR_STORAGE_POOL_DEFINE_VALIDATE)
+)
+
 type StoragePoolDeleteFlags uint
 
 const (
