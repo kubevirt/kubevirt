@@ -4,24 +4,6 @@ stages:
   - builds
   - sanity_checks
 
-.container_job_template:
-  image: docker:stable
-  stage: containers
-  services:
-    - name: registry.gitlab.com/libvirt/libvirt-ci/docker-dind:master
-      alias: docker
-  before_script:
-    - export TAG="$CI_REGISTRY_IMAGE/ci-$NAME:latest"
-    - export COMMON_TAG="$CI_REGISTRY/libvirt/libvirt-go-module/ci-$NAME:latest"
-    - docker info
-    - docker login registry.gitlab.com -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
-  script:
-    - docker pull "$TAG" || docker pull "$COMMON_TAG" || true
-    - docker build --cache-from "$TAG" --cache-from "$COMMON_TAG" --tag "$TAG" -f "ci/containers/ci-$NAME.Dockerfile" ci/containers
-    - docker push "$TAG"
-  after_script:
-    - docker logout
-
 .git_build_vars: &git_build_vars |
   export MAKEFLAGS="-j$(getconf _NPROCESSORS_ONLN)"
   export SCRATCH_DIR="$PWD/scratch"
@@ -31,9 +13,8 @@ stages:
   export PATH="$VROOT/bin:$PATH"
   export PKG_CONFIG_PATH="$LIBDIR/pkgconfig"
 
-.git_build_job_template:
-  image: $CI_REGISTRY_IMAGE/ci-$NAME:latest
-  stage: builds
+.native_git_build_job:
+  extends: .gitlab_native_build_job
   before_script:
     - *git_build_vars
   script:
@@ -48,190 +29,19 @@ stages:
     - go build
     - go test
 
-.dist_build_job_template:
-  image: $CI_REGISTRY_IMAGE/ci-$NAME:latest
-  stage: builds
+.native_build_job:
+  extends: .gitlab_native_build_job
   script:
     - go build
     - go test
 
-# Check that all commits are signed-off for the DCO.
-# Skip on "libvirt" namespace, since we only need to run
-# this test on developer's personal forks from which
-# merge requests are submitted
-check-dco:
-  stage: sanity_checks
-  needs: []
-  image: registry.gitlab.com/libvirt/libvirt-ci/check-dco:master
-  script:
-    - /check-dco
-  except:
-    variables:
-      - $CI_PROJECT_NAMESPACE == 'libvirt'
-
-go-fmt:
-  stage: sanity_checks
-  needs: []
-  image: registry.gitlab.com/libvirt/libvirt-ci/go-fmt:master
-  script:
-    - /go-fmt
-  artifacts:
-    paths:
-      - go-fmt.patch
-    expire_in: 1 week
-    when: on_failure
-
-centos-8-container:
-  extends: .container_job_template
-  variables:
-    NAME: centos-8
-
-centos-stream-8-container:
-  extends: .container_job_template
-  variables:
-    NAME: centos-stream-8
-
-debian-10-container:
-  extends: .container_job_template
-  variables:
-    NAME: debian-10
-
-debian-sid-container:
-  extends: .container_job_template
-  variables:
-    NAME: debian-sid
-
-fedora-33-container:
-  extends: .container_job_template
-  variables:
-    NAME: fedora-33
-
-fedora-34-container:
-  extends: .container_job_template
-  variables:
-    NAME: fedora-34
-
-fedora-rawhide-container:
-  extends: .container_job_template
-  variables:
-    NAME: fedora-rawhide
-
-opensuse-leap-152-container:
-  extends: .container_job_template
-  variables:
-    NAME: opensuse-leap-152
-
-opensuse-tumbleweed-container:
-  extends: .container_job_template
-  variables:
-    NAME: opensuse-tumbleweed
-
-ubuntu-1804-container:
-  extends: .container_job_template
-  variables:
-    NAME: ubuntu-1804
-
-ubuntu-2004-container:
-  extends: .container_job_template
-  variables:
-    NAME: ubuntu-2004
-
-
-centos-8-git-build:
-  extends: .git_build_job_template
-  needs:
-    - centos-8-container
-  variables:
-    NAME: centos-8
-  artifacts:
-    expire_in: 2 days
-    paths:
-      - scratch
-      - build
-
-
-centos-8-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - centos-8-container
-  variables:
-    NAME: centos-8
-
-centos-stream-8-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - centos-stream-8-container
-  variables:
-    NAME: centos-stream-8
-
-debian-10-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - debian-10-container
-  variables:
-    NAME: debian-10
-
-debian-sid-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - debian-sid-container
-  variables:
-    NAME: debian-sid
-
-fedora-33-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - fedora-33-container
-  variables:
-    NAME: fedora-33
-
-fedora-34-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - fedora-34-container
-  variables:
-    NAME: fedora-34
-
-fedora-rawhide-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - fedora-rawhide-container
-  variables:
-    NAME: fedora-rawhide
-
-opensuse-leap-152-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - opensuse-leap-152-container
-  variables:
-    NAME: opensuse-leap-152
-
-opensuse-tumbleweed-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - opensuse-tumbleweed-container
-  variables:
-    NAME: opensuse-tumbleweed
-
-ubuntu-1804-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - ubuntu-1804-container
-  variables:
-    NAME: ubuntu-1804
-
-ubuntu-2004-dist-build:
-  extends: .dist_build_job_template
-  needs:
-    - ubuntu-2004-container
-  variables:
-    NAME: ubuntu-2004
+include: '/ci/gitlab.yml'
 
 api-coverage:
   image: $CI_REGISTRY_IMAGE/ci-centos-8:latest
   stage: sanity_checks
   needs:
-    - job: centos-8-git-build
+    - job: x86_64-centos-8-git
       artifacts: true
   before_script:
     - *git_build_vars

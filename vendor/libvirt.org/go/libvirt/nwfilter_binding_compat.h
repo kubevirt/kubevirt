@@ -30,4 +30,10 @@
 typedef struct _virNWFilterBinding *virNWFilterBindingPtr;
 #endif
 
+/* 7.8.0 */
+
+#ifndef VIR_NWFILTER_BINDING_CREATE_VALIDATE
+#define VIR_NWFILTER_BINDING_CREATE_VALIDATE (1 << 0)
+#endif
+
 #endif /* LIBVIRT_GO_NWFILTER_BINDING_COMPAT_H__ */

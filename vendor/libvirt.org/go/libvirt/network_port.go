@@ -40,7 +40,8 @@ import (
 type NetworkPortCreateFlags uint
 
 const (
-	NETWORK_PORT_CREATE_RECLAIM = NetworkPortCreateFlags(C.VIR_NETWORK_PORT_CREATE_RECLAIM)
+	NETWORK_PORT_CREATE_RECLAIM  = NetworkPortCreateFlags(C.VIR_NETWORK_PORT_CREATE_RECLAIM)
+	NETWORK_PORT_CREATE_VALIDATE = NetworkPortCreateFlags(C.VIR_NETWORK_PORT_CREATE_VALIDATE)
 )
 
 type NetworkPort struct {

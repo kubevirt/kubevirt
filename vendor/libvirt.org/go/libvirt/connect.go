@@ -160,6 +160,7 @@ const (
 	CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD)
 	CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE      = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE)
 	CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX     = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX)
+	CONNECT_LIST_NODE_DEVICES_CAP_VPD           = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VPD)
 	CONNECT_LIST_NODE_DEVICES_INACTIVE          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE)
 	CONNECT_LIST_NODE_DEVICES_ACTIVE            = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_ACTIVE)
 )
@@ -1169,12 +1170,43 @@ func (c *Connect) NetworkDefineXML(xmlConfig string) (*Network, error) {
 	return &Network{ptr: ptr}, nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkDefineXMLFlags
+func (c *Connect) NetworkDefineXMLFlags(xmlConfig string, flags NetworkDefineFlags) (*Network, error) {
+	if C.LIBVIR_VERSION_NUMBER < 7007000 {
+		return nil, makeNotImplementedError("virNetworkDefineXMLFlags")
+	}
+	cXml := C.CString(string(xmlConfig))
+	defer C.free(unsafe.Pointer(cXml))
+	var err C.virError
+	ptr := C.virNetworkDefineXMLFlagsWrapper(c.ptr, cXml, C.uint(flags), &err)
+	if ptr == nil {
+		return nil, makeError(&err)
+	}
+	return &Network{ptr: ptr}, nil
+}
+
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkCreateXML
 func (c *Connect) NetworkCreateXML(xmlConfig string) (*Network, error) {
 	cXml := C.CString(string(xmlConfig))
 	defer C.free(unsafe.Pointer(cXml))
 	var err C.virError
 	ptr := C.virNetworkCreateXMLWrapper(c.ptr, cXml, &err)
+	if ptr == nil {
+		return nil, makeError(&err)
+	}
+	return &Network{ptr: ptr}, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkCreateXML
+func (c *Connect) NetworkCreateXMLFlags(xmlConfig string, flags NetworkCreateFlags) (*Network, error) {
+	if C.LIBVIR_VERSION_NUMBER < 7008000 {
+		return nil, makeNotImplementedError("virNetworkCreateXMLFlags")
+	}
+
+	cXml := C.CString(string(xmlConfig))
+	defer C.free(unsafe.Pointer(cXml))
+	var err C.virError
+	ptr := C.virNetworkCreateXMLFlagsWrapper(c.ptr, cXml, C.uint(flags), &err)
 	if ptr == nil {
 		return nil, makeError(&err)
 	}
@@ -1275,7 +1307,7 @@ func (c *Connect) GetMaxVcpus(typeAttr string) (int, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceDefineXML
-func (c *Connect) InterfaceDefineXML(xmlConfig string, flags uint32) (*Interface, error) {
+func (c *Connect) InterfaceDefineXML(xmlConfig string, flags InterfaceDefineFlags) (*Interface, error) {
 	cXml := C.CString(string(xmlConfig))
 	defer C.free(unsafe.Pointer(cXml))
 	var err C.virError
@@ -1311,7 +1343,7 @@ func (c *Connect) LookupInterfaceByMACString(mac string) (*Interface, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-storage.html#virStoragePoolDefineXML
-func (c *Connect) StoragePoolDefineXML(xmlConfig string, flags uint32) (*StoragePool, error) {
+func (c *Connect) StoragePoolDefineXML(xmlConfig string, flags StoragePoolDefineFlags) (*StoragePool, error) {
 	cXml := C.CString(string(xmlConfig))
 	defer C.free(unsafe.Pointer(cXml))
 	var err C.virError
@@ -1403,6 +1435,21 @@ func (c *Connect) NWFilterDefineXML(xmlConfig string) (*NWFilter, error) {
 	return &NWFilter{ptr: ptr}, nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-nwfilter.html#virNWFilterDefineXMLFlags
+func (c *Connect) NWFilterDefineXMLFlags(xmlConfig string, flags NWFilterDefineFlags) (*NWFilter, error) {
+	if C.LIBVIR_VERSION_NUMBER < 7007000 {
+		return nil, makeNotImplementedError("virNWFilterDefineXMLFlags")
+	}
+	cXml := C.CString(string(xmlConfig))
+	defer C.free(unsafe.Pointer(cXml))
+	var err C.virError
+	ptr := C.virNWFilterDefineXMLFlagsWrapper(c.ptr, cXml, C.uint(flags), &err)
+	if ptr == nil {
+		return nil, makeError(&err)
+	}
+	return &NWFilter{ptr: ptr}, nil
+}
+
 // See also https://libvirt.org/html/libvirt-libvirt-nwfilter.html#virNWFilterLookupByName
 func (c *Connect) LookupNWFilterByName(name string) (*NWFilter, error) {
 	cName := C.CString(name)
@@ -1485,7 +1532,7 @@ func (c *Connect) LookupStorageVolByPath(path string) (*StorageVol, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretDefineXML
-func (c *Connect) SecretDefineXML(xmlConfig string, flags uint32) (*Secret, error) {
+func (c *Connect) SecretDefineXML(xmlConfig string, flags SecretDefineFlags) (*Secret, error) {
 	cXml := C.CString(string(xmlConfig))
 	defer C.free(unsafe.Pointer(cXml))
 	var err C.virError
@@ -1816,8 +1863,8 @@ func (c *Connect) AllocPages(pageSizes map[int]int64, startCell int, cellCount u
 	}
 
 	var err C.virError
-	ret := C.virNodeAllocPagesWrapper(c.ptr, C.uint(len(pageSizes)), (*C.uint)(unsafe.Pointer(&cpages)),
-		(*C.ulonglong)(unsafe.Pointer(&ccounts)), C.int(startCell), C.uint(cellCount), C.uint(flags), &err)
+	ret := C.virNodeAllocPagesWrapper(c.ptr, C.uint(len(pageSizes)), (*C.uint)(unsafe.Pointer(&cpages[0])),
+		(*C.ulonglong)(unsafe.Pointer(&ccounts[0])), C.int(startCell), C.uint(cellCount), C.uint(flags), &err)
 	if ret == -1 {
 		return 0, makeError(&err)
 	}
@@ -3087,6 +3134,16 @@ func getDomainStatsLengthsFieldInfo(params *domainStatsLengths) map[string]typed
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virConnectGetAllDomainStats
+//
+// Note that each struct element in the returned 'DomainStats'
+// array will contain a pointer to a 'Domain' object which
+// holds a new reference. This pointer may or may not be the
+// same as any pointers passed into the 'doms' parameter, but
+// will at least refer to the same libvirt object.
+//
+// The caller must invoke 'Free' on the 'Domain' object in
+// each array element, in order to release the references.
+//
 func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes, flags ConnectGetAllDomainStatsFlags) ([]DomainStats, error) {
 	if C.LIBVIR_VERSION_NUMBER < 1002008 {
 		return []DomainStats{}, makeNotImplementedError("virConnectGetAllDomainStats")
@@ -3299,6 +3356,10 @@ type NodeSEVParameters struct {
 	CBitPos            uint
 	ReducedPhysBitsSet bool
 	ReducedPhysBits    uint
+	MaxGuestsSet       bool
+	MaxGuests          uint
+	MaxEsGuestsSet     bool
+	MaxEsGuests        uint
 }
 
 func getNodeSEVFieldInfo(params *NodeSEVParameters) map[string]typedParamsFieldInfo {
@@ -3318,6 +3379,14 @@ func getNodeSEVFieldInfo(params *NodeSEVParameters) map[string]typedParamsFieldI
 		C.VIR_NODE_SEV_REDUCED_PHYS_BITS: typedParamsFieldInfo{
 			set: &params.ReducedPhysBitsSet,
 			ui:  &params.ReducedPhysBits,
+		},
+		C.VIR_NODE_SEV_MAX_GUESTS: typedParamsFieldInfo{
+			set: &params.MaxGuestsSet,
+			ui:  &params.MaxGuests,
+		},
+		C.VIR_NODE_SEV_MAX_ES_GUESTS: typedParamsFieldInfo{
+			set: &params.MaxEsGuestsSet,
+			ui:  &params.MaxEsGuests,
 		},
 	}
 }
@@ -3351,7 +3420,7 @@ func (c *Connect) GetSEVInfo(flags uint32) (*NodeSEVParameters, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-nwfilter.html#virNWFilterBindingCreateXML
-func (c *Connect) NWFilterBindingCreateXML(xmlConfig string, flags uint32) (*NWFilterBinding, error) {
+func (c *Connect) NWFilterBindingCreateXML(xmlConfig string, flags NWFilterBindingCreateFlags) (*NWFilterBinding, error) {
 	if C.LIBVIR_VERSION_NUMBER < 4005000 {
 		return nil, makeNotImplementedError("virNWFilterBindingCreateXML")
 	}
