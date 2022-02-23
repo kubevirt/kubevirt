@@ -151,12 +151,6 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 		panic(err)
 	}
 
-	// have one cloud-init cdrom disk
-	if len(qosList) != len(domainSpec.Devices.Disks)-1 {
-		log.Log.Reason(err).Errorf("disk qos not match disk number: %s", diskQos)
-		panic(err)
-	}
-
 	diskList := make([]domainSchema.Disk, 0, len(domainSpec.Devices.Disks))
 	for _, disk := range domainSpec.Devices.Disks {
 		diskName, ok := getDiskName(disk.Source.Dev)
