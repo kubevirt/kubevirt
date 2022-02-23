@@ -13,7 +13,7 @@ EDK2_VERSION=${EDK2_VERSION:-0:20210527gite1999b264f1f-1.el8}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.44.0-3.el8s}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 
-bazeldnf_repos="--repofile repo.yaml"
+bazeldnf_repos="--repofile rpm/repo.yaml"
 if [ "${CUSTOM_REPO}" ]; then
     bazeldnf_repos="--repofile ${CUSTOM_REPO} ${bazeldnf_repos}"
 fi
