@@ -6,12 +6,13 @@ import (
 	"github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkAddonsConfig is the Schema for the networkaddonsconfigs API
+// +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=networkaddonsconfigs,scope=Cluster
 // +k8s:openapi-gen=true
+// +kubebuilder:storageversion
+
+// NetworkAddonsConfig is the Schema for the networkaddonsconfigs API
 type NetworkAddonsConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -20,7 +21,7 @@ type NetworkAddonsConfig struct {
 	Status shared.NetworkAddonsConfigStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // NetworkAddonsConfigList contains a list of NetworkAddonsConfig
 type NetworkAddonsConfigList struct {

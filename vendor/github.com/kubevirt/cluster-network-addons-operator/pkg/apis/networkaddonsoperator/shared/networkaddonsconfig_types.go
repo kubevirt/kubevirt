@@ -7,7 +7,6 @@ import (
 )
 
 // NetworkAddonsConfigSpec defines the desired state of NetworkAddonsConfig
-// +k8s:openapi-gen=true
 type NetworkAddonsConfigSpec struct {
 	Multus                 *Multus                 `json:"multus,omitempty"`
 	LinuxBridge            *LinuxBridge            `json:"linuxBridge,omitempty"`
@@ -20,7 +19,6 @@ type NetworkAddonsConfigSpec struct {
 	PlacementConfiguration *PlacementConfiguration `json:"placementConfiguration,omitempty"`
 }
 
-// +k8s:openapi-gen=true
 // SelfSignConfiguration defines self sign configuration
 type SelfSignConfiguration struct {
 	// CARotateInterval defines duration for CA expiration
@@ -33,7 +31,6 @@ type SelfSignConfiguration struct {
 	CertOverlapInterval string `json:"certOverlapInterval,omitempty"`
 }
 
-// +k8s:openapi-gen=true
 // PlacementConfiguration defines node placement configuration
 type PlacementConfiguration struct {
 	// Infra defines placement configuration for control-plane nodes
@@ -42,7 +39,6 @@ type PlacementConfiguration struct {
 	Workloads *Placement `json:"workloads,omitempty"`
 }
 
-// +k8s:openapi-gen=true
 type Placement struct {
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Affinity     corev1.Affinity     `json:"affinity,omitempty"`
@@ -50,23 +46,18 @@ type Placement struct {
 }
 
 // Multus plugin enables attaching multiple network interfaces to Pods in Kubernetes
-// +k8s:openapi-gen=true
 type Multus struct{}
 
 // LinuxBridge plugin allows users to create a bridge and add the host and the container to it
-// +k8s:openapi-gen=true
 type LinuxBridge struct{}
 
 // Ovs plugin allows users to define Kubernetes networks on top of Open vSwitch bridges available on nodes
-// +k8s:openapi-gen=true
 type Ovs struct{}
 
 // NMState is a declarative node network configuration driven through Kubernetes API
-// +k8s:openapi-gen=true
 type NMState struct{}
 
 // KubeMacPool plugin manages MAC allocation to Pods and VMs in Kubernetes
-// +k8s:openapi-gen=true
 type KubeMacPool struct {
 	// RangeStart defines the first mac in range
 	RangeStart string `json:"rangeStart,omitempty"`
@@ -75,11 +66,9 @@ type KubeMacPool struct {
 }
 
 // MacvtapCni plugin allows users to define Kubernetes networks on top of existing host interfaces
-// +k8s:openapi-gen=true
 type MacvtapCni struct{}
 
 // NetworkAddonsConfigStatus defines the observed state of NetworkAddonsConfig
-// +k8s:openapi-gen=true
 type NetworkAddonsConfigStatus struct {
 	OperatorVersion string                   `json:"operatorVersion,omitempty"`
 	ObservedVersion string                   `json:"observedVersion,omitempty"`

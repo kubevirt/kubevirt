@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
@@ -138,7 +138,7 @@ func GetScheme() *runtime.Scheme {
 		apis.AddToScheme,
 		kubevirtcorev1.AddToScheme,
 		cdiv1beta1.AddToScheme,
-		networkaddons.AddToScheme,
+		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
 		consolev1.AddToScheme,
 		monitoringv1.AddToScheme,

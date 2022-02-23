@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
@@ -60,7 +59,7 @@ var (
 		appsv1.AddToScheme,
 		rbacv1.AddToScheme,
 		cdiv1beta1.AddToScheme,
-		networkaddons.AddToScheme,
+		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
 		csvv1alpha1.AddToScheme,
 		admissionregistrationv1.AddToScheme,

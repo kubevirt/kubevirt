@@ -9,7 +9,7 @@ require (
 	github.com/go-logr/logr v1.2.2
 	github.com/google/uuid v1.3.0
 	github.com/imdario/mergo v0.3.12
-	github.com/kubevirt/cluster-network-addons-operator v0.66.0
+	github.com/kubevirt/cluster-network-addons-operator v0.67.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -80,6 +80,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
