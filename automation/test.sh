@@ -318,7 +318,7 @@ if [[ $TARGET =~ .*kind.* ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
-ginko_params="--noColor --seed=42"
+ginko_params="--no-color --seed=42"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
