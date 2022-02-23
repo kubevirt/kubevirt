@@ -140,9 +140,9 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 		log.Log.Reason(err).Errorf("Failed to unmarshal given disk qos: %s", diskQos)
 		panic(err)
 	}
-	qosInfoMap := make(map[string]*DiskQos, len(qosList))
+	qosInfoMap := make(map[string]DiskQos, len(qosList))
 	for _, qosInfo := range qosList {
-		qosInfoMap[qosInfo.DiskName] = &qosInfo
+		qosInfoMap[qosInfo.DiskName] = qosInfo
 	}
 	domainSpec := domainSchema.DomainSpec{}
 	err = xml.Unmarshal(domainXML, &domainSpec)
@@ -161,10 +161,12 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	for _, disk := range domainSpec.Devices.Disks {
 		diskName, ok := getDiskName(disk.Source.Dev)
 		if !ok {
+			diskList = append(diskList, disk)
 			continue
 		}
 		qos, ok := qosInfoMap[diskName]
 		if !ok {
+			diskList = append(diskList, disk)
 			continue
 		}
 		ioTune := &domainSchema.IOTune{}
