@@ -20,6 +20,7 @@ package mutators
 
 import (
 	"encoding/json"
+	"net/http"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -120,5 +121,50 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
+	})
+
+	Context("failure tests", func() {
+		It("should fail if passed resource is not VirtualMachine", func() {
+			vmBytes, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: k8smetav1.GroupVersionResource{Group: "nonexisting.kubevirt.io", Version: "v1", Resource: "nonexistent"},
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				},
+			}
+
+			resp := mutator.Mutate(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusBadRequest)))
+			Expect(resp.Result.Message).To(ContainSubstring("expect resource to be"))
+		})
+
+		It("should fail if passed json is not VirtualMachine type", func() {
+			notVm := struct {
+				TestField string `json:"testField"`
+			}{
+				TestField: "test-string",
+			}
+
+			jsonBytes, err := json.Marshal(notVm)
+			Expect(err).ToNot(HaveOccurred())
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+					Object: runtime.RawExtension{
+						Raw: jsonBytes,
+					},
+				},
+			}
+
+			resp := mutator.Mutate(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+		})
 	})
 })
