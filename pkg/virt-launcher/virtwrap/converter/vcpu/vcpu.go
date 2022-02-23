@@ -17,6 +17,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	Strict     = "strict"
+	Interleave = "interleave"
+	Preferred  = "preferred"
+)
+
+var memoryPolicyMap = map[string]struct{}{
+	Strict:     {},
+	Interleave: {},
+	Preferred:  {},
+}
+
 type VCPUPool interface {
 	FitCores() (tune *api.CPUTune, err error)
 	FitThread() (thread uint32, err error)
@@ -309,8 +321,8 @@ func GetCPUTopology(vmi *v12.VirtualMachineInstance) *api.CPUTopology {
 	// A default guest CPU topology is being set in API mutator webhook, if nothing provided by a user.
 	// However this setting is still required to handle situations when the webhook fails to set a default topology.
 	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
-		//if cores, sockets, threads are not set, take value from domain resources request or limits and
-		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
+		// if cores, sockets, threads are not set, take value from domain resources request or limits and
+		// set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
 		resources := vmi.Spec.Domain.Resources
 		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
 			sockets = uint32(cpuLimit.Value())
@@ -547,11 +559,11 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 			involvedCellIDs = append(involvedCellIDs, strconv.Itoa(int(cell.Id)))
 		}
 	}
-
+	mode := memoryMode(vmi)
 	domain.CPU.NUMA = &api.NUMA{}
 	domain.NUMATune = &api.NUMATune{
 		Memory: api.NumaTuneMemory{
-			Mode:    "strict",
+			Mode:    mode,
 			NodeSet: strings.Join(involvedCellIDs, ","),
 		},
 	}
@@ -598,7 +610,7 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 			})
 			domain.NUMATune.MemNodes = append(domain.NUMATune.MemNodes, api.MemNode{
 				CellID:  uint32(virtualCellID),
-				Mode:    "strict",
+				Mode:    mode,
 				NodeSet: strconv.Itoa(int(cell.Id)),
 			})
 			domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
@@ -636,4 +648,14 @@ func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (siz
 		}
 	}
 	return 0, "b", false, nil
+}
+
+func memoryMode(vmi *v12.VirtualMachineInstance) string {
+	if vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough.Mode != "" {
+		mode := vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough.Mode
+		if _, ok := memoryPolicyMap[strings.ToLower(mode)]; ok {
+			return mode
+		}
+	}
+	return Strict
 }

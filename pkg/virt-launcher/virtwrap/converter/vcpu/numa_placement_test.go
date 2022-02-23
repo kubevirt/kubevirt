@@ -109,7 +109,6 @@ var _ = Describe("NumaPlacement", func() {
 				PageSize: "2Mi",
 			}
 			givenVMI.Spec.Domain.CPU = &v1.CPU{}
-
 			givenSpec.MemoryBacking = &api.MemoryBacking{
 				HugePages: &api.HugePages{},
 			}

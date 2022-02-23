@@ -6022,6 +6022,19 @@ var CRDsValidation map[string]string = map[string]string{
                       guest topology based on host CPUs exclusively assigned to a
                       pod. The created topology ensures that memory and CPUs on the
                       virtual numa nodes never cross boundaries of host numa nodes.
+                    properties:
+                      mode:
+                        description: ' Mode define how memory is allocated from the
+                          nodes in a system Strict mode means that the allocation
+                          will fail if the memory cannot be allocated on the target
+                          node. Specifying a NUMA nodeset list without defining a
+                          memory mode attribute defaults to strict mode. Interleave
+                          mode Memory pages are allocated across nodes specified by
+                          a nodeset, but are allocated in a round-robin fashion. Preferred
+                          mode Memory is allocated from a single preferred memory
+                          node. If sufficient memory is not available, memory can
+                          be allocated from other nodes. Defaults to Strict'
+                        type: string
                     type: object
                 type: object
               realtime:
@@ -6141,6 +6154,19 @@ var CRDsValidation map[string]string = map[string]string{
                       guest topology based on host CPUs exclusively assigned to a
                       pod. The created topology ensures that memory and CPUs on the
                       virtual numa nodes never cross boundaries of host numa nodes.
+                    properties:
+                      mode:
+                        description: ' Mode define how memory is allocated from the
+                          nodes in a system Strict mode means that the allocation
+                          will fail if the memory cannot be allocated on the target
+                          node. Specifying a NUMA nodeset list without defining a
+                          memory mode attribute defaults to strict mode. Interleave
+                          mode Memory pages are allocated across nodes specified by
+                          a nodeset, but are allocated in a round-robin fashion. Preferred
+                          mode Memory is allocated from a single preferred memory
+                          node. If sufficient memory is not available, memory can
+                          be allocated from other nodes. Defaults to Strict'
+                        type: string
                     type: object
                 type: object
               realtime:
@@ -14278,6 +14304,23 @@ var CRDsValidation map[string]string = map[string]string{
                                         topology ensures that memory and CPUs on the
                                         virtual numa nodes never cross boundaries
                                         of host numa nodes.
+                                      properties:
+                                        mode:
+                                          description: ' Mode define how memory is
+                                            allocated from the nodes in a system Strict
+                                            mode means that the allocation will fail
+                                            if the memory cannot be allocated on the
+                                            target node. Specifying a NUMA nodeset
+                                            list without defining a memory mode attribute
+                                            defaults to strict mode. Interleave mode
+                                            Memory pages are allocated across nodes
+                                            specified by a nodeset, but are allocated
+                                            in a round-robin fashion. Preferred mode
+                                            Memory is allocated from a single preferred
+                                            memory node. If sufficient memory is not
+                                            available, memory can be allocated from
+                                            other nodes. Defaults to Strict'
+                                          type: string
                                       type: object
                                   type: object
                                 realtime:
