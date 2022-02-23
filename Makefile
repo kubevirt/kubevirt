@@ -104,10 +104,10 @@ quay-login:
 	podman login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p $(QUAY_PASSWORD)
 
 container-push-operator:
-	. "hack/cri-bin.sh" && $$CRI_BIN push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
+	. "hack/cri-bin.sh" && $$CRI_BIN push $$CRI_INSECURE $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
 
 container-push-webhook:
-	. "hack/cri-bin.sh" && $$CRI_BIN push $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG)
+	. "hack/cri-bin.sh" && $$CRI_BIN push $$CRI_INSECURE $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG)
 
 container-push-functest:
 	podman push $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)

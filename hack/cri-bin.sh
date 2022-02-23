@@ -4,6 +4,7 @@ set -ex
 
 if podman ps >/dev/null; then
     _cri_bin=podman
+    _cri_insecure="--tls-verify=false"
     >&2 echo "selecting podman as container runtime"
 elif docker ps >/dev/null; then
     _cri_bin=docker
@@ -14,3 +15,4 @@ else
 fi
 
 CRI_BIN=${_cri_bin}
+CRI_INSECURE=${_cri_insecure}
