@@ -2322,7 +2322,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 
 				By("Checking that the VMI QOS is guaranteed")
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(cpuVmi.Name, &metav1.GetOptions{})
@@ -2389,7 +2389,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 
 				By("Checking that the VMI QOS is guaranteed")
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(cpuVmi.Name, &metav1.GetOptions{})
@@ -2437,7 +2437,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 
 				By("Checking that the VMI QOS is guaranteed")
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(cpuVmi.Name, &metav1.GetOptions{})
@@ -2504,7 +2504,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Expecting the VirtualMachineInstance console")
@@ -2571,13 +2571,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(Vmi)
 				Expect(err).ToNot(HaveOccurred())
-				node = tests.WaitForSuccessfulVMIStart(cpuVmi)
+				node = tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 			})
 		})
@@ -2623,7 +2623,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
 				Expect(err).ToNot(HaveOccurred())
-				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi)
+				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
 				Expect(node1).To(Equal(node))
 
@@ -2633,7 +2633,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				node2 := tests.WaitForSuccessfulVMIStart(vmi)
+				node2 := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
 				Expect(node2).To(Equal(node))
 
@@ -2646,7 +2646,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				node2 := tests.WaitForSuccessfulVMIStart(vmi)
+				node2 := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
 				Expect(node2).To(Equal(node))
 
@@ -2656,7 +2656,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
 				Expect(err).ToNot(HaveOccurred())
-				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi)
+				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi).Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
 				Expect(node1).To(Equal(node))
 

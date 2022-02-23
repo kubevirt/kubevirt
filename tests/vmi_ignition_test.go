@@ -60,7 +60,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		By("Waiting the VirtualMachineInstance start")
 		_, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+		Expect(tests.WaitForSuccessfulVMIStart(obj).Status.NodeName).ToNot(BeEmpty())
 	}
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
