@@ -351,9 +351,17 @@ var _ = Describe("Migration watcher", func() {
 		}
 	}
 
-	getMigrationConfigPatch := func() string {
-		migrationConfiguration := controller.clusterConfig.GetMigrationConfiguration()
-		Expect(migrationConfiguration).ToNot(BeNil())
+	getMigrationConfigPatch := func(customConfigs ...*virtv1.MigrationConfiguration) string {
+		Expect(customConfigs).To(Or(BeEmpty(), HaveLen(1)))
+
+		var migrationConfiguration *virtv1.MigrationConfiguration
+
+		if len(customConfigs) > 0 && customConfigs[0] != nil {
+			migrationConfiguration = customConfigs[0]
+		} else {
+			migrationConfiguration = controller.clusterConfig.GetMigrationConfiguration()
+			Expect(migrationConfiguration).ToNot(BeNil())
+		}
 
 		marshalledConfigs, err := json.Marshal(migrationConfiguration)
 		Expect(err).ToNot(HaveOccurred())
@@ -1353,18 +1361,16 @@ var _ = Describe("Migration watcher", func() {
 		var pod *k8sv1.Pod
 
 		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
-			var migrationPolicyPatch string
-			if expectConfigUpdate {
-				marshalledConfigs, err := json.Marshal(*expectedConfigs)
-				Expect(err).ShouldNot(HaveOccurred())
+			var migrationPolicyNamePatch string
 
-				migrationPolicyPatch = fmt.Sprintf(`,"migrationPolicyName":"%s","migrationConfiguration":%s`, migrationPolicy.Name, string(marshalledConfigs))
+			if expectConfigUpdate {
+				migrationPolicyNamePatch = fmt.Sprintf(`,"migrationPolicyName":"%s"`, migrationPolicy.Name)
 			}
 
 			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s} }, `+
+				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s,%s} }, `+
 				`{ "op": "test", "path": "/metadata/labels", "value": {"mp-key-0":"mp-value-0"} }, `+
-				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01","mp-key-0":"mp-value-0"} }]`, pod.Name, migrationPolicyPatch)
+				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01","mp-key-0":"mp-value-0"} }]`, pod.Name, migrationPolicyNamePatch, getMigrationConfigPatch(expectedConfigs))
 
 			return patch
 		}
