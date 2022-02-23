@@ -2785,10 +2785,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("[Serial] with migration policies", func() {
 
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
-				By("Retrieving the VMI post migration")
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
 				By("Verifying the VMI's configuration source")
 				if expectedName == nil {
 					Expect(vmi.Status.MigrationState.MigrationPolicyName).To(BeNil())
@@ -2834,6 +2830,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Retrieving the VMI post migration")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(vmi.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
 				confirmMigrationPolicyName(vmi, expectedPolicyName)
 			},
 				table.Entry("should override cluster-wide policy if defined", true),
@@ -3864,6 +3866,29 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
+	})
+
+	It("should update MigrationState's MigrationConfiguration of VMI status", func() {
+		By("Starting a VMI")
+		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = runVMIAndExpectLaunch(vmi, 240)
+
+		By("Starting a Migration")
+		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+		tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+		By("Ensuring MigrationConfiguration is updated")
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmi.Status.MigrationState).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
+
+		By("Deleting the VMI")
+		Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+		By("Waiting for VMI to disappear")
+		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
 })
 
