@@ -522,6 +522,27 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Expect(*vmi.Spec.Domain.Devices.UseVirtioTransitional).To(Equal(true))
 				},
 			),
+			table.Entry("[test_id:TODO] PreferredBus",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DevicesDefaults = &flavorv1alpha1.DevicesDefaults{
+						DiskDefaults: &flavorv1alpha1.DiskDefaults{
+							PreferredDiskBus:  "virtio",
+							PreferredCdromBus: "scsi",
+						},
+					}
+
+					vmi := tests.NewRandomVMI()
+					tests.AddEphemeralDisk(vmi, "disk0", "", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					tests.AddEphemeralCdrom(vmi, "cdrom0", "", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal("virtio"))
+					Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.CDRom.Bus).To(Equal("scsi"))
+				},
+			),
 		)
 
 		table.DescribeTable("flavor conflicts with VM", func(conflictingField string, getFlavorAndVmi func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance)) {

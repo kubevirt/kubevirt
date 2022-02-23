@@ -218,6 +218,110 @@ var _ = Describe("Validating ClusterFlavor Admitter", func() {
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		Expect(response.Result.Details.Causes[0].Message).To(HavePrefix("Disks is not supported on domainTemplate.devices"))
 	})
+	It("should reject flavor with invalid DiskDefaults.PreferredDiskBus", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineClusterFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+					DiskDefaults: &flavorv1alpha1.DiskDefaults{
+						PreferredDiskBus: "foobar",
+					},
+				},
+			}},
+		}
+		ar := createClusterFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("A PreferredDiskBus value of foobar is invalid. Valid options include virtio, sata and scsi."))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal("profiles.0.devicesdefaults.diskdefaults.preferreddiskbus"))
+	})
+	It("should reject flavor with invalid DiskDefaults.PreferredCdromBus", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineClusterFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+					DiskDefaults: &flavorv1alpha1.DiskDefaults{
+						PreferredCdromBus: "foobar",
+					},
+				},
+			}},
+		}
+		ar := createClusterFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("A PreferredCdromBus value of foobar is invalid. Valid options include virtio, sata and scsi."))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal("profiles.0.devicesdefaults.diskdefaults.preferredcdrombus"))
+	})
+	It("should reject flavor with invalid DiskDefaults.PreferredLunBus", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineClusterFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+					DiskDefaults: &flavorv1alpha1.DiskDefaults{
+						PreferredLunBus: "foobar",
+					},
+				},
+			}},
+		}
+		ar := createClusterFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("A PreferredLunBus value of foobar is invalid. Valid options include virtio, sata and scsi."))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal("profiles.0.devicesdefaults.diskdefaults.preferredlunbus"))
+	})
+	It("should reject flavor with both PreferredBlockSize.Custom and PreferredBlockSize.MatchVolume defined", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineClusterFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+					DiskDefaults: &flavorv1alpha1.DiskDefaults{
+						PreferredBlockSize: &v1.BlockSize{
+							Custom: &v1.CustomBlockSize{
+								Logical:  1024,
+								Physical: 1024,
+							},
+							MatchVolume: &v1.FeatureState{
+								Enabled: pointer.BoolPtr(true),
+							},
+						},
+					},
+				},
+			}},
+		}
+		ar := createClusterFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("Both PreferredBlockSize.Custom and PreferredBlockSize.MatchVolume cannot be set on the same flavor."))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal("profiles.0.devicesdefaults.diskdefaults.preferredblocksize"))
+	})
 })
 
 func createFlavorAdmissionReview(flavor *flavorv1alpha1.VirtualMachineFlavor) *admissionv1.AdmissionReview {

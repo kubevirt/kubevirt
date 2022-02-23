@@ -123,7 +123,11 @@ func ValidateFlavorProfiles(basePath *k8sfield.Path, profiles []flavorv1alpha1.V
 }
 
 func validateFlavorProfile(basePath *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile) []metav1.StatusCause {
-	return validateUnusedFieldsAreZero(basePath.Child("domainTemplate"), profile.DomainTemplate)
+
+	allCauses := validateUnusedFieldsAreZero(basePath.Child("domainTemplate"), profile.DomainTemplate)
+	allCauses = append(allCauses, validateDeviceDefaults(basePath.Child("devicesdefaults"), profile.DevicesDefaults)...)
+
+	return allCauses
 }
 
 func validateUnusedFieldsAreZero(basePath *k8sfield.Path, domainTemplate *flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec) []metav1.StatusCause {
@@ -155,4 +159,114 @@ func validateUnusedFieldsAreZero(basePath *k8sfield.Path, domainTemplate *flavor
 		}
 	}
 	return causes
+}
+
+func validateDeviceDefaults(basePath *k8sfield.Path, deviceDefaults *flavorv1alpha1.DevicesDefaults) []metav1.StatusCause {
+
+	if deviceDefaults == nil {
+		return nil
+	}
+
+	allCauses := validateDiskDefaults(basePath.Child("diskdefaults"), deviceDefaults.DiskDefaults)
+
+	// TODO - Interfaces and Inputs
+
+	return allCauses
+
+}
+
+func validateDiskDefaults(basePath *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults) []metav1.StatusCause {
+
+	if diskDefaults == nil {
+		return nil
+	}
+
+	allCauses := validateBusDefaults(basePath, diskDefaults)
+	allCauses = append(allCauses, validateBlockSizeDefaults(basePath, diskDefaults)...)
+
+	return allCauses
+
+}
+
+func validateBusDefaults(basePath *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults) []metav1.StatusCause {
+
+	if diskDefaults.PreferredDiskBus == "" && diskDefaults.PreferredCdromBus == "" && diskDefaults.PreferredLunBus == "" {
+		return nil
+	}
+
+	allCauses := validateDiskBusDefaults(basePath, diskDefaults)
+	allCauses = append(allCauses, validateCDRomBusDefaults(basePath, diskDefaults)...)
+	allCauses = append(allCauses, validateLunBusDefaults(basePath, diskDefaults)...)
+
+	return allCauses
+
+}
+
+func validateDiskBusDefaults(basePath *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults) []metav1.StatusCause {
+
+	if diskDefaults.PreferredDiskBus == "" {
+		return nil
+	}
+
+	if diskDefaults.PreferredDiskBus != "virtio" && diskDefaults.PreferredDiskBus != "sata" && diskDefaults.PreferredDiskBus != "scsi" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("A PreferredDiskBus value of %s is invalid. Valid options include virtio, sata and scsi.", diskDefaults.PreferredDiskBus),
+			Field:   basePath.Child("preferreddiskbus").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateCDRomBusDefaults(basePath *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults) []metav1.StatusCause {
+
+	if diskDefaults.PreferredCdromBus == "" {
+		return nil
+	}
+
+	if diskDefaults.PreferredCdromBus != "virtio" && diskDefaults.PreferredCdromBus != "sata" && diskDefaults.PreferredCdromBus != "scsi" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("A PreferredCdromBus value of %s is invalid. Valid options include virtio, sata and scsi.", diskDefaults.PreferredCdromBus),
+			Field:   basePath.Child("preferredcdrombus").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateLunBusDefaults(basePath *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults) []metav1.StatusCause {
+
+	if diskDefaults.PreferredLunBus == "" {
+		return nil
+	}
+
+	if diskDefaults.PreferredLunBus != "virtio" && diskDefaults.PreferredLunBus != "sata" && diskDefaults.PreferredLunBus != "scsi" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("A PreferredLunBus value of %s is invalid. Valid options include virtio, sata and scsi.", diskDefaults.PreferredLunBus),
+			Field:   basePath.Child("preferredlunbus").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateBlockSizeDefaults(basePath *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults) []metav1.StatusCause {
+
+	if diskDefaults.PreferredBlockSize == nil {
+		return nil
+	}
+
+	// PreferredBlockSize.Custom and PreferredBlockSize.MatchVolume can't be set on the same flavor
+	if diskDefaults.PreferredBlockSize.Custom != nil && diskDefaults.PreferredBlockSize.MatchVolume != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Both PreferredBlockSize.Custom and PreferredBlockSize.MatchVolume cannot be set on the same flavor.",
+			Field:   basePath.Child("preferredblocksize").String(),
+		}}
+	}
+
+	return nil
 }

@@ -94,6 +94,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.Virtu
 	}
 
 	conflicts = append(conflicts, patchDomainSpec(field.Child("domain"), profile.DomainTemplate, &vmi.Spec.Domain)...)
+	conflicts = append(conflicts, patchDevices(field.Child("domain.devices"), profile.DevicesDefaults, &vmi.Spec.Domain)...)
 
 	return conflicts
 }
@@ -233,4 +234,140 @@ func patchMemory(field *k8sfield.Path, profileObj **virtv1.Memory, vmiObj **virt
 	conflicts = append(conflicts, patchPtr(field.Child("guest"), &profileMem.Guest, &vmiMem.Guest)...)
 
 	return conflicts
+}
+
+func patchDevices(field *k8sfield.Path, devicesDefaults *flavorv1alpha1.DevicesDefaults, vmiDomain *virtv1.DomainSpec) Conflicts {
+
+	if devicesDefaults == nil {
+		return nil
+	}
+
+	// TODO - Interfaces and Inputs
+	return patchDiskDevices(field.Child("disks"), devicesDefaults.DiskDefaults, vmiDomain)
+
+}
+
+func patchDiskDevices(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec) Conflicts {
+
+	if vmiDomain.Devices.Disks == nil || diskDefaults == nil {
+		return nil
+	}
+
+	var conflicts Conflicts
+
+	for diskIndex := range vmiDomain.Devices.Disks {
+
+		diskField := field.Child(fmt.Sprintf("%d", diskIndex))
+		conflicts = append(conflicts, patchDiskDeviceBus(diskField, diskDefaults, vmiDomain, diskIndex)...)
+		conflicts = append(conflicts, patchDiskDeviceDedicatedIoThread(diskField, diskDefaults, vmiDomain, diskIndex)...)
+		conflicts = append(conflicts, patchDiskDeviceBlockSize(diskField, diskDefaults, vmiDomain, diskIndex)...)
+		conflicts = append(conflicts, patchDiskDeviceCache(diskField, diskDefaults, vmiDomain, diskIndex)...)
+		conflicts = append(conflicts, patchDiskDeviceIO(diskField, diskDefaults, vmiDomain, diskIndex)...)
+
+	}
+
+	return conflicts
+}
+
+func patchDiskDeviceBus(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredDiskBus != "" && vmiDomain.Devices.Disks[diskIndex].DiskDevice.Disk != nil {
+		return patchPtr(field.Child("diskdevice.disk.bus"), &diskDefaults.PreferredDiskBus, &vmiDomain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus)
+	}
+
+	if diskDefaults.PreferredCdromBus != "" && vmiDomain.Devices.Disks[diskIndex].DiskDevice.CDRom != nil {
+		return patchPtr(field.Child("diskdevice.cdrom.bus"), &diskDefaults.PreferredCdromBus, &vmiDomain.Devices.Disks[diskIndex].DiskDevice.CDRom.Bus)
+	}
+
+	if diskDefaults.PreferredLunBus != "" && vmiDomain.Devices.Disks[diskIndex].DiskDevice.LUN != nil {
+		return patchPtr(field.Child("diskdevice.lun.bus"), &diskDefaults.PreferredLunBus, &vmiDomain.Devices.Disks[diskIndex].DiskDevice.LUN.Bus)
+	}
+
+	return nil
+}
+
+func patchDiskDeviceDedicatedIoThread(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredDedicatedIoThread == nil {
+		return nil
+	}
+
+	if vmiDomain.Devices.Disks[diskIndex].DiskDevice.Disk == nil && vmiDomain.Devices.Disks[diskIndex].DiskDevice.LUN == nil {
+		return nil
+	}
+
+	// Add a conflict if PreferredDedicatedIoThread is disabled in the flavor but DedicatedIOThread is enabled in the VMI
+	if !*diskDefaults.PreferredDedicatedIoThread && *vmiDomain.Devices.Disks[diskIndex].DedicatedIOThread {
+		return Conflicts{field.Child("dedicatediothread")}
+	}
+
+	return patchPtr(field.Child("dedicatediothread"), diskDefaults.PreferredDedicatedIoThread, vmiDomain.Devices.Disks[diskIndex].DedicatedIOThread)
+}
+
+func patchDiskDeviceBlockSize(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredBlockSize == nil {
+		return nil
+	}
+
+	if vmiDomain.Devices.Disks[diskIndex].DiskDevice.Disk == nil && vmiDomain.Devices.Disks[diskIndex].DiskDevice.LUN == nil {
+		return nil
+	}
+
+	conflicts := patchDiskDeviceBlockSizeCustom(field.Child("blocksize"), diskDefaults, vmiDomain, diskIndex)
+	conflicts = append(conflicts, patchDiskDeviceBlockSizeMatchVolume(field.Child("blocksize"), diskDefaults, vmiDomain, diskIndex)...)
+
+	return conflicts
+}
+
+func patchDiskDeviceBlockSizeCustom(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredBlockSize.Custom == nil {
+		return nil
+	}
+
+	conflicts := patchPtr(field.Child("custom.logical"), &diskDefaults.PreferredBlockSize.Custom.Logical, &vmiDomain.Devices.Disks[diskIndex].BlockSize.Custom.Logical)
+	conflicts = append(conflicts, patchPtr(field.Child("custom.physical"), &diskDefaults.PreferredBlockSize.Custom.Physical, &vmiDomain.Devices.Disks[diskIndex].BlockSize.Custom.Physical)...)
+
+	return conflicts
+}
+
+func patchDiskDeviceBlockSizeMatchVolume(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredBlockSize.MatchVolume == nil {
+		return nil
+	}
+
+	// Add a conflict if referredBlockSize.MatchVolume.Enabled is disabled in the flavor but enabled in the VMI
+	if !*diskDefaults.PreferredBlockSize.MatchVolume.Enabled && *vmiDomain.Devices.Disks[diskIndex].BlockSize.MatchVolume.Enabled {
+		return Conflicts{field.Child("matchvolume.enabled")}
+	}
+
+	return patchPtr(field.Child("matchvolume.enabled"), diskDefaults.PreferredBlockSize.MatchVolume.Enabled, vmiDomain.Devices.Disks[diskIndex].BlockSize.MatchVolume.Enabled)
+}
+
+func patchDiskDeviceCache(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredCache == "" {
+		return nil
+	}
+
+	if vmiDomain.Devices.Disks[diskIndex].DiskDevice.Disk == nil && vmiDomain.Devices.Disks[diskIndex].DiskDevice.LUN == nil {
+		return nil
+	}
+
+	return patchPtr(field.Child("cache"), &diskDefaults.PreferredCache, &vmiDomain.Devices.Disks[diskIndex].Cache)
+}
+
+func patchDiskDeviceIO(field *k8sfield.Path, diskDefaults *flavorv1alpha1.DiskDefaults, vmiDomain *virtv1.DomainSpec, diskIndex int) Conflicts {
+
+	if diskDefaults.PreferredIo == "" {
+		return nil
+	}
+
+	if vmiDomain.Devices.Disks[diskIndex].DiskDevice.Disk == nil && vmiDomain.Devices.Disks[diskIndex].DiskDevice.LUN == nil {
+		return nil
+	}
+
+	return patchPtr(field.Child("io"), &diskDefaults.PreferredIo, &vmiDomain.Devices.Disks[diskIndex].IO)
 }

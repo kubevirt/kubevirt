@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
@@ -343,6 +344,357 @@ var _ = Describe("Flavor", func() {
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.domain.cpu"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+		})
+		Context("with DiskDefaults", func() {
+			var (
+				vm         *v1.VirtualMachine
+				vmi        *v1.VirtualMachineInstance
+				profile    *flavorv1alpha1.VirtualMachineFlavorProfile
+				testFlavor string
+			)
+
+			BeforeEach(func() {
+				vm = kubecli.NewMinimalVM("testvm")
+				vmi = api.NewMinimalVMI("testvmi")
+
+				testFlavor = "TestFlavor"
+				vm.Spec.Flavor = &v1.FlavorMatcher{
+					Name: testFlavor,
+					Kind: "VirtualMachineFlavor",
+				}
+
+				profile = &flavorv1alpha1.VirtualMachineFlavorProfile{
+					Name:    "default",
+					Default: true,
+					DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+						DiskDefaults: &flavorv1alpha1.DiskDefaults{},
+					},
+				}
+			})
+			It("should apply PreferredDiskBus", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					Name: "Test",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "",
+						},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredDiskBus = "virtio"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal("virtio"))
+			})
+			It("should reject PreferredDiskBus if value differs to vmi disk", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "sata",
+						},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredDiskBus = "virtio"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.diskdevice.disk.bus"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredCdromBus", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							Bus: "",
+						},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredCdromBus = "sata"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.CDRom.Bus).To(Equal("sata"))
+			})
+			It("should reject PreferredCdromBus if value differs to vmi disk", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							Bus: "virtio",
+						},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredCdromBus = "sata"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.diskdevice.cdrom.bus"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredLunBus", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						LUN: &v1.LunTarget{
+							Bus: "",
+						},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredLunBus = "virtio"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.LUN.Bus).To(Equal("virtio"))
+			})
+			It("should reject PreferredLunBus if value differs to vmi disk", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						LUN: &v1.LunTarget{
+							Bus: "sata",
+						},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredLunBus = "virtio"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.diskdevice.lun.bus"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredCdromBus, PreferredCdromBus and PreferredLunBus", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							CDRom: &v1.CDRomTarget{},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							CDRom: &v1.CDRomTarget{},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{},
+						},
+					},
+				}
+				profile.DevicesDefaults.DiskDefaults.PreferredDiskBus = "virtio"
+				profile.DevicesDefaults.DiskDefaults.PreferredCdromBus = "sata"
+				profile.DevicesDefaults.DiskDefaults.PreferredLunBus = "ide"
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal("virtio"))
+				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal("virtio"))
+				Expect(vmi.Spec.Domain.Devices.Disks[2].DiskDevice.CDRom.Bus).To(Equal("sata"))
+				Expect(vmi.Spec.Domain.Devices.Disks[3].DiskDevice.CDRom.Bus).To(Equal("sata"))
+				Expect(vmi.Spec.Domain.Devices.Disks[4].DiskDevice.LUN.Bus).To(Equal("ide"))
+			})
+			It("should apply PreferredDedicatedIoThread", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DedicatedIOThread: pointer.BoolPtr(false),
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredDedicatedIoThread = pointer.BoolPtr(true)
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(*vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread).To(BeTrue())
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should reject PreferredDedicatedIoThread when disabled in the flavor but enabled in the vmi disk", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DedicatedIOThread: pointer.BoolPtr(true),
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredDedicatedIoThread = pointer.BoolPtr(false)
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.dedicatediothread"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredCache", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredCache = v1.CacheWriteThrough
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(v1.CacheWriteThrough))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should reject PreferredCache when it differs from the vmi", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					Cache: v1.CacheNone,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredCache = v1.CacheWriteThrough
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.cache"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredIo", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredIo = v1.IONative
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IONative))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should reject PreferredIo when it differs from the vmi", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					IO: v1.IOThreads,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredIo = v1.IONative
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.io"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredBlockSize.Custom", func() {
+				var logical_size uint = 4096
+				var physical_size uint = 4096
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{},
+					},
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredBlockSize = &v1.BlockSize{
+					Custom: &v1.CustomBlockSize{
+						Logical:  logical_size,
+						Physical: physical_size,
+					},
+					MatchVolume: nil,
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].BlockSize.Custom.Logical).To(Equal(logical_size))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].BlockSize.Custom.Physical).To(Equal(physical_size))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should reject PreferredBlockSize.Custom when it differs from the vmi", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  1024,
+							Physical: 1024,
+						},
+						MatchVolume: nil,
+					},
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredBlockSize = &v1.BlockSize{
+					Custom: &v1.CustomBlockSize{
+						Logical:  4096,
+						Physical: 4096,
+					},
+					MatchVolume: nil,
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(2))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.blocksize.custom.logical"))
+				Expect(conflicts[1].String()).To(Equal("spec.domain.devices.disks.0.blocksize.custom.physical"))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should apply PreferredBlockSize.MatchVolume.Enabled", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{
+							Enabled: pointer.BoolPtr(false),
+						},
+					},
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredBlockSize = &v1.BlockSize{
+					Custom: nil,
+					MatchVolume: &v1.FeatureState{
+						Enabled: pointer.BoolPtr(true),
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(0))
+				Expect(*vmi.Spec.Domain.Devices.Disks[0].BlockSize.MatchVolume.Enabled).To(BeTrue())
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
+			})
+			It("should reject PreferredBlockSize.MatchVolume.Enabled when disabled in the flavor but enabled in the vmi", func() {
+				vm.Spec.Flavor.Kind = "VirtualMachineFlavor"
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+					},
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				}}
+				profile.DevicesDefaults.DiskDefaults.PreferredBlockSize = &v1.BlockSize{
+					MatchVolume: &v1.FeatureState{
+						Enabled: pointer.BoolPtr(false),
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.domain.devices.disks.0.blocksize.matchvolume.enabled"))
 				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 			})
 		})
