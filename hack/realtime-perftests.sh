@@ -70,6 +70,6 @@ if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
     additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
 fi
 
-additional_test_args="${additional_test_args} --skipPackage test/performance"
+additional_test_args="${additional_test_args} --skip-package test/performance"
 
 perftest ${additional_test_args} ${FUNC_TEST_ARGS}
