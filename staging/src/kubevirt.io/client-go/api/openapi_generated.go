@@ -21899,13 +21899,6 @@ func schema_kubevirtio_api_core_v1_VolumeStatus(ref common.ReferenceCallback) co
 							Format:      "int64",
 						},
 					},
-					"size": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Represents the size of the volume",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
 				},
 				Required: []string{"name", "target"},
 			},
