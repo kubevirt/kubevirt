@@ -24,7 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations"
 )
 
 const ControllerServiceAccountName = "kubevirt-controller"
@@ -126,6 +127,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
+					"pods/status",
+				},
+				Verbs: []string{
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
 					"nodes",
 				},
 				Verbs: []string{
@@ -181,6 +193,25 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"pool.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinepools",
+					"virtualmachinepools/finalizers",
+				},
+
+				Verbs: []string{
+					"watch",
+					"list",
+					"create",
+					"delete",
+					"update",
+					"patch",
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
 					"kubevirt.io",
 				},
 				Resources: []string{
@@ -199,6 +230,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/removevolume",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
+					"virtualmachineinstances/softreboot",
 				},
 				Verbs: []string{
 					"update",
@@ -290,6 +322,40 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"get",
 					"list",
 					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"flavor.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineflavors",
+					"virtualmachineclusterflavors",
+				},
+				Verbs: []string{
+					"list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					migrations.GroupName,
+				},
+				Resources: []string{
+					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"namespaces",
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 		},

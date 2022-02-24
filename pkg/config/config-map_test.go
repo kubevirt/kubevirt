@@ -28,7 +28,9 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("ConfigMap", func() {
@@ -52,7 +54,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should create a new config map iso disk", func() {
-		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi := api.NewMinimalVMI("fake-vmi")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "configmap-volume",
 			VolumeSource: v1.VolumeSource{

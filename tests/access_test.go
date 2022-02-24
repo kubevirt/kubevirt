@@ -30,10 +30,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
+	"kubevirt.io/api/core"
+
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+	pool "kubevirt.io/api/pool"
+	"kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -214,7 +217,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}
 		},
 			table.Entry("[test_id:526]given a vmi",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstances",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -222,15 +225,23 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:527]given a vm",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachines",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
 				denyAllFor("default")),
 
+			table.Entry("given a vmpool",
+				pool.GroupName,
+				"virtualmachinepools",
+				allowAllFor("admin"),
+				denyDeleteCollectionFor("edit"),
+				denyModificationsFor("view"),
+				denyAllFor("default")),
+
 			table.Entry("[test_id:528]given a vmi preset",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstancepresets",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -238,7 +249,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:529][crit:low]given a vmi replica set",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstancereplicasets",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -246,7 +257,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:3230]given a vmi migration",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstancemigrations",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -327,18 +338,28 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "unfreeze",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("view", "default")),
+			table.Entry("on vmi softreboot",
+				"virtualmachineinstances", "softreboot",
+				allowUpdateFor("admin", "edit"),
+				denyAllFor("view", "default")),
 		)
 	})
 
-	Describe("[Serial][rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
+	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
+
+		var testUser string
+
 		BeforeEach(func() {
+			// Generate unique usernames based on the test namespace which is unique per ginkgo node
+			testUser = "testuser-" + util.NamespaceTestDefault
 			tests.SkipIfNoCmd("oc")
 			if !tests.IsOpenShift() {
 				Skip("Skip tests which require an openshift managed test user if not running on openshift")
 			}
+			By("Ensuring the cluster has new test user")
+			stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
+			Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 		})
-
-		const testUser = "testuser"
 
 		testAction := func(resource, verb string, right string) {
 			// AS A TEST USER
@@ -357,11 +378,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("should fail without admin rights for the project", func() {
 			BeforeEach(func() {
-				By("Ensuring the cluster has new test user")
-				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 			})
 
@@ -375,6 +392,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			},
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances"),
 				table.Entry("[test_id:2915]given a vm", "virtualmachines"),
+				table.Entry("given a vmpool", "virtualmachinepools"),
 				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
@@ -388,6 +406,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			},
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 			)
@@ -395,13 +414,9 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		Context("should succeed with admin rights for the project", func() {
 			BeforeEach(func() {
-				By("Ensuring the cluster has new test user")
-				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
 				By("Ensuring user has the admin rights for the test namespace project")
 				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
 				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
@@ -418,6 +433,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			},
 				table.Entry("[test_id:2920]given a vmi", "virtualmachineinstances"),
 				table.Entry("[test_id:2831]given a vm", "virtualmachines"),
+				table.Entry("given a vmpool", "virtualmachinepools"),
 				table.Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
@@ -431,6 +447,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			},
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/guestosinfo", "get"),

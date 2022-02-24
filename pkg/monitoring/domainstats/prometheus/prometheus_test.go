@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	k6tv1 "kubevirt.io/client-go/api/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -306,7 +306,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_used_total_bytes"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_total_bytes"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 

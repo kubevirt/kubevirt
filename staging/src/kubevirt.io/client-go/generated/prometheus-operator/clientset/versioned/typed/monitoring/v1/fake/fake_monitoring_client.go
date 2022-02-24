@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KubeVirt Authors.
+Copyright 2022 The KubeVirt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,6 +47,10 @@ func (c *FakeMonitoringV1) PrometheusRules(namespace string) v1.PrometheusRuleIn
 
 func (c *FakeMonitoringV1) ServiceMonitors(namespace string) v1.ServiceMonitorInterface {
 	return &FakeServiceMonitors{c, namespace}
+}
+
+func (c *FakeMonitoringV1) ThanosRulers(namespace string) v1.ThanosRulerInterface {
+	return &FakeThanosRulers{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -16,9 +16,11 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/client-go/api"
+
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -105,7 +107,7 @@ var _ = Describe("Workload Updater", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(200)
 		recorder.IncludeObject = true
-		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
@@ -139,7 +141,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -190,13 +192,13 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(name string, pt types.PatchType, data []byte) {
+			kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) {
 				str := string(data)
 				Expect(str).To(Equal("[{ \"op\": \"test\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 0}, { \"op\": \"replace\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 100}]"))
 
 			}).Return(nil, nil).Times(1)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
@@ -237,7 +239,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
@@ -270,7 +272,7 @@ var _ = Describe("Workload Updater", func() {
 			time.Sleep(1 * time.Second)
 
 			//migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).AnyTimes()
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
 
 			controller.Execute()
 			testutils.ExpectEvents(recorder, reasons...)
@@ -295,7 +297,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
@@ -457,7 +459,7 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 }
 
 func newVirtualMachine(name string, isMigratable bool, image string, vmiSource *framework.FakeControllerSource, podSource *framework.FakeControllerSource) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMI("testvm")
+	vmi := api.NewMinimalVMI("testvm")
 	vmi.Name = name
 	vmi.Namespace = v12.NamespaceDefault
 	vmi.Status.LauncherContainerImageVersion = image

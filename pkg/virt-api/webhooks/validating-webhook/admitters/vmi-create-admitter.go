@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -41,6 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+const requiredFieldFmt = "%s is a required field"
 
 const (
 	arrayLenMax = 256
@@ -142,6 +144,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
+	causes = append(causes, validateRealtime(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -200,6 +203,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateSoundDevices(field, spec)...)
+	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 
 	return causes
 }
@@ -760,6 +765,65 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 	return causes
 }
 
+func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Devices.Sound != nil {
+		model := spec.Domain.Devices.Sound.Model
+		if model != "" && model != "ich9" && model != "ac97" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Sound device type is not supported. Options: 'ich9' or 'ac97'"),
+				Field:   field.Child("Sound").String(),
+			})
+		}
+		name := spec.Domain.Devices.Sound.Name
+		if name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Sound device requires a name field."),
+				Field:   field.Child("Sound").String(),
+			})
+		}
+	}
+	return causes
+}
+
+func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	launchSecurity := spec.Domain.LaunchSecurity
+	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV requires OVMF (UEFI)"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV does not work along with SecureBoot"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+	}
+	return causes
+}
+
 func appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
@@ -996,7 +1060,7 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 			})
 		}
-		if spec.Domain.CPU.DedicatedCPUPlacement == false {
+		if !spec.Domain.CPU.DedicatedCPUPlacement {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must be set to true when NUMA topology strategy is set in %s",
@@ -1367,6 +1431,42 @@ func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1
 		if len(errors) != 0 {
 			causes = appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field, causes, errors)
 		}
+	}
+	return causes
+}
+
+func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU != nil && spec.Domain.CPU.Realtime != nil {
+		causes = append(causes, validateCPURealtime(field, spec)...)
+		causes = append(causes, validateMemoryRealtime(field, spec)...)
+	}
+	return causes
+}
+
+func validateCPURealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if !spec.Domain.CPU.DedicatedCPUPlacement {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s must be set to true when %s is used",
+				field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+				field.Child("domain", "cpu", "realtime").String(),
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+	return causes
+}
+
+func validateMemoryRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU.NUMA == nil || spec.Domain.CPU.NUMA.GuestMappingPassthrough == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s must be defined when %s is used",
+				field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				field.Child("domain", "cpu", "realtime").String(),
+			),
+			Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+		})
 	}
 	return causes
 }
@@ -1981,7 +2081,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ConfigMap.LocalObjectReference.Name == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("configMap", "name").String()),
 					Field:   field.Index(idx).Child("configMap", "name").String(),
 				})
 			}
@@ -1991,7 +2091,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.Secret.SecretName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("secret", "secretName").String()),
 					Field:   field.Index(idx).Child("secret", "secretName").String(),
 				})
 			}
@@ -2001,7 +2101,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ServiceAccount.ServiceAccountName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
 					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
 				})
 			}

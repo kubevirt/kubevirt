@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
@@ -47,14 +47,13 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-
 		tests.BeforeTestCleanup()
 	})
 
 	Context("Check virt-launcher securityContext", func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			kv := util.GetCurrentKv(virtClient)
 			kubevirtConfiguration = &kv.Spec.Configuration
 		})

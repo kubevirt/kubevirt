@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
+var _ = SIGDescribe("Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		var err error
@@ -92,7 +92,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				BeforeEach(func() {
 					var err error
 
-					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding())
+					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))
 					Expect(err).NotTo(HaveOccurred())
 
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)

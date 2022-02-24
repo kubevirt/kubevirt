@@ -19,7 +19,7 @@ export KUBEVIRT_PROVIDER=k8s-1.21   # choose kubevirtci provider version by subd
 ## Bringing the cluster up
 
 ```bash
-export KUBEVIRT_NUM_NODES=2         # master + one node
+export KUBEVIRT_NUM_NODES=2         # control-plane + one node
 make cluster-up
 ```
 
@@ -27,9 +27,9 @@ The cluster can be accessed as usual:
 
 ```bash
 $ cluster/kubectl.sh get nodes
-NAME      STATUS     ROLES     AGE       VERSION
-node01    NotReady   master    31s       v1.21.1
-node02    NotReady   <none>    5s        v1.21.1
+NAME      STATUS     ROLES          AGE       VERSION
+node01    NotReady   control-plane  31s       v1.21.1
+node02    NotReady   <none>         5s        v1.21.1
 ```
 
 Note: for further configuration environment variables please see [cluster-up/hack/common.sh](../hack/common.sh)

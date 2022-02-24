@@ -23,17 +23,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
@@ -83,7 +83,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 		// Set VMI defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		mutator.setDefaultCPUModel(newVMI)
 		mutator.setDefaultMachineType(newVMI)
 		mutator.setDefaultResourceRequests(newVMI)
 		mutator.setDefaultGuestCPUTopology(newVMI)
@@ -115,7 +114,18 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 				// if SetVirtualMachineInstanceArm64Defaults fails, it's due to a validation error, which will get caught in the validation webhook after mutation finishes.
 				log.Log.V(2).Infof("Failed to setting for Arm64: %s", err)
 			}
+		} else {
+			mutator.setDefaultCPUModel(newVMI)
 		}
+		if newVMI.IsRealtimeEnabled() {
+			log.Log.V(4).Info("Add realtime node label selector")
+			addNodeSelector(newVMI, v1.RealtimeLabel)
+		}
+		if util.IsSEVVMI(newVMI) {
+			log.Log.V(4).Info("Add SEV node label selector")
+			addNodeSelector(newVMI, v1.SEVLabel)
+		}
+
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
 
@@ -170,7 +180,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
-		if !reflect.DeepEqual(newVMI.Status, oldVMI.Status) {
+		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
 			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 				patch = append(patch, utiltypes.PatchOperation{
 					Op:    "replace",
@@ -226,15 +236,18 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 }
 
 func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
-	//if vmi doesn't have cpu topology or cpu model set
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		if defaultCPUModel := mutator.ClusterConfig.GetCPUModel(); defaultCPUModel != "" {
-			// create cpu topology struct
-			if vmi.Spec.Domain.CPU == nil {
-				vmi.Spec.Domain.CPU = &v1.CPU{}
-			}
+	// create cpu topology struct
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &v1.CPU{}
+	}
+
+	// if vmi doesn't have cpu model set
+	if vmi.Spec.Domain.CPU.Model == "" {
+		if clusterConfigCPUModel := mutator.ClusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
 			//set is as vmi cpu model
-			vmi.Spec.Domain.CPU.Model = defaultCPUModel
+			vmi.Spec.Domain.CPU.Model = clusterConfigCPUModel
+		} else {
+			vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
 		}
 	}
 }
@@ -355,4 +368,11 @@ func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 		return fmt.Errorf("SRIOV doesn't work with nonroot")
 	}
 	return nil
+}
+
+func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
+	if vmi.Spec.NodeSelector == nil {
+		vmi.Spec.NodeSelector = map[string]string{}
+	}
+	vmi.Spec.NodeSelector[label] = ""
 }

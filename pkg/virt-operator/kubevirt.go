@@ -21,28 +21,30 @@ package virt_operator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/types"
 
+	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
-
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
@@ -54,6 +56,8 @@ const (
 	virtOperatorJobAppLabel    = "virt-operator-strategy-dumper"
 	installStrategyKeyTemplate = "%s-%d"
 	defaultAddDelay            = 5 * time.Second
+	obsoleteCmName             = "kubevirt-config"
+	obsoleteCMReason           = "ObsoleteConfigMapExists"
 )
 
 type KubeVirtController struct {
@@ -90,7 +94,7 @@ func NewKubeVirtController(
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewNamedRateLimitingQueue(rl, "virt-operator"),
+		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
 		kubeVirtInformer: informer,
 		recorder:         recorder,
 		stores:           stores,
@@ -659,16 +663,24 @@ func (c *KubeVirtController) execute(key string) error {
 	operatorutil.SetConditionTimestamps(kv, kvCopy)
 
 	// If we detect a change on KubeVirt we update it
-	if !reflect.DeepEqual(kv.Status, kvCopy.Status) {
+	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
 		if err := c.statusUpdater.UpdateStatus(kvCopy); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
 			return err
 		}
 	}
 
-	if !reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
-		if _, err := c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Update(kvCopy); err != nil {
-			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
+	// If we detect a change on KubeVirt finalizers we update them
+	// Note: we don't own the metadata section so we need to use Patch() and not Update()
+	if !equality.Semantic.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
+		finalizersJson, err := json.Marshal(kvCopy.Finalizers)
+		if err != nil {
+			return err
+		}
+		patch := fmt.Sprintf(`[{"op": "replace", "path": "/metadata/finalizers", "value": %s}]`, string(finalizersJson))
+		_, err = c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(kvCopy.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{})
+		if err != nil {
+			logger.Reason(err).Errorf("Could not patch the KubeVirt finalizers.")
 			return err
 		}
 	}
@@ -678,7 +690,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
 
-	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), "virt-operator", components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
+	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
 	deploymentConfigJson, err := config.GetJson()
 	if err != nil {
 		return nil, err
@@ -722,7 +734,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 							Image:           operatorImage,
 							ImagePullPolicy: config.GetImagePullPolicy(),
 							Command: []string{
-								"virt-operator",
+								VirtOperator,
 								"--dump-install-strategy",
 							},
 							Env: []k8sv1.EnvVar{
@@ -1020,7 +1032,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
+	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)
@@ -1150,4 +1162,29 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	logger.Info("Processed deletion for this round")
 	return nil
+}
+
+// checkIfConfigMapStillExists This function validates that the obsolete kubevirt-config configMap is no longer exist.
+// The user should not use this configMap to configure KubeVirt, and KubeVirt will ignore it anyway. In case the configMap
+// still exists, this function emit an event to notify the user, and ask them to delete it.
+func (c *KubeVirtController) checkIfConfigMapStillExists(logger *log.FilteredLogger, stopChan <-chan struct{}) {
+	ctx := context.Background()
+	getOpts := metav1.GetOptions{}
+
+	msg := fmt.Sprintf("the %s configMap is still deployed. KubeVirt does not support this configMap and it can be safely removed", obsoleteCmName)
+
+	go wait.Until(func() {
+		logger.V(5).Info("read the kubevirt-config configMap. if exist, emmit an event")
+		cm, err := c.clientset.CoreV1().ConfigMaps(c.operatorNamespace).Get(ctx, obsoleteCmName, getOpts)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(5).Info("The obsolete kubevirt-config configMap could not be found. good.")
+			} else {
+				logger.Errorf("can't get the kubevirt-config configMap %v", err)
+			}
+		} else {
+			logger.Warning("The obsolete kubevirt-config configMap still exists. Please remove it.")
+			c.recorder.Eventf(cm, k8sv1.EventTypeWarning, obsoleteCMReason, msg)
+		}
+	}, time.Minute*10, stopChan)
 }

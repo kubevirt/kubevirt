@@ -27,13 +27,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/util"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -102,7 +103,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -119,7 +120,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -127,7 +128,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				vmi := tests.NewRandomVMI()
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
-				err := virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vmi.Name)
+				err := virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vmi.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -143,7 +144,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Trying to start VM via Restart subresource")
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -173,7 +174,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -209,7 +210,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
-				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name)
+				err = virtCli.VirtualMachine(util.NamespaceTestDefault).Restart(vm.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -231,6 +232,119 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				return string(spec)
 				// The first item in the SubresourceGroupVersions array is the preferred version
 			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io/" + v1.SubresourceGroupVersions[0].Version))
+		})
+	})
+
+	Describe("VirtualMachineInstance subresource", func() {
+		Context("Freeze Unfreeze should fail", func() {
+			var vm *v1.VirtualMachine
+
+			BeforeEach(func() {
+				var err error
+				vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+				vm = tests.NewRandomVirtualMachine(vmi, true)
+				vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase == v1.Running
+				}, 180*time.Second, time.Second).Should(BeTrue())
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+			})
+
+			It("[test_id:7476]Freeze without guest agent", func() {
+				expectedErr := "Internal error occurred"
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring(expectedErr))
+			})
+
+			It("[test_id:7477]Unfreeze without guest agent", func() {
+				expectedErr := "Internal error occurred"
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring(expectedErr))
+			})
+		})
+
+		Context("Freeze Unfreeze commands", func() {
+			var vm *v1.VirtualMachine
+
+			BeforeEach(func() {
+				var err error
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Namespace = util.NamespaceTestDefault
+				vm = tests.NewRandomVirtualMachine(vmi, true)
+				vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase == v1.Running
+				}, 180*time.Second, time.Second).Should(BeTrue())
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				tests.WaitAgentConnected(virtCli, vmi)
+			})
+
+			waitVMIFSFreezeStatus := func(expectedStatus string) {
+				Eventually(func() bool {
+					updatedVMI, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return updatedVMI.Status.FSFreezeStatus == expectedStatus
+				}, 30*time.Second, 2*time.Second).Should(BeTrue())
+			}
+
+			It("[test_id:7479]Freeze Unfreeze should succeed", func() {
+				By("Freezing VMI")
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus("frozen")
+
+				By("Unfreezing VMI")
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus("")
+			})
+
+			It("[test_id:7480]Multi Freeze Unfreeze calls should succeed", func() {
+				for i := 0; i < 5; i++ {
+					By("Freezing VMI")
+					err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
+					Expect(err).ToNot(HaveOccurred())
+
+					waitVMIFSFreezeStatus("frozen")
+				}
+
+				By("Unfreezing VMI")
+				for i := 0; i < 5; i++ {
+					err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
+					Expect(err).ToNot(HaveOccurred())
+
+					waitVMIFSFreezeStatus("")
+				}
+			})
+
+			It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
+				By("Freezing VMI")
+				unfreezeTimeout := 10 * time.Second
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, unfreezeTimeout)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus("frozen")
+
+				By("Wait Unfreeze VMI to be triggered")
+				waitVMIFSFreezeStatus("")
+			})
 		})
 	})
 })

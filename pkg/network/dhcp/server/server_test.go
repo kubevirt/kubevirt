@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("DHCP Server", func() {
@@ -131,20 +131,6 @@ var _ = Describe("DHCP Server", func() {
 			_, err := convertSearchDomainsToBytes(searchDomains)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(HavePrefix(errorSearchDomainTooLong))
-		})
-	})
-
-	Context("function getDomainName", func() {
-		It("should return the longest search domain entry", func() {
-			searchDomains := []string{
-				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
-				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
-				"t4lanpt7z4ix58nvxl4d.com",
-				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
-				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
-			}
-			domain := getDomainName(searchDomains)
-			Expect(domain).To(Equal("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com"))
 		})
 	})
 

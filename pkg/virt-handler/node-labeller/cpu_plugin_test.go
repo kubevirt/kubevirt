@@ -24,15 +24,13 @@ package nodelabeller
 import (
 	"path"
 
-	"kubevirt.io/kubevirt/tests"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -62,7 +60,7 @@ var _ = Describe("Node-labeller config", func() {
 		},
 	}
 
-	clusterConfig, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	BeforeSuite(func() {
 		ctrl := gomock.NewController(GinkgoT())
@@ -142,7 +140,7 @@ var _ = Describe("Node-labeller config", func() {
 	Context("should return correct host cpu", func() {
 		var hostCpuModel hostCPUModel
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			err := nlController.loadHostSupportedFeatures()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -165,4 +163,25 @@ var _ = Describe("Node-labeller config", func() {
 		})
 	})
 
+	Context("return correct SEV capabilities", func() {
+		It("when SEV is supported", func() {
+			nlController.domCapabilitiesFileName = "domcapabilities_sev.xml"
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(nlController.SEV.Supported).To(Equal("yes"))
+			Expect(nlController.SEV.Cbitpos).To(Equal("47"))
+			Expect(nlController.SEV.ReducedPhysBits).To(Equal("1"))
+		})
+
+		It("when SEV is not supported", func() {
+			nlController.domCapabilitiesFileName = "domcapabilities_nosev.xml"
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(nlController.SEV.Supported).To(Equal("no"))
+			Expect(nlController.SEV.Cbitpos).To(BeEmpty())
+			Expect(nlController.SEV.ReducedPhysBits).To(BeEmpty())
+		})
+	})
 })

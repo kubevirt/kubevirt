@@ -20,7 +20,7 @@
 package libvmi
 
 import (
-	kvirtv1 "kubevirt.io/client-go/api/v1"
+	kvirtv1 "kubevirt.io/api/core/v1"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -48,6 +48,19 @@ func NewTestToolingFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // building its extra properties based on the specified With* options, the
 // image used include Guest Agent and some moduled needed by SRIOV.
 func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
+}
+
+// NewSEVFedora instantiates a new Fedora based VMI configuration,
+// building its extra properties based on the specified With* options, the
+// image used is configured for UEFI boot and it supports AMD SEV.
+func NewSEVFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	const secureBoot = false
+	sevOptions := []Option{
+		WithUefi(secureBoot),
+		WithSEV(),
+	}
+	opts = append(sevOptions, opts...)
 	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 

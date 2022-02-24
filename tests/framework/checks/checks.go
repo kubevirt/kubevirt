@@ -7,7 +7,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/util"
 
-	v12 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/api/core/v1"
 )
 
 func IsCPUManagerPresent(node *v1.Node) bool {
@@ -21,6 +21,16 @@ func IsCPUManagerPresent(node *v1.Node) bool {
 		}
 	}
 	return nodeHaveCpuManagerLabel
+}
+
+func IsRealtimeCapable(node *v1.Node) bool {
+	gomega.Expect(node).ToNot(gomega.BeNil())
+	for label, _ := range node.Labels {
+		if label == v12.RealtimeLabel {
+			return true
+		}
+	}
+	return false
 }
 
 func Has2MiHugepages(node *v1.Node) bool {
@@ -45,5 +55,15 @@ func HasFeature(feature string) bool {
 		}
 	}
 
+	return false
+}
+
+func IsSEVCapable(node *v1.Node) bool {
+	gomega.Expect(node).ToNot(gomega.BeNil())
+	for label, _ := range node.Labels {
+		if label == v12.SEVLabel {
+			return true
+		}
+	}
 	return false
 }

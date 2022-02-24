@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -30,10 +29,13 @@ import (
 	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -55,7 +57,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
@@ -83,7 +85,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	It("should reject valid VirtualMachineInstance spec on update", func() {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 
 		updateVmi := vmi.DeepCopy()
 		updateVmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -120,7 +122,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	table.DescribeTable(
 		"Should allow VMI upon modification of non kubevirt.io/ labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -163,7 +165,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	table.DescribeTable(
 		"Should allow VMI upon modification of kubevirt.io/ labels by kubevirt internal service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string, serviceAccount string) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -205,7 +207,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	table.DescribeTable(
 		"Should reject VMI upon modification of kubevirt.io/ reserved labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
-			vmi := v1.NewMinimalVMI("testvmi")
+			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -387,7 +389,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	table.DescribeTable("Should properly calculate the hotplugvolumes", func(volumes []v1.Volume, statuses []v1.VolumeStatus, expected map[string]v1.Volume) {
 		result := getHotplugVolumes(volumes, statuses)
-		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
+		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should be empty if statuses is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
 		table.Entry("Should be empty if statuses has multiple entries, but no hotplug", makeVolumes(), makeStatus(2, 0), emptyResult()),
@@ -398,7 +400,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	table.DescribeTable("Should properly calculate the permanent volumes", func(volumes []v1.Volume, statusVolumes []v1.VolumeStatus, expected map[string]v1.Volume) {
 		result := getPermanentVolumes(volumes, statusVolumes)
-		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
+		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should be empty if volume is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
 		table.Entry("Should be empty if all volumes are hotplugged", makeVolumes(0, 1, 2, 3), makeStatus(4, 4), emptyResult()),
@@ -408,12 +410,12 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	table.DescribeTable("Should return proper admission response", func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
-		newVMI := v1.NewMinimalVMI("testvmi")
+		newVMI := api.NewMinimalVMI("testvmi")
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 
 		result := admitHotplug(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
-		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
+		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should accept if no volumes are there or added",
 			makeVolumes(),
@@ -488,7 +490,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	table.DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {
-		vmi := v1.NewMinimalVMI("testvmi")
+		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Volumes = makeVolumes(1)
 		vmi.Spec.Domain.Devices.Disks = makeDisks(1)
 		vmi.Status.VolumeStatus = makeStatus(1, 0)

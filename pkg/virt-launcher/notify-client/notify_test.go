@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -33,11 +32,14 @@ import (
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirt"
 
+	api2 "kubevirt.io/client-go/api"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
@@ -116,7 +118,7 @@ var _ = Describe("Notify", func() {
 					newDomain, ok := event.Object.(*api.Domain)
 					newDomain.Spec.XMLName = xml.Name{}
 					Expect(ok).To(BeTrue(), "should typecase domain")
-					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
 					Expect(event.Type).To(Equal(kubeEventType))
 				}
 				Expect(timedOut).To(BeFalse(), "should not time out")
@@ -192,7 +194,7 @@ var _ = Describe("Notify", func() {
 					newDomain, _ := event.Object.(*api.Domain)
 					newInterfaceStatuses := newDomain.Status.Interfaces
 					Expect(len(newInterfaceStatuses)).To(Equal(2))
-					Expect(reflect.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
 			})
@@ -224,7 +226,7 @@ var _ = Describe("Notify", func() {
 				case event := <-eventChan:
 					newDomain, _ := event.Object.(*api.Domain)
 					newOSStatus := newDomain.Status.OSInfo
-					Expect(reflect.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
 			})
@@ -256,7 +258,7 @@ var _ = Describe("Notify", func() {
 				case event := <-eventChan:
 					newDomain, _ := event.Object.(*api.Domain)
 					newFSFreezeStatus := newDomain.Status.FSFreezeStatus
-					Expect(reflect.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
 			})
@@ -305,7 +307,7 @@ var _ = Describe("Notify", func() {
 
 		It("Should send a k8s event", func(done Done) {
 
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 
@@ -344,7 +346,7 @@ var _ = Describe("Notify", func() {
 			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 			mockDomain.EXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
 
-			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 			eventType := "Warning"

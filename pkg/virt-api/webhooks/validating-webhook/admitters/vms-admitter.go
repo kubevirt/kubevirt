@@ -23,18 +23,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -49,6 +50,7 @@ type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool
 type VMsAdmitter struct {
 	VMIInformer        cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer
+	FlavorMethods      flavor.Methods
 	ClusterConfig      *virtconfig.ClusterConfig
 	cloneAuthFunc      CloneAuthFunc
 }
@@ -61,13 +63,15 @@ func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAcces
 	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmiInformer cache.SharedIndexInformer, dataSourceInformer cache.SharedIndexInformer) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
 	proxy := &sarProxy{client: client}
 
 	return &VMsAdmitter{
-		VMIInformer:        vmiInformer,
-		DataSourceInformer: dataSourceInformer,
-		ClusterConfig:      clusterConfig,
+		VMIInformer:        informers.VMIInformer,
+		DataSourceInformer: informers.DataSourceInformer,
+		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
+
+		ClusterConfig: clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
@@ -93,7 +97,12 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.ClusterConfig, accountName)
+	causes := admitter.applyFlavorToVm(&vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.ClusterConfig, accountName)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -154,6 +163,39 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
+	flavorProfile, err := admitter.FlavorMethods.FindProfile(vm)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Could not find flavor profile: %v", err),
+			Field:   k8sfield.NewPath("spec", "flavor").String(),
+		}}
+	}
+	if flavorProfile == nil {
+		return nil
+	}
+
+	conflicts := admitter.FlavorMethods.ApplyToVmi(
+		k8sfield.NewPath("spec", "template", "spec"),
+		flavorProfile,
+		&vm.Spec.Template.Spec,
+	)
+	if len(conflicts) == 0 {
+		return nil
+	}
+
+	causes := make([]metav1.StatusCause, 0, len(conflicts))
+	for _, conflict := range conflicts {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "VMI field conflicts with selected Flavor profile",
+			Field:   conflict.String(),
+		})
+	}
+	return causes
 }
 
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
@@ -395,7 +437,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 			}
 
 			vmVolume, ok := vmVolumeMap[name]
-			if ok && !reflect.DeepEqual(newVolume, vmVolume) {
+			if ok && !equality.Semantic.DeepEqual(newVolume, vmVolume) {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on the vmi template.", name),
@@ -404,7 +446,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 			}
 
 			vmiVolume, ok := vmiVolumeMap[name]
-			if ok && !reflect.DeepEqual(newVolume, vmiVolume) {
+			if ok && !equality.Semantic.DeepEqual(newVolume, vmiVolume) {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on currently running vmi", name),
@@ -479,8 +521,9 @@ func validateRestoreStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachi
 		}}
 	}
 
-	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
-		if (vm.Spec.Running != nil && *vm.Spec.Running) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != v1.RunStrategyHalted) {
+	if !equality.Semantic.DeepEqual(oldVM.Spec, vm.Spec) {
+		strategy, _ := vm.RunStrategy()
+		if strategy != v1.RunStrategyHalted {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fmt.Sprintf("Cannot start VM until restore %q completes", *vm.Status.RestoreInProgress),
@@ -505,7 +548,7 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 		}}
 	}
 
-	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
+	if !equality.Semantic.DeepEqual(oldVM.Spec, vm.Spec) {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Cannot update VM spec until snapshot %q completes", *vm.Status.SnapshotInProgress),

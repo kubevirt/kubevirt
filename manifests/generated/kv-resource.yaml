@@ -278,6 +278,31 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      nodeMediatedDeviceTypes:
+                        items:
+                          description: NodeMediatedDeviceTypesConfig holds inforamtion
+                            about MDEV types to be defined in a specifc node that
+                            matches the NodeSelector field.
+                          properties:
+                            mediatedDevicesTypes:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            nodeSelector:
+                              additionalProperties:
+                                type: string
+                              description: 'NodeSelector is a selector which must
+                                be true for the vmi to fit on a node. Selector which
+                                must match a node''s labels for the vmi to be scheduled
+                                on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                              type: object
+                          required:
+                          - mediatedDevicesTypes
+                          - nodeSelector
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                     type: object
                   memBalloonStatsPeriod:
                     format: int32
@@ -300,6 +325,8 @@ spec:
                         type: integer
                       disableTLS:
                         type: boolean
+                      network:
+                        type: string
                       nodeDrainTaintKey:
                         type: string
                       parallelMigrationsPerCluster:
@@ -493,7 +520,7 @@ spec:
                   infrastructure components
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -1196,6 +1223,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
               monitorAccount:
                 description: The name of the Prometheus service account that needs
@@ -1203,6 +1235,12 @@ spec:
                 type: string
               monitorNamespace:
                 description: The namespace Prometheus is deployed in Defaults to openshift-monitor
+                type: string
+              productComponent:
+                description: Designate the apps.kubevirt.io/component label for KubeVirt
+                  components. Useful if KubeVirt is included as part of a product.
+                  If ProductComponent is not specified, the component label default
+                  value is kubevirt.
                 type: string
               productName:
                 description: Designate the apps.kubevirt.io/part-of label for KubeVirt
@@ -1251,7 +1289,7 @@ spec:
                   workloads
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -1954,6 +1992,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
             type: object
           status:
@@ -2314,6 +2357,31 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      nodeMediatedDeviceTypes:
+                        items:
+                          description: NodeMediatedDeviceTypesConfig holds inforamtion
+                            about MDEV types to be defined in a specifc node that
+                            matches the NodeSelector field.
+                          properties:
+                            mediatedDevicesTypes:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            nodeSelector:
+                              additionalProperties:
+                                type: string
+                              description: 'NodeSelector is a selector which must
+                                be true for the vmi to fit on a node. Selector which
+                                must match a node''s labels for the vmi to be scheduled
+                                on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                              type: object
+                          required:
+                          - mediatedDevicesTypes
+                          - nodeSelector
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                     type: object
                   memBalloonStatsPeriod:
                     format: int32
@@ -2336,6 +2404,8 @@ spec:
                         type: integer
                       disableTLS:
                         type: boolean
+                      network:
+                        type: string
                       nodeDrainTaintKey:
                         type: string
                       parallelMigrationsPerCluster:
@@ -2529,7 +2599,7 @@ spec:
                   infrastructure components
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -3232,6 +3302,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
               monitorAccount:
                 description: The name of the Prometheus service account that needs
@@ -3239,6 +3314,12 @@ spec:
                 type: string
               monitorNamespace:
                 description: The namespace Prometheus is deployed in Defaults to openshift-monitor
+                type: string
+              productComponent:
+                description: Designate the apps.kubevirt.io/component label for KubeVirt
+                  components. Useful if KubeVirt is included as part of a product.
+                  If ProductComponent is not specified, the component label default
+                  value is kubevirt.
                 type: string
               productName:
                 description: Designate the apps.kubevirt.io/part-of label for KubeVirt
@@ -3287,7 +3368,7 @@ spec:
                   workloads
                 properties:
                   nodePlacement:
-                    description: nodePlacement decsribes scheduling confiuguration
+                    description: nodePlacement describes scheduling configuration
                       for specific KubeVirt components
                     properties:
                       affinity:
@@ -3990,6 +4071,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  replicas:
+                    description: replicas indicates how many replicas should be created
+                      for each KubeVirt infrastructure component (like virt-api or
+                      virt-controller). Defaults to 2.
+                    type: integer
                 type: object
             type: object
           status:

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"

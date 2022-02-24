@@ -30,6 +30,11 @@ import (
 )
 
 var _ = Describe("EFI environment detection", func() {
+	const (
+		secureBootEnabled = true
+		sevEnabled        = true
+	)
+
 	createEFIRoms := func(efiRoms ...string) string {
 		ovmfPath, err := os.MkdirTemp("", "kubevirt-ovmf")
 		Expect(err).To(BeNil())
@@ -52,16 +57,18 @@ var _ = Describe("EFI environment detection", func() {
 			efiEnv := DetectEFIEnvironment(arch, ovmfPath)
 			Expect(efiEnv).ToNot(BeNil())
 
-			Expect(efiEnv.Bootable(true)).To(Equal(SBBootable))
-			Expect(efiEnv.Bootable(false)).To(Equal(NoSBBootable))
+			Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled)).To(Equal(SBBootable))
+			Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled)).To(Equal(SBBootable))
+			Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled)).To(Equal(NoSBBootable))
 
 			if SBBootable {
-				Expect(efiEnv.EFICode(true)).To(Equal(filepath.Join(ovmfPath, codeSB)))
-				Expect(efiEnv.EFIVars(true)).To(Equal(filepath.Join(ovmfPath, varsSB)))
+				Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
+				Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
+				Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, varsSB)))
 			}
 			if NoSBBootable {
-				Expect(efiEnv.EFICode(false)).To(Equal(filepath.Join(ovmfPath, code)))
-				Expect(efiEnv.EFIVars(false)).To(Equal(filepath.Join(ovmfPath, vars)))
+				Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, code)))
+				Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
 			}
 
 		},
@@ -74,4 +81,29 @@ var _ = Describe("EFI environment detection", func() {
 		table.Entry("EFI booting not available for x86_64", "x86_64", "", "", "", "", false, false),
 		table.Entry("EFI booting not available for arm64", "arm64", "", "", "", "", false, false),
 	)
+
+	It("SEV EFI Roms", func() {
+		ovmfPath := createEFIRoms(EFICodeSEV, EFIVarsSEV)
+		defer os.RemoveAll(ovmfPath)
+
+		efiEnv := DetectEFIEnvironment("x86_64", ovmfPath)
+		Expect(efiEnv).ToNot(BeNil())
+
+		Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, sevEnabled)).To(BeTrue())
+		Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled)).To(BeFalse())
+
+		codeSEV := filepath.Join(ovmfPath, EFICodeSEV)
+		Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled)).ToNot(Equal(codeSEV))
+		Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled)).ToNot(Equal(codeSEV))
+		Expect(efiEnv.EFICode(!secureBootEnabled, sevEnabled)).To(Equal(codeSEV))
+		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).ToNot(Equal(codeSEV))
+
+		varsSEV := filepath.Join(ovmfPath, EFIVarsSEV)
+		Expect(efiEnv.EFIVars(secureBootEnabled, sevEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, sevEnabled)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(varsSEV)) // same as EFIVars
+	})
 })

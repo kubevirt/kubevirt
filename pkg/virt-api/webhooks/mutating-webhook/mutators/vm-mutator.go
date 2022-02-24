@@ -23,7 +23,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -36,7 +36,7 @@ type VMsMutator struct {
 }
 
 // until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
-// the mtuating webhook must pass silently on errors instead of returning errors
+// the mutating webhook must pass silently on errors instead of returning errors
 func emptyValidResponse() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,

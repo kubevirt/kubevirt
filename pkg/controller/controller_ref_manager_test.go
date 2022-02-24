@@ -18,19 +18,19 @@ limitations under the License.
 package controller
 
 import (
-	"reflect"
 	"sync"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	virtv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 var (
@@ -69,7 +69,7 @@ func newVirtualMachine(virtualmachineName string, label map[string]string, owner
 	return vmi
 }
 
-func TestClaimVirtualMachine(t *testing.T) {
+func TestClaimVirtualMachineInstance(t *testing.T) {
 	controllerKind := schema.GroupVersionKind{}
 	type test struct {
 		name            string
@@ -175,10 +175,10 @@ func TestClaimVirtualMachine(t *testing.T) {
 		}(),
 	}
 	for _, test := range tests {
-		claimed, err := test.manager.ClaimVirtualMachines(test.virtualmachines)
+		claimed, err := test.manager.ClaimVirtualMachineInstances(test.virtualmachines)
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
-		} else if !reflect.DeepEqual(test.claimed, claimed) {
+		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {
 			t.Errorf("Test case `%s`, claimed wrong virtualmachines. Expected %v, got %v", test.name, virtualmachineToStringSlice(test.claimed), virtualmachineToStringSlice(claimed))
 		}
 
@@ -284,7 +284,7 @@ func TestClaimDataVolume(t *testing.T) {
 		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes)
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
-		} else if !reflect.DeepEqual(test.claimed, claimed) {
+		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {
 			t.Errorf("Test case `%s`, claimed wrong datavolumes. Expected %v, got %v", test.name, datavolumeToStringSlice(test.claimed), datavolumeToStringSlice(claimed))
 		}
 
@@ -316,6 +316,16 @@ type FakeVirtualMachineControl struct {
 
 var _ VirtualMachineControlInterface = &FakeVirtualMachineControl{}
 
+func (f *FakeVirtualMachineControl) PatchVirtualMachineInstance(_, _ string, data []byte) error {
+	f.Lock()
+	defer f.Unlock()
+	f.Patches = append(f.Patches, data)
+	if f.Err != nil {
+		return f.Err
+	}
+	return nil
+}
+
 func (f *FakeVirtualMachineControl) PatchVirtualMachine(_, _ string, data []byte) error {
 	f.Lock()
 	defer f.Unlock()
@@ -325,6 +335,7 @@ func (f *FakeVirtualMachineControl) PatchVirtualMachine(_, _ string, data []byte
 	}
 	return nil
 }
+
 func (f *FakeVirtualMachineControl) PatchDataVolume(_, _ string, data []byte) error {
 	f.Lock()
 	defer f.Unlock()

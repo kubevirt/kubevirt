@@ -42,7 +42,7 @@ gradle -b $GRADLE_BUILD_FILE $GRADLE_EXTRA_PARAMS convertSwagger2markup --info
 
 #insert a TOC for top level API objects
 buf="${HEADER}${HEADER} Top Level API Objects\n\n"
-top_level_models=$(grep '&[A-Za-z]*{},' staging/src/kubevirt.io/client-go/api/${VERSION}/types.go | sed 's/.*&//;s/{},//')
+top_level_models=$(grep '&[A-Za-z]*{},' staging/src/kubevirt.io/api/core/${VERSION}/types.go | sed 's/.*&//;s/{},//')
 
 # check if the top level models exist in the definitions.$SUFFIX. If they exist,
 # their name will be <version>.<model_name>
@@ -91,6 +91,7 @@ elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
     # Generate TOC for definitions & operations as README.md
     cd "$WORKDIR"
     echo "# KubeVirt API Reference" >README.md
+    # reference to master is for an external repo and can't yet be changed
     curl \
         https://raw.githubusercontent.com/ekalinin/github-markdown-toc/master/gh-md-toc |
         bash -s "definitions.md" "operations.md" |

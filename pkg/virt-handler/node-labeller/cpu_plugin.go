@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 
@@ -122,6 +122,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	}
 
 	n.hostCapabilities.items = usableModels
+	n.SEV = hostDomCapabilities.SEV
 
 	return nil
 }

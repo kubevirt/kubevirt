@@ -94,8 +94,10 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <smm></smm>
     <kvm>
       <hidden state="on"></hidden>
+      <hint-dedicated state="on"></hint-dedicated>
     </kvm>
     <pvspinlock state="off"></pvspinlock>
+    <pmu state="off"></pmu>
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
@@ -172,8 +174,10 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
     <smm></smm>
     <kvm>
       <hidden state="on"></hidden>
+      <hint-dedicated state="on"></hint-dedicated>
     </kvm>
     <pvspinlock state="off"></pvspinlock>
+    <pmu state="off"></pmu>
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
@@ -251,8 +255,10 @@ var exampleXMLarm64 = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas
     <smm></smm>
     <kvm>
       <hidden state="on"></hidden>
+      <hint-dedicated state="on"></hint-dedicated>
     </kvm>
     <pvspinlock state="off"></pvspinlock>
+    <pmu state="off"></pmu>
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
@@ -361,9 +367,11 @@ var _ = Describe("Schema", func() {
 			ACPI: &FeatureEnabled{},
 			SMM:  &FeatureEnabled{},
 			KVM: &FeatureKVM{
-				Hidden: &FeatureState{State: "on"},
+				Hidden:        &FeatureState{State: "on"},
+				HintDedicated: &FeatureState{State: "on"},
 			},
 			PVSpinlock: &FeaturePVSpinlock{State: "off"},
+			PMU:        &FeatureState{State: "off"},
 		}
 		exampleDomain.Spec.SysInfo = &SysInfo{
 			Type: "smbios",

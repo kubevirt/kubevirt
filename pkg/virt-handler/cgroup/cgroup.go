@@ -47,15 +47,15 @@ func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) s
 	return filepath.Join(cgroupMount, controller)
 }
 
-func CPUSetPath() string {
-	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint)
+func CPUSetPath(slice string) string {
+	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint, slice)
 }
 
-func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
+func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string, slice string) string {
 	if isCgroup2UnifiedMode {
-		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
+		return filepath.Join(cgroupMount, slice, "cpuset.cpus.effective")
 	}
-	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
+	return filepath.Join(cgroupMount, "cpuset", slice, "cpuset.cpus")
 }
 
 type Parser interface {

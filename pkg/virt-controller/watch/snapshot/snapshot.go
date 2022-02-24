@@ -22,20 +22,20 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -86,7 +86,10 @@ func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 }
 
 func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	if vmSnapshotSucceeded(vmSnapshot) {
+	if vmSnapshotFailed(vmSnapshot) {
+		return true
+	}
+	if vmSnapshot.Status == nil || vmSnapshot.Status.Phase != snapshotv1.InProgress {
 		return false
 	}
 	return timeUntilDeadline(vmSnapshot) < 0
@@ -345,7 +348,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.ReadyToUse = &ready
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
-	if !reflect.DeepEqual(content, contentCpy) {
+	if !equality.Semantic.DeepEqual(content, contentCpy) {
 		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
 			return 0, err
 		}
@@ -659,7 +662,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
 
-	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
+	if !equality.Semantic.DeepEqual(vmSnapshot, vmSnapshotCpy) {
 		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}

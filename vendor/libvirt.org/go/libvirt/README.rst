@@ -117,8 +117,8 @@ set
 and then start libvirtd with the --listen flag (this can
 be set in /etc/sysconfig/libvirtd to make it persistent).
 
-sasl authentication must be configured_ to use either ``digest-md5`` or
-``scram-sha-1``, and the needed sasl modules must be installed on the system.
+sasl authentication must be configured_ to use ``scram-sha-256``,
+and the needed sasl modules must be installed on the system.
 
 .. _configured: https://libvirt.org/auth.html#ACL_server_sasl
 

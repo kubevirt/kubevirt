@@ -14,12 +14,17 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+)
+
+const (
+	specifyingVMReadinessProbe = "Specifying a VMI with a readiness probe"
+	specifyingVMLivenessProbe  = "Specifying a VMI with a liveness probe"
 )
 
 var _ = SIGDescribe("[ref_id:1182]Probes", func() {
@@ -89,10 +94,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				readinessProbe, err = pointProbeToSupportPod(probeBackendPod, IPFamily, readinessProbe)
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
 
-				By("Specifying a VMI with a readiness probe")
+				By(specifyingVMReadinessProbe)
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 			} else if !isExecProbe {
-				By("Specifying a VMI with a readiness probe")
+				By(specifyingVMReadinessProbe)
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 
 				assertPodNotReady(virtClient, vmi)
@@ -100,7 +105,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
-				By("Specifying a VMI with a readiness probe")
+				By(specifyingVMReadinessProbe)
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
@@ -142,7 +147,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		)
 
 		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
-			By("Specifying a VMI with a readiness probe")
+			By(specifyingVMReadinessProbe)
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
@@ -191,16 +196,16 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				livenessProbe, err = pointProbeToSupportPod(probeBackendPod, IPFamily, livenessProbe)
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
 
-				By("Specifying a VMI with a liveness probe")
+				By(specifyingVMLivenessProbe)
 				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
 			} else if !isExecProbe {
-				By("Specifying a VMI with a liveness probe")
+				By(specifyingVMLivenessProbe)
 				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
-				By("Specifying a VMI with a liveness probe")
+				By(specifyingVMLivenessProbe)
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)

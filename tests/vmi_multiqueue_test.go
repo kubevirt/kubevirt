@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
+var _ = Describe("[sig-compute]MultiQueue", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -56,7 +56,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 	Context("MultiQueue Behavior", func() {
 		var availableCPUs int
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 

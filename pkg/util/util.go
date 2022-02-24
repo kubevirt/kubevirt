@@ -5,18 +5,20 @@ import (
 	"os"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
-const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
-const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
-const VirtShareDir = "/var/run/kubevirt"
-const VirtPrivateDir = "/var/run/kubevirt-private"
-const VirtLibDir = "/var/lib/kubevirt"
-const KubeletPodsDir = "/var/lib/kubelet/pods"
-const HostRootMount = "/proc/1/root/"
-const CPUManagerOS3Path = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-const CPUManagerPath = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+const (
+	ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
+	RequestHeaderClientCAFileKey              = "requestheader-client-ca-file"
+	VirtShareDir                              = "/var/run/kubevirt"
+	VirtPrivateDir                            = "/var/run/kubevirt-private"
+	VirtLibDir                                = "/var/lib/kubevirt"
+	KubeletPodsDir                            = "/var/lib/kubelet/pods"
+	HostRootMount                             = "/proc/1/root/"
+	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
+	CPUManagerPath                            = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+)
 
 const NonRootUID = 107
 const NonRootUserString = "qemu"
@@ -71,6 +73,11 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 		return true
 	}
 	return false
+}
+
+// Check if a VMI spec requests AMD SEV
+func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
 }
 
 // WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
@@ -130,4 +137,10 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 
 func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
+}
+
+func IsReadOnlyDisk(disk *v1.Disk) bool {
+	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly == true)
+
+	return isReadOnlyCDRom
 }

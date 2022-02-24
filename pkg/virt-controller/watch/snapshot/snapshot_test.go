@@ -26,12 +26,13 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	k8ssnapshotfake "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -115,6 +116,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Namespace: vm.Namespace,
 				Name:      vm.Name,
 			},
+			Spec: vm.Spec.Template.Spec,
 		}
 	}
 
@@ -276,42 +278,11 @@ var _ = Describe("Snapshot controlleer", func() {
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshot{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
-					vms := obj.(*snapshotv1.VirtualMachineSnapshot)
-					if vms.Spec.Source.APIGroup != nil &&
-						*vms.Spec.Source.APIGroup == v1.GroupName &&
-						vms.Spec.Source.Kind == "VirtualMachine" {
-						return []string{vms.Spec.Source.Name}, nil
-					}
-					return nil, nil
-				},
-			})
-			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshotContent{}, cache.Indexers{
-				"volumeSnapshot": func(obj interface{}) ([]string, error) {
-					vmsc := obj.(*snapshotv1.VirtualMachineSnapshotContent)
-					var volumeSnapshots []string
-					for _, v := range vmsc.Spec.VolumeBackups {
-						if v.VolumeSnapshotName != nil {
-							volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
-						}
-					}
-					return volumeSnapshots, nil
-				},
-			})
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
-					cr := obj.(*appsv1.ControllerRevision)
-					for _, ref := range cr.OwnerReferences {
-						if ref.Kind == "VirtualMachine" {
-							return []string{string(ref.UID)}, nil
-						}
-					}
-					return nil, nil
-				},
-			})
-			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
-			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshot{}, virtcontroller.GetVirtualMachineSnapshotInformerIndexers())
+			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshotContent{}, virtcontroller.GetVirtualMachineSnapshotContentInformerIndexers())
+			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
+			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
 			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshot{})
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})
@@ -808,42 +779,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
-			It("should not lock source if online and have hotplug disks", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Spec.Running = &t
-				vmSource.Add(vm)
-				vmRevision := createVMRevision(vm)
-				crSource.Add(vmRevision)
-				vmi := createVMI(vm)
-				vmi.Status.VirtualMachineRevisionName = vmRevisionName
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "disk2",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-pvc2",
-						}},
-					},
-				})
-				vmiSource.Add(vmi)
-
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.Status.Phase = snapshotv1.InProgress
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotNoGuestAgentIndication,
-				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
 			It("should lock source if pods using PVCs if VM is running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
@@ -937,6 +872,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
 				vm.Spec.Running = &t
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("32Mi"),
+				}
 
 				vmRevision := createVMRevision(vm)
 				crSource.Add(vmRevision)
@@ -945,9 +883,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiSource.Add(vmi)
 
 				vm.ObjectMeta.Annotations = map[string]string{}
-				// the content source will be equal to the vm revision data
-				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
-				vm.ObjectMeta.Generation = 2
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
@@ -956,6 +891,12 @@ var _ = Describe("Snapshot controlleer", func() {
 						}},
 					},
 				})
+				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
+				vm.ObjectMeta.Generation = 2
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				}
 				vmSource.Add(vm)
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
@@ -1187,7 +1128,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					pvcSource.Add(&pvcs[i])
 				}
 
-				vmiInterface.EXPECT().Freeze(vm.Name).Return(nil)
+				vmiInterface.EXPECT().Freeze(vm.Name, 0*time.Second).Return(nil)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)

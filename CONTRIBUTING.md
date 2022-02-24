@@ -90,7 +90,7 @@ and will be assigned by Prow.
 Contributors that frequently contribute to the project may ask to join the
 KubeVirt organization.
 
-Please have a look at our [membership guidelines](https://github.com/kubevirt/community/blob/master/membership_policy.md).
+Please have a look at our [membership guidelines](https://github.com/kubevirt/community/blob/main/membership_policy.md).
 
 ## Projects & Communities
 

@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/api/core"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
@@ -20,14 +22,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+)
+
+const (
+	makeTestDirectoryCmd      = "sudo mkdir -p /test\n"
+	mountTestDirectoryCmd     = "sudo mount %s /test \n"
+	makeTestDataDirectoryCmd  = "sudo mkdir -p /test/data\n"
+	chmodTestDataDirectoryCmd = "sudo chmod a+w /test/data\n"
+	catTestDataMessageCmd     = "cat /test/data/message\n"
+	stoppingVM                = "Stopping VM"
+	creatingSnapshot          = "creating snapshot"
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
@@ -91,6 +103,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		var vmi *v1.VirtualMachineInstance
 		t := true
 		vm.Spec.Running = &t
+		var gracePeriod int64 = 10
+		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
@@ -185,12 +199,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			var err error
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, tests.BashHelloScript)
 			vm = tests.NewRandomVirtualMachine(vmi, false)
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -199,11 +210,41 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 		Context("and no snapshot", func() {
 			It("[test_id:5255]should reject restore", func() {
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
 				restore := createRestoreDef(vm, "foobar")
 
 				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VirtualMachineSnapshot \"foobar\" does not exist"))
+			})
+		})
+
+		Context("with run strategy and snapshot", func() {
+			var err error
+			var snapshot *snapshotv1.VirtualMachineSnapshot
+
+			runStrategyHalted := v1.RunStrategyHalted
+
+			AfterEach(func() {
+				deleteSnapshot(snapshot)
+			})
+
+			It("should successfully restore", func() {
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = &runStrategyHalted
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				snapshot = createSnapshot(vm)
+
+				restore := createRestoreDef(vm, snapshot.Name)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm)
+				Expect(restore.Status.Restores).To(HaveLen(0))
+				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 			})
 		})
 
@@ -213,6 +254,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
+				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
 
@@ -266,14 +309,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5257]should reject restore if VM running", func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
 				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is running", vm.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
@@ -296,7 +339,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 									admissionregistrationv1.Update,
 								},
 								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{v1.GroupName},
+									APIGroups:   []string{core.GroupName},
 									APIVersions: v1.ApiSupportedWebhookVersions,
 									Resources:   []string{"virtualmachines"},
 								},
@@ -356,7 +399,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		})
 	})
 
-	Context("[rook-ceph]", func() {
+	Context("[storage-req]", func() {
 		Context("With a more complicated VM", func() {
 			var (
 				vm                   *v1.VirtualMachine
@@ -394,7 +437,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			doRestore := func(device string, login console.LoginToFactory, onlineSnapshot bool) {
+			doRestore := func(device string, login console.LoginToFactory, onlineSnapshot bool, expectedRestores int) {
 				By("creating 'message with initial value")
 				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
 
@@ -403,46 +446,46 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
+						&expect.BSnd{S: tests.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: "sudo mkdir -p /test\n"},
+						&expect.BSnd{S: makeTestDirectoryCmd},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+						&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
+						&expect.BSnd{S: tests.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
+					&expect.BSnd{S: makeTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
+					&expect.BSnd{S: chmodTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", vm.UID)},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(vm.UID)},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: syncName},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: syncName},
 					&expect.BExp{R: console.PromptExpression},
 				}...)
 
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
 				if !onlineSnapshot {
-					By("Stopping VM")
+					By(stoppingVM)
 					vm = tests.StopVirtualMachine(vm)
 				}
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				batch = nil
@@ -456,11 +499,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: "sudo mkdir -p /test\n"},
+							&expect.BSnd{S: makeTestDirectoryCmd},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+							&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: "echo $?\n"},
+							&expect.BSnd{S: tests.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}...)
 					}
@@ -469,31 +512,31 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("updating message")
 
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
+					&expect.BSnd{S: makeTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
+					&expect.BSnd{S: chmodTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(vm.UID)},
 					&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", snapshot.UID)},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(snapshot.UID)},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: syncName},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "sync\n"},
+					&expect.BSnd{S: syncName},
 					&expect.BExp{R: console.PromptExpression},
 				}...)
 
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
-				By("Stopping VM")
+				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
 
 				By("Restoring VM")
@@ -503,7 +546,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
-				Expect(restore.Status.Restores).To(HaveLen(1))
+				Expect(restore.Status.Restores).To(HaveLen(expectedRestores))
 
 				vm = tests.StartVirtualMachine(vm)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -516,25 +559,25 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				if device != "" {
 					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "sudo mkdir -p /test\n"},
+						&expect.BSnd{S: makeTestDirectoryCmd},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+						&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
 						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
+						&expect.BSnd{S: tests.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
+					&expect.BSnd{S: makeTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
+					&expect.BSnd{S: chmodTestDataDirectoryCmd},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /test/data/message\n"},
+					&expect.BSnd{S: catTestDataMessageCmd},
 					&expect.BExp{R: string(vm.UID)},
 				}...)
 
@@ -545,14 +588,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					tests.BashHelloScript,
 					snapshotStorageClass,
 				))
 
-				By("Stopping VM")
+				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				for i := 0; i < 2; i++ {
@@ -574,13 +617,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					tests.BashHelloScript,
 					snapshotStorageClass,
 				))
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToCirros, false)
+				doRestore("", console.LoginToCirros, false, 1)
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
@@ -592,7 +635,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					tests.BashHelloScript,
 					snapshotStorageClass,
 				)
 
@@ -612,7 +655,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false)
+				doRestore("", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
@@ -664,12 +707,12 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalPVCName := pvc.Name
 
-				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, "#!/bin/bash\necho 'hello'\n")
+				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, tests.BashHelloScript)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false)
+				doRestore("", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
@@ -693,7 +736,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					"#!/bin/bash\necho 'hello'\n",
+					tests.BashHelloScript,
 				)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
@@ -737,7 +780,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc", console.LoginToCirros, false)
+				doRestore("/dev/vdc", console.LoginToCirros, false, 1)
 
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
@@ -749,14 +792,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					tests.BashHelloScript,
 					snapshotStorageClass,
 				))
 
-				By("Stopping VM")
+				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				fp := admissionregistrationv1.Fail
@@ -844,11 +887,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
-					"#!/bin/bash\necho 'hello'\n",
+					tests.BashHelloScript,
 					snapshotStorageClass,
 				))
 
-				doRestore("", console.LoginToCirros, true)
+				doRestore("", console.LoginToCirros, true, 1)
 
 			})
 
@@ -901,7 +944,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				doRestore("/dev/vdc", console.LoginToFedora, true)
+				doRestore("/dev/vdc", console.LoginToFedora, true, 1)
 
 			})
 
@@ -916,7 +959,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToFedora, true)
+				doRestore("", console.LoginToFedora, true, 1)
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
@@ -948,7 +991,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("creating snapshot")
+				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
 				newVM = tests.StopVirtualMachine(updatedVM)
@@ -972,6 +1015,37 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
 
+			It("[test_id:7425]should restore vm with hot plug disks", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce))
+				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+
+				By("Add persistent hotplug disk")
+				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				By("Add temporary hotplug disk")
+				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+
+				doRestore("", console.LoginToFedora, true, 2)
+
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(vmi.Spec.Volumes)).To(Equal(2))
+				foundHotPlug := false
+				foundTempHotPlug := false
+				for _, volume := range vmi.Spec.Volumes {
+					if volume.Name == persistVolName {
+						foundHotPlug = true
+					} else if volume.Name == tempVolName {
+						foundTempHotPlug = true
+					}
+				}
+				Expect(foundHotPlug).To(BeTrue())
+				Expect(foundTempHotPlug).To(BeFalse())
+			})
 		})
 	})
 })

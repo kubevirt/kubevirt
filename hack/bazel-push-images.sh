@@ -20,6 +20,7 @@
 set -e
 
 source hack/common.sh
+source hack/bootstrap.sh
 source hack/config.sh
 
 PUSH_TARGETS=(${PUSH_TARGETS:-other-images virt-operator virt-api virt-controller virt-handler virt-launcher conformance libguestfs})

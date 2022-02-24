@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Hinter", func() {
@@ -204,7 +204,7 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 }
 
 func clusterConfigWithTSCFrequency(freq int64) *virtconfig.ClusterConfig {
-	config, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
 			MinimumClusterTSCFrequency: &freq,
 		},
@@ -213,7 +213,7 @@ func clusterConfigWithTSCFrequency(freq int64) *virtconfig.ClusterConfig {
 }
 
 func clusterConfigWithoutTSCFrequency() *virtconfig.ClusterConfig {
-	config, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
 			MinimumClusterTSCFrequency: nil,
 		},

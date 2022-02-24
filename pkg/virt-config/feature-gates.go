@@ -24,6 +24,7 @@ package virtconfig
 */
 
 const (
+	ExpandDisksGate   = "ExpandDisks"
 	CPUManager        = "CPUManager"
 	NUMAFeatureGate   = "NUMA"
 	IgnitionGate      = "ExperimentalIgnitionSupport"
@@ -43,6 +44,7 @@ const (
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRoot                    = "NonRootExperimental"
 	ClusterProfiler            = "ClusterProfiler"
+	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -52,6 +54,10 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 		}
 	}
 	return false
+}
+
+func (config *ClusterConfig) ExpandDisksEnabled() bool {
+	return config.isFeatureGateEnabled(ExpandDisksGate)
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
@@ -125,4 +131,8 @@ func (config *ClusterConfig) NonRootEnabled() bool {
 
 func (config *ClusterConfig) ClusterProfilerEnabled() bool {
 	return config.isFeatureGateEnabled(ClusterProfiler)
+}
+
+func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
+	return config.isFeatureGateEnabled(WorkloadEncryptionSEV)
 }

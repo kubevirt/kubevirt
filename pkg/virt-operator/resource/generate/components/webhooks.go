@@ -6,8 +6,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	"kubevirt.io/api/core"
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone
@@ -28,7 +35,7 @@ func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 			Name:      KubevirtOperatorWebhookServiceName,
 			Labels: map[string]string{
 				virtv1.AppLabel:          "",
-				"prometheus.kubevirt.io": "",
+				"prometheus.kubevirt.io": prometheusLabelValue,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -86,7 +93,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 						admissionregistrationv1.Delete,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"kubevirts"},
 					},
@@ -106,7 +113,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"kubevirts"},
 					},
@@ -157,7 +164,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachines"},
 					},
@@ -182,7 +189,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
 					},
@@ -206,7 +213,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
 					},
@@ -229,13 +236,17 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	vmiPathUpdate := VMIUpdateValidatePath
 	vmPath := VMValidatePath
 	vmirsPath := VMIRSValidatePath
+	vmpoolPath := VMPoolValidatePath
 	vmipresetPath := VMIPresetValidatePath
 	migrationCreatePath := MigrationCreateValidatePath
 	migrationUpdatePath := MigrationUpdateValidatePath
 	vmSnapshotValidatePath := VMSnapshotValidatePath
 	vmRestoreValidatePath := VMRestoreValidatePath
+	VmFlavorValidatePath := VMFlavorValidatePath
+	VmClusterFlavorValidatePath := VMClusterFlavorValidatePath
 	launcherEvictionValidatePath := LauncherEvictionValidatePath
 	statusValidatePath := StatusValidatePath
+	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 	ignorePolicy := admissionregistrationv1.Ignore
 
@@ -292,7 +303,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
 					},
@@ -316,7 +327,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
 					},
@@ -341,7 +352,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachines"},
 					},
@@ -366,7 +377,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancereplicasets"},
 					},
@@ -376,6 +387,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmirsPath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachinepool-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{poolv1.SchemeGroupVersion.Group},
+						APIVersions: []string{poolv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinepools"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmpoolPath,
 					},
 				},
 			},
@@ -391,7 +427,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancepresets"},
 					},
@@ -415,7 +451,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
 					},
@@ -439,7 +475,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
 					},
@@ -503,6 +539,56 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
+				Name:                    "virtualmachineflavor-validator.flavor.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachineflavors"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &VmFlavorValidatePath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachineclusterflavor-validator.flavor.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachineclusterflavors"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &VmClusterFlavorValidatePath,
+					},
+				},
+			},
+			{
 				Name:                    "kubevirt-crd-status-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
@@ -514,7 +600,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources: []string{
 							"virtualmachines/status",
@@ -531,6 +617,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					},
 				},
 			},
+			{
+				Name:                    "migration-policy-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{migrationsv1.SchemeGroupVersion.Group},
+						APIVersions: []string{migrationsv1.SchemeGroupVersion.Version},
+						Resources:   []string{migrations.ResourceMigrationPolicies},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &migrationPolicyCreateValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -544,6 +655,8 @@ const VMIUpdateValidatePath = "/virtualmachineinstances-validate-update"
 const VMValidatePath = "/virtualmachines-validate"
 
 const VMIRSValidatePath = "/virtualmachinereplicaset-validate"
+
+const VMPoolValidatePath = "/virtualmachinepool-validate"
 
 const VMIPresetValidatePath = "/vmipreset-validate"
 
@@ -577,6 +690,12 @@ const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
 
 const VMRestoreValidatePath = "/virtualmachinerestores-validate"
 
+const VMFlavorValidatePath = "/virtualmachineflavors-validate"
+
+const VMClusterFlavorValidatePath = "/virtualmachineclusterflavors-validate"
+
 const StatusValidatePath = "/status-validate"
 
 const LauncherEvictionValidatePath = "/launcher-eviction-validate"
+
+const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"

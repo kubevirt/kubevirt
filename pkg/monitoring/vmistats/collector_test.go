@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	k6tv1 "kubevirt.io/client-go/api/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 )
 
 var _ = BeforeSuite(func() {

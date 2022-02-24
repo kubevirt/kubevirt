@@ -38,7 +38,8 @@ type cpuInfo struct {
 
 //HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
-	CPU CPU `xml:"cpu"`
+	CPU CPU              `xml:"cpu"`
+	SEV SEVConfiguration `xml:"features>sev"`
 }
 
 //CPU represents slice of cpu modes
@@ -87,4 +88,10 @@ type Features struct {
 
 type Feature struct {
 	Name string `xml:"name,attr"`
+}
+
+type SEVConfiguration struct {
+	Supported       string `xml:"supported,attr"`
+	Cbitpos         string `xml:"cbitpos"`
+	ReducedPhysBits string `xml:"reducedPhysBits"`
 }

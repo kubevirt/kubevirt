@@ -19,7 +19,7 @@
 
 
 # Overview
-- Release process is automated by [hack/release.sh](https://github.com/kubevirt/kubevirt/blob/master/hack/release.sh) script
+- Release process is automated by [hack/release.sh](https://github.com/kubevirt/kubevirt/blob/main/hack/release.sh) script
 - KubeVirt uses [semantic versioning](http://semver.org)
 - Primary artifact is the source tree in form of signed git tag
 - Binary artifacts are built using automation
@@ -101,7 +101,7 @@ git show v0.31.0-rc.0
 
 # Handling Release Blockers
 
-Release blockers can be set on issues and PRs by [approvers](https://github.com/kubevirt/kubevirt/blob/master/OWNERS_ALIASES) of the project. A PR or
+Release blockers can be set on issues and PRs by [approvers](https://github.com/kubevirt/kubevirt/blob/main/OWNERS_ALIASES) of the project. A PR or
 issue can be flaged as a blocker through the use of the `/release-blocker <branch>`
 in a github comment.
 
@@ -114,7 +114,7 @@ for closed issues!**
 
 A release blocker is a critial bug, regression, or backwards incompatible change
 that must be addressed before the next official release is made. Only KubeVirt
-[approvers](https://github.com/kubevirt/kubevirt/blob/master/OWNERS_ALIASES) can set this label on a PR or Issue.
+[approvers](https://github.com/kubevirt/kubevirt/blob/main/OWNERS_ALIASES) can set this label on a PR or Issue.
 
 ## Setting a Release Blocker
 
@@ -125,7 +125,7 @@ that the release blocker labels should remain even after an issue or PR is close
 **Example: Signalling a PR/Issue should block the next release branch.** This
 Will prevent a new release branch from being cut until PR/Issue is closed.
 
-```/release-blocker master```
+```/release-blocker main```
 
 **Example: Signalling a PR/Issue should block the official release of a
 stable branch** This will prevent any existing RCs from being promoted
@@ -140,9 +140,9 @@ isn't a blocker.
 
 ```/release-blocker cancel release-0.31```
 
-and canceling a blocker on master would look like. 
+and canceling a blocker on main would look like.
 
-```/release-blocker cancel master```
+```/release-blocker cancel main```
 
 # Creating Releases
 
@@ -272,9 +272,9 @@ For now, community members can propose pull requests to be included into a
 stable branch.
 Those pull requests should be limited to bug fixes and must not be
 enhancements. More info related to the policy around backporting can be found
-in this document, [docs/release-branch-backporting.md](https://github.com/kubevirt/kubevirt/blob/master/docs/release-branch-backporting.md)
+in this document, [docs/release-branch-backporting.md](https://github.com/kubevirt/kubevirt/blob/main/docs/release-branch-backporting.md)
 
-Cherry picking can be used to pick a merge commit from the master branch
+Cherry picking can be used to pick a merge commit from the main branch
 to a stable branch. An example:
 
 ```bash

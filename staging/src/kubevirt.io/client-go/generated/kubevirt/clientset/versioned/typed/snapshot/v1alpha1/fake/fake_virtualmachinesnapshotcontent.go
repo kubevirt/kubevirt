@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KubeVirt Authors.
+Copyright 2022 The KubeVirt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
 
-	v1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	v1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
 // FakeVirtualMachineSnapshotContents implements VirtualMachineSnapshotContentInterface

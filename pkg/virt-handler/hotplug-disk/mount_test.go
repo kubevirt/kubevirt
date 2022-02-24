@@ -32,9 +32,12 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/api"
+
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -71,7 +74,7 @@ var _ = Describe("HotplugVolume mount target records", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 
 		m = &volumeMounter{
@@ -176,7 +179,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"
@@ -219,22 +222,33 @@ var _ = Describe("HotplugVolume block devices", func() {
 	It("isBlockVolume should determine if we have a block volume", func() {
 		err = os.RemoveAll(filepath.Join(tempDir, string(vmi.UID), "volumes"))
 		Expect(err).ToNot(HaveOccurred())
-		By("Passing empty UID, should return false")
-		res := m.isBlockVolume("", "invalid")
+		vmi.Status.VolumeStatus = make([]v1.VolumeStatus, 0)
+		By("Passing invalid volume, should return false")
+		res := m.isBlockVolume(&vmi.Status, "invalid")
 		Expect(res).To(BeFalse())
-		By("Not having the volume directory, should return false")
-		res = m.isBlockVolume(vmi.UID, "invalid")
+		By("Not having persistent volume info, should return false")
+		vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+			Name: "test",
+		})
+		res = m.isBlockVolume(&vmi.Status, "test")
 		Expect(res).To(BeFalse())
-		By("Creating the volume directory, should return true")
-		err = os.MkdirAll(filepath.Join(tempDir, string(vmi.UID), "volumes", "volume-test"), 0755)
-		Expect(err).ToNot(HaveOccurred())
-		isBlockDevice = func(path string) (bool, error) {
-			if strings.Contains(path, string(vmi.UID)) {
-				return true, nil
-			}
-			return false, fmt.Errorf("Not a block device")
+		By("Not having volume mode, should return false")
+		vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo = &v1.PersistentVolumeClaimInfo{}
+		res = m.isBlockVolume(&vmi.Status, "test")
+		Expect(res).To(BeFalse())
+		By("Having volume mode be filesystem, should return false")
+		fs := k8sv1.PersistentVolumeFilesystem
+		vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo = &v1.PersistentVolumeClaimInfo{
+			VolumeMode: &fs,
 		}
-		res = m.isBlockVolume(vmi.UID, "volume-test")
+		res = m.isBlockVolume(&vmi.Status, "test")
+		Expect(res).To(BeFalse())
+		By("Having volume mode be block, should return true")
+		block := k8sv1.PersistentVolumeBlock
+		vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo = &v1.PersistentVolumeClaimInfo{
+			VolumeMode: &block,
+		}
+		res = m.isBlockVolume(&vmi.Status, "test")
 		Expect(res).To(BeTrue())
 	})
 
@@ -597,7 +611,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"
@@ -811,7 +825,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 	BeforeEach(func() {
 		tempDir, err = ioutil.TempDir("", "hotplug-volume-test")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = v1.NewMinimalVMI("fake-vmi")
+		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"
@@ -865,8 +879,13 @@ var _ = Describe("HotplugVolume volumes", func() {
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "permanent",
 		})
+		block := k8sv1.PersistentVolumeBlock
+		fs := k8sv1.PersistentVolumeFilesystem
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "filesystemvolume",
+			PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+				VolumeMode: &fs,
+			},
 			HotplugVolume: &v1.HotplugVolumeStatus{
 				AttachPodName: "pod",
 				AttachPodUID:  sourcePodUID,
@@ -874,29 +893,20 @@ var _ = Describe("HotplugVolume volumes", func() {
 		})
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "blockvolume",
+			PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+				VolumeMode: &block,
+			},
 			HotplugVolume: &v1.HotplugVolumeStatus{
 				AttachPodName: "pod",
 				AttachPodUID:  sourcePodUID,
 			},
 		})
-		isBlockDevice = func(path string) (bool, error) {
-			if strings.Contains(path, string(sourcePodUID)) {
-				return true, nil
-			}
-			return false, fmt.Errorf("Not a block device")
-		}
 		vmi.Status.VolumeStatus = volumeStatuses
 		deviceBasePath = func(sourceUID types.UID) string {
 			return filepath.Join(tempDir, string(sourceUID), "volumeDevices")
 		}
 		blockDevicePath := filepath.Join(tempDir, string(sourcePodUID), "volumeDevices", "blockvolume")
 		fileSystemPath := filepath.Join(tempDir, string(sourcePodUID), "volumes", "disk.img")
-		isBlockDevice = func(path string) (bool, error) {
-			if strings.Contains(path, blockDevicePath) {
-				return true, nil
-			}
-			return false, fmt.Errorf("Not a block device")
-		}
 		By(fmt.Sprintf("Creating block path: %s", blockDevicePath))
 		err = os.MkdirAll(blockDevicePath, 0755)
 		Expect(err).ToNot(HaveOccurred())
@@ -1004,8 +1014,13 @@ var _ = Describe("HotplugVolume volumes", func() {
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "permanent",
 		})
+		block := k8sv1.PersistentVolumeBlock
+		fs := k8sv1.PersistentVolumeFilesystem
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "filesystemvolume",
+			PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+				VolumeMode: &fs,
+			},
 			HotplugVolume: &v1.HotplugVolumeStatus{
 				AttachPodName: "pod",
 				AttachPodUID:  sourcePodUID,
@@ -1013,6 +1028,9 @@ var _ = Describe("HotplugVolume volumes", func() {
 		})
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "blockvolume",
+			PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+				VolumeMode: &block,
+			},
 			HotplugVolume: &v1.HotplugVolumeStatus{
 				AttachPodName: "pod",
 				AttachPodUID:  sourcePodUID,
@@ -1028,12 +1046,6 @@ var _ = Describe("HotplugVolume volumes", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = os.MkdirAll(fileSystemPath, 0755)
 		Expect(err).ToNot(HaveOccurred())
-		isBlockDevice = func(path string) (bool, error) {
-			if strings.Contains(path, blockDevicePath) {
-				return true, nil
-			}
-			return false, fmt.Errorf("Not a block device")
-		}
 		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
 			return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", fileSystemPath)), nil
 		}
@@ -1123,7 +1135,7 @@ func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ 
 	return nil, fmt.Errorf("isolation error")
 }
 
-func (i *mockIsolationDetector) Whitelist(_ []string) isolation.PodIsolationDetector {
+func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDetector {
 	return i
 }
 

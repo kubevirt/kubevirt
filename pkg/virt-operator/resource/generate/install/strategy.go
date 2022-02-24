@@ -48,7 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -139,7 +139,7 @@ func (ins *Strategy) ControllerDeployments() []*appsv1.Deployment {
 	var deployments []*appsv1.Deployment
 
 	for _, deployment := range ins.deployments {
-		if strings.Contains(deployment.Name, "virt-api") {
+		if !strings.Contains(deployment.Name, "virt-controller") {
 			continue
 		}
 		deployments = append(deployments, deployment)
@@ -374,7 +374,9 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
-		components.NewVirtualMachineRestoreCrd,
+		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineFlavorCrd,
+		components.NewVirtualMachineClusterFlavorCrd, components.NewVirtualMachinePoolCrd,
+		components.NewMigrationPolicyCrd,
 	}
 	for _, f := range functions {
 		crd, err := f()
@@ -430,16 +432,24 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	var productName string
 	var productVersion string
+	var productComponent string
+
+	invalidLabelPatternErrorMessage := "invalid %s: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash"
 
 	if operatorutil.IsValidLabel(config.GetProductName()) {
 		productName = config.GetProductName()
 	} else {
-		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName"))
 	}
 	if operatorutil.IsValidLabel(config.GetProductVersion()) {
 		productVersion = config.GetProductVersion()
 	} else {
-		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion"))
+	}
+	if operatorutil.IsValidLabel(config.GetProductComponent()) {
+		productComponent = config.GetProductComponent()
+	} else {
+		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent"))
 	}
 
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))
@@ -449,13 +459,13 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
-	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), productName, productVersion, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), productName, productVersion, productComponent, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
@@ -463,7 +473,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy.configMaps = append(strategy.configMaps, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), productName, productVersion, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), productName, productVersion, productComponent, config.GetImagePullPolicy(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
@@ -483,10 +493,7 @@ func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
 	// choose the most recent configmap if multiple match.
 	mostRecentTime := metav1.Time{}
 	for _, config := range configMaps {
-		if configMap == nil {
-			configMap = config
-			mostRecentTime = config.ObjectMeta.CreationTimestamp
-		} else if mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
+		if configMap == nil || mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
 			configMap = config
 			mostRecentTime = config.ObjectMeta.CreationTimestamp
 		}
