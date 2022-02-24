@@ -32,8 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -78,6 +80,20 @@ const (
 const (
 	Preemtible    = "preemtible"
 	NonPreemtible = "non-preemtible"
+)
+
+const (
+	VmfComputeSmall                               = "vmf-csmall"
+	VmcfComputeSmall                              = "vmcf-csmall"
+	VmfComputeLarge                               = "vmf-clarge"
+	VmpVirtio                                     = "vmpvirtio"
+	VmpWindows                                    = "vmpwindows"
+	VmCirrosFlavorComputeSmall                    = "vm-cirros-csmall"
+	VmCirrosClusterFlavorComputeSmall             = "vm-cirros-vmcf-csmall"
+	VmCirrosFlavorComputeLarge                    = "vm-cirros-clarge"
+	VmCirrosFlavorComputeLargePreferncesVirtio    = "vm-cirros-clarge-virtio"
+	VmCirrosFlavorComputeLargePreferencesWindows  = "vm-cirros-clarge-windows"
+	VmWindowsFlavorComputeLargePreferencesWindows = "vm-windows-clarge-windows"
 )
 
 const (
@@ -556,16 +572,6 @@ func GetVMINoCloud() *v1.VirtualMachineInstance {
 	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
-	return vmi
-}
-
-func GetVMIFlavorSmall() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFlavorSmall)
-	vmi.ObjectMeta.Labels = map[string]string{
-		"kubevirt.io/flavor": "small",
-	}
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
 	return vmi
 }
 
@@ -1172,4 +1178,246 @@ func GetVMIARM() *v1.VirtualMachineInstance {
 func generateCloudConfigString(cloudConfigElement ...string) string {
 	return strings.Join(
 		append([]string{cloudConfigHeader}, cloudConfigElement...), "\n")
+}
+
+func GetComputeSmallFlavorSpec() flavorv1alpha1.VirtualMachineFlavorSpec {
+	memory := resource.MustParse("128Mi")
+	return flavorv1alpha1.VirtualMachineFlavorSpec{
+		CPU: flavorv1alpha1.CPUFlavor{
+			Guest: uint32(1),
+		},
+		Memory: flavorv1alpha1.MemoryFlavor{
+			Guest: &memory,
+		},
+	}
+}
+
+func GetVmfComputeSmall() *flavorv1alpha1.VirtualMachineFlavor {
+	return &flavorv1alpha1.VirtualMachineFlavor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineFlavor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmfComputeSmall,
+		},
+		Spec: GetComputeSmallFlavorSpec(),
+	}
+}
+
+func GetVmcfComputeSmall() *flavorv1alpha1.VirtualMachineClusterFlavor {
+	return &flavorv1alpha1.VirtualMachineClusterFlavor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineClusterFlavor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmcfComputeSmall,
+		},
+		Spec: GetComputeSmallFlavorSpec(),
+	}
+}
+
+func GetVmfComputeLarge() *flavorv1alpha1.VirtualMachineFlavor {
+	memory := resource.MustParse("2048Mi")
+	return &flavorv1alpha1.VirtualMachineFlavor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineFlavor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmfComputeLarge,
+		},
+		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
+			CPU: flavorv1alpha1.CPUFlavor{
+				Guest: uint32(4),
+			},
+			Memory: flavorv1alpha1.MemoryFlavor{
+				Guest: &memory,
+			},
+		},
+	}
+}
+
+func GetVmCirrosFlavorComputeSmall() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosFlavorComputeSmall, map[string]string{
+		kubevirtIoVM: VmCirrosFlavorComputeSmall,
+	})
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name: VmfComputeSmall,
+		Kind: "VirtualMachineFlavor",
+	}
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+	return vm
+}
+
+func GetVmCirrosClusterFlavorComputeSmall() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosFlavorComputeSmall, map[string]string{
+		kubevirtIoVM: VmCirrosFlavorComputeSmall,
+	})
+
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name: VmfComputeSmall,
+		Kind: "VirtualMachineClusterFlavor",
+	}
+
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+	return vm
+}
+
+func GetVmCirrosFlavorComputeLarge() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosFlavorComputeLarge, map[string]string{
+		kubevirtIoVM: VmCirrosFlavorComputeLarge,
+	})
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name: VmfComputeLarge,
+		Kind: "VirtualMachineFlavor",
+	}
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+	return vm
+}
+
+func GetVmpVirtio() *flavorv1alpha1.VirtualMachinePreference {
+	return &flavorv1alpha1.VirtualMachinePreference{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachinePreference",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmpVirtio,
+		},
+		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
+			Devices: &flavorv1alpha1.DevicePreferences{
+				PreferredDiskBus:        "virtio",
+				PreferredInterfaceModel: "virtio",
+			},
+		},
+	}
+}
+
+func GetVmpWindows() *flavorv1alpha1.VirtualMachinePreference {
+	spinlocks := uint32(8191)
+	return &flavorv1alpha1.VirtualMachinePreference{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachinePreference",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmpWindows,
+		},
+		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
+			CPU: &flavorv1alpha1.CPUPreferences{
+				PreferredCPUTopology: flavorv1alpha1.PreferSockets,
+			},
+			Clock: &flavorv1alpha1.ClockPreferences{
+				PreferredClockOffset: &v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
+				PreferredTimer: &v1.Timer{
+					HPET:   &v1.HPETTimer{Enabled: pointer.Bool(false)},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
+					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
+				},
+			},
+			Devices: &flavorv1alpha1.DevicePreferences{
+				PreferredDiskBus:        "sata",
+				PreferredInterfaceModel: "e1000",
+				PreferredTPM:            &v1.TPMDevice{},
+			},
+			Features: &flavorv1alpha1.FeaturePreferences{
+				PreferredAcpi: &v1.FeatureState{},
+				PreferredApic: &v1.FeatureAPIC{},
+				PreferredHyperv: &v1.FeatureHyperv{
+					Relaxed:   &v1.FeatureState{},
+					VAPIC:     &v1.FeatureState{},
+					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
+				},
+				PreferredSmm: &v1.FeatureState{},
+			},
+			Firmware: &flavorv1alpha1.FirmwarePreferences{
+				PreferredUseEfi:        pointer.Bool(true),
+				PreferredUseSecureBoot: pointer.Bool(true),
+			},
+		},
+	}
+}
+
+func GetVmCirrosFlavorComputeLargePreferencesVirtio() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosFlavorComputeLargePreferncesVirtio, map[string]string{
+		kubevirtIoVM: VmCirrosFlavorComputeLargePreferncesVirtio,
+	})
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name: VmfComputeLarge,
+		Kind: "VirtualMachineFlavor",
+	}
+	vm.Spec.Preference = &v1.PreferenceMatcher{
+		Name: VmpVirtio,
+		Kind: "VirtualMachinePreference",
+	}
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+	vm.Spec.Template.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus = ""
+
+	return vm
+}
+
+func GetVmCirrosFlavorComputeLargePreferencesWindows() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosFlavorComputeLargePreferencesWindows, map[string]string{
+		kubevirtIoVM: VmCirrosFlavorComputeLargePreferencesWindows,
+	})
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name: VmfComputeLarge,
+		Kind: "VirtualMachineFlavor",
+	}
+	vm.Spec.Preference = &v1.PreferenceMatcher{
+		Name: VmpWindows,
+		Kind: "VirtualMachinePreference",
+	}
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+	vm.Spec.Template.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus = ""
+
+	return vm
+}
+
+func GetVmWindowsFlavorComputeLargePreferencesWindows() *v1.VirtualMachine {
+	vm := getBaseVM(VmWindowsFlavorComputeLargePreferencesWindows, map[string]string{
+		kubevirtIoVM: VmWindowsFlavorComputeLargePreferencesWindows,
+	})
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name: VmfComputeLarge,
+		Kind: "VirtualMachineFlavor",
+	}
+	vm.Spec.Preference = &v1.PreferenceMatcher{
+		Name: VmpWindows,
+		Kind: "VirtualMachinePreference",
+	}
+
+	// Do not set a disk bus, let that come from preferences
+	addPVCDisk(&vm.Spec.Template.Spec, "disk-windows", "", "pvcdisk")
+
+	// Copy the same remaining defaults as the vmi-windows example
+	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.Int64(0)
+	vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+		UUID: types.UID(windowsFirmware),
+	}
+
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+	return vm
 }

@@ -1,0 +1,9 @@
+---
+apiVersion: flavor.kubevirt.io/v1alpha1
+kind: VirtualMachinePreference
+metadata:
+  name: vmpvirtio
+spec:
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
