@@ -47,6 +47,7 @@ const (
 )
 
 type DiskQos struct {
+	DiskName      string `json:"diskName,omitempty"`
 	TotalIopsSec  uint64 `json:"totalIopsSec,omitempty"`
 	ReadIopsSec   uint64 `json:"readIopsSec,omitempty"`
 	WriteIopsSec  uint64 `json:"writeIopsSec,omitempty"`
@@ -106,6 +107,17 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	}, nil
 }
 
+func getDiskName(dev string) (diskName string, ok bool) {
+	if len(dev) == 0 {
+		return "", false
+	}
+	arr := strings.Split(dev, "/")
+	if len(arr) <= 0 {
+		return "", false
+	}
+	return arr[len(arr)-1], true
+}
+
 func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	log.Log.Info(onDefineDomainLoggingMessage)
 
@@ -128,7 +140,10 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 		log.Log.Reason(err).Errorf("Failed to unmarshal given disk qos: %s", diskQos)
 		panic(err)
 	}
-
+	qosInfoMap := make(map[string]DiskQos, len(qosList))
+	for _, qosInfo := range qosList {
+		qosInfoMap[qosInfo.DiskName] = qosInfo
+	}
 	domainSpec := domainSchema.DomainSpec{}
 	err = xml.Unmarshal(domainXML, &domainSpec)
 	if err != nil {
@@ -136,45 +151,36 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 		panic(err)
 	}
 
-	// have one cloud-init cdrom disk
-	if len(qosList) != len(domainSpec.Devices.Disks)-1 {
-		log.Log.Reason(err).Errorf("disk qos not match disk number: %s", diskQos)
-		panic(err)
-	}
-
 	diskList := make([]domainSchema.Disk, 0, len(domainSpec.Devices.Disks))
-	index := 0
 	for _, disk := range domainSpec.Devices.Disks {
-		// cloud-init 跳过
-		if strings.Contains(disk.Source.File, cloudInit) {
+		diskName, ok := getDiskName(disk.Source.Dev)
+		if !ok {
+			diskList = append(diskList, disk)
 			continue
 		}
-
-		if disk.Device == "disk" {
-			if len(qosList) <= index {
-				break
-			}
-			qos := qosList[index]
-			ioTune := &domainSchema.IOTune{}
-			//  TotalIopsSec cannot appear with read_iops_sec or write_iops_sec
-			//  TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.
-			// https://libvirt.org/formatdomain.html#elementsDisks
-			if qos.TotalBytesSec != 0 {
-				ioTune.TotalBytesSec = qos.TotalBytesSec
-			} else {
-				ioTune.ReadBytesSec = qos.ReadBytesSec
-				ioTune.WriteBytesSec = qos.WriteBytesSec
-			}
-			if qos.TotalIopsSec != 0 {
-				ioTune.TotalIopsSec = qos.TotalIopsSec
-			} else {
-				ioTune.ReadIopsSec = qos.ReadBytesSec
-				ioTune.WriteIopsSec = qos.WriteIopsSec
-			}
-			disk.IOTune = ioTune
-			log.Log.Infof("disk after set ioTune: %+v", disk)
-			index++
+		qos, ok := qosInfoMap[diskName]
+		if !ok {
+			diskList = append(diskList, disk)
+			continue
 		}
+		ioTune := &domainSchema.IOTune{}
+		//  TotalIopsSec cannot appear with read_iops_sec or write_iops_sec
+		//  TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.
+		// https://libvirt.org/formatdomain.html#elementsDisks
+		if qos.TotalBytesSec != 0 {
+			ioTune.TotalBytesSec = qos.TotalBytesSec
+		} else {
+			ioTune.ReadBytesSec = qos.ReadBytesSec
+			ioTune.WriteBytesSec = qos.WriteBytesSec
+		}
+		if qos.TotalIopsSec != 0 {
+			ioTune.TotalIopsSec = qos.TotalIopsSec
+		} else {
+			ioTune.ReadIopsSec = qos.ReadBytesSec
+			ioTune.WriteIopsSec = qos.WriteIopsSec
+		}
+		disk.IOTune = ioTune
+		log.Log.Infof("disk after set ioTune: %+v", disk)
 		diskList = append(diskList, disk)
 	}
 	domainSpec.Devices.Disks = diskList
