@@ -101,7 +101,6 @@ var _ = Describe("Domain informer", func() {
 		os.RemoveAll(podsDir)
 		os.RemoveAll(ghostCacheDir)
 		DeleteGhostRecord("test", "test")
-		ctrl.Finish()
 	})
 
 	verifyObj := func(key string, domain *api.Domain) {

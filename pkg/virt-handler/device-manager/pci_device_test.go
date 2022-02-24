@@ -73,10 +73,6 @@ pciHostDevices:
 		Expect(fakePermittedHostDevices.PciHostDevices[0].ResourceName).To(Equal(fakeName))
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	It("Should parse the permitted devices and find 1 matching PCI device", func() {
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range fakePermittedHostDevices.PciHostDevices {

@@ -127,10 +127,6 @@ var _ = Describe("HotplugVolume", func() {
 		expectedCgroupRule = nil
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Context("mount target records", func() {
 		var (
 			m      *volumeMounter

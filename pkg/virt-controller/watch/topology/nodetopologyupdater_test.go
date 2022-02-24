@@ -143,10 +143,6 @@ var _ = Describe("Nodetopologyupdater", func() {
 			expectUpdates(stats, 0, len(nodes), 0)
 		})
 	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
 })
 
 func trackNodes(clientset *fake.Clientset, nodes ...*v1.Node) {

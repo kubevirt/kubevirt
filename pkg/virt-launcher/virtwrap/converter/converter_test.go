@@ -3355,10 +3355,6 @@ var _ = Describe("SetDriverCacheMode", func() {
 		mockDirectIOChecker = NewMockDirectIOChecker(ctrl)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	expectCheckTrue := func() {
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)

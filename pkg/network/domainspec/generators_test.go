@@ -56,7 +56,6 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	AfterEach(func() {
-		ctrl.Finish()
 		os.RemoveAll(tmpDir)
 	})
 

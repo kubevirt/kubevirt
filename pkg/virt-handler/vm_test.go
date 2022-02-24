@@ -256,7 +256,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	AfterEach(func() {
 		close(stop)
 		wg.Wait()
-		ctrl.Finish()
 		os.RemoveAll(shareDir)
 		os.RemoveAll(privateDir)
 		os.RemoveAll(vmiShareDir)

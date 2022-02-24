@@ -440,7 +440,6 @@ var _ = Describe("Workload Updater", func() {
 		close(stop)
 
 		Expect(recorder.Events).To(BeEmpty())
-		ctrl.Finish()
 	})
 })
 

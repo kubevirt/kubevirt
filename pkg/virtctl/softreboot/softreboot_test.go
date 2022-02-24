@@ -42,8 +42,4 @@ var _ = Describe("Soft rebooting", func() {
 		cmd := tests.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmiName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
 })

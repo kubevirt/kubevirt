@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 
-	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,7 +46,6 @@ var _ = Describe("Isolation Detector", func() {
 		var tmpDir string
 		var podUID string
 		var finished chan struct{} = nil
-		var ctrl *gomock.Controller
 
 		podUID = "pid-uid-1234"
 		vm := api.NewMinimalVMIWithNS("default", "testvm")
@@ -84,8 +82,6 @@ var _ = Describe("Isolation Detector", func() {
 					conn.Close()
 				}
 			}()
-
-			ctrl = gomock.NewController(GinkgoT())
 		})
 
 		AfterEach(func() {
@@ -94,8 +90,6 @@ var _ = Describe("Isolation Detector", func() {
 			if finished != nil {
 				<-finished
 			}
-
-			ctrl.Finish()
 		})
 
 		It("Should detect the PID of the test suite", func() {

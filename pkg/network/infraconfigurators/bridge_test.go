@@ -67,10 +67,6 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 		handler = netdriver.NewMockNetworkHandler(ctrl)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	const (
 		bridgeIfaceName = "br0"
 	)

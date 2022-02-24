@@ -2063,10 +2063,6 @@ var _ = Describe("Manager", func() {
 	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
 })
 
 var _ = Describe("getAttachedDisks", func() {
