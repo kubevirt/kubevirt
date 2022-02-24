@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -50,7 +49,6 @@ import (
 
 var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-	var ctrl *gomock.Controller
 	var vmsAdmitter *VMsAdmitter
 	var vmiInformer cache.SharedIndexInformer
 	var dataSourceInformer cache.SharedIndexInformer
@@ -88,7 +86,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		flavorMethods = testutils.NewMockFlavorMethods()
 
-		ctrl = gomock.NewController(GinkgoT())
 		vmsAdmitter = &VMsAdmitter{
 			DataSourceInformer: dataSourceInformer,
 			VMIInformer:        vmiInformer,
@@ -98,9 +95,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				return true, "", nil
 			},
 		}
-	})
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	It("reject invalid VirtualMachineInstance spec", func() {

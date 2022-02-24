@@ -44,10 +44,6 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 		mockHandler = netdriver.NewMockNetworkHandler(ctrl)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Context("Generate", func() {
 		var (
 			ifaceName      string

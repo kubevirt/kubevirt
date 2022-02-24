@@ -94,8 +94,6 @@ var _ = Describe("Device Controller", func() {
 
 	AfterEach(func() {
 		defer os.RemoveAll(workDir)
-
-		ctrl.Finish()
 	})
 
 	Context("Basic Tests", func() {

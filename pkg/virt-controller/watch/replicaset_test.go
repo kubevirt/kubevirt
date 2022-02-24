@@ -698,7 +698,6 @@ var _ = Describe("Replicaset", func() {
 			close(stop)
 			// Ensure that we add checks for expected events to every test
 			Expect(recorder.Events).To(BeEmpty())
-			ctrl.Finish()
 		})
 	})
 })

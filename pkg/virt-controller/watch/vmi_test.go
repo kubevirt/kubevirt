@@ -250,7 +250,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		close(stop)
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
-		ctrl.Finish()
 	})
 
 	addVirtualMachine := func(vmi *virtv1.VirtualMachineInstance) {

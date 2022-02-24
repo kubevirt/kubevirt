@@ -168,9 +168,6 @@ var _ = Describe("Virt remote commands", func() {
 				mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
 				client = newV1Client(mockCmdClient, nil)
 			})
-			AfterEach(func() {
-				ctrl.Finish()
-			})
 
 			var (
 				testDomainName           = "test"

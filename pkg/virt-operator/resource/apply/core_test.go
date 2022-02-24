@@ -146,10 +146,6 @@ var _ = Describe("Apply", func() {
 			kv = &v1.KubeVirt{}
 		})
 
-		AfterEach(func() {
-			ctrl.Finish()
-		})
-
 		It("should not patch ConfigMap on sync", func() {
 			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
@@ -304,10 +300,6 @@ var _ = Describe("Apply", func() {
 			clientset.EXPECT().CoreV1().Return(coreclientset.CoreV1()).AnyTimes()
 
 			kv = &v1.KubeVirt{}
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
 		})
 
 		It("should not patch ServiceAccount on sync when they are equal", func() {

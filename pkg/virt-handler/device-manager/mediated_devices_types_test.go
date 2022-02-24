@@ -284,7 +284,6 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	Context("Handle mediated devices", func() {
 		AfterEach(func() {
 			os.RemoveAll(fakeMdevBasePath)
-			ctrl.Finish()
 		})
 		DescribeTable("should create and remove relevant mdev types", func(scenario func() *scenarioValues) {
 			sc := scenario()

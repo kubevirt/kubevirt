@@ -564,8 +564,4 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("with dry-run arg", true),
 		)
 	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
 })

@@ -90,7 +90,6 @@ var _ = Describe("Notify", func() {
 			}
 			client.Close()
 			os.RemoveAll(shareDir)
-			ctrl.Finish()
 		})
 
 		Context("server", func() {
@@ -365,9 +364,6 @@ var _ = Describe("Notify", func() {
 			infoClient = info.NewMockNotifyInfoClient(ctrl)
 		})
 
-		AfterEach(func() {
-			ctrl.Finish()
-		})
 		It("Should report error when server version mismatches", func() {
 
 			fakeResponse := info.NotifyInfoResponse{

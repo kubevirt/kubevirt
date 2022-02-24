@@ -61,10 +61,6 @@ var _ = Describe("Apply Prometheus", func() {
 		kv = &v1.KubeVirt{}
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	It("should not patch ServiceMonitor on sync when they are equal", func() {
 
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)

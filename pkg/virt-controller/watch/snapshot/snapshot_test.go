@@ -357,10 +357,6 @@ var _ = Describe("Snapshot controlleer", func() {
 			currentTime = timeFunc
 		})
 
-		AfterEach(func() {
-			ctrl.Finish()
-		})
-
 		addVirtualMachineSnapshot := func(s *snapshotv1.VirtualMachineSnapshot) {
 			syncCaches(stop)
 			mockVMSnapshotQueue.ExpectAdds(1)

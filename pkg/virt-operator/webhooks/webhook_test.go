@@ -41,10 +41,6 @@ var _ = Describe("Webhook", func() {
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Context("if uninstall strategy is BlockUninstallIfWorkloadExists", func() {
 		BeforeEach(func() {
 			kubeCli.EXPECT().VirtualMachineInstance(v1.NamespaceAll).Return(vmiInterface).AnyTimes()

@@ -300,8 +300,4 @@ var _ = Describe("Status", func() {
 			Expect(migrationUpdater.UpdateStatus(migration)).To(Succeed())
 		})
 	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
 })
