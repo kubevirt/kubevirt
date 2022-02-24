@@ -1745,7 +1745,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
 			})
 
-			It("[QUARANTINE][test_id:4747] should migrate using cluster level config for postcopy", func() {
+			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
