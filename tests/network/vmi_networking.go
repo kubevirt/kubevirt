@@ -1090,13 +1090,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
-	tests.WaitForSuccessfulVMIStart(vmi)
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	// Fetch the new VirtualMachineInstance with updated status
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	vmi = tests.WaitForSuccessfulVMIStart(vmi)
 
 	// Lets make sure that the OS is up by waiting until we can login
 	Expect(loginTo(vmi)).To(Succeed())
