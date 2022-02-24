@@ -1,0 +1,37 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-cirros-vmf-small
+  name: vm-cirros-vmf-small
+spec:
+  flavor:
+    kind: VirtualMachineFlavor
+    name: vmf-example
+    profile: profile-small
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-cirros-vmf-small
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk: {}
+            name: containerdisk
+          - disk: {}
+            name: cloudinitdisk
+        resources: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - containerDisk:
+          image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+        name: containerdisk
+      - cloudInitNoCloud:
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
+        name: cloudinitdisk

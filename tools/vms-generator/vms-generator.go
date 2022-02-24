@@ -34,6 +34,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -66,22 +67,31 @@ func main() {
 		},
 	})
 
+	var vmfs = map[string]*flavorv1alpha1.VirtualMachineFlavor{
+		utils.VmfExample: utils.GetVmfExample(),
+	}
+
+	var vmcfs = map[string]*flavorv1alpha1.VirtualMachineClusterFlavor{
+		utils.VmcfExample: utils.GetVmcfExample(),
+	}
+
 	var priorityClasses = map[string]*schedulingv1.PriorityClass{
 		utils.Preemtible:    utils.GetPreemtible(),
 		utils.NonPreemtible: utils.GetNonPreemtible(),
 	}
 
 	var vms = map[string]*v1.VirtualMachine{
-		utils.VmCirros:           utils.GetVMCirros(),
-		utils.VmAlpineMultiPvc:   utils.GetVMMultiPvc(),
-		utils.VmAlpineDataVolume: utils.GetVMDataVolume(),
-		utils.VMPriorityClass:    utils.GetVMPriorityClass(),
+		utils.VmCirros:                   utils.GetVMCirros(),
+		utils.VmAlpineMultiPvc:           utils.GetVMMultiPvc(),
+		utils.VmAlpineDataVolume:         utils.GetVMDataVolume(),
+		utils.VMPriorityClass:            utils.GetVMPriorityClass(),
+		utils.VmCirrosFlavorSmall:        utils.GetVmCirrosFlavorSmall(),
+		utils.VmCirrosClusterFlavorSmall: utils.GetVmCirrosClusterFlavorSmall(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
 		utils.VmiEphemeral:         utils.GetVMIEphemeral(),
 		utils.VmiMigratable:        utils.GetVMIMigratable(),
-		utils.VmiFlavorSmall:       utils.GetVMIFlavorSmall(),
 		utils.VmiSata:              utils.GetVMISata(),
 		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
 		utils.VmiSecureBoot:        utils.GetVMISecureBoot(),
@@ -167,6 +177,18 @@ func main() {
 	for name, obj := range vmis {
 		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
 		handleCauses(causes, name, "vmi")
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range vmfs {
+		causes := validating_webhook.ValidateFlavorProfiles(k8sfield.NewPath("profiles"), obj.Profiles)
+		handleCauses(causes, name, "vmf")
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range vmcfs {
+		causes := validating_webhook.ValidateFlavorProfiles(k8sfield.NewPath("profiles"), obj.Profiles)
+		handleCauses(causes, name, "vmcf")
 		handleError(dumpObject(name, *obj))
 	}
 

@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -78,6 +79,17 @@ const (
 const (
 	Preemtible    = "preemtible"
 	NonPreemtible = "non-preemtible"
+)
+
+const (
+	VmfExample                 = "vmf-example"
+	VmcfExample                = "vmcf-example"
+	vmfProfileDefault          = "profile-default"
+	VmfProfileSmall            = "profile-small"
+	VmfProfileMedium           = "profile-medium"
+	VmfProfileLarge            = "profile-large"
+	VmCirrosFlavorSmall        = "vm-cirros-vmf-small"
+	VmCirrosClusterFlavorSmall = "vm-cirros-vmcf-small"
 )
 
 const (
@@ -546,16 +558,6 @@ func GetVMINoCloud() *v1.VirtualMachineInstance {
 	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
-	return vmi
-}
-
-func GetVMIFlavorSmall() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFlavorSmall)
-	vmi.ObjectMeta.Labels = map[string]string{
-		"kubevirt.io/flavor": "small",
-	}
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmi
 }
 
@@ -1143,4 +1145,136 @@ func GetVMIARM() *v1.VirtualMachineInstance {
 func generateCloudConfigString(cloudConfigElement ...string) string {
 	return strings.Join(
 		append([]string{cloudConfigHeader}, cloudConfigElement...), "\n")
+}
+
+func getVmfExampleProfiles() []flavorv1alpha1.VirtualMachineFlavorProfile {
+	return []flavorv1alpha1.VirtualMachineFlavorProfile{
+		{
+			Name:    vmfProfileDefault,
+			Default: true,
+			DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+				DiskDefaults: &flavorv1alpha1.DiskDefaults{
+					PreferredDiskBus:  busVirtio,
+					PreferredCdromBus: busSata,
+				},
+			},
+		},
+		{
+			Name: VmfProfileSmall,
+			DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+				DiskDefaults: &flavorv1alpha1.DiskDefaults{
+					PreferredDiskBus:  busVirtio,
+					PreferredCdromBus: busSata,
+				},
+			},
+			DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+				Resources: v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("1"),
+						k8sv1.ResourceMemory: resource.MustParse("128M"),
+					},
+				},
+			},
+		},
+		{
+			Name: VmfProfileMedium,
+			DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+				DiskDefaults: &flavorv1alpha1.DiskDefaults{
+					PreferredDiskBus:  busVirtio,
+					PreferredCdromBus: busSata,
+				},
+			},
+			DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+				Resources: v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("2"),
+						k8sv1.ResourceMemory: resource.MustParse("512M"),
+					},
+				},
+			},
+		},
+		{
+			Name: VmfProfileLarge,
+			DevicesDefaults: &flavorv1alpha1.DevicesDefaults{
+				DiskDefaults: &flavorv1alpha1.DiskDefaults{
+					PreferredDiskBus:  busVirtio,
+					PreferredCdromBus: busSata,
+				},
+			},
+			DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+				Resources: v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("4"),
+						k8sv1.ResourceMemory: resource.MustParse("1024M"),
+					},
+				},
+			},
+		},
+	}
+}
+
+func GetVmfExample() *flavorv1alpha1.VirtualMachineFlavor {
+	return &flavorv1alpha1.VirtualMachineFlavor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineFlavor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmfExample,
+		},
+		Profiles: getVmfExampleProfiles(),
+	}
+}
+
+func GetVmcfExample() *flavorv1alpha1.VirtualMachineClusterFlavor {
+	return &flavorv1alpha1.VirtualMachineClusterFlavor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: flavorv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineClusterFlavor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmcfExample,
+		},
+		Profiles: getVmfExampleProfiles(),
+	}
+}
+
+func GetVmCirrosFlavorSmall() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosFlavorSmall, map[string]string{
+		kubevirtIoVM: VmCirrosFlavorSmall,
+	})
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name:    VmfExample,
+		Kind:    "VirtualMachineFlavor",
+		Profile: VmfProfileSmall,
+	}
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	// FIXME: We need to nil out the requested resources and cloud-init disk bus to ensure the flavor applies
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+	vm.Spec.Template.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus = ""
+
+	return vm
+}
+
+func GetVmCirrosClusterFlavorSmall() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosClusterFlavorSmall, map[string]string{
+		kubevirtIoVM: VmCirrosClusterFlavorSmall,
+	})
+
+	vm.Spec.Flavor = &v1.FlavorMatcher{
+		Name:    VmfExample,
+		Kind:    "VirtualMachineClusterFlavor",
+		Profile: VmfProfileSmall,
+	}
+
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), "")
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+
+	// FIXME: We need to nil out the requested resources and cloud-init disk bus to ensure the flavor applies
+	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+	vm.Spec.Template.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus = ""
+
+	return vm
 }

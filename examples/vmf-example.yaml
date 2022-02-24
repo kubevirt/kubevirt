@@ -1,0 +1,45 @@
+---
+apiVersion: flavor.kubevirt.io/v1alpha1
+kind: VirtualMachineFlavor
+metadata:
+  name: vmf-example
+profiles:
+- default: true
+  devicesDefaults:
+    diskDefaults:
+      preferredCdromBus: sata
+      preferredDiskBus: virtio
+  name: profile-default
+- devicesDefaults:
+    diskDefaults:
+      preferredCdromBus: sata
+      preferredDiskBus: virtio
+  domainTemplate:
+    devices: {}
+    resources:
+      requests:
+        cpu: "1"
+        memory: 128M
+  name: profile-small
+- devicesDefaults:
+    diskDefaults:
+      preferredCdromBus: sata
+      preferredDiskBus: virtio
+  domainTemplate:
+    devices: {}
+    resources:
+      requests:
+        cpu: "2"
+        memory: 512M
+  name: profile-medium
+- devicesDefaults:
+    diskDefaults:
+      preferredCdromBus: sata
+      preferredDiskBus: virtio
+  domainTemplate:
+    devices: {}
+    resources:
+      requests:
+        cpu: "4"
+        memory: 1024M
+  name: profile-large
