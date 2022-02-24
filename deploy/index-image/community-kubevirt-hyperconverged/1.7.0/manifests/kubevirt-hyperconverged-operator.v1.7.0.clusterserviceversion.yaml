@@ -2252,7 +2252,7 @@ spec:
                 - name: SSP_VERSION
                   value: v0.13.2
                 - name: NMO_VERSION
-                  value: v0.11.2
+                  value: v0.11.3
                 - name: HPPO_VERSION
                   value: v0.12.1
                 image: +IMAGE_TO_REPLACE+
@@ -2744,7 +2744,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/kubevirt/node-maintenance-operator@sha256:02f6fc6de339c644b79696206f6b2ed6f81806db9e4ff4499a4a3619ba572b34
+                image: quay.io/kubevirt/node-maintenance-operator@sha256:d359204722c477654c6fe39d846bd9331c8ec363f5bcc3d4a1845f2aa99ebefc
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -2771,6 +2771,7 @@ spec:
                     memory: 20Mi
                 securityContext:
                   allowPrivilegeEscalation: false
+              priorityClassName: kubevirt-cluster-critical
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: node-maintenance-operator
@@ -3309,7 +3310,7 @@ spec:
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:bfaf7b1c4840e27cce20887ba3e8c24f94ff1c36f09acaa8fa195ea431b9bfd1
     name: macvtap-cni
-  - image: quay.io/kubevirt/node-maintenance-operator@sha256:02f6fc6de339c644b79696206f6b2ed6f81806db9e4ff4499a4a3619ba572b34
+  - image: quay.io/kubevirt/node-maintenance-operator@sha256:d359204722c477654c6fe39d846bd9331c8ec363f5bcc3d4a1845f2aa99ebefc
     name: node-maintenance-operator
   - image: quay.io/kubevirt/ovs-cni-marker@sha256:6d506c66a779827659709d1c7253f96f3ad493e5fff23b549942a537f6304be4
     name: ovs-cni-marker
