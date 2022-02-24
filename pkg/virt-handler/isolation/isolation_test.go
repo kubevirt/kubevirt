@@ -103,10 +103,6 @@ var _ = Describe("IsolationResult", func() {
 				AnyTimes()
 		})
 
-		AfterEach(func() {
-			ctrl.Finish()
-		})
-
 		Context("Using real world sampled host and launcher mountinfo data", func() {
 
 			type mountInfoData struct {

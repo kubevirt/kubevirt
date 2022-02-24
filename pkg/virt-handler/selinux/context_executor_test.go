@@ -35,10 +35,6 @@ var _ = Describe("SELinux context executor", func() {
 			Return(nil)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Context("with SELinux disabled", func() {
 		BeforeEach(func() {
 			executor.

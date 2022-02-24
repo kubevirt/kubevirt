@@ -60,7 +60,6 @@ var _ = Describe("podNIC", func() {
 	})
 	AfterEach(func() {
 		baseCacheCreator.New("").Delete()
-		ctrl.Finish()
 	})
 	When("reading networking configuration succeed", func() {
 		var (

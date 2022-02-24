@@ -52,7 +52,6 @@ import (
 
 var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-	var ctrl *gomock.Controller
 	var vmsAdmitter *VMsAdmitter
 	var dataSourceInformer cache.SharedIndexInformer
 	var flavorMethods *testutils.MockFlavorMethods
@@ -90,7 +89,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		flavorMethods = testutils.NewMockFlavorMethods()
 
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmsAdmitter = &VMsAdmitter{
@@ -102,9 +101,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				return true, "", nil
 			},
 		}
-	})
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	It("reject invalid VirtualMachineInstance spec", func() {

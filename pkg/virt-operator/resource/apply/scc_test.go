@@ -81,7 +81,6 @@ var _ = Describe("Apply Security Context Constraints", func() {
 
 		AfterEach(func() {
 			close(stop)
-			ctrl.Finish()
 		})
 
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {

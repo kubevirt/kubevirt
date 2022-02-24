@@ -53,10 +53,6 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 		handler = netdriver.NewMockNetworkHandler(ctrl)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	const (
 		bridgeIfaceName = "k6t-eth0"
 	)

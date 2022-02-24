@@ -93,10 +93,6 @@ var _ = Describe("Apply PDBs", func() {
 
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Context("Reconciliation", func() {
 		It("should not patch PDB on sync when they are equal", func() {
 			cachedPDB := getCachedPDB()

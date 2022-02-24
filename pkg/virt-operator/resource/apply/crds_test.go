@@ -54,10 +54,6 @@ var _ = Describe("Apply CRDs", func() {
 		kv = &v1.KubeVirt{}
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	It("should not roll out subresources on existing CRDs before control-plane rollover", func() {
 		crd := &extv1.CustomResourceDefinition{
 			TypeMeta: v12.TypeMeta{

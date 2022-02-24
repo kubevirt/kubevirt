@@ -132,8 +132,4 @@ var _ = Describe("Pausing", func() {
 		Entry("", &v1.UnpauseOptions{}),
 		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
 })

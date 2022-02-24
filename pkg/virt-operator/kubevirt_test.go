@@ -320,7 +320,6 @@ func (k *KubeVirtTestData) AfterTest() {
 
 	// Ensure that we add checks for expected events to every test
 	Expect(k.recorder.Events).To(BeEmpty())
-	k.ctrl.Finish()
 }
 
 type finalizerPatch struct {

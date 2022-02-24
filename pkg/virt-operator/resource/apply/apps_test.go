@@ -122,10 +122,6 @@ var _ = Describe("Apply Apps", func() {
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
 
-		AfterEach(func() {
-			ctrl.Finish()
-		})
-
 		It("should not fail creation", func() {
 			r := &Reconciler{
 				clientset:    clientset,
@@ -314,10 +310,6 @@ var _ = Describe("Apply Apps", func() {
 			Expect(err).ToNot(HaveOccurred())
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
 		})
 
 		Context("setting virt-handler maxDevices flag", func() {
@@ -1111,7 +1103,6 @@ var _ = Describe("Apply Apps", func() {
 
 		AfterEach(func() {
 			close(stop)
-			ctrl.Finish()
 		})
 
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {

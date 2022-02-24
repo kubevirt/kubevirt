@@ -85,7 +85,6 @@ var _ = Describe("ImageUpload", func() {
 	})
 
 	AfterEach(func() {
-		ctrl.Finish()
 		os.Remove(imagePath)
 		os.Remove(archiveFilePath)
 	})

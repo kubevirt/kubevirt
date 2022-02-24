@@ -124,9 +124,7 @@ var _ = Describe("Mediated Device", func() {
 			Expect(fakePermittedHostDevices.MediatedDevices[0].MDEVNameSelector).To(Equal(fakeMdevNameSelector))
 			Expect(fakePermittedHostDevices.MediatedDevices[0].ResourceName).To(Equal(fakeMdevResourceName))
 		})
-		AfterEach(func() {
-			ctrl.Finish()
-		})
+
 		It("Should parse the permitted devices and find 1 matching mediated device", func() {
 			supportedMdevsMap := make(map[string]string)
 			for _, supportedMdev := range fakePermittedHostDevices.MediatedDevices {
