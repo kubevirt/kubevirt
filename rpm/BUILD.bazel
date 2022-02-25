@@ -172,7 +172,6 @@ rpmtree(
     symlinks = {
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
-        "/usr/bin/nc": "/usr/bin/ncat",
     },
     visibility = ["//visibility:public"],
 )
@@ -302,7 +301,6 @@ rpmtree(
     symlinks = {
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
-        "/usr/bin/nc": "/usr/bin/ncat",
     },
     visibility = ["//visibility:public"],
 )
