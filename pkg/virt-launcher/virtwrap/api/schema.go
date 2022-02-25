@@ -586,7 +586,7 @@ type Disk struct {
 	FilesystemOverhead *cdiv1.Percent `xml:"filesystemOverhead,omitempty"`
 	Capacity           *int64         `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
-	IOTune		 	   *IOTune        `xml:"iotune,omitempty"`
+	IOTune             *IOTune        `xml:"iotune,omitempty"`
 }
 
 type DiskAuth struct {
