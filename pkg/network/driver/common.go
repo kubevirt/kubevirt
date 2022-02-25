@@ -28,7 +28,6 @@ import (
 	"os/exec"
 
 	"github.com/coreos/go-iptables/iptables"
-	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -294,12 +293,7 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 
 // GetMacDetails from an interface
 func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
-	currentMac, err := lmf.GetCurrentMac(iface)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get mac information for interface: %s", iface)
-		return nil, err
-	}
-	return currentMac, nil
+	return getMacDetails(iface)
 }
 
 // SetRandomMac changes the MAC address for a given interface to a randomly generated, preserving the vendor prefix
@@ -314,7 +308,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	changed := false
 
 	for i := 0; i < randomMacGenerationAttempts; i++ {
-		changed, err = lmf.SpoofMacSameVendor(iface, false)
+		changed, err = spoofMacSameVendor(iface, currentMac)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", iface)
 			return nil, err
