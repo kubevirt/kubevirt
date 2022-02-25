@@ -80,7 +80,7 @@ func admitFlavor(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersio
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := validateFlavorProfiles(k8sfield.NewPath("profiles"), profiles)
+	causes := ValidateFlavorProfiles(k8sfield.NewPath("profiles"), profiles)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -90,7 +90,7 @@ func admitFlavor(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersio
 	}
 }
 
-func validateFlavorProfiles(basePath *k8sfield.Path, profiles []flavorv1alpha1.VirtualMachineFlavorProfile) []metav1.StatusCause {
+func ValidateFlavorProfiles(basePath *k8sfield.Path, profiles []flavorv1alpha1.VirtualMachineFlavorProfile) []metav1.StatusCause {
 	if len(profiles) == 0 {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueRequired,
