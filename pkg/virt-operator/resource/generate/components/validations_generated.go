@@ -4902,8 +4902,8 @@ var CRDsValidation map[string]string = map[string]string{
                             disks.
                           type: boolean
                         disks:
-                          description: Disks describes disks, cdroms, floppy and luns
-                            which are connected to the vmi.
+                          description: Disks describes disks, cdroms and luns which
+                            are connected to the vmi.
                           items:
                             properties:
                               blockSize:
@@ -4984,18 +4984,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   readonly:
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
-                                type: object
-                              floppy:
-                                description: Attach a volume as a floppy to the vmi.
-                                properties:
-                                  readonly:
-                                    description: ReadOnly. Defaults to false.
-                                    type: boolean
-                                  tray:
-                                    description: Tray indicates if the tray of the
-                                      device is open or closed. Allowed values are
-                                      "open" and "closed". Defaults to closed.
-                                    type: string
                                 type: object
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
@@ -6621,18 +6609,6 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
-                      floppy:
-                        description: Attach a volume as a floppy to the vmi.
-                        properties:
-                          readonly:
-                            description: ReadOnly. Defaults to false.
-                            type: boolean
-                          tray:
-                            description: Tray indicates if the tray of the device
-                              is open or closed. Allowed values are "open" and "closed".
-                              Defaults to closed.
-                            type: string
-                        type: object
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -8168,8 +8144,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: DisableHotplug disabled the ability to hotplug disks.
                   type: boolean
                 disks:
-                  description: Disks describes disks, cdroms, floppy and luns which
-                    are connected to the vmi.
+                  description: Disks describes disks, cdroms and luns which are connected
+                    to the vmi.
                   items:
                     properties:
                       blockSize:
@@ -8245,18 +8221,6 @@ var CRDsValidation map[string]string = map[string]string{
                           readonly:
                             description: ReadOnly. Defaults to false.
                             type: boolean
-                        type: object
-                      floppy:
-                        description: Attach a volume as a floppy to the vmi.
-                        properties:
-                          readonly:
-                            description: ReadOnly. Defaults to false.
-                            type: boolean
-                          tray:
-                            description: Tray indicates if the tray of the device
-                              is open or closed. Allowed values are "open" and "closed".
-                              Defaults to closed.
-                            type: string
                         type: object
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -10285,8 +10249,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: DisableHotplug disabled the ability to hotplug disks.
                   type: boolean
                 disks:
-                  description: Disks describes disks, cdroms, floppy and luns which
-                    are connected to the vmi.
+                  description: Disks describes disks, cdroms and luns which are connected
+                    to the vmi.
                   items:
                     properties:
                       blockSize:
@@ -10362,18 +10326,6 @@ var CRDsValidation map[string]string = map[string]string{
                           readonly:
                             description: ReadOnly. Defaults to false.
                             type: boolean
-                        type: object
-                      floppy:
-                        description: Attach a volume as a floppy to the vmi.
-                        properties:
-                          readonly:
-                            description: ReadOnly. Defaults to false.
-                            type: boolean
-                          tray:
-                            description: Tray indicates if the tray of the device
-                              is open or closed. Allowed values are "open" and "closed".
-                              Defaults to closed.
-                            type: string
                         type: object
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -12353,8 +12305,8 @@ var CRDsValidation map[string]string = map[string]string{
                             disks.
                           type: boolean
                         disks:
-                          description: Disks describes disks, cdroms, floppy and luns
-                            which are connected to the vmi.
+                          description: Disks describes disks, cdroms and luns which
+                            are connected to the vmi.
                           items:
                             properties:
                               blockSize:
@@ -12435,18 +12387,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   readonly:
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
-                                type: object
-                              floppy:
-                                description: Attach a volume as a floppy to the vmi.
-                                properties:
-                                  readonly:
-                                    description: ReadOnly. Defaults to false.
-                                    type: boolean
-                                  tray:
-                                    description: Tray indicates if the tray of the
-                                      device is open or closed. Allowed values are
-                                      "open" and "closed". Defaults to closed.
-                                    type: string
                                 type: object
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
@@ -15953,8 +15893,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     to hotplug disks.
                                   type: boolean
                                 disks:
-                                  description: Disks describes disks, cdroms, floppy
-                                    and luns which are connected to the vmi.
+                                  description: Disks describes disks, cdroms and luns
+                                    which are connected to the vmi.
                                   items:
                                     properties:
                                       blockSize:
@@ -16043,20 +15983,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           readonly:
                                             description: ReadOnly. Defaults to false.
                                             type: boolean
-                                        type: object
-                                      floppy:
-                                        description: Attach a volume as a floppy to
-                                          the vmi.
-                                        properties:
-                                          readonly:
-                                            description: ReadOnly. Defaults to false.
-                                            type: boolean
-                                          tray:
-                                            description: Tray indicates if the tray
-                                              of the device is open or closed. Allowed
-                                              values are "open" and "closed". Defaults
-                                              to closed.
-                                            type: string
                                         type: object
                                       io:
                                         description: 'IO specifies which QEMU disk
@@ -19937,9 +19863,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         to hotplug disks.
                                       type: boolean
                                     disks:
-                                      description: Disks describes disks, cdroms,
-                                        floppy and luns which are connected to the
-                                        vmi.
+                                      description: Disks describes disks, cdroms and
+                                        luns which are connected to the vmi.
                                       items:
                                         properties:
                                           blockSize:
@@ -20031,21 +19956,6 @@ var CRDsValidation map[string]string = map[string]string{
                                                 description: ReadOnly. Defaults to
                                                   false.
                                                 type: boolean
-                                            type: object
-                                          floppy:
-                                            description: Attach a volume as a floppy
-                                              to the vmi.
-                                            properties:
-                                              readonly:
-                                                description: ReadOnly. Defaults to
-                                                  false.
-                                                type: boolean
-                                              tray:
-                                                description: Tray indicates if the
-                                                  tray of the device is open or closed.
-                                                  Allowed values are "open" and "closed".
-                                                  Defaults to closed.
-                                                type: string
                                             type: object
                                           io:
                                             description: 'IO specifies which QEMU
@@ -21824,19 +21734,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       readonly:
                                         description: ReadOnly. Defaults to false.
                                         type: boolean
-                                    type: object
-                                  floppy:
-                                    description: Attach a volume as a floppy to the
-                                      vmi.
-                                    properties:
-                                      readonly:
-                                        description: ReadOnly. Defaults to false.
-                                        type: boolean
-                                      tray:
-                                        description: Tray indicates if the tray of
-                                          the device is open or closed. Allowed values
-                                          are "open" and "closed". Defaults to closed.
-                                        type: string
                                     type: object
                                   io:
                                     description: 'IO specifies which QEMU disk IO

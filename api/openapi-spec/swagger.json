@@ -12877,7 +12877,7 @@
       "type": "boolean"
      },
      "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+      "description": "Disks describes disks, cdroms and luns which are connected to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
@@ -12973,10 +12973,6 @@
      "disk": {
       "description": "Attach a volume as a disk to the vmi.",
       "$ref": "#/definitions/v1.DiskTarget"
-     },
-     "floppy": {
-      "description": "Attach a volume as a floppy to the vmi.",
-      "$ref": "#/definitions/v1.FloppyTarget"
      },
      "io": {
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
@@ -13370,19 +13366,6 @@
      },
      "profile": {
       "description": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.",
-      "type": "string"
-     }
-    }
-   },
-   "v1.FloppyTarget": {
-    "type": "object",
-    "properties": {
-     "readonly": {
-      "description": "ReadOnly. Defaults to false.",
-      "type": "boolean"
-     },
-     "tray": {
-      "description": "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
       "type": "string"
      }
     }
