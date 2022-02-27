@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
@@ -202,6 +204,28 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				By("Verify VMI name related to the VMIM")
 				Expect(resultFields[len(expectedHeader)+2]).To(Equal(vmi.Name), "should match the VMI name")
 			})
+		})
+	})
+
+	Describe("oc/kubectl logs", func() {
+		var (
+			vm *v1.VirtualMachineInstance
+		)
+
+		It("oc/kubectl logs <vmi-pod> return default container log", func() {
+			vm = libvmi.NewCirros()
+			vm = tests.RunVMIAndExpectLaunch(vm, 30)
+
+			k8sClient := tests.GetK8sCmdClient()
+
+			output, _, err := tests.RunCommand(k8sClient, "logs", tests.GetPodByVirtualMachineInstance(vm).Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(output).To(ContainSubstring("component"))
+			Expect(output).To(ContainSubstring("level"))
+			Expect(output).To(ContainSubstring("msg"))
+			Expect(output).To(ContainSubstring("pos"))
+			Expect(output).To(ContainSubstring("timestamp"))
 		})
 	})
 
