@@ -460,7 +460,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), "Should create VMI successfully")
 
-				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
+				nodeName := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -493,7 +493,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(err).To(BeNil(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance
-				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
+				nodeName := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
 				// Kill virt-handler on the node the VirtualMachineInstance is active on.
 				By("Crashing the virt-handler")
@@ -565,7 +565,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(err).To(BeNil(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance
-				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
+				nodeName := tests.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
 				By("triggering a device plugin re-registration on that node")
 				pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
@@ -631,7 +631,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
 				// the VMI. Otherwise virt-controller may move the VMI to failed instead of the node controller.
-				nodeName = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				nodeName = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi).Status.NodeName
 
 				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
@@ -1587,7 +1587,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Should create VMI")
 
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
+			nodeName := tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
 
 			By("Killing the VirtualMachineInstance")
 			time.Sleep(10 * time.Second)
@@ -1612,7 +1612,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Should create VMI")
 
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
+			nodeName := tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
 
 			By("Killing the VirtualMachineInstance")
 			err = pkillAllVMIs(virtClient, nodeName)

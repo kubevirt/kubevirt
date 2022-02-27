@@ -380,7 +380,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 		By("Waiting until the VM is ready")
-		return tests.WaitForSuccessfulVMIStart(obj)
+		return tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
 	}
 
 	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
