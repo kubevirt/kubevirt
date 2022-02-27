@@ -245,6 +245,7 @@ func (app *virtHandlerApp) Run() {
 
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
+	virtHandlerNodeInformer := factory.KubeVirtSingleNode(app.HostOverride)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
@@ -307,20 +308,15 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	virtHandlerNodeInformer := factory.KubeVirtSingleNode(app.HostOverride)
-	factory.Start(stop)
-	cache.WaitForCacheSync(stop, virtHandlerNodeInformer.HasSynced)
-
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
+	var nodeLabellerController *nodelabeller.NodeLabeller
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, virtHandlerNodeInformer)
+		nodeLabellerController, err = nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, virtHandlerNodeInformer)
 		if err != nil {
 			panic(err)
 		}
 		capabilities = nodeLabellerController.HostCapabilities()
-
-		go nodeLabellerController.Run(10, stop)
 	}
 
 	migrationIpAddress := app.PodIpAddress
@@ -374,6 +370,7 @@ func (app *virtHandlerApp) Run() {
 
 	// Bootstrapping. From here on the startup order matters
 
+	factory.Start(stop)
 	go gracefulShutdownInformer.Run(stop)
 	go domainSharedInformer.Run(stop)
 
@@ -397,8 +394,11 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
+	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, virtHandlerNodeInformer.HasSynced)
 
+	if nodeLabellerController != nil {
+		go nodeLabellerController.Run(10, stop)
+	}
 	go vmController.Run(10, stop)
 
 	doneCh := make(chan string)
