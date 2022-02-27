@@ -49,4 +49,5 @@ will be unlinked and garbage-collected by kubernetes once the import is done.
 They are not expected to continue to be used after the import is done.
 
 If you wish to track the current PVC size for a given `VirtualMachineInstance` without finding the
-matching PVC, you can inspect the `vmi.status.volumeStatus` `PersistentVolumeClaimInfo` field.
+matching PVC, you can inspect the `vmi.status.volumeStatus` `PersistentVolumeClaimInfo` field.  
+This field is kept up to date with the PVC spec request size and the PVC status capacity.
