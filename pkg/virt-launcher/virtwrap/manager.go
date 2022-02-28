@@ -1228,22 +1228,31 @@ func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
 	}
 }
 
+func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, error) {
+	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	if err != nil {
+		return "", err
+	}
+	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
+	if err != nil {
+		return "", err
+	}
+
+	return fsfreezeStatus.Status, nil
+}
+
 func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
-	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	fsfreezeStatus, err := l.getParsedFSStatus(domainName)
 	if err != nil {
-		log.Log.Errorf("Failed to get status before freeze vmi, %s", err.Error())
+		log.Log.Errorf("Failed to get fs status before freeze vmi %s, %s", vmi.Name, err.Error())
 		return err
 	}
-	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
-	if err != nil {
-		log.Log.Errorf("Failed to parse status before freeze vmi, %s", err.Error())
-		return err
-	}
+
 	// idempotent - prevent failuer in case fs is already frozen
-	if fsfreezeStatus.Status == api.FSFrozen {
+	if fsfreezeStatus == api.FSFrozen {
 		return nil
 	}
 	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
@@ -1262,8 +1271,15 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
 	l.cancelSafetyUnfreeze()
 	domainName := api.VMINamespaceKeyFunc(vmi)
-	// fs thaw is idempotent by itself
-	_, err := l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)
+	fsfreezeStatus, err := l.getParsedFSStatus(domainName)
+	if err == nil {
+		// prevent initating fs thaw to prevent rerunning the thaw hook
+		if fsfreezeStatus == api.FSThawed {
+			return nil
+		}
+	}
+	// even if failed we should still try to unfreeze the fs
+	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)
 	if err != nil {
 		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
 		return err

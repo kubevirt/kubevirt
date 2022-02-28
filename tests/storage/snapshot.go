@@ -32,6 +32,7 @@ import (
 
 const (
 	grepCmd                  = "%s | grep \"%s\"\n"
+	grepCmdWithCount         = "%s | grep \"%s\"| wc -l\n"
 	qemuGa                   = ".*qemu-ga.*%s.*"
 	vmSnapshotContent        = "vmsnapshot-content"
 	snapshotDeadlineExceeded = "snapshot deadline exceeded"
@@ -319,6 +320,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
 							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
+							&expect.BSnd{S: tests.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("0")},
+							&expect.BSnd{S: fmt.Sprintf(grepCmdWithCount, journalctlCheck, expectedThawOutput)},
+							&expect.BExp{R: console.RetValue("1")},
 							&expect.BSnd{S: tests.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}, 30)).To(Succeed())
