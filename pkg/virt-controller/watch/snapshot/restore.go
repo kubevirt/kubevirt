@@ -572,10 +572,6 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 		return nil, fmt.Errorf("VMSnapshot %s not ready", objKey)
 	}
 
-	if vms.Status.SourceUID == nil || *vms.Status.SourceUID != targetUID {
-		return nil, fmt.Errorf("VMSnapshot source and restore target differ")
-	}
-
 	if vms.Status.VirtualMachineSnapshotContentName == nil {
 		return nil, fmt.Errorf("no snapshot content name in %s", objKey)
 	}
