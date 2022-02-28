@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/kubectl/pkg/cmd/util/podcmd"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2175,6 +2177,8 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	for k, v := range filterVMIAnnotationsForPod(vmi.Annotations) {
 		annotationsSet[k] = v
 	}
+
+	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
 	multusAnnotation, err := generateMultusCNIAnnotation(vmi)
 	if err != nil {
