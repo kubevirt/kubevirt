@@ -1711,6 +1711,79 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
+		It("should delete old serviceMonitor on update", func(done Done) {
+			defer close(done)
+
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+					Generation: int64(1),
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeployed,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
+			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+			kvTestData.deleteFromCache = false
+
+			// create old servicemonitor (should be deleted)
+
+			err := kvTestData.informers.Namespace.GetStore().Add(&k8sv1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Namespace",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openshift-monitoring",
+					Labels: map[string]string{
+						"openshift.io/cluster-monitoring": "true",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			err = kvTestData.informers.ServiceMonitor.GetStore().Add(&promv1.ServiceMonitor{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "ServiceMonitor",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openshift-monitoring",
+					Labels: map[string]string{
+						v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+					},
+				},
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+
+			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeApiAndControllerReady()
+			kvTestData.makeHandlerReady()
+
+			kvTestData.shouldExpectDeletions()
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates()
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+
+			kvTestData.controller.Execute()
+			Expect(kvTestData.totalDeletions).To(Equal(1))
+
+		})
+
 		It("should do nothing if KubeVirt object is deployed", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
