@@ -132,8 +132,10 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 		// Only return if a change is detected in the printableStatus of a VM,
 		// or the phase of a VMI
 		if prevStatusOrPhase != newStatusOrPhase {
+			GinkgoWriter.Write([]byte("DEBUG (NEW): " + statusLine + "\n"))
 			return newStatus, nil
 		}
+		GinkgoWriter.Write([]byte("DEBUG (OLD): " + statusLine + "\n"))
 
 		prevStatus = newStatus
 		remainingTimeout -= time.Now().Sub(start)
@@ -278,7 +280,6 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 		checks.SkipIfMigrationIsNotPossible()
 
 		By("Migrating the VirtualMachine")
-
 		migrateCommand := tests.NewRepeatableVirtctlCommand(virtctlvm.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
 		Expect(migrateCommand()).To(Succeed())
 
