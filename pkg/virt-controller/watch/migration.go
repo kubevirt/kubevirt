@@ -671,15 +671,14 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		}
 	}
 
-	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration()
+	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
 	err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
 	if err != nil {
 		return fmt.Errorf("failed to match migration policy: %v", err)
 	}
 
 	if !c.isMigrationPolicyMatched(vmiCopy) {
-		clusterMigrationConfigsCopy := *clusterMigrationConfigs
-		vmiCopy.Status.MigrationState.MigrationConfiguration = &clusterMigrationConfigsCopy
+		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
 	}
 
 	err = c.patchVMI(vmi, vmiCopy)
@@ -1594,15 +1593,14 @@ func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineIns
 		return nil
 	}
 
-	migrationConfigCopy := *clusterMigrationConfiguration
-	isUpdated, err := matchedPolicy.GetMigrationConfByPolicy(&migrationConfigCopy)
+	isUpdated, err := matchedPolicy.GetMigrationConfByPolicy(clusterMigrationConfiguration)
 	if err != nil {
 		return err
 	}
 
 	if isUpdated {
 		vmi.Status.MigrationState.MigrationPolicyName = &matchedPolicy.Name
-		vmi.Status.MigrationState.MigrationConfiguration = &migrationConfigCopy
+		vmi.Status.MigrationState.MigrationConfiguration = clusterMigrationConfiguration
 		log.Log.Object(vmi).Infof("migration is updated by migration policy named %s.", matchedPolicy.Name)
 	}
 
