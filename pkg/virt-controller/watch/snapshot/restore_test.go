@@ -6,18 +6,17 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -56,6 +55,7 @@ var _ = Describe("Restore controlleer", func() {
 				Namespace: testNamespace,
 				UID:       uid,
 			},
+			Status: &snapshotv1.VirtualMachineRestoreStatus{},
 			Spec: snapshotv1.VirtualMachineRestoreSpec{
 				Target: corev1.TypedLocalObjectReference{
 					APIGroup: &vmAPIGroup,
@@ -354,27 +354,6 @@ var _ = Describe("Restore controlleer", func() {
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
 			})
 
-			It("should error if different source UID", func() {
-				r := createRestoreWithOwner()
-				vm := createModifiedVM()
-				vm.UID = types.UID("foobar")
-				rc := r.DeepCopy()
-				rc.ResourceVersion = "1"
-				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: &f,
-					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionFalse, "VMSnapshot source and restore target differ"),
-						newReadyCondition(corev1.ConditionFalse, "VMSnapshot source and restore target differ"),
-					},
-				}
-				vmSource.Add(vm)
-				expectUpdateVMRestoreInProgress(vm)
-				expectVMRestoreUpdate(kubevirtClient, rc)
-				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
-				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
-			})
-
 			It("should update restore status, initializing conditions and add owner", func() {
 				r := createRestoreWithOwner()
 				refs := r.OwnerReferences
@@ -637,6 +616,94 @@ var _ = Describe("Restore controlleer", func() {
 				vmInterface.EXPECT().UpdateStatus(updatedVM).Return(updatedVM, nil)
 				controller.processVMRestoreWorkItem()
 			})
+
+			Context("target VM is different than source VM", func() {
+
+				It("should be able to restore to a new VM", func() {
+					By("Creating new VM")
+					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM.Status.RestoreInProgress = &vmRestoreName
+					newVM.UID = "new-vm-uid"
+					vmSource.Add(newVM)
+
+					By("Creating VM restore")
+					vmRestore := createRestoreWithOwner()
+					vmRestore.Spec.Target.Name = newVM.Name
+					addVolumeRestores(vmRestore)
+					addVirtualMachineRestore(vmRestore)
+
+					By("Creating PVC")
+					for _, pvc := range getRestorePVCs(vmRestore) {
+						pvc.Status.Phase = corev1.ClaimBound
+						addPVC(&pvc)
+					}
+
+					Expect(vmRestore.Status.Restores).To(HaveLen(1))
+					vmRestore.Status.Restores[0].DataVolumeName = pointer.String(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName))
+					expectPVCUpdates(k8sClient, vmRestore)
+
+					By("Making sure right VM update occurs")
+					updatedVM := newVM.DeepCopy()
+					updatedVM.Spec.DataVolumeTemplates[0].Name = *vmRestore.Status.Restores[0].DataVolumeName
+					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = *vmRestore.Status.Restores[0].DataVolumeName
+					updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
+					updatedVM.ResourceVersion = "1"
+
+					vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil)
+
+					By("Making sure right VMRestore update occurs")
+					updatedVMRestore := vmRestore.DeepCopy()
+					updatedVMRestore.Status.Conditions = []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
+					}
+					updatedVMRestore.ResourceVersion = "1"
+
+					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+
+					By("Running the controller")
+					controller.processVMRestoreWorkItem()
+				})
+
+				It("should define owner reference properly", func() {
+					By("Creating new VM")
+					newVM := createVirtualMachine(testNamespace, "new-test-vm")
+					newVM.Status.RestoreInProgress = &vmRestoreName
+					newVM.UID = "new-vm-uid"
+					vmSource.Add(newVM)
+
+					By("Creating VM restore")
+					vmRestore := createRestore()
+					vmRestore.Spec.Target.Name = newVM.Name
+					addVolumeRestores(vmRestore)
+					addVirtualMachineRestore(vmRestore)
+
+					By("Making sure right VMRestore update occurs")
+					updatedVMRestore := vmRestore.DeepCopy()
+					updatedVMRestore.Status.Conditions = []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
+						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
+					}
+					updatedVMRestore.ResourceVersion = "1"
+					updatedVMRestore.OwnerReferences = []metav1.OwnerReference{
+						{
+							APIVersion:         v1.GroupVersion.String(),
+							Kind:               "VirtualMachine",
+							Name:               newVM.Name,
+							UID:                newVM.UID,
+							Controller:         pointer.BoolPtr(true),
+							BlockOwnerDeletion: pointer.BoolPtr(true),
+						},
+					}
+
+					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
+
+					By("Running the controller")
+					controller.processVMRestoreWorkItem()
+				})
+
+			})
+
 		})
 	})
 })
