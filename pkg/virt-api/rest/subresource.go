@@ -569,7 +569,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	// RunStrategyHalted         -> doesn't make sense
 	// RunStrategyManual         -> send stop request
 	// RunStrategyAlways         -> spec.running = false
-	// RunStrategyRerunOnFailure -> spec.running = false
+	// RunStrategyRerunOnFailure -> send stop request
 	// RunStrategyOnce           -> spec.running = false
 
 	name := request.PathParameter("name")
@@ -628,13 +628,13 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		}
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted)), response)
 		return
-	case v1.RunStrategyManual:
+	case v1.RunStrategyManual, v1.RunStrategyRerunOnFailure:
 		if !hasVMI || vmi.IsFinal() {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
 			return
 		}
 		// pass the buck and ask virt-controller to stop the VM. this way the
-		// VM will retain RunStrategy = manual
+		// VM will retain RunStrategy = manual or RerunOnFalilure
 		patchType = types.JSONPatchType
 		bodyString, err := getChangeRequestJson(vm,
 			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
@@ -644,7 +644,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
 		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
-	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways, v1.RunStrategyOnce:
+	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
 		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
