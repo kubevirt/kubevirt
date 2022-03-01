@@ -395,6 +395,34 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(r2)
 				deleteRestore(restore)
 			})
+
+			It("should successfully restore to a different VM", func() {
+				By("Creating a new VM")
+				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
+				newVM := tests.NewRandomVirtualMachine(newVMI, false)
+				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
+				Expect(err).ToNot(HaveOccurred())
+				defer deleteVM(newVM)
+
+				By("Creating a VM restore")
+				restore := createRestoreDef(newVM, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				defer deleteRestore(restore)
+
+				By("Waiting for VM restore to complete")
+				restore = waitRestoreComplete(restore, newVM)
+				Expect(restore.Status.Restores).To(HaveLen(0))
+				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+
+				By("Verifying that old and new VM specs are equal")
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Expect(vm.Spec).To(Equal(newVM.Spec))
+			})
 		})
 	})
 
