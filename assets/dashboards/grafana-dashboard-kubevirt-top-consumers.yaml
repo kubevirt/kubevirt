@@ -4,11 +4,20 @@ data:
     {
       "annotations": {
         "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
         ]
       },
       "editable": true,
       "gnetId": null,
-      "graphTooltip": 2,
+      "graphTooltip": 0,
       "id": 1,
       "iteration": 1628598301477,
       "links": [],
@@ -24,6 +33,7 @@ data:
           },
           "id": 44,
           "panels": [],
+          "repeat": null,
           "title": "Top Consumers",
           "type": "row"
         },
@@ -34,39 +44,20 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "$datasource",
-          "description": "",
           "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
+            "defaults": {},
             "overrides": []
           },
           "fill": 1,
           "fontSize": "100%",
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 0,
             "y": 1
           },
-          "id": 39,
+          "id": 45,
+          "interval": "1m",
           "legend": {
             "avg": false,
             "current": false,
@@ -80,12 +71,10 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
+          "options": [],
           "pageSize": null,
           "percentage": false,
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "7.5.11",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -137,7 +126,7 @@ data:
               "unit": "short"
             },
             {
-              "alias": "Memory Swap Traffic",
+              "alias": "Memory Usage",
               "align": "auto",
               "colorMode": null,
               "colors": [],
@@ -166,7 +155,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_memory_swap_in_traffic_bytes_total[$period]) + rate(kubevirt_vmi_memory_swap_out_traffic_bytes_total[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum (avg_over_time(kubevirt_vmi_memory_available_bytes[$period]) - avg_over_time(kubevirt_vmi_memory_usable_bytes[$period]))by(name, namespace)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -179,7 +168,7 @@ data:
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Top Consumers of Memory Swap Traffic",
+          "title": "Top Consumers of Memory",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -220,224 +209,20 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "$datasource",
-          "description": "",
           "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
+            "defaults": {},
             "overrides": []
           },
           "fill": 1,
           "fontSize": "100%",
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 12,
             "y": 1
           },
-          "id": 40,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
-          "pageSize": null,
-          "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "showHeader": true,
-          "sort": {
-            "col": 3,
-            "desc": true
-          },
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "styles": [
-            {
-              "alias": "Time",
-              "align": "auto",
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "pattern": "Time",
-              "type": "hidden"
-            },
-            {
-              "alias": "Namespace",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "link": false,
-              "linkTooltip": "",
-              "linkUrl": "",
-              "pattern": "namespace",
-              "thresholds": [],
-              "type": "string",
-              "unit": "short"
-            },
-            {
-              "alias": "Virtual Machine",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "link": false,
-              "linkTooltip": "Drill down",
-              "linkUrl": "",
-              "pattern": "name",
-              "thresholds": [],
-              "type": "string",
-              "unit": "short"
-            },
-            {
-              "alias": "vCPU Wait Time",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "link": false,
-              "linkTooltip": "Drill down",
-              "linkUrl": "",
-              "pattern": "Value #A",
-              "thresholds": [],
-              "type": "number",
-              "unit": "s"
-            },
-            {
-              "alias": "",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "pattern": "/.*/",
-              "thresholds": [],
-              "type": "string",
-              "unit": "short"
-            }
-          ],
-          "targets": [
-            {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_vcpu_wait_seconds[$period])) by (namespace, name))) >0",
-              "format": "table",
-              "instant": true,
-              "interval": "",
-              "intervalFactor": 2,
-              "legendFormat": "",
-              "refId": "A",
-              "step": 10
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Top Consumers of vCPU Wait",
-          "tooltip": {
-            "shared": false,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "transform": "table",
-          "type": "table",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": false
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "columns": [],
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "$datasource",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fontSize": "100%",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 9
-          },
           "id": 35,
+          "interval": "1m",
           "legend": {
             "avg": false,
             "current": false,
@@ -451,12 +236,10 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
+          "options": [],
           "pageSize": null,
           "percentage": false,
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "7.5.11",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -593,223 +376,19 @@ data:
           "dashes": false,
           "datasource": "$datasource",
           "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
+            "defaults": {},
             "overrides": []
           },
           "fill": 1,
           "fontSize": "100%",
           "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 9
-          },
-          "id": 36,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
-          "pageSize": null,
-          "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "showHeader": true,
-          "sort": {
-            "col": 3,
-            "desc": true
-          },
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "styles": [
-            {
-              "alias": "Time",
-              "align": "auto",
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "pattern": "Time",
-              "type": "hidden"
-            },
-            {
-              "alias": "Namespace",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "link": false,
-              "linkTooltip": "",
-              "linkUrl": "",
-              "pattern": "namespace",
-              "thresholds": [],
-              "type": "string",
-              "unit": "short"
-            },
-            {
-              "alias": "Virtual Machine",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "link": false,
-              "linkTooltip": "Drill down",
-              "linkUrl": "",
-              "pattern": "name",
-              "thresholds": [],
-              "type": "string",
-              "unit": "short"
-            },
-            {
-              "alias": "Network Traffic Usage",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "link": false,
-              "linkTooltip": "Drill down",
-              "linkUrl": "",
-              "pattern": "Value #A",
-              "thresholds": [],
-              "type": "number",
-              "unit": "bytes"
-            },
-            {
-              "alias": "",
-              "align": "auto",
-              "colorMode": null,
-              "colors": [],
-              "dateFormat": "YYYY-MM-DD HH:mm:ss",
-              "decimals": 2,
-              "pattern": "/.*/",
-              "thresholds": [],
-              "type": "string",
-              "unit": "short"
-            }
-          ],
-          "targets": [
-            {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_network_receive_bytes_total[$period]) + rate(kubevirt_vmi_network_transmit_bytes_total[$period])) by (namespace, name)))>0",
-              "format": "table",
-              "instant": true,
-              "interval": "",
-              "intervalFactor": 2,
-              "legendFormat": "",
-              "refId": "A",
-              "step": 10
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Top Consumers of Network Traffic",
-          "tooltip": {
-            "shared": false,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "transform": "table",
-          "type": "table",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": false
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "columns": [],
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "$datasource",
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fontSize": "100%",
-          "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 9
           },
           "id": 37,
+          "interval": "1m",
           "legend": {
             "avg": false,
             "current": false,
@@ -823,12 +402,10 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
+          "options": [],
           "pageSize": null,
           "percentage": false,
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "7.5.11",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -963,39 +540,20 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "$datasource",
-          "description": "",
           "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
+            "defaults": {},
             "overrides": []
           },
           "fill": 1,
           "fontSize": "100%",
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 9
           },
           "id": 38,
+          "interval": "1m",
           "legend": {
             "avg": false,
             "current": false,
@@ -1009,12 +567,10 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
+          "options": [],
           "pageSize": null,
           "percentage": false,
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "7.5.11",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1149,39 +705,20 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "$datasource",
-          "description": "",
           "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": null,
-                "filterable": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
+            "defaults": {},
             "overrides": []
           },
           "fill": 1,
           "fontSize": "100%",
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 0,
-            "y": 25
+            "y": 17
           },
-          "id": 45,
+          "id": 36,
+          "interval": "1m",
           "legend": {
             "avg": false,
             "current": false,
@@ -1195,12 +732,10 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null as zero",
-          "options": {
-            "showHeader": true
-          },
+          "options": [],
           "pageSize": null,
           "percentage": false,
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "7.5.11",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1237,7 +772,7 @@ data:
               "unit": "short"
             },
             {
-              "alias": "virt-launcher Pod",
+              "alias": "Virtual Machine",
               "align": "auto",
               "colorMode": null,
               "colors": [],
@@ -1246,13 +781,13 @@ data:
               "link": false,
               "linkTooltip": "Drill down",
               "linkUrl": "",
-              "pattern": "pod",
+              "pattern": "name",
               "thresholds": [],
               "type": "string",
               "unit": "short"
             },
             {
-              "alias": "Memory Usage",
+              "alias": "Network Traffic Usage",
               "align": "auto",
               "colorMode": null,
               "colors": [],
@@ -1281,7 +816,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}[$period])) by (namespace, pod)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_network_receive_bytes_total[$period]) + rate(kubevirt_vmi_network_transmit_bytes_total[$period])) by (namespace, name)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -1294,7 +829,337 @@ data:
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Top Consumers of Memory",
+          "title": "Top Consumers of Network Traffic",
+          "tooltip": {
+            "shared": false,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "transform": "table",
+          "type": "table",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "columns": [],
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$datasource",
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "fill": 1,
+          "fontSize": "100%",
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 17
+          },
+          "id": 40,
+          "interval": "1m",
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null as zero",
+          "options": [],
+          "pageSize": null,
+          "percentage": false,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "showHeader": true,
+          "sort": {
+            "col": 3,
+            "desc": true
+          },
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "styles": [
+            {
+              "alias": "Time",
+              "align": "auto",
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "pattern": "Time",
+              "type": "hidden"
+            },
+            {
+              "alias": "Namespace",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "link": false,
+              "linkTooltip": "",
+              "linkUrl": "",
+              "pattern": "namespace",
+              "thresholds": [],
+              "type": "string",
+              "unit": "short"
+            },
+            {
+              "alias": "Virtual Machine",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "link": false,
+              "linkTooltip": "Drill down",
+              "linkUrl": "",
+              "pattern": "name",
+              "thresholds": [],
+              "type": "string",
+              "unit": "short"
+            },
+            {
+              "alias": "vCPU Wait Time",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "link": false,
+              "linkTooltip": "Drill down",
+              "linkUrl": "",
+              "pattern": "Value #A",
+              "thresholds": [],
+              "type": "number",
+              "unit": "s"
+            },
+            {
+              "alias": "",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "pattern": "/.*/",
+              "thresholds": [],
+              "type": "string",
+              "unit": "short"
+            }
+          ],
+          "targets": [
+            {
+              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_vcpu_wait_seconds[$period])) by (namespace, name)))>0",
+              "format": "table",
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
+              "refId": "A",
+              "step": 10
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Top Consumers of vCPU Wait",
+          "tooltip": {
+            "shared": false,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "transform": "table",
+          "type": "table",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "columns": [],
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$datasource",
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "fill": 1,
+          "fontSize": "100%",
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 25
+          },
+          "id": 39,
+          "interval": "1m",
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null as zero",
+          "options": [],
+          "pageSize": null,
+          "percentage": false,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "showHeader": true,
+          "sort": {
+            "col": 3,
+            "desc": true
+          },
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "styles": [
+            {
+              "alias": "Time",
+              "align": "auto",
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "pattern": "Time",
+              "type": "hidden"
+            },
+            {
+              "alias": "Namespace",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "link": false,
+              "linkTooltip": "",
+              "linkUrl": "",
+              "pattern": "namespace",
+              "thresholds": [],
+              "type": "string",
+              "unit": "short"
+            },
+            {
+              "alias": "Virtual Machine",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "link": false,
+              "linkTooltip": "Drill down",
+              "linkUrl": "",
+              "pattern": "name",
+              "thresholds": [],
+              "type": "string",
+              "unit": "short"
+            },
+            {
+              "alias": "Memory Swap Traffic",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "link": false,
+              "linkTooltip": "Drill down",
+              "linkUrl": "",
+              "pattern": "Value #A",
+              "thresholds": [],
+              "type": "number",
+              "unit": "bytes"
+            },
+            {
+              "alias": "",
+              "align": "auto",
+              "colorMode": null,
+              "colors": [],
+              "dateFormat": "YYYY-MM-DD HH:mm:ss",
+              "decimals": 2,
+              "pattern": "/.*/",
+              "thresholds": [],
+              "type": "string",
+              "unit": "short"
+            }
+          ],
+          "targets": [
+            {
+              "expr": "sort_desc(topk(5, sum(avg_over_time(kubevirt_vmi_memory_swap_in_traffic_bytes_total[$period]) + avg_over_time(kubevirt_vmi_memory_swap_out_traffic_bytes_total[$period])) by (namespace, name)))>0",
+              "format": "table",
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
+              "refId": "A",
+              "step": 10
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Top Consumers of Memory Swap Traffic",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -1335,11 +1200,12 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 33
+            "y": 26
           },
           "id": 42,
           "panels": [],
-          "title": "Top Consumers of Memory",
+          "repeat": null,
+          "title": "Top Consumers Over Time",
           "type": "row"
         },
         {
@@ -1348,8 +1214,6 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "$datasource",
-          "decimals": 2,
-          "description": "",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1359,37 +1223,32 @@ data:
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 24,
             "x": 0,
-            "y": 34
+            "y": 30
           },
           "hiddenSeries": false,
-          "id": 23,
+          "id": 46,
+          "interval": "1m",
           "legend": {
-            "alignAsTable": false,
+            "alignAsTable": true,
             "avg": false,
             "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
             "max": false,
             "min": false,
-            "rightSide": false,
+            "rightSide": true,
             "show": true,
-            "sideWidth": null,
             "total": false,
             "values": false
           },
           "lines": true,
           "linewidth": 1,
           "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
+          "options": [],
           "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
@@ -1398,7 +1257,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sort_desc(sum(irate(kubevirt_vmi_memory_swap_in_traffic_bytes_total{}[$__rate_interval]) + irate(kubevirt_vmi_memory_swap_out_traffic_bytes_total{}[$__rate_interval])) by (name, namespace))>0",
+              "expr": "sort_desc(topk(5, sum (avg_over_time(kubevirt_vmi_memory_available_bytes[$__rate_interval]) - avg_over_time(kubevirt_vmi_memory_usable_bytes[$__rate_interval]))by(name, namespace)))>0",
               "format": "time_series",
               "instant": false,
               "interval": "",
@@ -1410,7 +1269,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Memory Swap Traffic by Virtual Machines",
+          "title": "Memory Usage by Virtual Machines",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -1436,109 +1295,6 @@ data:
               "show": true
             },
             {
-              "decimals": 2,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "$datasource",
-          "decimals": 2,
-          "fieldConfig": {
-            "defaults": {
-              "custom": {}
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 7,
-            "w": 24,
-            "x": 0,
-            "y": 42
-          },
-          "hiddenSeries": false,
-          "id": 25,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
-          "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "sort_desc(sum(irate(kubevirt_vmi_vcpu_wait_seconds{}[$__rate_interval])) by (name, namespace))>0",
-              "format": "time_series",
-              "interval": "",
-              "legendFormat": "{name}} / {{namespace}}",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "vCPU Wait by Virtual Machines",
-          "tooltip": {
-            "shared": false,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "s",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
               "format": "short",
               "label": null,
               "logBase": 1,
@@ -1568,38 +1324,32 @@ data:
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 24,
             "x": 0,
-            "y": 49
+            "y": 37
           },
           "hiddenSeries": false,
           "id": 19,
+          "interval": "1m",
           "legend": {
-            "alignAsTable": false,
+            "alignAsTable": true,
             "avg": false,
             "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
             "max": false,
             "min": false,
-            "rightSide": false,
+            "rightSide": true,
             "show": true,
-            "sort": "current",
-            "sortDesc": true,
             "total": false,
             "values": false
           },
           "lines": true,
           "linewidth": 1,
           "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
+          "options": [],
           "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
@@ -1666,110 +1416,6 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "$datasource",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {}
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 57
-          },
-          "hiddenSeries": false,
-          "id": 29,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
-          "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "sort_desc(sum(irate(kubevirt_vmi_network_receive_bytes_total[$__rate_interval]) + irate(kubevirt_vmi_network_transmit_bytes_total[$__rate_interval])) by (namespace, name))>0",
-              "format": "time_series",
-              "instant": false,
-              "interval": "",
-              "legendFormat": "{{name}} / {{namespace}}",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Network Traffic by Virtual Machines",
-          "tooltip": {
-            "shared": false,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "transform": "table",
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "decimals": 2,
-              "format": "bytes",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "$datasource",
           "description": "",
           "fieldConfig": {
             "defaults": {
@@ -1783,35 +1429,29 @@ data:
             "h": 7,
             "w": 24,
             "x": 0,
-            "y": 65
+            "y": 44
           },
           "hiddenSeries": false,
           "id": 30,
+          "interval": "1m",
           "legend": {
-            "alignAsTable": false,
+            "alignAsTable": true,
             "avg": false,
             "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
             "max": false,
             "min": false,
-            "rightSide": false,
+            "rightSide": true,
             "show": true,
-            "sort": "avg",
-            "sortDesc": true,
             "total": false,
             "values": false
           },
           "lines": true,
           "linewidth": 1,
           "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
+          "options": [],
           "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
@@ -1889,38 +1529,32 @@ data:
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 24,
             "x": 0,
-            "y": 72
+            "y": 51
           },
           "hiddenSeries": false,
           "id": 33,
+          "interval": "1m",
           "legend": {
-            "alignAsTable": false,
+            "alignAsTable": true,
             "avg": false,
             "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
             "max": false,
             "min": false,
-            "rightSide": false,
+            "rightSide": true,
             "show": true,
-            "sort": "current",
-            "sortDesc": true,
             "total": false,
             "values": false
           },
           "lines": true,
           "linewidth": 1,
           "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
+          "options": [],
           "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
@@ -1929,7 +1563,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sort_desc(sum(irate(kubevirt_vmi_storage_iops_read_total[$__rate_interval])+ irate(kubevirt_vmi_storage_iops_write_total[$__rate_interval])) by (name, namespace))>0",
+              "expr": "sort_desc(sum(irate(kubevirt_vmi_storage_iops_read_total[$__rate_interval]) + irate(kubevirt_vmi_storage_iops_write_total[$__rate_interval])) by (name, namespace))>0",
               "format": "time_series",
               "instant": false,
               "interval": "",
@@ -1995,22 +1629,21 @@ data:
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 24,
             "x": 0,
-            "y": 80
+            "y": 58
           },
           "hiddenSeries": false,
-          "id": 46,
+          "id": 29,
+          "interval": "1m",
           "legend": {
-            "alignAsTable": false,
+            "alignAsTable": true,
             "avg": false,
             "current": false,
-            "hideEmpty": true,
-            "hideZero": true,
             "max": false,
             "min": false,
-            "rightSide": false,
+            "rightSide": true,
             "show": true,
             "total": false,
             "values": false
@@ -2018,13 +1651,10 @@ data:
           "lines": true,
           "linewidth": 1,
           "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true,
-            "dataLinks": []
-          },
+          "options": [],
           "percentage": false,
-          "pluginVersion": "7.3.6",
-          "pointradius": 2,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
@@ -2033,11 +1663,11 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sort_desc(sum(irate(container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}[$__rate_interval])) by (namespace, pod))>0",
+              "expr": "sort_desc(sum(irate(kubevirt_vmi_network_receive_bytes_total[$__rate_interval]) + irate(kubevirt_vmi_network_transmit_bytes_total[$__rate_interval])) by (namespace, name))>0",
               "format": "time_series",
               "instant": false,
               "interval": "",
-              "legendFormat": "{{pod}} / {{namespace}}",
+              "legendFormat": "{{name}} / {{namespace}}",
               "refId": "A"
             }
           ],
@@ -2045,7 +1675,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Memory Usage by virt-launcher Pods",
+          "title": "Network Traffic by Virtual Machines",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -2071,6 +1701,207 @@ data:
               "show": true
             },
             {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$datasource",
+          "decimals": 2,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 65
+          },
+          "hiddenSeries": false,
+          "id": 25,
+          "interval": "1m",
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": [],
+          "percentage": false,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sort_desc(sum(irate(kubevirt_vmi_vcpu_wait_seconds{}[$__rate_interval])) by (name, namespace))>0",
+              "format": "time_series",
+              "interval": "",
+              "legendFormat": "{{name}} / {{namespace}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "vCPU Wait by Virtual Machines",
+          "tooltip": {
+            "shared": false,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$datasource",
+          "decimals": 2,
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 72
+          },
+          "hiddenSeries": false,
+          "id": 23,
+          "interval": "1m",
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": [],
+          "percentage": false,
+          "pluginVersion": "7.5.11",
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sort_desc(sum(avg_over_time(kubevirt_vmi_memory_swap_in_traffic_bytes_total{}[$__rate_interval]) + avg_over_time(kubevirt_vmi_memory_swap_out_traffic_bytes_total{}[$__rate_interval])) by (name, namespace))>0",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "legendFormat": "{{name}} / {{namespace}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Memory Swap Traffic by Virtual Machines",
+          "tooltip": {
+            "shared": false,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "transform": "table",
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "decimals": 2,
+              "format": "bytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": 2,
               "format": "short",
               "label": null,
               "logBase": 1,
