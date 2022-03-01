@@ -73,6 +73,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"fsFreezeStatus":                "FSFreezeStatus is the state of the fs of the guest\nit can be either frozen or thawed\n+optional",
 		"topologyHints":                 "+optional",
 		"virtualMachineRevisionName":    "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing\nan online vm snapshot\n+optional",
+		"runtimeUser":                   "RuntimeUser is used to determine what user will be used in launcher\n+optional",
 	}
 }
 

@@ -21375,6 +21375,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Format:      "",
 						},
 					},
+					"runtimeUser": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RuntimeUser is used to determine what user will be used in launcher",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 			},
 		},

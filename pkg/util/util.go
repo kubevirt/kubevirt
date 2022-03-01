@@ -26,8 +26,10 @@ const NonRootUserString = "qemu"
 const RootUser = 0
 
 func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
-	_, ok := vmi.Annotations[v1.NonRootVMIAnnotation]
-	return ok
+	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]
+
+	nonRoot := vmi.Status.RuntimeUser != 0
+	return ok || nonRoot
 }
 
 func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
@@ -181,8 +183,5 @@ func CanBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 }
 
 func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
-	if vmi.ObjectMeta.Annotations == nil {
-		vmi.ObjectMeta.Annotations = make(map[string]string)
-	}
-	vmi.ObjectMeta.Annotations[v1.NonRootVMIAnnotation] = ""
+	vmi.Status.RuntimeUser = 107
 }

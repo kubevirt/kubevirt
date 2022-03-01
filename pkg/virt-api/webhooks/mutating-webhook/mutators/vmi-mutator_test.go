@@ -932,9 +932,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 
 		It("Should tag vmi as non-root ", func() {
-			meta, _, _ := getMetaSpecStatusFromAdmit()
-			Expect(meta.Annotations).NotTo(BeNil())
-			Expect(meta.Annotations).To(HaveKeyWithValue("kubevirt.io/nonroot", ""))
+			_, _, status := getMetaSpecStatusFromAdmit()
+			Expect(status.RuntimeUser).NotTo(BeZero())
 		})
 
 		It("Should reject VirtioFS vmi", func() {

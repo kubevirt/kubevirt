@@ -157,7 +157,7 @@ var _ = Describe("Template", func() {
 
 		newMinimalWithContainerDisk := func(name string) *v1.VirtualMachineInstance {
 			vmi := api.NewMinimalVMI(name)
-			vmi.Annotations = map[string]string{v1.NonRootVMIAnnotation: ""}
+			vmi.Annotations = map[string]string{v1.DeprecatedNonRootVMIAnnotation: ""}
 
 			volumes := []v1.Volume{
 				{

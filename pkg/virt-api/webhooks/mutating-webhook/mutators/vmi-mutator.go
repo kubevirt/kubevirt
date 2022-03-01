@@ -146,9 +146,9 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 						Code:    http.StatusUnprocessableEntity,
 					},
 				}
-			} else {
-				util.MarkAsNonroot(newVMI)
 			}
+
+			util.MarkAsNonroot(newVMI)
 		}
 
 		var value interface{}

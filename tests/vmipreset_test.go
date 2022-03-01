@@ -36,12 +36,10 @@ import (
 
 	"kubevirt.io/api/core"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -379,11 +377,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
-			if checks.HasFeature(virtconfig.NonRoot) {
-				Expect(newVmi.Annotations).To(Equal(map[string]string{"kubevirt.io/nonroot": ""}))
-			} else {
-				Expect(newVmi.Annotations).To(BeNil())
-			}
+			Expect(newVmi.Annotations).To(BeNil())
 
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())
