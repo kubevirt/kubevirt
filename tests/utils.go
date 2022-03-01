@@ -4464,3 +4464,35 @@ func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod
 func PrepareMetricsURL(ip string, port int) string {
 	return fmt.Sprintf("https://%s/metrics", net.JoinHostPort(ip, strconv.Itoa(port)))
 }
+
+func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
+	runStrategyAlways := v1.RunStrategyAlways
+	By("Starting the VirtualMachine")
+
+	Eventually(func() error {
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		updatedVM.Spec.Running = nil
+		updatedVM.Spec.RunStrategy = &runStrategyAlways
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+		return err
+	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	// Observe the VirtualMachineInstance created
+	Eventually(func() error {
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		return err
+	}, 300*time.Second, 1*time.Second).Should(Succeed())
+
+	By("VMI has the running condition")
+	Eventually(func() bool {
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vm.Status.Ready
+	}, 300*time.Second, 1*time.Second).Should(BeTrue())
+
+	return updatedVM
+}

@@ -422,6 +422,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				Expect(vm.Spec).To(Equal(newVM.Spec))
+
+				By("Making sure new VM is runnable")
+				tests.StartVMAndExpectRunning(virtClient, vm)
 			})
 		})
 	})
