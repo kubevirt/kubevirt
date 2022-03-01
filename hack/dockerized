@@ -12,7 +12,7 @@ fi
 
 fail_if_cri_bin_missing
 
-KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2202010936-905b3aae5"
+KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2203011706-a6a84d038"
 
 SYNC_OUT=${SYNC_OUT:-true}
 

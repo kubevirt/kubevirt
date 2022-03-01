@@ -96,7 +96,7 @@ RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
-    git checkout fd0699b906b0593a33ba2bddd3b1ae8822f42dd8 && \
+    git checkout f2693aba912dd40c974304caca999d45ee8dce33 && \
     cd /test-infra/robots/pr-creator && \
     go install && \
     cd /test-infra/robots/issue-creator && \
