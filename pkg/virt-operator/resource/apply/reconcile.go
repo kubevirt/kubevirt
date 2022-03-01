@@ -108,7 +108,7 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 }
 
 const (
-	kubernetesOSLabel = "kubernetes.io/os"
+	kubernetesOSLabel = corev1.LabelOSStable
 	kubernetesOSLinux = "linux"
 )
 
