@@ -21,6 +21,13 @@ EOF
             mkdir -p ${dir}
             cp -f ${f} ${dir}/test.log
         done
+
+        # TODO remove
+        for f in $(find bazel-testlogs/ -name 'test.xml' -printf "%p "); do
+            dir=${ARTIFACTS}/xmls/$(dirname $f)
+            mkdir -p ${dir}
+            cp -f ${f} ${dir}/test.xml
+        done
     }
     trap collect_results EXIT
 fi
