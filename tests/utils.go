@@ -3456,6 +3456,20 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
+	kv := util2.GetCurrentKv(virtClient)
+	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *(kv.Spec.Infra.Replicas) == 1 {
+		Skip("Skip multi-replica test on single-replica deployments")
+	}
+}
+
+func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
+	kv := util2.GetCurrentKv(virtClient)
+	if kv.Spec.Infra == nil || kv.Spec.Infra.Replicas == nil || *(kv.Spec.Infra.Replicas) > 1 {
+		Skip("Skip single-replica test on multi-replica deployments")
+	}
+}
+
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 
