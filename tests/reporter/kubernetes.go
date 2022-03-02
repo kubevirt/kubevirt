@@ -18,8 +18,7 @@ import (
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	expect "github.com/google/goexpect"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/config"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,10 +62,6 @@ const (
 	networkAttachmentDefinitionEntity = "network-attachment-definitions"
 )
 
-type JustAfterEachReporter interface {
-	JustAfterEach(specSummary ginkgo.GinkgoTestDescription)
-}
-
 type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
@@ -86,25 +81,15 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 	}
 }
 
-func (r *KubernetesReporter) SpecSuiteWillBegin(_ config.GinkgoConfigType, _ *types.SuiteSummary) {
-
+func (r *KubernetesReporter) JustBeforeEach(specReport types.SpecReport) {
+	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
 }
 
-func (r *KubernetesReporter) BeforeSuiteDidRun(_ *types.SetupSummary) {
-	r.Cleanup()
-}
-
-func (r *KubernetesReporter) SpecWillRun(_ *types.SpecSummary) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
-}
-
-func (r *KubernetesReporter) SpecDidComplete(_ *types.SpecSummary) {}
-
-func (r *KubernetesReporter) JustAfterEach(specSummary ginkgo.GinkgoTestDescription) {
+func (r *KubernetesReporter) JustAfterEach(specReport types.SpecReport) {
 	if r.failureCount > r.maxFails {
 		return
 	}
-	if specSummary.Failed {
+	if specReport.Failed() {
 		r.failureCount++
 	} else {
 		return
@@ -114,7 +99,7 @@ func (r *KubernetesReporter) JustAfterEach(specSummary ginkgo.GinkgoTestDescript
 	if r.artifactsDir == "" {
 		return
 	}
-	r.DumpTestNamespaces(specSummary.Duration)
+	r.DumpTestNamespaces(specReport.RunTime)
 }
 
 func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {
@@ -987,14 +972,10 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 }
 
 func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
-	if setupSummary.State.IsFailure() {
+	if setupSummary.State.Is(types.SpecStateFailureStates) {
 		r.failureCount++
 		r.DumpTestNamespaces(setupSummary.RunTime)
 	}
-}
-
-func (r *KubernetesReporter) SpecSuiteDidEnd(_ *types.SuiteSummary) {
-
 }
 
 func (r *KubernetesReporter) logClusterOverview() {
