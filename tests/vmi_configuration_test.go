@@ -241,7 +241,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("100M"),
 					},
 				}
 
@@ -260,7 +260,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}, 15)).To(Succeed(), "should report number of cores")
 
 				By("Checking the requested amount of memory allocated for a guest")
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("100M"))
 
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				var computeContainer *kubev1.Container
@@ -273,7 +273,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				if computeContainer == nil {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(260)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(296)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -303,7 +303,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("80M"),
+						kubev1.ResourceMemory: resource.MustParse("120M"),
 					},
 				}
 
@@ -327,7 +327,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("1200m"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("100M"),
 					},
 				}
 
@@ -350,7 +350,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("100M"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1200m"),
@@ -599,7 +599,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("236")},
+					&expect.BExp{R: console.RetValue("225")},
 				}, 10)).To(Succeed())
 
 			})
@@ -619,7 +619,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("236")},
+					&expect.BExp{R: console.RetValue("225")},
 				}, 10)).To(Succeed())
 
 			})
