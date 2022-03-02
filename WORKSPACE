@@ -87,46 +87,41 @@ http_archive(
 # Disk images
 http_file(
     name = "alpine_image",
-    sha256 = "5a4b2588afd32e7024dd61d9558b77b03a4f3189cb4c9fc05e9e944fb780acdd",
+    sha256 = "e97eaedb3bff39a081d1d7e67629d5c0e8fb39677d6a9dd1eaf2752e39061e02",
     urls = [
-        "http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso",
-        "https://storage.googleapis.com/builddeps/5a4b2588afd32e7024dd61d9558b77b03a4f3189cb4c9fc05e9e944fb780acdd",
+        "https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-virt-3.15.0-x86_64.iso",
     ],
 )
 
 http_file(
     name = "alpine_image_aarch64",
-    sha256 = "1a37be6e94bf2e102e9997c3c5bd433787299640a42d3df1597fd9dc5e1a81c7",
+    sha256 = "f302cf1b2dbbd0661b8f53b167f24131c781b86ab3ae059654db05cd62d3c39c",
     urls = [
-        "http://dl-cdn.alpinelinux.org/alpine/v3.11/releases/aarch64/alpine-virt-3.11.5-aarch64.iso",
-        "https://storage.googleapis.com/builddeps/1a37be6e94bf2e102e9997c3c5bd433787299640a42d3df1597fd9dc5e1a81c7",
+        "https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/aarch64/alpine-virt-3.15.0-aarch64.iso",
     ],
 )
 
 http_file(
     name = "cirros_image",
-    sha256 = "a8dd75ecffd4cdd96072d60c2237b448e0c8b2bc94d57f10fdbc8c481d9005b8",
+    sha256 = "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
     urls = [
-        "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img",
-        "https://storage.googleapis.com/builddeps/a8dd75ecffd4cdd96072d60c2237b448e0c8b2bc94d57f10fdbc8c481d9005b8",
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img",
     ],
 )
 
 http_file(
     name = "cirros_image_aarch64",
-    sha256 = "46c4bd31c1b39152bafe3265c8e3551dd6bc672dfee6713dc736f5e20a348e63",
+    sha256 = "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629",
     urls = [
-        "https://download.cirros-cloud.net/0.5.0/cirros-0.5.0-aarch64-disk.img",
-        "https://storage.googleapis.com/builddeps/46c4bd31c1b39152bafe3265c8e3551dd6bc672dfee6713dc736f5e20a348e63",
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img",
     ],
 )
 
 http_file(
     name = "microlivecd_image",
-    sha256 = "ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
+    sha256 = "4f50fb32adb5355259101432da0235f8fc65843e3f324626243fcd59799a73c1",
     urls = [
-        "https://github.com/jean-edouard/microlivecd/releases/download/0.1/microlivecd_amd64.iso",
-        "https://storage.googleapis.com/builddeps/ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
+        "https://github.com/jean-edouard/microlivecd/releases/download/0.2/microlivecd_amd64.iso",
     ],
 )
 
