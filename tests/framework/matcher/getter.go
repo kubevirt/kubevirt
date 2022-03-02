@@ -29,6 +29,8 @@ func ThisPodWith(namespace string, name string) func() (*v1.Pod, error) {
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "Pod"
 		return
 	}
 }
@@ -101,6 +103,8 @@ func ThisDVWith(namespace string, name string) func() (*v1beta1.DataVolume, erro
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "DataVolume"
 		return
 	}
 }
@@ -121,6 +125,8 @@ func ThisPVCWith(namespace string, name string) func() (*v1.PersistentVolumeClai
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "PersistentVolumeClaim"
 		return
 	}
 }
@@ -156,6 +162,8 @@ func ThisDeploymentWith(namespace string, name string) func() (*k8sv1.Deployment
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "Deployment"
 		return
 	}
 }

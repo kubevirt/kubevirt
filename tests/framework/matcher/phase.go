@@ -73,11 +73,15 @@ func (p phaseMatcher) FailureMessage(actual interface{}) (message string) {
 		return fmt.Sprintf("expected phases to be in %v but got %v", expectedPhase, collectPhasesForPrinting(actual))
 	}
 
+	objectInfo, err := getObjectKindAndName(actual)
+	if err != nil {
+		return err.Error()
+	}
 	phase, err := getCurrentPhase(actual)
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("expected phase is '%v' but got '%v'", expectedPhase, phase)
+	return fmt.Sprintf("%s expected phase is '%v' but got '%v'", objectInfo, expectedPhase, phase)
 }
 
 func (p phaseMatcher) NegatedFailureMessage(actual interface{}) (message string) {
@@ -88,11 +92,32 @@ func (p phaseMatcher) NegatedFailureMessage(actual interface{}) (message string)
 	if helper.IsSlice(actual) {
 		return fmt.Sprintf("expected phases to not be in %v but got %v", expectedPhase, collectPhasesForPrinting(actual))
 	}
+	objectInfo, err := getObjectKindAndName(actual)
+	if err != nil {
+		return err.Error()
+	}
 	phase, err := getCurrentPhase(actual)
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("expected phase '%v' to not match '%v'", expectedPhase, phase)
+	return fmt.Sprintf("%s expected phase '%v' to not match '%v'", objectInfo, expectedPhase, phase)
+}
+
+func getObjectKindAndName(actual interface{}) (string, error) {
+	u, err := helper.ToUnstructured(actual)
+	if err != nil {
+		return "", err
+	}
+	objectInfo := ""
+	if u != nil {
+		if u.GetKind() != "" {
+			objectInfo = fmt.Sprintf("%s/", u.GetKind())
+		}
+		if u.GetName() != "" {
+			objectInfo = fmt.Sprintf("%s%s", objectInfo, u.GetName())
+		}
+	}
+	return objectInfo, nil
 }
 
 func getCurrentPhase(actual interface{}) (string, error) {
@@ -115,6 +140,14 @@ func collectPhasesForPrinting(actual interface{}) (phases []string) {
 		if err != nil {
 			phase = err.Error()
 		}
+		objectInfo, err := getObjectKindAndName(value)
+		if err != nil {
+			phase = err.Error()
+		}
+		if objectInfo != "" {
+			phase = fmt.Sprintf("%s:%s", objectInfo, phase)
+		}
+
 		phases = append(phases, phase)
 		return true
 	})
