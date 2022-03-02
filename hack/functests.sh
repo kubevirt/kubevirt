@@ -83,19 +83,16 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
 
     return_value=0
     set +e
-    KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA="--junit-report partial.parallel.functest.xml -output-dir ${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
-    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA}
+    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
     return_value="$?"
     set -e
     if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
         exit "$return_value"
     fi
-
-    KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA="--junit-report partial.serial.functest.xml -output-dir ${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
-    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS_PARA}
+    KUBEVIRT_FUNC_TEST_SUITE_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
+    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
     exit "$return_value"
 else
-    trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml ${ARTIFACTS}/partial.serial.functest.xml" EXIT
     additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
         additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
@@ -105,6 +102,5 @@ else
         additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
     fi
 
-    KUBEVIRT_FUNC_TEST_GINKGO_ARGS="--junit-report partial.serial.functest.xml -output-dir ${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}"
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 fi

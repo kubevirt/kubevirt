@@ -30,12 +30,12 @@ import (
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
 	"kubevirt.io/kubevirt/tests/flags"
-
 	"kubevirt.io/kubevirt/tests/reporter"
 
-	"kubevirt.io/kubevirt/tests"
+	v1reporter "kubevirt.io/client-go/reporter"
 	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 
+	"kubevirt.io/kubevirt/tests"
 	vmsgeneratorutils "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
@@ -49,6 +49,7 @@ import (
 )
 
 var justAfterEachReporter = []reporter.JustAfterEachReporter{}
+var k8sReporter *reporter.KubernetesReporter
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
@@ -67,10 +68,11 @@ func TestTests(t *testing.T) {
 	}
 
 	outputEnricherReporter := reporter.NewCapturedOutputEnricher(
-		ginkgo_reporters.NewJUnitReporter(junitOutput),
+		v1reporter.NewV1JUnitReporter(junitOutput),
 	)
-	k8sReporter := reporter.NewKubernetesReporter(artifactsPath, maxFails)
-	justAfterEachReporter = append(justAfterEachReporter, outputEnricherReporter, k8sReporter)
+	justAfterEachReporter = append(justAfterEachReporter, outputEnricherReporter)
+
+	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails)
 	// reporters := []Reporter{
 	// 	outputEnricherReporter,
 	// 	k8sReporter,
@@ -86,8 +88,7 @@ func TestTests(t *testing.T) {
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
-	//TODO
-	RunSpecs(t, "Tests Suite") // , reporters)
+	RunSpecs(t, "Tests Suite")
 }
 
 var _ = SynchronizedBeforeSuite(tests.SynchronizedBeforeTestSetup, tests.BeforeTestSuitSetup)
@@ -109,25 +110,12 @@ func getMaxFailsFromEnv() int {
 	return maxFails
 }
 
-// Collect info directly after each `It` execution with our reporters
-// to collect the state directly after the spec.
-// var _ = JustAfterEach(func() {
-// 	for _, reporter := range justAfterEachReporter {
-// 		reporter.JustAfterEach(CurrentGinkgoTestDescription())
-// 	}
-// })
+var _ = ReportAfterSuite("TestTests", func(report Report) {
+	for _, reporter := range justAfterEachReporter {
+		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)
+	}
+})
 
-// TODO-OR return the custom after each
-//TODO-OR fix the first arg
-//var _ = ReportAfterSuite("custom_fixme", func(report Report) {
-//	for _, reporter := range justAfterEachReporter {
-//		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)
-//	}
-//})
-
-// var _ = ReportAfterEach(func(specReport SpecReport) {
-// 	for _, reporter := range justAfterEachReporter {
-// 		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, specReport) // not the same type
-// 		//reporter.JustAfterEach(CurrentGinkgoTestDescription())
-// 	}
-// })
+var _ = ReportAfterEach(func(specReport SpecReport) {
+	k8sReporter.JustAfterEach(CurrentGinkgoTestDescription())
+})

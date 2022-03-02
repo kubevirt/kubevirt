@@ -51,7 +51,7 @@ func main() {
 	}
 }
 
-func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuites, err error) {
+func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuite, err error) {
 	for _, fileglob := range fileGlobs {
 		files, err := filepath.Glob(fileglob)
 		if err != nil {
@@ -62,7 +62,7 @@ func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuites, err
 			if err != nil {
 				return nil, fmt.Errorf("failed to open file %s: %v", file, err)
 			}
-			suite := reporters.JUnitTestSuites{}
+			suite := reporters.JUnitTestSuite{}
 			err = xml.NewDecoder(f).Decode(&suite)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode suite %s: %v", file, err)
@@ -83,7 +83,7 @@ type DeprecatedJUnitTestSuite struct {
 	Time      float64                   `xml:"time,attr"`
 }
 
-func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *DeprecatedJUnitTestSuite, err error) {
+func mergeJUnitFiles(suites []reporters.JUnitTestSuite) (result *DeprecatedJUnitTestSuite, err error) {
 	result = &DeprecatedJUnitTestSuite{}
 	ran := map[string]reporters.JUnitTestCase{}
 	skipped := map[string]reporters.JUnitTestCase{}
@@ -92,38 +92,25 @@ func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *DeprecatedJUni
 	// If tests ran in any of the suites, ensure it ends up in the ran-map and not in the skipped map.
 	// If it only ever got skipped, keep it in the skip map
 	for _, suite := range suites {
-		for _, testSuite := range suite.TestSuites {
-			for _, testcase := range testSuite.TestCases {
-				if testcase.Skipped == nil {
-					if _, exists := skipped[testcase.Name]; exists {
-						delete(skipped, testcase.Name)
-					}
+		for _, testcase := range suite.TestCases {
+			if testcase.Skipped == nil {
+				if _, exists := skipped[testcase.Name]; exists {
+					delete(skipped, testcase.Name)
+				}
 
-					if testcase.Name == "[SynchronizedBeforeSuite]" || testcase.Name == "[SynchronizedAfterSuite]" {
-						if testcase.Status != "passed" {
-							if _, exists := ran[testcase.Name]; !exists {
-								ran[testcase.Name] = testcase
-								result.TestCases = append(result.TestCases, testcase)
-							} else {
-								log.DefaultLogger().Reason(err).Warning("Synchronized failed more than once, only first included")
-							}
-						}
+				if _, exists := ran[testcase.Name]; exists {
+					return nil, fmt.Errorf("test '%s' was executed multiple times", testcase.Name)
+				}
+				ran[testcase.Name] = testcase
+				result.TestCases = append(result.TestCases, testcase)
+			} else if testcase.Skipped != nil {
+				if _, exists := ran[testcase.Name]; !exists {
+					if _, exists := skipped[testcase.Name]; exists {
+						testcase.Time = skipped[testcase.Name].Time + testcase.Time
 					} else {
-						if _, exists := ran[testcase.Name]; exists {
-							return nil, fmt.Errorf("test '%s' was executed multiple times", testcase.Name)
-						}
-						ran[testcase.Name] = testcase
-						result.TestCases = append(result.TestCases, testcase)
+						skippedList = append(skippedList, testcase.Name)
 					}
-				} else if testcase.Skipped != nil {
-					if _, exists := ran[testcase.Name]; !exists {
-						if _, exists := skipped[testcase.Name]; exists {
-							testcase.Time = skipped[testcase.Name].Time + testcase.Time
-						} else {
-							skippedList = append(skippedList, testcase.Name)
-						}
-						skipped[testcase.Name] = testcase
-					}
+					skipped[testcase.Name] = testcase
 				}
 			}
 		}
@@ -143,8 +130,7 @@ func mergeJUnitFiles(suites []reporters.JUnitTestSuites) (result *DeprecatedJUni
 		if _, exists := skipped[casename]; !exists {
 			panic("can't happen if we don't have a bug")
 		}
-		// TODO return it fixed
-		//result.TestCases = append(result.TestCases, skipped[casename])
+		result.TestCases = append(result.TestCases, skipped[casename])
 	}
 	result.TestCases = append(result.TestCases)
 
