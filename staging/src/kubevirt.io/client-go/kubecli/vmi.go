@@ -147,7 +147,7 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v1.ApiStorageVersion, namespace, resource, name, subresource)
+	u.Path = u.Path+fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v1.ApiStorageVersion, namespace, resource, name, subresource)
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
