@@ -122,9 +122,16 @@ function up() {
     eval ${_cli:?} run $params
 
     # Copy k8s config and kubectl
-    ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
+    # Workaround https://github.com/containers/conmon/issues/315 by not dumping the file to stdout for the time being
+    if [ ${_cri_bin} == "podman" ]; then
+        ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl /kubevirtci_config/.kubectl
+        ${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf /kubevirtci_config/.kubeconfig
+    else
+        ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
+        ${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
+    fi
+
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-    ${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 
     # Set server and disable tls check
     export KUBECONFIG=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
