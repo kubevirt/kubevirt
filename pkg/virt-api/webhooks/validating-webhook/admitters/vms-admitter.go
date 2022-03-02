@@ -27,16 +27,18 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
-	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -48,7 +50,7 @@ var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 type VMsAdmitter struct {
-	VMIInformer        cache.SharedIndexInformer
+	VirtClient         kubecli.KubevirtClient
 	DataSourceInformer cache.SharedIndexInformer
 	FlavorMethods      flavor.Methods
 	ClusterConfig      *virtconfig.ClusterConfig
@@ -67,7 +69,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	proxy := &sarProxy{client: client}
 
 	return &VMsAdmitter{
-		VMIInformer:        informers.VMIInformer,
+		VirtClient:         client,
 		DataSourceInformer: informers.DataSourceInformer,
 		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
 
@@ -366,16 +368,14 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 
 	// get VMI if vm is active
 	if vm.Status.Ready {
-		obj, exists, err := admitter.VMIInformer.GetStore().GetByKey(controller.VirtualMachineKey(vm))
-		if err != nil {
+		var err error
+
+		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
-		} else if exists {
-			// If VMI exists, lets simulate whether the new volume will be successful
-			vmi = obj.(*v1.VirtualMachineInstance)
-			if vmi.DeletionTimestamp == nil {
-				// ignore validating the vmi if it is being deleted
-				vmiExists = true
-			}
+		} else if err == nil && vmi.DeletionTimestamp == nil {
+			// ignore validating the vmi if it is being deleted
+			vmiExists = true
 		}
 	}
 

@@ -30,6 +30,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/client-go/api"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -53,9 +55,10 @@ var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var ctrl *gomock.Controller
 	var vmsAdmitter *VMsAdmitter
-	var vmiInformer cache.SharedIndexInformer
 	var dataSourceInformer cache.SharedIndexInformer
 	var flavorMethods *testutils.MockFlavorMethods
+	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
+	var virtClient *kubecli.MockKubevirtClient
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
@@ -85,14 +88,15 @@ var _ = Describe("Validating VM Admitter", func() {
 	runStrategyHalted := v1.RunStrategyHalted
 
 	BeforeEach(func() {
-		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		flavorMethods = testutils.NewMockFlavorMethods()
 
 		ctrl = gomock.NewController(GinkgoT())
+		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmsAdmitter = &VMsAdmitter{
+			VirtClient:         virtClient,
 			DataSourceInformer: dataSourceInformer,
-			VMIInformer:        vmiInformer,
 			ClusterConfig:      config,
 			FlavorMethods:      flavorMethods,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
@@ -194,8 +198,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vmsAdmitter.VMIInformer.GetIndexer().Add(vmi)
-
+		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+		mockVMIClient.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(false))
 	},
@@ -307,7 +311,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		vmsAdmitter.VMIInformer.GetIndexer().Add(vmi)
+		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+		mockVMIClient.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},

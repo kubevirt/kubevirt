@@ -911,7 +911,6 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.ApiAuthConfigMap()
 	kubeInformerFactory.KubeVirtCAConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
-	vmiInformer := kubeInformerFactory.VMI()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	namespaceLimitsInformer := kubeInformerFactory.LimitRanges()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
@@ -949,7 +948,6 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	webhookInformers := &webhooks.Informers{
-		VMIInformer:             vmiInformer,
 		VMIPresetInformer:       vmiPresetInformer,
 		NamespaceLimitsInformer: namespaceLimitsInformer,
 		VMRestoreInformer:       vmRestoreInformer,
