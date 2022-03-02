@@ -131,15 +131,6 @@ http_file(
 )
 
 http_file(
-    name = "microlivecd_image_ppc64el",
-    sha256 = "eae431d68b9dc5fab422f4b90d4204cbc28c39518780c4822970a4bef42f7c7f",
-    urls = [
-        "https://github.com/jean-edouard/microlivecd/releases/download/0.1/microlivecd_ppc64el.iso",
-        "https://storage.googleapis.com/builddeps/eae431d68b9dc5fab422f4b90d4204cbc28c39518780c4822970a4bef42f7c7f",
-    ],
-)
-
-http_file(
     name = "microlivecd_image_aarch64",
     sha256 = "2d9a7790fa6347251aacd997384b30962bc60dfe4eb9f0c2bd76b42f54d04b8d",
     urls = [
