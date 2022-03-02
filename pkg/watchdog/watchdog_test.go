@@ -22,6 +22,7 @@ package watchdog
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -54,7 +55,7 @@ var _ = Describe("Watchdog", func() {
 
 		It("should detect expired watchdog files", func() {
 
-			fileName := tmpWatchdogDir + "/default_expiredvmi"
+			fileName := filepath.Join(tmpWatchdogDir, "default_expiredvmi")
 			Expect(os.Create(fileName)).ToNot(BeNil())
 
 			now := time.Now()
@@ -117,7 +118,7 @@ var _ = Describe("Watchdog", func() {
 		})
 
 		It("should not expire updated files", func() {
-			fileName := tmpVirtShareDir + "/default_expiredvmi"
+			fileName := filepath.Join(tmpVirtShareDir, "default_expiredvmi")
 			Expect(os.Create(fileName)).ToNot(BeNil())
 			now := time.Now()
 
@@ -134,7 +135,7 @@ var _ = Describe("Watchdog", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = types.UID("1234")
 
-			fileName := tmpVirtShareDir + "/watchdog-files/" + vmi.Namespace + "_" + vmi.Name
+			fileName := filepath.Join(tmpVirtShareDir, "watchdog-files", vmi.Namespace+"_"+vmi.Name)
 			WatchdogFileUpdate(fileName, string(vmi.UID))
 
 			uid := WatchdogFileGetUID(tmpVirtShareDir, vmi)
@@ -143,10 +144,10 @@ var _ = Describe("Watchdog", func() {
 
 		It("should provide file in watchdog subdirectory", func() {
 			dir := WatchdogFileDirectory(tmpVirtShareDir)
-			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files"))
+			Expect(dir).To(Equal(filepath.Join(tmpVirtShareDir, "watchdog-files")))
 
 			dir = WatchdogFileFromNamespaceName(tmpVirtShareDir, "tnamespace", "tvmi")
-			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files/tnamespace_tvmi"))
+			Expect(dir).To(Equal(filepath.Join(tmpVirtShareDir, "watchdog-files/tnamespace_tvmi")))
 		})
 
 		AfterEach(func() {

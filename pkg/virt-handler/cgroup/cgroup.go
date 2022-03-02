@@ -13,13 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021
+ * Copyright 2019 Red Hat, Inc.
  *
  */
 
 package cgroup
-
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
 	"fmt"
@@ -28,109 +26,126 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"kubevirt.io/client-go/log"
+
+	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/configs"
+
+	v1 "kubevirt.io/api/core/v1"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-const (
-	procMountPoint   = "/proc"
-	cgroupMountPoint = "/sys/fs/cgroup"
-)
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
-func ControllerPath(controller string) string {
-	return controllerPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint, controller)
+// Manager is the only interface to use in order to inspect, update or define cgroup properties.
+// This interface is agnostic to cgroups version (supports v1 and v2) and is completely transparent from the
+// users perspective. To achieve this "runc"'s cgroup manager is being levitated. This package's implementation
+// guide-line is to have the thinnest glue layer possible in order to have all runc's capabilities without extra effort.
+// This interface can, of course, extend runc and introduce new functionalities that are specific to Kubevirt's use.
+type Manager interface {
+	Set(r *configs.Resources) error
+
+	// GetBasePathToHostSubsystem returns the path to the specified subsystem
+	// from the host's viewpoint.
+	GetBasePathToHostSubsystem(subsystem string) (string, error)
+
+	// GetCgroupVersion returns the current cgroup version (i.e. v1 or v2)
+	GetCgroupVersion() CgroupVersion
+
+	// GetCpuSet returns the cpu set
+	GetCpuSet() (string, error)
 }
 
-func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) string {
-	if isCgroup2UnifiedMode {
-		return cgroupMount
-	}
-	return filepath.Join(cgroupMount, controller)
-}
+// NewManagerFromPid initializes a new cgroup manager from VMI's pid.
+// The pid is expected to VMI's pid from the host's viewpoint.
+func NewManagerFromPid(pid int) (manager Manager, err error) {
+	const isRootless = false
+	var version CgroupVersion
 
-func CPUSetPath() string {
-	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint)
-}
-
-func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
-	if isCgroup2UnifiedMode {
-		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
-	}
-	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
-}
-
-type Parser interface {
-	// Parse retrieves the cgroup data for the given process id and returns a
-	// map of controllers to slice paths.
-	Parse(pid int) (map[string]string, error)
-}
-
-type v1Parser struct {
-	procMount string
-}
-
-func (v1 *v1Parser) Parse(pid int) (map[string]string, error) {
-	return cgroups.ParseCgroupFile(filepath.Join(v1.procMount, strconv.Itoa(pid), "cgroup"))
-}
-
-type v2Parser struct {
-	procMount   string
-	cgroupMount string
-}
-
-func (v2 *v2Parser) Parse(pid int) (map[string]string, error) {
-	slices, err := cgroups.ParseCgroupFile(filepath.Join(v2.procMount, strconv.Itoa(pid), "cgroup"))
+	procCgroupBasePath := filepath.Join(procMountPoint, strconv.Itoa(pid), cgroupStr)
+	controllerPaths, err := runc_cgroups.ParseCgroupFile(procCgroupBasePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
 
-	slice, ok := slices[""]
-	if !ok {
-		return nil, fmt.Errorf("Slice not found for PID %d", pid)
+	config := &configs.Cgroup{
+		Path:      HostCgroupBasePath,
+		Resources: &configs.Resources{},
 	}
 
-	availableControllers, err := v2.getAvailableControllers(slice)
-	if err != nil {
-		return nil, err
-	}
-
-	// For cgroup v2 there are no per-controller paths.
-	slices = make(map[string]string)
-	for _, c := range availableControllers {
-		slices[c] = slice
-	}
-
-	return slices, nil
-}
-
-// getAvailableControllers returns all controllers available for the cgroup.
-// Based on GetAllSubsystems from
-//  https://github.com/opencontainers/runc/blob/ff819c7e9184c13b7c2607fe6c30ae19403a7aff/libcontainer/cgroups/utils.go#L80
-func (v2 *v2Parser) getAvailableControllers(slice string) ([]string, error) {
-	// "pseudo" controllers do not appear in /sys/fs/cgroup/.../cgroup.controllers.
-	// - devices: implemented in kernel 4.15
-	// - freezer: implemented in kernel 5.2
-	// We assume these are always available, as it is hard to detect availability.
-	pseudo := []string{"devices", "freezer"}
-	data, err := ioutil.ReadFile(filepath.Join(v2.cgroupMount, slice, "cgroup.controllers"))
-	if err != nil {
-		return nil, err
-	}
-	subsystems := append(pseudo, strings.Fields(string(data))...)
-	return subsystems, nil
-}
-
-func NewParser() Parser {
-	return newParser(cgroups.IsCgroup2UnifiedMode(), procMountPoint, cgroupMountPoint)
-}
-
-func newParser(isCgroup2UnifiedMode bool, procMount, cgroupMount string) Parser {
-	if isCgroup2UnifiedMode {
-		return &v2Parser{
-			procMount:   procMount,
-			cgroupMount: cgroupMount,
+	if runc_cgroups.IsCgroup2UnifiedMode() {
+		version = V2
+		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
+		manager, err = newV2Manager(config, slicePath, isRootless, pid)
+	} else {
+		version = V1
+		for subsystem, path := range controllerPaths {
+			if path == "" {
+				continue
+			}
+			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
 		}
+
+		manager, err = newV1Manager(config, controllerPaths, isRootless, pid)
 	}
-	return &v1Parser{
-		procMount: procMount,
+
+	if err != nil {
+		log.Log.Errorf("error occurred while initialized a new cgroup %s manager: %v", version, err)
+	} else {
+		log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
 	}
+
+	return manager, err
+}
+
+func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
+	isolationRes, err := detectVMIsolation(vmi, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return NewManagerFromPid(isolationRes.Pid())
+}
+
+// GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
+func GetGlobalCpuSetPath() string {
+	if runc_cgroups.IsCgroup2UnifiedMode() {
+		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
+	}
+	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
+}
+
+func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
+	cpuSubsystemPath, err := manager.GetBasePathToHostSubsystem("cpuset")
+	if err != nil {
+		return "", err
+	}
+
+	cpuset, err := ioutil.ReadFile(filepath.Join(cpuSubsystemPath, cpusetFile))
+	if err != nil {
+		return "", err
+	}
+
+	cpusetStr := strings.TrimSpace(string(cpuset))
+	return cpusetStr, nil
+}
+
+// detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
+// Socket is optional and makes the execution faster
+func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
+	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
+	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
+
+	if socket == "" {
+		isolationRes, err = detector.Detect(vm)
+	} else {
+		isolationRes, err = detector.DetectForSocket(vm, socket)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
+	}
+
+	return isolationRes, nil
 }

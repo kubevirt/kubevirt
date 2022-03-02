@@ -20,6 +20,7 @@ package components
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -44,6 +45,8 @@ const (
 
 	kubevirtLabelKey              = "kubevirt.io"
 	kubernetesHostnameTopologyKey = "kubernetes.io/hostname"
+
+	portName = "--port"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -288,7 +291,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		VirtAPIName,
-		"--port",
+		portName,
 		"8443",
 		"--console-server-port",
 		"8186",
@@ -309,14 +312,14 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		},
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
 					IntVal: 8443,
 				},
-				Path: "/apis/subresources.kubevirt.io/" + virtv1.SubresourceGroupVersions[0].Version + "/healthz",
+				Path: path.Join("/apis/subresources.kubevirt.io", virtv1.SubresourceGroupVersions[0].Version, "healthz"),
 			},
 		},
 		InitialDelaySeconds: 15,
@@ -356,7 +359,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		VirtControllerName,
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
-		"--port",
+		portName,
 		"8443",
 		"-v",
 		verbosity,
@@ -370,7 +373,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 8,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -384,7 +387,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		TimeoutSeconds:      10,
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -447,6 +450,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						virtv1.AppLabel:    VirtOperatorName,
+						virtv1.AppName:     VirtOperatorName,
 						prometheusLabelKey: prometheusLabelValue,
 					},
 					Name: VirtOperatorName,
@@ -463,7 +467,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								VirtOperatorName,
-								"--port",
+								portName,
 								"8443",
 								"-v",
 								verbosity,
@@ -481,7 +485,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 								},
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Scheme: corev1.URISchemeHTTPS,
 										Port: intstr.IntOrString{

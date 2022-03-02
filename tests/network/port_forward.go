@@ -25,6 +25,8 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/onsi/ginkgo/config"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -53,18 +55,18 @@ var _ = SIGDescribe("Port-forward", func() {
 	})
 
 	Context("VMI With masquerade binding", func() {
-		const localPort = 1500
 		var (
+			localPort         int
 			portForwardCmd    *exec.Cmd
-			vmi               *v1.VirtualMachineInstance
 			vmiHttpServerPort int
 			vmiDeclaredPorts  []v1.Port
 		)
 
 		JustBeforeEach(func() {
-			vmi = createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
+			vmi := createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
 			tests.StartHTTPServer(vmi, vmiHttpServerPort)
 
+			localPort = 1500 + config.GinkgoConfig.ParallelNode
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			Expect(vmiPod).ToNot(BeNil())
 			portForwardCmd, err = portForwardCommand(vmiPod, localPort, vmiHttpServerPort)
@@ -83,7 +85,7 @@ var _ = SIGDescribe("Port-forward", func() {
 		When("performing port-forward from a local port to a VMI's declared port", func() {
 			const declaredPort = 1501
 			BeforeEach(func() {
-				vmiDeclaredPorts = append(vmiDeclaredPorts, v1.Port{Port: declaredPort})
+				vmiDeclaredPorts = []v1.Port{{Port: declaredPort}}
 				vmiHttpServerPort = declaredPort
 			})
 
@@ -110,7 +112,7 @@ var _ = SIGDescribe("Port-forward", func() {
 			const nonDeclaredPort = 1502
 			const declaredPort = 1501
 			BeforeEach(func() {
-				vmiDeclaredPorts = append(vmiDeclaredPorts, v1.Port{Port: declaredPort})
+				vmiDeclaredPorts = []v1.Port{{Port: declaredPort}}
 				vmiHttpServerPort = nonDeclaredPort
 			})
 

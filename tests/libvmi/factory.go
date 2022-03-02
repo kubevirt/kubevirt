@@ -51,6 +51,19 @@ func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 
+// NewSEVFedora instantiates a new Fedora based VMI configuration,
+// building its extra properties based on the specified With* options, the
+// image used is configured for UEFI boot and it supports AMD SEV.
+func NewSEVFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	const secureBoot = false
+	sevOptions := []Option{
+		WithUefi(secureBoot),
+		WithSEV(),
+	}
+	opts = append(sevOptions, opts...)
+	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
+}
+
 // NewFedora instantiates a new Fedora based VMI configuration with specified
 // containerDisk, building its extra properties based on the specified With*
 // options.
@@ -67,12 +80,27 @@ func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualM
 
 // NewCirros instantiates a new CirrOS based VMI configuration
 func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	// Supplied with no user data, Cirros image takes 230s to allow login
+	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
+
 	cirrosOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		withNonEmptyUserData,
 		WithResourceMemory("128Mi"),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return New(RandName(DefaultVmiName), cirrosOpts...)
+}
+
+// NewAlpine instantiates a new Alpine based VMI configuration
+func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	alpineOpts := []Option{
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+		WithResourceMemory("128Mi"),
+		WithRng(),
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
+	}
+	alpineOpts = append(alpineOpts, opts...)
+	return New(RandName(DefaultVmiName), alpineOpts...)
 }

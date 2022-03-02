@@ -45,11 +45,18 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
+const (
+	cleaningK8sv1ServiceShouldSucceed  = "cleaning up the k8sv1.Service entity should have succeeded."
+	cleaningK8sv1JobFuncShouldExist    = "a k8sv1.Job cleaning up function should exist"
+	cleaningK8sv1JobShouldSucceed      = "cleaning up the k8sv1.Job entity should have succeeded."
+	expectConnectivityToExposedService = "connectivity is expected to the exposed service"
+)
+
 var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, retries int32) *batchv1.Job {
-		job := tests.NewHelloWorldJob(host, port)
+		job := tests.NewHelloWorldJobTCP(host, port)
 		job.Spec.BackoffLimit = &retries
 		var err error
 		job, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
@@ -166,12 +173,12 @@ var _ = SIGDescribe("Services", func() {
 			})
 
 			AfterEach(func() {
-				Expect(cleanupService(inboundVMI.GetNamespace(), serviceName)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(cleanupService(inboundVMI.GetNamespace(), serviceName)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
 			AfterEach(func() {
-				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				Expect(jobCleanup).NotTo(BeNil(), cleaningK8sv1JobFuncShouldExist)
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1JobShouldSucceed)
 				jobCleanup = nil
 			})
 
@@ -179,7 +186,7 @@ var _ = SIGDescribe("Services", func() {
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
-				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
@@ -206,7 +213,7 @@ var _ = SIGDescribe("Services", func() {
 			})
 
 			AfterEach(func() {
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
@@ -214,7 +221,7 @@ var _ = SIGDescribe("Services", func() {
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
 
 				jobCleanup, err = assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
-				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			})
 		})
 	})
@@ -254,13 +261,13 @@ var _ = SIGDescribe("Services", func() {
 			var service *k8sv1.Service
 
 			AfterEach(func() {
-				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				Expect(jobCleanup).NotTo(BeNil(), cleaningK8sv1JobFuncShouldExist)
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1JobShouldSucceed)
 				jobCleanup = nil
 			})
 
 			AfterEach(func() {
-				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
 			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
@@ -283,7 +290,7 @@ var _ = SIGDescribe("Services", func() {
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
-				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			},
 				table.Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
 				table.Entry("when the service is exposed by an IPv6 address.", k8sv1.IPv6Protocol),
@@ -295,8 +302,8 @@ var _ = SIGDescribe("Services", func() {
 			var serviceName string
 
 			AfterEach(func() {
-				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				Expect(jobCleanup).NotTo(BeNil(), cleaningK8sv1JobFuncShouldExist)
+				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1JobShouldSucceed)
 				jobCleanup = nil
 			})
 

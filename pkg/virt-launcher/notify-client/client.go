@@ -33,6 +33,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
+const (
+	cantDetermineLibvirtDomainName = "Could not determine name of libvirt domain in event callback."
+	libvirtEventChannelFull        = "Libvirt event channel is full, dropping event."
+)
+
 var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/notify/v1/version.go in order to detect version mismatches early
@@ -417,9 +422,6 @@ func (n *Notifier) StartDomainNotifier(
 				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
-				if interfaceStatuses != nil {
-					interfaceStatuses = agentpoller.MergeAgentStatusesWithDomainData(domainCache.Spec.Devices.Interfaces, interfaceStatuses)
-				}
 
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus)
@@ -433,12 +435,12 @@ func (n *Notifier) StartDomainNotifier(
 		log.Log.Infof("DomainLifecycle event %d with reason %d received", event.Event, event.Detail)
 		name, err := d.GetName()
 		if err != nil {
-			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 		select {
 		case eventChan <- libvirtEvent{Event: event, Domain: name}:
 		default:
-			log.Log.Infof("Libvirt event channel is full, dropping event.")
+			log.Log.Infof(libvirtEventChannelFull)
 		}
 	}
 
@@ -446,12 +448,12 @@ func (n *Notifier) StartDomainNotifier(
 		log.Log.Infof("Domain Device Added event received")
 		name, err := d.GetName()
 		if err != nil {
-			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 		select {
 		case eventChan <- libvirtEvent{Domain: name}:
 		default:
-			log.Log.Infof("Libvirt event channel is full, dropping event.")
+			log.Log.Infof(libvirtEventChannelFull)
 		}
 	}
 
@@ -459,13 +461,13 @@ func (n *Notifier) StartDomainNotifier(
 		log.Log.Infof("Domain Device Removed event received")
 		name, err := d.GetName()
 		if err != nil {
-			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 
 		select {
 		case eventChan <- libvirtEvent{Domain: name}:
 		default:
-			log.Log.Infof("Libvirt event channel is full, dropping event.")
+			log.Log.Infof(libvirtEventChannelFull)
 		}
 	}
 
@@ -490,12 +492,12 @@ func (n *Notifier) StartDomainNotifier(
 		log.Log.Infof("GuestAgentLifecycle event state %d with reason %d received", event.State, event.Reason)
 		name, err := d.GetName()
 		if err != nil {
-			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 		select {
 		case eventChan <- libvirtEvent{AgentEvent: event, Domain: name}:
 		default:
-			log.Log.Infof("Libvirt event channel is full, dropping event.")
+			log.Log.Infof(libvirtEventChannelFull)
 		}
 	}
 	err = domainConn.AgentEventLifecycleRegister(agentEventLifecycleCallback)

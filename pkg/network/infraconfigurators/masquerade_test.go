@@ -419,7 +419,10 @@ func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.
 			handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(skipPorts, ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 		}
 	}
-
+	if isIstioAware(vmiAnnotations) {
+		handler.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+			"tcp", "dport", strconv.Itoa(istio.SshPort), "counter", "dnat", "to", vmIP)
+	}
 	if len(portList) > 0 {
 		mockNFTablesBackendSpecificPorts(handler, proto, nftIPString, vmIP, gwIP, portList)
 	} else {

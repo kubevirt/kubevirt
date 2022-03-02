@@ -20,10 +20,9 @@
 package hooks_test
 
 import (
-	"reflect"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -63,7 +62,7 @@ var _ = Describe("HooksAPI", func() {
 			}
 			hookSidecarList, err := hooks.UnmarshalHookSidecarList(vmiHookObject)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(reflect.DeepEqual(hookSidecarList, expectedHookSidecarList)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(hookSidecarList, expectedHookSidecarList)).To(BeTrue())
 		})
 	})
 })

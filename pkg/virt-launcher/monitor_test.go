@@ -45,16 +45,14 @@ var _ = Describe("VirtLauncher", func() {
 	var cmd *exec.Cmd
 	var cmdLock sync.Mutex
 	var gracefulShutdownChannel chan struct{}
-
-	uuid := uuid.New().String()
-
-	processStarted := false
+	var cmdlineMatchStr string
+	var processStarted bool
 
 	StartProcess := func() {
 		cmdLock.Lock()
 		defer cmdLock.Unlock()
 
-		cmd = exec.Command(fakeQEMUBinary, "--uuid", uuid)
+		cmd = exec.Command(fakeQEMUBinary, "--uuid", cmdlineMatchStr)
 		err := cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -69,6 +67,7 @@ var _ = Describe("VirtLauncher", func() {
 		defer cmdLock.Unlock()
 
 		cmd.Process.Kill()
+
 		processStarted = false
 	}
 
@@ -106,18 +105,24 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
+		cmdlineMatchStr = uuid.New().String()
+		processStarted = false
 		if !strings.Contains(fakeQEMUBinary, "../../") {
 			fakeQEMUBinary = filepath.Join("../../", fakeQEMUBinary)
 		}
 		gracefulShutdownChannel = make(chan struct{})
 		shutdownCallback := func(pid int) {
-			syscall.Kill(pid, syscall.SIGTERM)
+			// Don't send SIGTERM to the current process group (i.e. to PID 0). That will interrupt
+			// the test run.
+			Expect(pid).ToNot(BeZero())
+			err := syscall.Kill(pid, syscall.SIGTERM)
+			Expect(err).ToNot(HaveOccurred())
 		}
 		gracefulShutdownCallback := func() {
 			close(gracefulShutdownChannel)
 		}
 		mon = &monitor{
-			cmdlineMatchStr:          uuid,
+			cmdlineMatchStr:          cmdlineMatchStr,
 			gracePeriod:              30,
 			finalShutdownCallback:    shutdownCallback,
 			gracefulShutdownCallback: gracefulShutdownCallback,
@@ -126,12 +131,11 @@ var _ = Describe("VirtLauncher", func() {
 
 	AfterEach(func() {
 		if processStarted == true {
-			cmdLock.Lock()
-			defer cmdLock.Unlock()
-			cmd.Process.Kill()
+			StopProcess()
+			CleanupProcess()
 		}
-		processStarted = false
 	})
+
 	Describe("VirtLauncher", func() {
 		Context("process monitor", func() {
 			It("verify pid detection works", func() {

@@ -22,7 +22,6 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
@@ -31,6 +30,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	v12 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -612,7 +612,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
 		Expect(err).To(BeNil())
 		hyperv := v1.FeatureHyperv{}
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -651,7 +651,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -690,7 +690,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -739,7 +739,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		ok := equality.Semantic.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
 		if !ok {
 			// debug aid
 			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
@@ -935,20 +935,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(meta.Annotations).To(HaveKeyWithValue("kubevirt.io/nonroot", ""))
 		})
 
-		It("Should reject SRIOV vmi", func() {
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						SRIOV: &v1.InterfaceSRIOV{},
-					},
-				},
-			)
-
-			resp := admitVMI()
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(And(ContainSubstring("SRIOV"), ContainSubstring("nonroot")))
-		})
-
 		It("Should reject VirtioFS vmi", func() {
 			vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 				Virtiofs: &v1.FilesystemVirtiofs{},
@@ -977,5 +963,26 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
+	})
+
+	It("should add SEV node label selector with SEV workload", func() {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.SEVLabel: ""}))
+	})
+
+	It("should not add SEV node label selector when no SEV workload", func() {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
+	})
+
+	It("should not overwrite existing node label selectors with SEV workload", func() {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
+		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
 	})
 })

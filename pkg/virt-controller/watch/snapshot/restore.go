@@ -22,13 +22,13 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -70,6 +70,7 @@ var restoreAnnotationsToDelete = []string{
 	"pv.kubernetes.io",
 	"volume.beta.kubernetes.io",
 	"cdi.kubevirt.io",
+	"volume.kubernetes.io",
 }
 
 func restorePVCName(vmRestore *snapshotv1.VirtualMachineRestore, name string) string {
@@ -125,7 +126,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	}
 
 	// let's make sure everything is initialized properly before continuing
-	if !reflect.DeepEqual(vmRestoreIn, vmRestoreOut) {
+	if !equality.Semantic.DeepEqual(vmRestoreIn, vmRestoreOut) {
 		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
@@ -210,7 +211,7 @@ func (ctrl *VMRestoreController) doUpdateError(restore *snapshotv1.VirtualMachin
 }
 
 func (ctrl *VMRestoreController) doUpdate(original, updated *snapshotv1.VirtualMachineRestore) error {
-	if !reflect.DeepEqual(original, updated) {
+	if !equality.Semantic.DeepEqual(original, updated) {
 		if _, err := ctrl.Client.VirtualMachineRestore(updated.Namespace).Update(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
@@ -250,7 +251,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 		}
 	}
 
-	if !reflect.DeepEqual(vmRestore.Status.Restores, restores) {
+	if !equality.Semantic.DeepEqual(vmRestore.Status.Restores, restores) {
 		if len(vmRestore.Status.Restores) > 0 {
 			log.Log.Object(vmRestore).Warning("VMRestore in strange state")
 		}

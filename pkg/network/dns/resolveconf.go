@@ -73,6 +73,12 @@ func ParseSearchDomains(content string) ([]string, error) {
 	return searchDomains, nil
 }
 
+//GetLongestServiceDomainName returns the longest service search domain entry
+func GetLongestServiceDomainName(searchDomains []string) string {
+	serviceDomains := GetServiceDomainList(searchDomains)
+	return GetDomainName(serviceDomains)
+}
+
 //GetDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
 func GetDomainName(searchDomains []string) string {
 	selected := ""
@@ -82,6 +88,19 @@ func GetDomainName(searchDomains []string) string {
 		}
 	}
 	return selected
+}
+
+//GetServiceDomainList returns a list of search domains which are a service entry
+func GetServiceDomainList(searchDomains []string) []string {
+	const k8sServiceInfix = ".svc."
+
+	serviceDomains := []string{}
+	for _, d := range searchDomains {
+		if strings.Contains(d, k8sServiceInfix) {
+			serviceDomains = append(serviceDomains, d)
+		}
+	}
+	return serviceDomains
 }
 
 //DomainNameWithSubdomain returns the DNS domain according subdomain.
@@ -96,8 +115,8 @@ func DomainNameWithSubdomain(searchDomains []string, subdomain string) string {
 		return ""
 	}
 
-	domainName := GetDomainName(searchDomains)
-	if !strings.Contains(domainName, subdomain) {
+	domainName := GetLongestServiceDomainName(searchDomains)
+	if domainName != "" && !strings.HasPrefix(domainName, subdomain+".") {
 		return subdomain + "." + domainName
 	}
 

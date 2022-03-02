@@ -23,12 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -119,7 +119,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		}
 		if newVMI.IsRealtimeEnabled() {
 			log.Log.V(4).Info("Add realtime node label selector")
-			addRealtimeNodeSelector(newVMI)
+			addNodeSelector(newVMI, v1.RealtimeLabel)
+		}
+		if util.IsSEVVMI(newVMI) {
+			log.Log.V(4).Info("Add SEV node label selector")
+			addNodeSelector(newVMI, v1.SEVLabel)
 		}
 
 		// Add foreground finalizer
@@ -176,7 +180,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
-		if !reflect.DeepEqual(newVMI.Status, oldVMI.Status) {
+		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
 			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 				patch = append(patch, utiltypes.PatchOperation{
 					Op:    "replace",
@@ -359,17 +363,12 @@ func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
 	}
-
-	if util.IsSRIOVVmi(vmi) {
-		return fmt.Errorf("SRIOV doesn't work with nonroot")
-	}
 	return nil
 }
 
-// AddRealtimeNodeSelector adds the realtime node selector
-func addRealtimeNodeSelector(vmi *v1.VirtualMachineInstance) {
+func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
 	if vmi.Spec.NodeSelector == nil {
 		vmi.Spec.NodeSelector = map[string]string{}
 	}
-	vmi.Spec.NodeSelector[v1.RealtimeLabel] = ""
+	vmi.Spec.NodeSelector[label] = ""
 }

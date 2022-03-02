@@ -345,6 +345,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -446,6 +454,19 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - pool.kubevirt.io
+  resources:
+  - virtualmachinepools
+  - virtualmachinepools/finalizers
+  verbs:
+  - watch
+  - list
+  - create
+  - delete
+  - update
+  - patch
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - '*'
@@ -525,6 +546,20 @@ rules:
   - list
   - watch
 - apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -568,6 +603,14 @@ rules:
   - kubevirt.io
   resources:
   - kubevirts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
   verbs:
   - get
   - list
@@ -664,6 +707,27 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
+  - pool.kubevirt.io
+  resources:
+  - virtualmachinepools
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/console
@@ -737,12 +801,32 @@ rules:
   - list
   - watch
 - apiGroups:
+  - pool.kubevirt.io
+  resources:
+  - virtualmachinepools
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+- apiGroups:
   - kubevirt.io
   resources:
   - kubevirts
   verbs:
   - get
   - list
+- apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - subresources.kubevirt.io
   resources:
@@ -778,6 +862,22 @@ rules:
   resources:
   - virtualmachineflavors
   - virtualmachineclusterflavors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - pool.kubevirt.io
+  resources:
+  - virtualmachinepools
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - migrations.kubevirt.io
+  resources:
+  - migrationpolicies
   verbs:
   - get
   - list

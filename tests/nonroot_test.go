@@ -13,7 +13,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -33,16 +32,6 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	sriovVM := func() *v1.VirtualMachineInstance {
-		name := "test"
-		withVmiOptions := []libvmi.Option{
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(name)),
-		}
-
-		return libvmi.NewSriovFedora(withVmiOptions...)
-	}
-
 	virtioFsVM := func() *v1.VirtualMachineInstance {
 		name := "test"
 		return tests.NewRandomVMIWithPVCFS(name)
@@ -59,7 +48,6 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		Expect(err.Error()).To(And(ContainSubstring(feature), ContainSubstring("nonroot")))
 
 	},
-		table.Entry("[test_id:7126]SRIOV", sriovVM, "", "SRIOV"),
 		table.Entry("[test_id:7127]VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
 	)
 

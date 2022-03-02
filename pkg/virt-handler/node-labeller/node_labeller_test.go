@@ -1,4 +1,4 @@
-// +build amd64
+//go:build amd64
 
 /*
  * This file is part of the KubeVirt project
@@ -133,6 +133,12 @@ var _ = Describe("Node-labeller ", func() {
 	})
 	It("should add host cpu required features", func() {
 		expectNodePatch(kubevirtv1.HostModelRequiredFeaturesLabel)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+
+	It("should add SEV label", func() {
+		expectNodePatch(kubevirtv1.SEVLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})

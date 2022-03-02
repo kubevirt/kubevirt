@@ -126,8 +126,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 			fakeInterfaces := []api.InterfaceStatus{
 				{
-					Name: "eth1",
-					Mac:  "00:00:00:00:00:01",
+					Mac: "00:00:00:00:00:01",
 				},
 			}
 			agentStore.Store(GET_INTERFACES, fakeInterfaces)

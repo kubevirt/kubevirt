@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -49,15 +51,26 @@ var _ = Describe("Pod eviction admitter", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 
-	newClusterConfigWithFeatureGate := func(featureGate string) *virtconfig.ClusterConfig {
+	newKubeVirtWithFeatureGate := func(featureGate string) *virtv1.KubeVirt {
 		kv := kubecli.NewMinimalKubeVirt(testns)
 		kv.Namespace = "kubevirt"
 		if kv.Spec.Configuration.DeveloperConfiguration == nil {
 			kv.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{}
 		}
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+		return kv
+	}
 
+	newClusterConfigWithFeatureGate := func(featureGate string) *virtconfig.ClusterConfig {
+		kv := newKubeVirtWithFeatureGate(featureGate)
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+		return clusterConfig
+	}
+
+	newClusterConfigWithEvictionStrategy := func(evictionStrategy virtv1.EvictionStrategy) *virtconfig.ClusterConfig {
+		kv := newKubeVirtWithFeatureGate(virtconfig.LiveMigrationGate)
+		kv.Spec.Configuration.EvictionStrategy = &evictionStrategy
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 		return clusterConfig
 	}
 
@@ -92,6 +105,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 			var vmi *virtv1.VirtualMachineInstance
 			liveMigrateStrategy := virtv1.EvictionStrategyLiveMigrate
+			nodeName := "node01"
 
 			BeforeEach(func() {
 				vmi = &virtv1.VirtualMachineInstance{
@@ -106,6 +120,7 @@ var _ = Describe("Pod eviction admitter", func() {
 								Status: k8sv1.ConditionTrue,
 							},
 						},
+						NodeName: nodeName,
 					},
 					Spec: virtv1.VirtualMachineInstanceSpec{
 						EvictionStrategy: &liveMigrateStrategy,
@@ -127,7 +142,9 @@ var _ = Describe("Pod eviction admitter", func() {
 							virtv1.AppLabel: "virt-launcher",
 						},
 					},
-					Spec:   k8sv1.PodSpec{},
+					Spec: k8sv1.PodSpec{
+						NodeName: nodeName,
+					},
 					Status: k8sv1.PodStatus{},
 				}
 
@@ -148,14 +165,15 @@ var _ = Describe("Pod eviction admitter", func() {
 
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-				vmiClient.EXPECT().Update(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+				vmiClient.
+					EXPECT().
+					Patch(vmi.Name,
+						types.JSONPatchType,
+						[]byte(data),
+						&metav1.PatchOptions{}).
+					Return(nil, fmt.Errorf("err"))
 
-				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
-
-				podEvictionAdmitter := PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
 				resp := podEvictionAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Code).To(Equal(int32(http.StatusTooManyRequests)))
@@ -179,7 +197,9 @@ var _ = Describe("Pod eviction admitter", func() {
 							virtv1.AppLabel: "virt-launcher",
 						},
 					},
-					Spec:   k8sv1.PodSpec{},
+					Spec: k8sv1.PodSpec{
+						NodeName: nodeName,
+					},
 					Status: k8sv1.PodStatus{},
 				}
 
@@ -200,14 +220,15 @@ var _ = Describe("Pod eviction admitter", func() {
 
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-				vmiClient.EXPECT().Update(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+				vmiClient.
+					EXPECT().
+					Patch(vmi.Name,
+						types.JSONPatchType,
+						[]byte(data),
+						&metav1.PatchOptions{}).
+					Return(nil, fmt.Errorf("err"))
 
-				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
-
-				podEvictionAdmitter := PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
 				resp := podEvictionAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
 				Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
@@ -226,7 +247,9 @@ var _ = Describe("Pod eviction admitter", func() {
 							virtv1.AppLabel: "virt-launcher",
 						},
 					},
-					Spec:   k8sv1.PodSpec{},
+					Spec: k8sv1.PodSpec{
+						NodeName: nodeName,
+					},
 					Status: k8sv1.PodStatus{},
 				}
 
@@ -246,17 +269,18 @@ var _ = Describe("Pod eviction admitter", func() {
 					return true, pod, nil
 				})
 
-				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
-
 				if !dryRun {
-					vmiClient.EXPECT().Update(gomock.Any()).Return(nil, nil)
+					data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
+					vmiClient.
+						EXPECT().
+						Patch(vmi.Name,
+							types.JSONPatchType,
+							[]byte(data),
+							&metav1.PatchOptions{}).
+						Return(nil, nil)
 				}
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-				podEvictionAdmitter := PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
 				resp := podEvictionAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
 				actions := kubeClient.Fake.Actions()
@@ -266,6 +290,81 @@ var _ = Describe("Pod eviction admitter", func() {
 				table.Entry("and should not mark the VMI when in dry-run mode", true),
 			)
 
+			Context("With EvictionStrategy cluster setting set to 'LiveMigrate'", func() {
+				var vmi *virtv1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					clusterConfig := newClusterConfigWithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate)
+					podEvictionAdmitter = PodEvictionAdmitter{
+						ClusterConfig: clusterConfig,
+						VirtClient:    virtClient,
+					}
+
+					vmi = &virtv1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: testns,
+							Name:      "testvmi",
+						},
+						Status: virtv1.VirtualMachineInstanceStatus{
+							Conditions: []virtv1.VirtualMachineInstanceCondition{
+								{
+									Type:   virtv1.VirtualMachineInstanceIsMigratable,
+									Status: k8sv1.ConditionTrue,
+								},
+							},
+						},
+						Spec: virtv1.VirtualMachineInstanceSpec{},
+					}
+				})
+
+				table.DescribeTable("Should allow review requests", func(markVMI bool, vmiEvictionStrategy virtv1.EvictionStrategy) {
+					vmi.Spec.EvictionStrategy = &vmiEvictionStrategy
+
+					By("Composing a dummy admission request on a virt-launcher pod")
+					pod := &k8sv1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testpod",
+							Namespace: testns,
+							Annotations: map[string]string{
+								virtv1.DomainAnnotation: vmi.Name,
+							},
+							Labels: map[string]string{
+								virtv1.AppLabel: "virt-launcher",
+							},
+						},
+						Spec:   k8sv1.PodSpec{},
+						Status: k8sv1.PodStatus{},
+					}
+
+					ar := &admissionv1.AdmissionReview{
+						Request: &admissionv1.AdmissionRequest{
+							Name:      pod.Name,
+							Namespace: pod.Namespace,
+						},
+					}
+
+					kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+						get, ok := action.(testing.GetAction)
+						Expect(ok).To(BeTrue())
+						Expect(pod.Namespace).To(Equal(get.GetNamespace()))
+						Expect(pod.Name).To(Equal(get.GetName()))
+						return true, pod, nil
+					})
+
+					vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+
+					if markVMI {
+						vmiClient.EXPECT().Update(gomock.Any()).Return(nil, nil)
+					}
+
+					resp := podEvictionAdmitter.Admit(ar)
+					Expect(resp.Allowed).To(BeTrue())
+					Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+				},
+					table.Entry("and should mark the VMI", true, nil),
+					table.Entry("and should not mark the VMI", false, virtv1.EvictionStrategyNone),
+				)
+			})
 		})
 
 		Context("Not a virt launcher pod", func() {

@@ -37,7 +37,7 @@ function dump_kubevirt() {
 function _deploy_infra_for_tests() {
     if [[ "$KUBEVIRT_DEPLOY_CDI" == "false" ]]; then
         rm -f ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
-            ${MANIFESTS_OUT_DIR}/testing/local-block-storage.yaml ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
+            ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
     fi
 
     # Deploy infra for testing first
@@ -57,6 +57,12 @@ function _ensure_cdi_deployment() {
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 }
 
+function configure_prometheus() {
+    if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && _kubectl get crd prometheuses.monitoring.coreos.com; then
+        _kubectl patch prometheus k8s -n monitoring --type=json -p '[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {"kubevirt.io": ""}}}]'
+    fi
+}
+
 trap dump_kubevirt EXIT
 
 echo "Deploying ..."
@@ -70,7 +76,7 @@ metadata:
   name: ${namespace:?}
 EOF
 
-if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
+if [[ "$KUBEVIRT_PROVIDER" =~ kind.* || "$KUBEVIRT_PROVIDER" = "external" ]]; then
     # Don't install CDI and loopback devices it's crashing with dind because loopback devices are shared with the host
     export KUBEVIRT_DEPLOY_CDI=false
 fi
@@ -124,5 +130,7 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m
 done
+
+configure_prometheus
 
 echo "Done $0"

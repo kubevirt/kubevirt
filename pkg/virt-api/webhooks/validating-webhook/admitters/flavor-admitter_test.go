@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	apiflavor "kubevirt.io/api/flavor"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -134,7 +136,7 @@ func createFlavorAdmissionReview(flavor *flavorv1alpha1.VirtualMachineFlavor) *a
 			Resource: metav1.GroupVersionResource{
 				Group:    flavorv1alpha1.SchemeGroupVersion.Group,
 				Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-				Resource: "virtualmachineflavors",
+				Resource: apiflavor.PluralResourceName,
 			},
 			Object: runtime.RawExtension{
 				Raw: bytes,
@@ -153,7 +155,7 @@ func createClusterFlavorAdmissionReview(clusterFlavor *flavorv1alpha1.VirtualMac
 			Resource: metav1.GroupVersionResource{
 				Group:    flavorv1alpha1.SchemeGroupVersion.Group,
 				Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-				Resource: "virtualmachineclusterflavors",
+				Resource: apiflavor.ClusterPluralResourceName,
 			},
 			Object: runtime.RawExtension{
 				Raw: bytes,

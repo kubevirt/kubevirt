@@ -69,7 +69,6 @@ func SetDefaults_FeatureVendorID(obj *FeatureVendorID) {
 func SetDefaults_DiskDevice(obj *DiskDevice) {
 	if obj.Disk == nil &&
 		obj.CDRom == nil &&
-		obj.Floppy == nil &&
 		obj.LUN == nil {
 		obj.Disk = &DiskTarget{}
 	}
@@ -85,12 +84,6 @@ func SetDefaults_CDRomTarget(obj *CDRomTarget) {
 	if obj.ReadOnly == nil {
 		obj.ReadOnly = _true
 	}
-	if obj.Tray == "" {
-		obj.Tray = TrayStateClosed
-	}
-}
-
-func SetDefaults_FloppyTarget(obj *FloppyTarget) {
 	if obj.Tray == "" {
 		obj.Tray = TrayStateClosed
 	}

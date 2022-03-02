@@ -23,13 +23,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -67,14 +67,14 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 
-	if !reflect.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
+	if !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
 		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
 			results = append(results,
 				validateInfraPlacement(newKV.Namespace, newKV.Spec.Infra.NodePlacement, admitter.Client)...)
 		}
 	}
 
-	if !reflect.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
+	if !equality.Semantic.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
 		if newKV.Spec.Workloads != nil && newKV.Spec.Workloads.NodePlacement != nil {
 			results = append(results,
 				validateWorkloadPlacement(newKV.Namespace, newKV.Spec.Workloads.NodePlacement, admitter.Client)...)

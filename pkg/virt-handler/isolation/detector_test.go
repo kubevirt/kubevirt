@@ -37,7 +37,6 @@ import (
 	"github.com/mitchellh/go-ps"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -50,7 +49,6 @@ var _ = Describe("Isolation Detector", func() {
 		var podUID string
 		var finished chan struct{} = nil
 		var ctrl *gomock.Controller
-		var cgroupParser *cgroup.MockParser
 
 		podUID = "pid-uid-1234"
 		vm := api.NewMinimalVMIWithNS("default", "testvm")
@@ -70,7 +68,7 @@ var _ = Describe("Isolation Detector", func() {
 			cmdclient.SetLegacyBaseDir(tmpDir)
 			cmdclient.SetPodsBaseDir(tmpDir)
 
-			os.MkdirAll(tmpDir+"/sockets/", os.ModePerm)
+			os.MkdirAll(filepath.Join(tmpDir, "sockets/"), os.ModePerm)
 			socketFile := cmdclient.SocketFilePathOnHost(podUID)
 			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
 			socket, err = net.Listen("unix", socketFile)
@@ -89,12 +87,6 @@ var _ = Describe("Isolation Detector", func() {
 			}()
 
 			ctrl = gomock.NewController(GinkgoT())
-			cgroupParser = cgroup.NewMockParser(ctrl)
-			cgroupParser.
-				EXPECT().
-				Parse(gomock.Eq(os.Getpid())).
-				Return(map[string]string{"devices": "/"}, nil).
-				AnyTimes()
 		})
 
 		AfterEach(func() {
@@ -108,44 +100,27 @@ var _ = Describe("Isolation Detector", func() {
 		})
 
 		It("Should detect the PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Pid()).To(Equal(os.Getpid()))
 		})
 
-		It("Should not detect any slice if there is no matching controller", func() {
-			_, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"not_existing_slice"}).Detect(vm)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("Should detect the 'devices' controller slice of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Slice()).To(HavePrefix("/"))
-		})
-
 		It("Should detect the PID namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PIDNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/pid", os.Getpid())))
 		})
 
 		It("Should detect the Parent PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PPid()).To(Equal(os.Getppid()))
 		})
 
 		It("Should detect the Mount root of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.MountRoot()).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
-		})
-
-		It("Should detect the Network namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Allowlist([]string{"devices"}).Detect(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.NetNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/net", os.Getpid())))
 		})
 	})
 })

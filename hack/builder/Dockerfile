@@ -35,11 +35,15 @@ RUN dnf install -y dnf-plugins-core && \
         redhat-rpm-config \
         jq \
         wget \
+        rubygems \
         diffutils && \
     dnf -y clean all
 
 # Avoids the need to install sssd-client by disabling lookups
 COPY nsswitch.conf /etc/nsswitch.conf
+
+# Necessary for generation of HTML-formatted API docs (.adoc)
+RUN gem install asciidoctor
 
 # Necessary for Bazel to find Python inside the container
 #
@@ -55,7 +59,7 @@ RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
 ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
 
-ENV GIMME_GO_VERSION=1.16.6
+ENV GIMME_GO_VERSION=1.17.5
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
@@ -92,7 +96,7 @@ RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
-    git checkout fd0699b906b0593a33ba2bddd3b1ae8822f42dd8 && \
+    git checkout f2693aba912dd40c974304caca999d45ee8dce33 && \
     cd /test-infra/robots/pr-creator && \
     go install && \
     cd /test-infra/robots/issue-creator && \

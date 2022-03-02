@@ -5,4 +5,8 @@ go_library(
     srcs = ["reflect.go"],
     importpath = "kubevirt.io/kubevirt/tests/framework/matcher/helper",
     visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+    ],
 )

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -ex
 
+source $(dirname "$0")/../common.sh
+
+fail_if_cri_bin_missing
+
 SCRIPT_DIR="$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
     pwd
@@ -9,7 +13,7 @@ SCRIPT_DIR="$(
 # shellcheck source=hack/builder/version.sh
 . "${SCRIPT_DIR}/version.sh"
 
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+${KUBEVIRT_CRI} run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 for ARCH in ${ARCHITECTURES}; do
     case ${ARCH} in
@@ -26,7 +30,7 @@ for ARCH in ${ARCHITECTURES}; do
         bazel_arch=${ARCH}
         ;;
     esac
-    docker pull --platform="linux/${ARCH}" quay.io/centos/centos:stream8
-    docker build --platform="linux/${ARCH}" -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+    ${KUBEVIRT_CRI} pull --platform="linux/${ARCH}" quay.io/centos/centos:stream8
+    ${KUBEVIRT_CRI} build --platform="linux/${ARCH}" -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
     TMP_IMAGES="${TMP_IMAGES} quay.io/kubevirt/builder:${VERSION}-${ARCH}"
 done

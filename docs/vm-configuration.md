@@ -388,7 +388,7 @@ status.
 
 ### Disks
 
-`disk`, `lun`, `floppy` and `cdrom` are different structs within
+`disk`, `lun` and `cdrom` are different structs within
 `devices.disks` array. They solely contain the guest side information of the
 disk. Each `devices.disks` entry contains one of them and `volumeName`
 attribute, which references a named entry in  `spec.volumes`:
@@ -411,17 +411,11 @@ spec:
           readonly: true
           tray: open
         volumeName: volume1
-      - name: floppy0
-        floppy:
-          dev: vdc
-          readonly: true
-          tray: open
-        volumeName: volume2
       - name: lun0
         lun:
           dev: vdd
           readonly: true
-        volumeName: volume3
+        volumeName: volume2
   volumes:
   - name: volume0
     containerDisk:
@@ -431,13 +425,6 @@ spec:
       secretRef:
         name: testsecret
   - name: volume2
-    iscsi:
-      targetPortal: '1234'
-      iqn: ''
-      lun: 0
-      secretRef:
-        name: testsecret
-  - name: volume3
     persistentVolumeClaim:
       claimName: testclaim
 ```

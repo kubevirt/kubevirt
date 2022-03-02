@@ -17,6 +17,8 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+const libguestsTools = "libguestfs-tools-"
+
 type fakeAttacher struct {
 	done chan bool
 }
@@ -67,7 +69,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 	}
 
 	runGuestfsOnPVC := func(pvcClaim string) {
-		podName := "libguestfs-tools-" + pvcClaim
+		podName := libguestsTools + pvcClaim
 		guestfsCmd := tests.NewVirtctlCommand("guestfs",
 			pvcClaim,
 			"--namespace", util.NamespaceTestDefault)
@@ -118,7 +120,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			pvcClaim = "pvc-verify"
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim)
-			output, _, err := execCommandLibguestfsPod("libguestfs-tools-"+pvcClaim, []string{"libguestfs-test-tool"})
+			output, _, err := execCommandLibguestfsPod(libguestsTools+pvcClaim, []string{"libguestfs-test-tool"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(output).To(ContainSubstring("===== TEST FINISHED OK ====="))
 
@@ -128,7 +130,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
 			pvcClaim = "pvc-fs"
-			podName := "libguestfs-tools-" + pvcClaim
+			podName := libguestsTools + pvcClaim
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
@@ -159,9 +161,9 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			defer f.closeChannel()
 
 			pvcClaim = "pvc-block"
-			podName := "libguestfs-tools-" + pvcClaim
+			podName := libguestsTools + pvcClaim
 			size, _ := resource.ParseQuantity("500Mi")
-			tests.CreateCephPVC(virtClient, pvcClaim, size)
+			tests.CreateBlockPVC(virtClient, pvcClaim, size)
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))

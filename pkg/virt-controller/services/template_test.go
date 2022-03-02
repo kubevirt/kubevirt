@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
@@ -348,8 +350,9 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:       "virt-launcher",
-					v1.CreatedByLabel: "1234",
+					v1.AppLabel:                "virt-launcher",
+					v1.CreatedByLabel:          "1234",
+					v1.VirtualMachineNameLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					v1.DomainAnnotation:                    "testvmi",
@@ -1081,8 +1084,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:       "virt-launcher",
-					v1.CreatedByLabel: "1234",
+					v1.AppLabel:                "virt-launcher",
+					v1.CreatedByLabel:          "1234",
+					v1.VirtualMachineNameLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
@@ -1570,10 +1574,11 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Labels).To(Equal(
 					map[string]string{
-						"key1":            "val1",
-						"key2":            "val2",
-						v1.AppLabel:       "virt-launcher",
-						v1.CreatedByLabel: "1234",
+						"key1":                     "val1",
+						"key2":                     "val2",
+						v1.AppLabel:                "virt-launcher",
+						v1.CreatedByLabel:          "1234",
+						v1.VirtualMachineNameLabel: "testvmi",
 					},
 				))
 			})
@@ -2783,11 +2788,11 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				livenessProbe := pod.Spec.Containers[0].LivenessProbe
 				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
-				Expect(livenessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
-				Expect(readinessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
+				Expect(livenessProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
+				Expect(readinessProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
 
-				Expect(livenessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
-				Expect(readinessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
+				Expect(livenessProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
+				Expect(readinessProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
 
 				Expect(livenessProbe.PeriodSeconds).To(Equal(vmi.Spec.LivenessProbe.PeriodSeconds))
 				Expect(livenessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay))
@@ -3200,6 +3205,72 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
 		})
+
+		Context("with Virtual Machine name label", func() {
+			It("should replace label with VM name", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+						Labels: map[string]string{
+							v1.VirtualMachineNameLabel: "random_name",
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+				Expect(ok).To(BeTrue())
+				Expect(vmNameLabel).To(Equal(vmi.Name))
+			})
+		})
+
+		Context("without Virtual Machine name label", func() {
+			Context("with valid VM name", func() {
+				It("should create label with VM name", func() {
+					config, kvInformer, svc = configFactory(defaultArch)
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "default",
+							UID:       "1234",
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.Containers).To(HaveLen(1))
+					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					Expect(ok).To(BeTrue())
+					Expect(vmNameLabel).To(Equal(vmi.Name))
+				})
+			})
+
+			Context("with VM name longer than 63 characters", func() {
+				It("should create label with trimmed VM name", func() {
+					name := "testvmi-" + strings.Repeat("a", 63)
+
+					config, kvInformer, svc = configFactory(defaultArch)
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      name,
+							Namespace: "default",
+							UID:       "1234",
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.Containers).To(HaveLen(1))
+					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					Expect(ok).To(BeTrue())
+					Expect(vmNameLabel).To(Equal(name[:validation.DNS1123LabelMaxLength]))
+				})
+			})
+		})
 	})
 
 	Describe("ServiceAccountName", func() {
@@ -3253,6 +3324,34 @@ var _ = Describe("Template", func() {
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
 		})
 
+	})
+
+	Context("AMD SEV LaunchSecurity", func() {
+		It("should not run privileged with SEV device resource", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						LaunchSecurity: &v1.LaunchSecurity{
+							SEV: &v1.SEV{},
+						},
+					},
+				},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(pod.Spec.Containers)).To(Equal(1))
+			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
+
+			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
+			Expect(ok).To(BeTrue())
+			Expect(int(sev.Value())).To(Equal(1))
+		})
 	})
 })
 

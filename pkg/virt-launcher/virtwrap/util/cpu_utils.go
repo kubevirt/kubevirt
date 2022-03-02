@@ -31,7 +31,7 @@ import (
 
 func GetPodCPUSet() ([]int, error) {
 	var cpuset string
-	file, err := os.Open(cgroup.CPUSetPath())
+	file, err := os.Open(cgroup.GetGlobalCpuSetPath())
 	if err != nil {
 		return nil, err
 	}

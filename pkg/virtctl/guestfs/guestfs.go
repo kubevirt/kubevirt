@@ -42,15 +42,12 @@ const (
 )
 
 var (
-	pvc         string
-	image       string
-	timeout     = 500 * time.Second
-	pullPolicy  string
-	kubevirtNs  string
-	kubevirtCRD string
-	kvm         bool
-	namespace   string
-	podName     string
+	pvc        string
+	image      string
+	timeout    = 500 * time.Second
+	pullPolicy string
+	kvm        bool
+	podName    string
 )
 
 type guestfsCommand struct {

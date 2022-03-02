@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["netns.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/netns",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library"],
+)

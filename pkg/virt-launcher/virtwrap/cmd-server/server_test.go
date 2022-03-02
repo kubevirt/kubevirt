@@ -147,7 +147,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
-			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return(nil)
+			domainManager.EXPECT().InterfacesStatus().Return(nil)
 			domain, exists, err := client.GetDomain()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -164,11 +164,10 @@ var _ = Describe("Virt remote commands", func() {
 
 			fakeInterfaces := []api.InterfaceStatus{
 				{
-					Name: "eth1",
-					Mac:  "00:00:00:00:00:01",
+					Mac: "00:00:00:00:00:01",
 				},
 			}
-			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return(fakeInterfaces)
+			domainManager.EXPECT().InterfacesStatus().Return(fakeInterfaces)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			const osName = "fedora"
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{Name: osName})
@@ -208,7 +207,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(cmdclient.IsDisconnected(err)).To(BeTrue())
 
-			_, err = cmdclient.NewClient(shareDir + "/server.sock")
+			_, err = cmdclient.NewClient(filepath.Join(shareDir, "server.sock"))
 			Expect(err).To(HaveOccurred())
 		})
 

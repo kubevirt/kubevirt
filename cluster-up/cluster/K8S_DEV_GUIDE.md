@@ -49,8 +49,8 @@ CONTAINER ID        IMAGE                   COMMAND                  CREATED    
 Nodes:
 ```
 [root@modi01 kubevirtci]# oc get nodes
-NAME     STATUS   ROLES    AGE   VERSION
-node01   Ready    master   83m   v1.21.0
+NAME     STATUS   ROLES             AGE   VERSION
+node01   Ready    control-plane     83m   v1.21.0
 ```
 
 # Inner look of a deployed cluster
@@ -113,7 +113,7 @@ root         1     0 36 13:39 ?        00:05:22 qemu-system-x86_64 -enable-kvm -
                 * Enable ip routing.
                 * Apply additional manifests, such as flannel.
                 * Wait for pods to become ready.
-                * Pull needed images such as Ceph CSI, fluentd logger.
+                * Pull needed images such as Ceph CSI.
                 * Create local volume directories.
             * Shutdown the vm and commit its container.
 

@@ -21,6 +21,7 @@ package apply
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -33,6 +34,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -41,6 +43,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+)
+
+const (
+	castFailedFmt   = "Cast failed! obj: %+v"
+	deleteFailedFmt = "Failed to delete %s: %v"
+	finalizerPath   = "/metadata/finalizers"
 )
 
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,
@@ -99,32 +107,18 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	// first delete CRDs only
-	ext := clientset.ExtensionsClient()
-	objects := stores.CrdCache.List()
-	for _, obj := range objects {
-		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(crd); err == nil {
-				expectations.Crd.AddExpectedDeletion(kvkey, key)
-				err := ext.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
-				if err != nil {
-					expectations.Crd.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
-					return err
-				}
-			}
-		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
-			return nil
-		}
-
+	err = crdHandleDeletion(kvkey, stores, clientset, expectations)
+	if err != nil {
+		return err
 	}
+
 	if !util.IsStoreEmpty(stores.CrdCache) {
 		// wait until CRDs are gone
 		return nil
 	}
 
 	// delete daemonsets
-	objects = stores.DaemonSetCache.List()
+	objects := stores.DaemonSetCache.List()
 	for _, obj := range objects {
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(ds); err == nil {
@@ -132,12 +126,12 @@ func DeleteAll(kv *v1.KubeVirt,
 				err := clientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
 				if err != nil {
 					expectations.DaemonSet.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete %s: %v", ds.Name, err)
+					log.Log.Errorf(deleteFailedFmt, ds.Name, err)
 					return err
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -152,12 +146,12 @@ func DeleteAll(kv *v1.KubeVirt,
 				err = pdbClient.Delete(context.Background(), pdb.Name, metav1.DeleteOptions{})
 				if err != nil {
 					expectations.PodDisruptionBudget.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete %s: %v", pdb.Name, err)
+					log.Log.Errorf(deleteFailedFmt, pdb.Name, err)
 					return err
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -171,12 +165,12 @@ func DeleteAll(kv *v1.KubeVirt,
 				err = clientset.AppsV1().Deployments(depl.Namespace).Delete(context.Background(), depl.Name, deleteOptions)
 				if err != nil {
 					expectations.Deployment.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete %s: %v", depl.Name, err)
+					log.Log.Errorf(deleteFailedFmt, depl.Name, err)
 					return err
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -195,7 +189,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -214,7 +208,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -233,7 +227,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -252,7 +246,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -274,7 +268,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				expectations.ServiceMonitor.DeletionObserved(kvkey, key)
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -293,7 +287,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -312,7 +306,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -330,7 +324,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -348,7 +342,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -366,7 +360,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -384,7 +378,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -402,7 +396,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -420,7 +414,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -445,7 +439,7 @@ func DeleteAll(kv *v1.KubeVirt,
 				}
 			}
 		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			log.Log.Errorf(castFailedFmt, obj)
 			return nil
 		}
 	}
@@ -454,5 +448,153 @@ func DeleteAll(kv *v1.KubeVirt,
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func crdInstanceDeletionCompleted(crd *extv1.CustomResourceDefinition) bool {
+	// Below is an example of what is being looked for here.
+	// The CRD will have this condition once a CRD which is being
+	// deleted has all instances removed related to this CRD.
+	//
+	//    message: removed all instances
+	//    reason: InstanceDeletionCompleted
+	//    status: "False"
+	//    type: Terminating
+
+	if crd.DeletionTimestamp == nil {
+		return false
+	}
+
+	for _, condition := range crd.Status.Conditions {
+		if condition.Type == extv1.Terminating &&
+			condition.Status == extv1.ConditionFalse &&
+			condition.Reason == "InstanceDeletionCompleted" {
+			return true
+		}
+	}
+	return false
+}
+
+func crdFilterNeedFinalizerAdded(crds []*extv1.CustomResourceDefinition) []*extv1.CustomResourceDefinition {
+	filtered := []*extv1.CustomResourceDefinition{}
+
+	for _, crd := range crds {
+		if crd.DeletionTimestamp == nil && !controller.HasFinalizer(crd, v1.VirtOperatorComponentFinalizer) {
+			filtered = append(filtered, crd)
+		}
+	}
+
+	return filtered
+}
+
+func crdFilterNeedDeletion(crds []*extv1.CustomResourceDefinition) []*extv1.CustomResourceDefinition {
+	filtered := []*extv1.CustomResourceDefinition{}
+
+	for _, crd := range crds {
+		if crd.DeletionTimestamp == nil {
+			filtered = append(filtered, crd)
+		}
+	}
+	return filtered
+}
+
+func crdFilterNeedFinalizerRemoved(crds []*extv1.CustomResourceDefinition) []*extv1.CustomResourceDefinition {
+	filtered := []*extv1.CustomResourceDefinition{}
+	for _, crd := range crds {
+		if !crdInstanceDeletionCompleted(crd) {
+			// All crds must have all crs removed before any CRD finalizer can be removed
+			return []*extv1.CustomResourceDefinition{}
+		} else if controller.HasFinalizer(crd, v1.VirtOperatorComponentFinalizer) {
+			filtered = append(filtered, crd)
+		}
+	}
+	return filtered
+}
+
+func crdHandleDeletion(kvkey string,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	ext := clientset.ExtensionsClient()
+	objects := stores.CrdCache.List()
+
+	finalizerPath := "/metadata/finalizers"
+
+	crds := []*extv1.CustomResourceDefinition{}
+	for _, obj := range objects {
+		crd, ok := obj.(*extv1.CustomResourceDefinition)
+		if !ok {
+			log.Log.Errorf(castFailedFmt, obj)
+			return nil
+		}
+		crds = append(crds, crd)
+	}
+
+	needFinalizerAdded := crdFilterNeedFinalizerAdded(crds)
+	needDeletion := crdFilterNeedDeletion(crds)
+	needFinalizerRemoved := crdFilterNeedFinalizerRemoved(crds)
+
+	for _, crd := range needFinalizerAdded {
+		crdCopy := crd.DeepCopy()
+		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
+
+		patchBytes, err := json.Marshal(crdCopy.Finalizers)
+		if err != nil {
+			return err
+		}
+		ops := fmt.Sprintf(`[{ "op": "add", "path": "%s", "value": %s }]`, finalizerPath, string(patchBytes))
+		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, crd := range needDeletion {
+		key, err := controller.KeyFunc(crd)
+		if err != nil {
+			return err
+		}
+
+		expectations.Crd.AddExpectedDeletion(kvkey, key)
+		err = ext.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, metav1.DeleteOptions{})
+		if err != nil {
+			expectations.Crd.DeletionObserved(kvkey, key)
+			log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
+			return err
+		}
+	}
+
+	for _, crd := range needFinalizerRemoved {
+		var ops string
+		if len(crd.Finalizers) > 1 {
+			crdCopy := crd.DeepCopy()
+			controller.RemoveFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
+
+			newPatchBytes, err := json.Marshal(crdCopy.Finalizers)
+			if err != nil {
+				return err
+			}
+
+			oldPatchBytes, err := json.Marshal(crd.Finalizers)
+			if err != nil {
+				return err
+			}
+
+			ops = fmt.Sprintf(`[{ "op": "test", "path": "%s", "value": %s }, { "op": "replace", "path": "%s", "value": %s }]`,
+				finalizerPath,
+				string(oldPatchBytes),
+				finalizerPath,
+				string(newPatchBytes))
+		} else {
+			ops = fmt.Sprintf(`[{ "op": "remove", "path": "%s" }]`, finalizerPath)
+		}
+
+		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

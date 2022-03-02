@@ -120,6 +120,18 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		}
+
+		if c.UseLaunchSecurity {
+			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
+			domainIface.Rom = &api.Rom{Enabled: "no"}
+			if ifaceType == "virtio" {
+				if domainIface.Driver != nil {
+					domainIface.Driver.IOMMU = "on"
+				} else {
+					domainIface.Driver = &api.InterfaceDriver{Name: "vhost", IOMMU: "on"}
+				}
+			}
+		}
 		domainInterfaces = append(domainInterfaces, domainIface)
 	}
 
@@ -186,7 +198,7 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 }
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
-	cpuTopology := getCPUTopology(vmi)
+	cpuTopology := vcpu.GetCPUTopology(vmi)
 	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if queueNumber > multiQueueMaxQueues {

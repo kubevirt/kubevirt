@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = BeforeSuite(func() {
@@ -40,15 +41,19 @@ var _ = Describe("VMI Stats Collector", func() {
 	Context("VMI Eviction blocker", func() {
 
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
-		table.DescribeTable("Add evictionion alert matrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+		table.DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
+			collector := &VMICollector{
+				vmiInformer:   vmiInformer,
+				clusterConfig: clusterConfig,
+			}
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 
 			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
-			for _, vmi := range vmis {
-				updateVMIEvictionBlocker(vmi, ch)
-			}
+			collector.updateVMIMetrics(vmis, ch)
 
 			result := <-ch
 			dto := &io_prometheus_client.Metric{}

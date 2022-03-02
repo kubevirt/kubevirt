@@ -43,6 +43,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
   fi
@@ -53,10 +54,15 @@ elif [[ $TARGET =~ sig-compute-realtime ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
   export KUBEVIRT_HUGEPAGES_2M=512
   export KUBEVIRT_REALTIME_SCHEDULER=true
+elif [[ $TARGET =~ sig-compute-migrations ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}
+elif [[ $TARGET =~ sig-monitoring ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -342,7 +348,8 @@ spec:
 EOF
 fi
 
-# Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not already set
+# Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not
+# already set.
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   if [[ $TARGET =~ windows_sysprep.* ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[Sysprep\\]"
@@ -354,14 +361,21 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-network ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]"
+    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
+    export KUBEVIRT_E2E_SKIP="Migration"
   elif [[ $TARGET =~ vgpu.* ]]; then
     export KUBEVIRT_E2E_FOCUS=MediatedDevices
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
+  elif [[ $TARGET =~ sig-compute-migrations ]]; then
+    export KUBEVIRT_E2E_FOCUS="Migration"
+    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+    export KUBEVIRT_STORAGE="rook-ceph"
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices|Migration"
+  elif [[ $TARGET =~ sig-monitoring ]]; then
+      export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
@@ -376,7 +390,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
 
   if ! [[ $TARGET =~ sig-storage ]]; then
     if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
-        export KUBEVIRT_E2E_FOCUS=rook-ceph
+        export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
     fi
   fi
 fi
@@ -402,10 +416,6 @@ if [ -z "$KUBEVIRT_QUARANTINE" ]; then
         export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
     else
         export KUBEVIRT_E2E_SKIP="QUARANTINE"
-    fi
-    # quarantine test_id:3145 only for nonroot lanes
-    if [[ $KUBEVIRT_NONROOT =~ true ]]; then
-        export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|test_id:3145"
     fi
 fi
 

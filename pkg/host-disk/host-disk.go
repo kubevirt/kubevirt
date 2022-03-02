@@ -78,7 +78,10 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 				continue
 			}
 
-			replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			err := replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			if err != nil {
+				return err
+			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
 		}
@@ -87,7 +90,10 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 				continue
 			}
 
-			replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			err := replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			if err != nil {
+				return err
+			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.DataVolume = nil
 		}
@@ -95,16 +101,25 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVolume map[string]v1.VolumeStatus) {
+func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVolume map[string]v1.VolumeStatus) error {
 	volumeStatus := pvcVolume[volumeName]
 	isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
 	file := getPVCDiskImgPath(volumeName, "disk.img")
+	capacity := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
+	// The host-disk must be 1MiB-aligned. If the volume specifies a misaligned size, shrink it down to the nearest multiple of 1MiB
+	size := util.AlignImageSizeTo1MiB(capacity.Value(), log.Log.V(2))
+	if size == 0 {
+		return fmt.Errorf("the size for volume %s is too low, must be at least 1MiB", volumeName)
+	}
+	capacity.Set(size)
 	volumeSource.HostDisk = &v1.HostDisk{
 		Path:     file,
 		Type:     v1.HostDiskExistsOrCreate,
-		Capacity: volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage],
+		Capacity: capacity,
 		Shared:   &isShared,
 	}
+
+	return nil
 }
 
 func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolumes map[string]bool, pvcVolume map[string]v1.VolumeStatus, volumeName string) bool {
@@ -121,9 +136,7 @@ func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolu
 	}
 
 	volumeStatus, ok := pvcVolume[volumeName]
-	if !ok ||
-		volumeStatus.PersistentVolumeClaimInfo.VolumeMode == nil ||
-		*volumeStatus.PersistentVolumeClaimInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+	if !ok || types.IsPVCBlock(volumeStatus.PersistentVolumeClaimInfo.VolumeMode) {
 
 		// This is not a disk on a file system, so skip it.
 		return true

@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -30,6 +29,7 @@ import (
 	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -389,7 +389,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	table.DescribeTable("Should properly calculate the hotplugvolumes", func(volumes []v1.Volume, statuses []v1.VolumeStatus, expected map[string]v1.Volume) {
 		result := getHotplugVolumes(volumes, statuses)
-		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
+		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should be empty if statuses is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
 		table.Entry("Should be empty if statuses has multiple entries, but no hotplug", makeVolumes(), makeStatus(2, 0), emptyResult()),
@@ -400,7 +400,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	table.DescribeTable("Should properly calculate the permanent volumes", func(volumes []v1.Volume, statusVolumes []v1.VolumeStatus, expected map[string]v1.Volume) {
 		result := getPermanentVolumes(volumes, statusVolumes)
-		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
+		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should be empty if volume is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
 		table.Entry("Should be empty if all volumes are hotplugged", makeVolumes(0, 1, 2, 3), makeStatus(4, 4), emptyResult()),
@@ -415,7 +415,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 
 		result := admitHotplug(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
-		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
+		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should accept if no volumes are there or added",
 			makeVolumes(),

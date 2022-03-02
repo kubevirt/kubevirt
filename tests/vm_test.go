@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -186,12 +185,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
-		newVirtualMachineInstanceWithOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
-		newVirtualMachineInstanceWithOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
+		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, corev1.ReadWriteOnce)
 		}
 
 		deleteDataVolume := func(dv *cdiv1.DataVolume) {
@@ -423,8 +422,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -441,8 +440,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -565,8 +564,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithFileDisk),
+			table.Entry("[Serial][storage-req]with Block Disk", newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -859,7 +858,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
 			By("Verifying that required StorageClass is configured")
-			storageClassName := tests.Config.StorageClassLocal
+			storageClassName := tests.Config.StorageRWOFileSystem
 
 			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
@@ -868,7 +867,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VM with a DataVolume cloned from an invalid source")
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("no-such-image",
+			// Registry URL scheme validated in CDI
+			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
 				util.NamespaceTestDefault, storageClassName, k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
 			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -1223,7 +1223,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})
 
-				It("should not migrate a running vm if dry-run option is passed", func() {
+				It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
 					nodes := util.GetAllSchedulableNodes(virtClient)
 					if len(nodes.Items) < 2 {
 						Skip("Migration tests require at least 2 nodes")
@@ -1409,6 +1409,89 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 					By("Ensuring stateChangeRequests list is cleared")
 					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
+				})
+			})
+
+			Context("Using RunStrategyOnce", func() {
+				It("[Serial] Should leave a failed VMI", func() {
+					By("creating a VM with RunStrategyOnce")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("killing qemu process")
+					err = pkillAllVMIs(virtClient, vmi.Status.NodeName)
+					Expect(err).To(BeNil(), "Should kill VMI successfully")
+
+					By("Ensuring the VirtualMachineInstance enters Failed phase")
+					Eventually(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 240*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+
+					By("Ensuring the VirtualMachine remains stopped")
+					Consistently(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 1*time.Minute, 5*time.Second).Should(Equal(v1.Failed))
+
+					By("Ensuring the VirtualMachine remains Ready=false")
+					vm, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.Ready).To(BeFalse())
+				})
+
+				It("Should leave a succeeded VMI", func() {
+					By("creating a VM with RunStrategyOnce")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+					By("Issuing a poweroff command from inside VM")
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "sudo poweroff\n"},
+						&expect.BExp{R: console.PromptExpression},
+					}, 10)).To(Succeed())
+
+					By("Ensuring the VirtualMachineInstance enters Succeeded phase")
+					Eventually(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 240*time.Second, 1*time.Second).Should(Equal(v1.Succeeded))
+
+					By("Ensuring the VirtualMachine remains stopped")
+					Consistently(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 1*time.Minute, 5*time.Second).Should(Equal(v1.Succeeded))
+
+					By("Ensuring the VirtualMachine remains Ready=false")
+					vm, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.Ready).To(BeFalse())
 				})
 			})
 
@@ -1875,6 +1958,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				originalVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				By("Getting current vm instance")
+				originalVM, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
 				var args = []string{vm.COMMAND_STOP, "--namespace", thisVm.Namespace, thisVm.Name, "--dry-run"}
 				if flags != nil {
 					args = append(args, flags...)
@@ -1889,11 +1976,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 
-				By("Checking no DeletionTimestamp was set")
-				newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				By("Checking VM Running spec does not change")
+				actualVm, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
-				Expect(reflect.DeepEqual(newVMI, originalVMI)).To(BeTrue())
+				Expect(actualVm.Spec.Running).To(BeEquivalentTo(originalVM.Spec.Running))
+				actualRunStrategy, err := actualVm.RunStrategy()
+				Expect(err).ToNot(HaveOccurred())
+				originalRunStrategy, err := originalVM.RunStrategy()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
+
+				By("Checking VMI TerminationGracePeriodSeconds does not change")
+				actualVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
+				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
 			},
 
 				table.Entry("[test_id:7529]with no other flags"),

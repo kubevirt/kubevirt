@@ -43,6 +43,7 @@ import (
 
 const (
 	libvirtTimestampFormat = "2006-01-02 15:04:05.999-0700"
+	logTimestampFormat     = "2006-01-02T15:04:05.000000Z"
 )
 
 type LogLevel int32
@@ -194,7 +195,7 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 
 		logParams = append(logParams,
 			"level", LogLevelNames[l.currentLogLevel],
-			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", now.Format(logTimestampFormat),
 			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 			"component", l.component,
 		)
@@ -352,7 +353,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		now := time.Now()
 		logger.logger.Log(
 			"level", "info",
-			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", now.Format(logTimestampFormat),
 			"component", logger.component,
 			"subcomponent", "libvirt",
 			"msg", line,
@@ -397,7 +398,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
 		logger.logger.Log(
 			"level", severity,
-			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", t.Format(logTimestampFormat),
 			"component", logger.component,
 			"subcomponent", "libvirt",
 			"thread", thread,
@@ -406,7 +407,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	} else {
 		logger.logger.Log(
 			"level", severity,
-			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"timestamp", t.Format(logTimestampFormat),
 			"pos", pos,
 			"component", logger.component,
 			"subcomponent", "libvirt",
@@ -438,7 +439,7 @@ func LogQemuLogLine(logger *FilteredLogger, line string) {
 	now := time.Now()
 	logger.logger.Log(
 		"level", "info",
-		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"timestamp", now.Format(logTimestampFormat),
 		"component", logger.component,
 		"subcomponent", "qemu",
 		"msg", line,

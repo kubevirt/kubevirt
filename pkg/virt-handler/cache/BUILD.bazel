@@ -10,7 +10,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
-        "//pkg/network/cache:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
@@ -45,6 +44,7 @@ go_test(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],

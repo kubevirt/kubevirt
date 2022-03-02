@@ -30,7 +30,11 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+const none = "<none>"
 
 var (
 
@@ -66,7 +70,8 @@ type vmiCountMetric struct {
 }
 
 type VMICollector struct {
-	vmiInformer cache.SharedIndexInformer
+	vmiInformer   cache.SharedIndexInformer
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func (co *VMICollector) Describe(_ chan<- *prometheus.Desc) {
@@ -74,10 +79,11 @@ func (co *VMICollector) Describe(_ chan<- *prometheus.Desc) {
 }
 
 // does VMI informer stuff
-func SetupVMICollector(vmiInformer cache.SharedIndexInformer) {
+func SetupVMICollector(vmiInformer cache.SharedIndexInformer, clusterConfig *virtconfig.ClusterConfig) {
 	log.Log.Infof("Starting vmi collector")
 	co := &VMICollector{
-		vmiInformer: vmiInformer,
+		vmiInformer:   vmiInformer,
+		clusterConfig: clusterConfig,
 	}
 
 	prometheus.MustRegister(co)
@@ -98,7 +104,7 @@ func (co *VMICollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	updateVMIsPhase(vmis, ch)
-	updateVMIMetrics(vmis, ch)
+	co.updateVMIMetrics(vmis, ch)
 	return
 }
 
@@ -119,9 +125,9 @@ func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) 
 func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
 	vmc := vmiCountMetric{
 		Phase:    strings.ToLower(string(vmi.Status.Phase)),
-		OS:       "<none>",
-		Workload: "<none>",
-		Flavor:   "<none>",
+		OS:       none,
+		Workload: none,
+		Flavor:   none,
 		NodeName: vmi.Status.NodeName,
 	}
 	vmc.UpdateFromAnnotations(vmi.Annotations)
@@ -154,9 +160,9 @@ func updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.
 	}
 }
 
-func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 {
+func checkNonEvictableVMAndSetMetric(clusterConfig *virtconfig.ClusterConfig, vmi *k6tv1.VirtualMachineInstance) float64 {
 	setVal := 0.0
-	if vmi.IsEvictable() {
+	if migrations.VMIMigratableOnEviction(clusterConfig, vmi) {
 		vmiIsMigratableCond := controller.NewVirtualMachineInstanceConditionManager().
 			GetCondition(vmi, k6tv1.VirtualMachineInstanceIsMigratable)
 
@@ -170,21 +176,16 @@ func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 
 	return setVal
 }
 
-func updateVMIMetrics(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+func (co *VMICollector) updateVMIMetrics(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
 	for _, vmi := range vmis {
-		updateVMIEvictionBlocker(vmi, ch)
+		mv, err := prometheus.NewConstMetric(
+			vmiEvictionBlockerDesc, prometheus.GaugeValue,
+			checkNonEvictableVMAndSetMetric(co.clusterConfig, vmi),
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+		)
+		if err != nil {
+			continue
+		}
+		ch <- mv
 	}
-}
-
-func updateVMIEvictionBlocker(vmi *k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	mv, err := prometheus.NewConstMetric(
-		vmiEvictionBlockerDesc, prometheus.GaugeValue,
-		checkNonEvictableVMAndSetMetric(vmi),
-		vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-	)
-	if err != nil {
-		return
-	}
-	ch <- mv
-
 }

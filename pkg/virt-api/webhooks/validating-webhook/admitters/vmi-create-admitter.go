@@ -42,6 +42,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const requiredFieldFmt = "%s is a required field"
+
 const (
 	arrayLenMax = 256
 	maxStrLen   = 256
@@ -202,6 +204,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
+	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 
 	return causes
 }
@@ -710,14 +713,21 @@ func podNetworkRequiredStatusCause(field *k8sfield.Path) metav1.StatusCause {
 }
 
 func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if !config.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
+	evictionStrategy := config.GetConfig().EvictionStrategy
+
+	if spec.EvictionStrategy != nil {
+		evictionStrategy = spec.EvictionStrategy
+	}
+	if !config.LiveMigrationEnabled() && evictionStrategy != nil &&
+		*evictionStrategy != v1.EvictionStrategyNone {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "LiveMigration feature gate is not enabled",
 			Field:   field.Child("evictionStrategy").String(),
 		})
-	} else if spec.EvictionStrategy != nil {
-		if *spec.EvictionStrategy != v1.EvictionStrategyLiveMigrate {
+	} else if evictionStrategy != nil {
+		if *evictionStrategy != v1.EvictionStrategyLiveMigrate &&
+			*evictionStrategy != v1.EvictionStrategyNone {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
@@ -779,6 +789,43 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 				Message: fmt.Sprintf("Sound device requires a name field."),
 				Field:   field.Child("Sound").String(),
 			})
+		}
+	}
+	return causes
+}
+
+func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	launchSecurity := spec.Domain.LaunchSecurity
+	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV requires OVMF (UEFI)"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV does not work along with SecureBoot"),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
 		}
 	}
 	return causes
@@ -2041,7 +2088,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ConfigMap.LocalObjectReference.Name == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("configMap", "name").String()),
 					Field:   field.Index(idx).Child("configMap", "name").String(),
 				})
 			}
@@ -2051,7 +2098,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.Secret.SecretName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("secret", "secretName").String()),
 					Field:   field.Index(idx).Child("secret", "secretName").String(),
 				})
 			}
@@ -2061,7 +2108,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if volume.ServiceAccount.ServiceAccountName == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
+					Message: fmt.Sprintf(requiredFieldFmt, field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
 					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
 				})
 			}
@@ -2135,15 +2182,6 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
-		// Reject Floppy disks
-		if disk.Floppy != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "Floppy disks are deprecated and will be removed from the API soon.",
-				Field:   field.Index(idx).Child("name").String(),
-			})
-		}
-
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		var diskType, bus string
@@ -2156,9 +2194,6 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			deviceTargetSetCount++
 			diskType = "lun"
 			bus = disk.LUN.Bus
-		}
-		if disk.Floppy != nil {
-			deviceTargetSetCount++
 		}
 		if disk.CDRom != nil {
 			deviceTargetSetCount++
@@ -2273,7 +2308,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 
 		// Verify if cache mode is valid
-		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough {
+		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),

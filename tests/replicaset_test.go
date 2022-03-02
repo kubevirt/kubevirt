@@ -48,7 +48,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", func() {
+var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -255,9 +255,9 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		Expect(table.ColumnDefinitions[4].Name).To(Equal("Age"))
 		Expect(table.ColumnDefinitions[4].Type).To(Equal("date"))
 		Expect(table.Rows[0].Cells[0].(string)).To(Equal(newRS.ObjectMeta.Name))
-		Expect(int(table.Rows[0].Cells[1].(float64))).To(Equal(2))
-		Expect(int(table.Rows[0].Cells[2].(float64))).To(Equal(2))
-		Expect(int(table.Rows[0].Cells[3].(float64))).To(Equal(2))
+		Expect(table.Rows[0].Cells[1]).To(BeNumerically("==", 2))
+		Expect(table.Rows[0].Cells[2]).To(BeNumerically("==", 2))
+		Expect(table.Rows[0].Cells[3]).To(BeNumerically("==", 2))
 	})
 
 	It("[test_id:1415]should remove VMIs once they are marked for deletion", func() {

@@ -6,9 +6,7 @@ go_library(
         "converter.go",
         "generated_mock_converter.go",
         "network.go",
-        "numa_placement.go",
         "pci-placement.go",
-        "vcpu_placement.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter",
     visibility = ["//visibility:public"],
@@ -34,7 +32,6 @@ go_library(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )
 
@@ -43,7 +40,6 @@ go_test(
     srcs = [
         "converter_suite_test.go",
         "converter_test.go",
-        "numa_placement_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -52,14 +48,18 @@ go_test(
         "//pkg/testutils:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )

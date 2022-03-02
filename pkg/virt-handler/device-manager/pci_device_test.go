@@ -10,6 +10,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/kubernetes/fake"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -32,8 +34,10 @@ var _ = Describe("PCI Device", func() {
 	var fakePermittedHostDevicesConfig string
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var ctrl *gomock.Controller
+	var clientTest *fake.Clientset
 
 	BeforeEach(func() {
+		clientTest = fake.NewSimpleClientset()
 		By("making sure the environment has a PCI device at " + fakeAddress)
 		_, err := os.Stat("/sys/bus/pci/devices/" + fakeAddress)
 		if os.IsNotExist(err) {
@@ -85,12 +89,12 @@ pciHostDevices:
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		devices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
 		Expect(len(devices)).To(Equal(1))
-		Expect(len(devices[fakeID])).To(Equal(1))
-		Expect(devices[fakeID][0].pciID).To(Equal(fakeID))
-		Expect(devices[fakeID][0].driver).To(Equal(fakeDriver))
-		Expect(devices[fakeID][0].pciAddress).To(Equal(fakeAddress))
-		Expect(devices[fakeID][0].iommuGroup).To(Equal(fakeIommuGroup))
-		Expect(devices[fakeID][0].numaNode).To(Equal(fakeNumaNode))
+		Expect(len(devices[fakeName])).To(Equal(1))
+		Expect(devices[fakeName][0].pciID).To(Equal(fakeID))
+		Expect(devices[fakeName][0].driver).To(Equal(fakeDriver))
+		Expect(devices[fakeName][0].pciAddress).To(Equal(fakeAddress))
+		Expect(devices[fakeName][0].iommuGroup).To(Equal(fakeIommuGroup))
+		Expect(devices[fakeName][0].numaNode).To(Equal(fakeNumaNode))
 	})
 
 	It("Should validate DPI devices", func() {
@@ -105,7 +109,7 @@ pciHostDevices:
 		// discoverPermittedHostPCIDevices() will walk real PCI devices wherever the tests are running
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		pciDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-		devs := constructDPIdevices(pciDevices[fakeID], iommuToPCIMap)
+		devs := constructDPIdevices(pciDevices[fakeName], iommuToPCIMap)
 		Expect(devs[0].ID).To(Equal(fakeIommuGroup))
 		Expect(devs[0].Topology.Nodes[0].ID).To(Equal(int64(fakeNumaNode)))
 	})
@@ -128,8 +132,8 @@ pciHostDevices:
 		fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		By("creating an empty device controller")
-		deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig)
-		deviceController.devicePlugins = make(map[string]ControlledDevice)
+		var noDevices []Device
+		deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
 
 		By("adding a host device to the cluster config")
 		kvConfig := kv.DeepCopy()
@@ -148,12 +152,14 @@ pciHostDevices:
 		Expect(len(permittedDevices.PciHostDevices)).To(Equal(1), "the fake device was not found")
 
 		By("ensuring a device plugin gets created for our fake device")
-		enabledDevicePlugins, disabledDevicePlugins := deviceController.updatePermittedHostDevicePlugins()
+		enabledDevicePlugins, disabledDevicePlugins := deviceController.splitPermittedDevices(
+			deviceController.updatePermittedHostDevicePlugins(),
+		)
 		Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
 		Expect(len(disabledDevicePlugins)).To(Equal(0))
 		Ω(enabledDevicePlugins).Should(HaveKey(fakeName))
 		// Manually adding the enabled plugin, since the device controller is not actually running
-		deviceController.devicePlugins[fakeName] = enabledDevicePlugins[fakeName]
+		deviceController.startedPlugins[fakeName] = controlledDevice{devicePlugin: enabledDevicePlugins[fakeName]}
 
 		By("deletting the device from the configmap")
 		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{}
@@ -163,7 +169,9 @@ pciHostDevices:
 		Expect(len(permittedDevices.PciHostDevices)).To(Equal(0), "the fake device was not deleted")
 
 		By("ensuring the device plugin gets stopped")
-		enabledDevicePlugins, disabledDevicePlugins = deviceController.updatePermittedHostDevicePlugins()
+		enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
+			deviceController.updatePermittedHostDevicePlugins(),
+		)
 		Expect(len(enabledDevicePlugins)).To(Equal(0))
 		Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))

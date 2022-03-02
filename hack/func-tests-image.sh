@@ -5,6 +5,7 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
+fail_if_cri_bin_missing
 target=$1
 
 if [ "${target}" = "build" ]; then
@@ -12,5 +13,5 @@ if [ "${target}" = "build" ]; then
 fi
 
 if [ "${target}" = "push" ]; then
-    docker push ${docker_prefix}/tests:${docker_tag}
+    ${KUBEVIRT_CRI} push ${docker_prefix}/tests:${docker_tag}
 fi

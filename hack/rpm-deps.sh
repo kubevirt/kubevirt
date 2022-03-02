@@ -9,7 +9,7 @@ source hack/config.sh
 LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:7.6.0-6.el8}
 QEMU_VERSION=${QEMU_VERSION:-15:6.0.0-33.el8s}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.14.0-1.el8}
-EDK2_VERSION=${EDK2_VERSION:-0:20200602gitca407c7246bf-4.el8}
+EDK2_VERSION=${EDK2_VERSION:-0:20210527gite1999b264f1f-1.el8}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.44.0-3.el8s}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 
@@ -201,7 +201,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $libguestfstools_x86_64 \
         ${bazeldnf_repos} \
         --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
-        --force-ignore-with-dependencies '^(python[3]{0,1}-|perl[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
         --force-ignore-with-dependencies '^(man-db|mandoc)' \

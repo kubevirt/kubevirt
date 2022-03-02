@@ -65,6 +65,9 @@ const (
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesWorkloadUpdatesEnabled = "WorkloadUpdatesEnabled"
 
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
+
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
@@ -149,6 +152,10 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	additionalProperties := getKVMapFromSpec(kv.Spec)
 	if len(kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) > 0 {
 		additionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled] = ""
+	}
+	if kv.Spec.Configuration.MigrationConfiguration != nil &&
+		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
+		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
@@ -409,6 +416,15 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled]
 	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
+	value, enabled := c.AdditionalProperties[AdditionalPropertiesMigrationNetwork]
+	if enabled {
+		return &value
+	} else {
+		return nil
+	}
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorNamespaces() []string {

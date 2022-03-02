@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
+const xDescriptorText = "urn:alm:descriptor:text"
+
 type NewClusterServiceVersionData struct {
 	Namespace            string
 	KubeVirtVersion      string
@@ -313,13 +315,13 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 								Description:  "The ImageRegistry to use for the KubeVirt components.",
 								DisplayName:  "ImageRegistry",
 								Path:         "imageRegistry",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 							{
 								Description:  "The ImageTag to use for the KubeVirt components.",
 								DisplayName:  "ImageTag",
 								Path:         "imageTag",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 						},
 						StatusDescriptors: []csvv1.StatusDescriptor{
@@ -339,31 +341,31 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 								Description:  "The observed version of the KubeVirt deployment.",
 								DisplayName:  "Observed KubeVirt Version",
 								Path:         "observedKubeVirtVersion",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 							{
 								Description:  "The targeted version of the KubeVirt deployment.",
 								DisplayName:  "Target KubeVirt Version",
 								Path:         "targetKubeVirtVersion",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 							{
 								Description:  "The observed registry of the KubeVirt deployment.",
 								DisplayName:  "Observed KubeVirt registry",
 								Path:         "ObservedKubeVirtRegistry",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 							{
 								Description:  "The targeted registry of the KubeVirt deployment.",
 								DisplayName:  "Target KubeVirt registry",
 								Path:         "TargetKubeVirtRegistry",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 							{
 								Description:  "The version of the KubeVirt Operator.",
 								DisplayName:  "KubeVirt Operator Version",
 								Path:         "operatorVersion",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
+								XDescriptors: []string{xDescriptorText},
 							},
 						},
 					},

@@ -37,6 +37,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
@@ -67,7 +68,7 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 
 	foundVersion, foundImageRegistry, foundID, _ := getInstallStrategyAnnotations(objectMeta)
 	foundGeneration, generationExists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
-	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
+	foundLabels := util.IsManagedByOperator(objectMeta.Labels)
 	sGeneration := strconv.FormatInt(generation, 10)
 
 	if generationExists && foundGeneration != sGeneration {
@@ -435,9 +436,10 @@ type Reconciler struct {
 	clientset        kubecli.KubevirtClient
 	aggregatorclient install.APIServiceInterface
 	expectations     *util.Expectations
+	recorder         record.EventRecorder
 }
 
-func NewReconciler(kv *v1.KubeVirt, targetStrategy *install.Strategy, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations) (*Reconciler, error) {
+func NewReconciler(kv *v1.KubeVirt, targetStrategy *install.Strategy, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
 	kvKey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, err
@@ -461,6 +463,7 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy *install.Strategy, stores uti
 		clientset,
 		aggregatorclient,
 		expectations,
+		recorder,
 	}, nil
 }
 
@@ -577,7 +580,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	}
 
 	if shouldTakeUpdatePath(targetVersion, observedVersion) {
-		finished, err := r.updateKubeVirtSystem(daemonSetsRolledOver, controllerDeploymentsRolledOver)
+		finished, err := r.updateKubeVirtSystem(controllerDeploymentsRolledOver)
 		if !finished || err != nil {
 			return false, err
 		}
@@ -654,8 +657,8 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Daemonsets
 	for _, daemonSet := range r.targetStrategy.DaemonSets() {
-		err := r.syncDaemonSet(daemonSet)
-		if err != nil {
+		finished, err := r.syncDaemonSet(daemonSet)
+		if !finished || err != nil {
 			return false, err
 		}
 	}

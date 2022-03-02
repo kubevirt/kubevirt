@@ -1,4 +1,4 @@
-# Local Kubernets Provider
+# Local Kubernetes Provider
 
 This provider allows developing against bleeding-edge Kubernetes code. The
 k8s sources will be compiled and a single-node cluster will be started.

@@ -5358,6 +5358,1260 @@
      }
     ]
    },
+   "/apis/migrations.kubevirt.io/": {
+    "get": {
+     "description": "Get a KubeVirt API group",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getAPIGroup-migrations.kubevirt.io",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/migrations.kubevirt.io/v1alpha1/": {
+    "get": {
+     "description": "Get KubeVirt API Resources",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getAPIResources-migrations.kubevirt.io-v1alpha1",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/migrations.kubevirt.io/v1alpha1/migrationpolicies": {
+    "get": {
+     "description": "Get a list of MigrationPolicy objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listMigrationPolicy",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicyList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "post": {
+     "description": "Create a MigrationPolicy object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "createMigrationPolicy",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a collection of MigrationPolicy objects.",
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteCollectionMigrationPolicy",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/migrations.kubevirt.io/v1alpha1/migrationpolicies/{name:[a-z0-9][a-z0-9\\-]*}": {
+    "get": {
+     "description": "Get a MigrationPolicy object.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "readMigrationPolicy",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.",
+       "name": "exact",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Should this value be exported. Export strips fields that a user can not specify.",
+       "name": "export",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "put": {
+     "description": "Update a MigrationPolicy object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "replaceMigrationPolicy",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a MigrationPolicy object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteMigrationPolicy",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
+       }
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+       "name": "gracePeriodSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+       "name": "orphanDependents",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+       "name": "propagationPolicy",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "patch": {
+     "description": "Patch a MigrationPolicy object.",
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "patchMigrationPolicy",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/migrations.kubevirt.io/v1alpha1/watch/migrationpolicies": {
+    "get": {
+     "description": "Watch a MigrationPolicyList object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchMigrationPolicyListForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
+   "/apis/pool.kubevirt.io/": {
+    "get": {
+     "description": "Get a KubeVirt API group",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getAPIGroup-pool.kubevirt.io",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/pool.kubevirt.io/v1alpha1/": {
+    "get": {
+     "description": "Get KubeVirt API Resources",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getAPIResources-pool.kubevirt.io-v1alpha1",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepools": {
+    "get": {
+     "description": "Get a list of VirtualMachinePool objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePoolList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "post": {
+     "description": "Create a VirtualMachinePool object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "createNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a collection of VirtualMachinePool objects.",
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteCollectionNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepools/{name:[a-z0-9][a-z0-9\\-]*}": {
+    "get": {
+     "description": "Get a VirtualMachinePool object.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "readNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.",
+       "name": "exact",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Should this value be exported. Export strips fields that a user can not specify.",
+       "name": "export",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "put": {
+     "description": "Update a VirtualMachinePool object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "replaceNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a VirtualMachinePool object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
+       }
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+       "name": "gracePeriodSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+       "name": "orphanDependents",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+       "name": "propagationPolicy",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "patch": {
+     "description": "Patch a VirtualMachinePool object.",
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "patchNamespacedVirtualMachinePool",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/pool.kubevirt.io/v1alpha1/virtualmachinepools": {
+    "get": {
+     "description": "Get a list of all VirtualMachinePool objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listVirtualMachinePoolForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachinePoolList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
+   "/apis/pool.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepools": {
+    "get": {
+     "description": "Watch a VirtualMachinePool object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchNamespacedVirtualMachinePool",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
+   "/apis/pool.kubevirt.io/v1alpha1/watch/virtualmachinepools": {
+    "get": {
+     "description": "Watch a VirtualMachinePoolList object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchVirtualMachinePoolListForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
    "/apis/snapshot.kubevirt.io/": {
     "get": {
      "description": "Get a KubeVirt API group",
@@ -10096,11 +11350,15 @@
       }
      },
      "dataSource": {
-      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) * An existing custom resource that implements data population (Alpha) In order to use custom resource types that implement data population, the AnyVolumeDataSource feature gate must be enabled. If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source.",
+      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the AnyVolumeDataSource feature gate is enabled, this field will always have the same contents as the DataSourceRef field.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "dataSourceRef": {
+      "description": "Specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any local object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the DataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, both fields (DataSource and DataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. There are two important differences between DataSource and DataSourceRef: * While DataSource only allows two specific types of objects, DataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While DataSource ignores disallowed values (dropping them), DataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n(Alpha) Using this field requires the AnyVolumeDataSource feature gate to be enabled.",
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
      },
      "resources": {
-      "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
+      "description": "Resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
       "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
      },
      "selector": {
@@ -10169,8 +11427,12 @@
       "description": "A label query over a set of resources, in this case pods.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
+     "namespaceSelector": {
+      "description": "A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means \"this pod's namespace\". An empty selector ({}) matches all namespaces. This field is beta-level and is only honored when PodAffinityNamespaceSelector feature is enabled.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
      "namespaces": {
-      "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+      "description": "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\"",
       "type": "array",
       "items": {
        "type": "string"
@@ -10287,14 +11549,14 @@
     "type": "object",
     "properties": {
      "limits": {
-      "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/",
+      "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "requests": {
-      "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/",
+      "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
@@ -10707,6 +11969,10 @@
       "description": "Operation is the type of operation which lead to this ManagedFieldsEntry being created. The only valid values for this field are 'Apply' and 'Update'.",
       "type": "string"
      },
+     "subresource": {
+      "description": "Subresource is the name of the subresource used to update that object, or empty string if the object was updated through the main resource. The value of this field is used to distinguish between managers, even if they share the same name. For example, a status update will be distinct from a regular update using the same manager name. Note that the APIVersion field is not related to the Subresource field and it always corresponds to the version of the main resource.",
+      "type": "string"
+     },
      "time": {
       "description": "Time is timestamp of when these fields were set. It should always be empty if Operation is 'Apply'",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
@@ -11055,6 +12321,14 @@
       "description": "Disk represents the hotplug disk that will be plugged into the running VMI",
       "$ref": "#/definitions/v1.Disk"
      },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "name": {
       "description": "Name represents the name that will be used to map the disk to the corresponding volume. This overrides any name set inside the Disk struct itself.",
       "type": "string"
@@ -11219,7 +12493,7 @@
     }
    },
    "v1.ClientPassthroughDevices": {
-    "description": "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
+    "description": "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
     "type": "object"
    },
    "v1.Clock": {
@@ -11603,7 +12877,7 @@
       "type": "boolean"
      },
      "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+      "description": "Disks describes disks, cdroms and luns which are connected to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
@@ -11700,10 +12974,6 @@
       "description": "Attach a volume as a disk to the vmi.",
       "$ref": "#/definitions/v1.DiskTarget"
      },
-     "floppy": {
-      "description": "Attach a volume as a floppy to the vmi.",
-      "$ref": "#/definitions/v1.FloppyTarget"
-     },
      "io": {
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
       "type": "string"
@@ -11719,6 +12989,10 @@
      "serial": {
       "description": "Serial provides the ability to specify a serial number for the disk device.",
       "type": "string"
+     },
+     "shareable": {
+      "description": "If specified the disk is made sharable and multiple write from different VMs are permitted",
+      "type": "boolean"
      },
      "tag": {
       "description": "If specified, disk address and its tag will be provided to the guest via config drive metadata",
@@ -11788,6 +13062,10 @@
      "ioThreadsPolicy": {
       "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
       "type": "string"
+     },
+     "launchSecurity": {
+      "description": "Launch Security setting of the vmi.",
+      "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "machine": {
       "description": "Machine type.",
@@ -12092,19 +13370,6 @@
      }
     }
    },
-   "v1.FloppyTarget": {
-    "type": "object",
-    "properties": {
-     "readonly": {
-      "description": "ReadOnly. Defaults to false.",
-      "type": "boolean"
-     },
-     "tray": {
-      "description": "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
-      "type": "string"
-     }
-    }
-   },
    "v1.FreezeUnfreezeTimeout": {
     "description": "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command",
     "type": "object",
@@ -12129,6 +13394,10 @@
      },
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
+      "type": "string"
+     },
+     "tag": {
+      "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"
      },
      "virtualGPUOptions": {
@@ -12217,6 +13486,10 @@
       "type": "string"
      },
      "name": {
+      "type": "string"
+     },
+     "tag": {
+      "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"
      }
     }
@@ -12547,6 +13820,10 @@
        "type": "string"
       }
      },
+     "evictionStrategy": {
+      "description": "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
+      "type": "string"
+     },
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },
@@ -12797,6 +14074,15 @@
      }
     }
    },
+   "v1.LaunchSecurity": {
+    "type": "object",
+    "properties": {
+     "sev": {
+      "description": "AMD Secure Encrypted Virtualization (SEV).",
+      "$ref": "#/definitions/v1.SEV"
+     }
+    }
+   },
    "v1.LogVerbosity": {
     "description": "LogVerbosity sets log verbosity level of  various components",
     "type": "object",
@@ -12854,13 +14140,20 @@
     }
    },
    "v1.MediatedDevicesConfiguration": {
-    "description": "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+    "description": "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
     "type": "object",
     "properties": {
      "mediatedDevicesTypes": {
       "type": "array",
       "items": {
        "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "nodeMediatedDeviceTypes": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.NodeMediatedDeviceTypesConfig"
       },
       "x-kubernetes-list-type": "atomic"
      }
@@ -12940,6 +14233,9 @@
      },
      "disableTLS": {
       "type": "boolean"
+     },
+     "network": {
+      "type": "string"
      },
      "nodeDrainTaintKey": {
       "type": "string"
@@ -13025,6 +14321,30 @@
      }
     }
    },
+   "v1.NodeMediatedDeviceTypesConfig": {
+    "description": "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+    "type": "object",
+    "required": [
+     "nodeSelector",
+     "mediatedDevicesTypes"
+    ],
+    "properties": {
+     "mediatedDevicesTypes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "nodeSelector": {
+      "description": "NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
+     }
+    }
+   },
    "v1.NodePlacement": {
     "description": "NodePlacement describes node scheduling configuration.",
     "type": "object",
@@ -13107,7 +14427,7 @@
     }
    },
    "v1.PermittedHostDevices": {
-    "description": "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+    "description": "PermittedHostDevices holds information about devices allowed for passthrough",
     "type": "object",
     "properties": {
      "mediatedDevices": {
@@ -13139,7 +14459,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "capacity": {
-      "description": "Capacity represents the capacity set on the corresponding PVC spec",
+      "description": "Capacity represents the capacity set on the corresponding PVC status",
       "type": "object",
       "additionalProperties": {
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
@@ -13152,6 +14472,13 @@
      "preallocated": {
       "description": "Preallocated indicates if the PVC's storage is preallocated or not",
       "type": "boolean"
+     },
+     "requests": {
+      "description": "Requests represents the resources requested by the corresponding PVC spec",
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      }
      },
      "volumeMode": {
       "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
@@ -13195,7 +14522,7 @@
     }
    },
    "v1.Port": {
-    "description": "Port repesents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
+    "description": "Port represents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
     "type": "object",
     "required": [
      "port"
@@ -13344,6 +14671,14 @@
      "name"
     ],
     "properties": {
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "name": {
       "description": "Name represents the name that maps to both the disk and volume that should be removed",
       "type": "string"
@@ -13396,6 +14731,9 @@
    },
    "v1.Rng": {
     "description": "Rng represents the random device passed from host",
+    "type": "object"
+   },
+   "v1.SEV": {
     "type": "object"
    },
    "v1.SMBiosConfiguration": {
@@ -14190,6 +15528,14 @@
       "description": "Indicates that the migration failed",
       "type": "boolean"
      },
+     "migrationConfiguration": {
+      "description": "Migration configurations to apply",
+      "$ref": "#/definitions/v1.MigrationConfiguration"
+     },
+     "migrationPolicyName": {
+      "description": "Name of the migration policy. If string is empty, no policy is matched",
+      "type": "string"
+     },
      "migrationUid": {
       "description": "The VirtualMachineInstanceMigration object associated with this migration",
       "type": "string"
@@ -14210,6 +15556,15 @@
       "description": "The UID of the target attachment pod for hotplug volumes",
       "type": "string"
      },
+     "targetCPUSet": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "format": "int32"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "targetDirectMigrationNodePorts": {
       "description": "The list of ports opened for live migration on the destination node",
       "type": "object",
@@ -14229,6 +15584,10 @@
      "targetNodeDomainDetected": {
       "description": "The Target Node has seen the Domain Start Event",
       "type": "boolean"
+     },
+     "targetNodeTopology": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
+      "type": "string"
      },
      "targetPod": {
       "description": "The target pod that the VMI is moving to",
@@ -14255,6 +15614,10 @@
    "v1.VirtualMachineInstanceNetworkInterface": {
     "type": "object",
     "properties": {
+     "infoSource": {
+      "description": "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
+      "type": "string"
+     },
      "interfaceName": {
       "description": "The interface name inside the Virtual Machine",
       "type": "string"
@@ -15067,6 +16430,87 @@
      }
     }
    },
+   "v1alpha1.MigrationPolicy": {
+    "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "$ref": "#/definitions/v1alpha1.MigrationPolicySpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1alpha1.MigrationPolicyStatus"
+     }
+    }
+   },
+   "v1alpha1.MigrationPolicyList": {
+    "description": "MigrationPolicyList is a list of MigrationPolicy",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.MigrationPolicy"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1alpha1.MigrationPolicySpec": {
+    "type": "object",
+    "required": [
+     "selectors"
+    ],
+    "properties": {
+     "allowAutoConverge": {
+      "type": "boolean"
+     },
+     "allowPostCopy": {
+      "type": "boolean"
+     },
+     "bandwidthPerMigration": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "completionTimeoutPerGiB": {
+      "type": "integer",
+      "format": "int64"
+     },
+     "selectors": {
+      "$ref": "#/definitions/v1alpha1.Selectors"
+     }
+    }
+   },
+   "v1alpha1.MigrationPolicyStatus": {
+    "type": "object",
+    "nullable": true
+   },
    "v1alpha1.PersistentVolumeClaim": {
     "type": "object",
     "properties": {
@@ -15077,6 +16521,17 @@
      "spec": {
       "description": "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
       "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
+     }
+    }
+   },
+   "v1alpha1.Selectors": {
+    "type": "object",
+    "properties": {
+     "namespaceSelector": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "virtualMachineInstanceSelector": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },
@@ -15218,6 +16673,138 @@
      "name": {
       "description": "Name specifies the name of this custom profile.",
       "type": "string"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePool": {
+    "description": "VirtualMachinePool resource contains a VirtualMachine configuration that can be used to replicate multiple VirtualMachine resources.",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolStatus"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolCondition": {
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolList": {
+    "description": "VirtualMachinePoolList is a list of VirtualMachinePool resources.",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolSpec": {
+    "type": "object",
+    "required": [
+     "selector",
+     "virtualMachineTemplate"
+    ],
+    "properties": {
+     "paused": {
+      "description": "Indicates that the pool is paused.",
+      "type": "boolean"
+     },
+     "replicas": {
+      "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "selector": {
+      "description": "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "virtualMachineTemplate": {
+      "description": "Template describes the VM that will be created.",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineTemplateSpec"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolStatus": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolCondition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelSelector": {
+      "description": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+      "type": "string"
+     },
+     "replicas": {
+      "type": "integer",
+      "format": "int32"
      }
     }
    },
@@ -15528,6 +17115,18 @@
      }
     }
    },
+   "v1alpha1.VirtualMachineTemplateSpec": {
+    "type": "object",
+    "properties": {
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineSpec contains the VirtualMachine specification.",
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
+     }
+    }
+   },
    "v1alpha1.VolumeBackup": {
     "description": "VolumeBackup contains the data neeed to restore a PVC",
     "type": "object",
@@ -15653,6 +17252,20 @@
      "certConfigMap": {
       "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
       "type": "string"
+     },
+     "extraHeaders": {
+      "description": "ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "secretExtraHeaders": {
+      "description": "SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      },
      "secretRef": {
       "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",

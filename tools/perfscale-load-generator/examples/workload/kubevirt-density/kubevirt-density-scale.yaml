@@ -1,0 +1,61 @@
+globalConfig:
+    qps: 0
+    burst: 0
+workloads:
+  - name: kubevirt-density-200
+    iterationCount: 1
+    iterationInterval: 0
+    iterationCreationWait: true
+    iterationCleanup: true
+    iterationDeletionWait: true
+    namespacedIterations: false    
+    maxWaitTimeout: 1h
+    qps: 20
+    burst: 20
+    waitWhenFinished: 10m
+    objects:          
+      - templateFile: templates/vmi-ephemeral.yaml
+        replicas: 200
+        inputVars:
+          containerPrefix: ""
+          containerImg: cirros-container-disk-demo
+          containerTag: ""
+          namespace: kubevirt-density
+  - name: kubevirt-density-400
+    iterationCount: 1
+    iterationInterval: 0
+    iterationCreationWait: true
+    iterationCleanup: true
+    iterationDeletionWait: true
+    namespacedIterations: false
+    maxWaitTimeout: 1h
+    qps: 20
+    burst: 20
+    waitWhenFinished: 10m
+    objects:          
+      - templateFile: templates/vmi-ephemeral.yaml
+        replicas: 400
+        inputVars:
+          containerPrefix: ""
+          containerImg: cirros-container-disk-demo
+          containerTag: ""
+          namespace: kubevirt-density
+  - name: kubevirt-density-600
+    iterationCount: 1
+    iterationInterval: 0
+    iterationCreationWait: true
+    iterationCleanup: true
+    iterationDeletionWait: true
+    namespacedIterations: false    
+    maxWaitTimeout: 1h
+    qps: 20
+    burst: 20
+    waitWhenFinished: 30s
+    objects:          
+      - templateFile: templates/vmi-ephemeral.yaml
+        replicas: 600
+        inputVars:
+          containerPrefix: ""
+          containerImg: cirros-container-disk-demo
+          containerTag: ""
+          namespace: kubevirt-density

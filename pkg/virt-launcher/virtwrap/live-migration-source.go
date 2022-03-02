@@ -21,11 +21,18 @@ package virtwrap
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
@@ -36,13 +43,15 @@ import (
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
+
+const liveMigrationFailed = "Live migration failed."
 
 type migrationDisks struct {
 	shared    map[string]bool
@@ -100,7 +109,7 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 		return err
 	}
 
-	eventChan := make(chan interface{}, sriov.MaxConcurrentHotPlugDevicesEvents)
+	eventChan := make(chan interface{}, hostdevice.MaxConcurrentHotPlugDevicesEvents)
 	var callback libvirt.DomainEventDeviceRemovedCallback = func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
 		eventChan <- event.DevAlias
 	}
@@ -115,20 +124,159 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	return nil
 }
 
+func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
+	var targetTopology cmdv1.Topology
+	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
+	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
+	if err != nil {
+		return nil, err
+	}
+
+	useIOThreads := false
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			useIOThreads = true
+			break
+		}
+	}
+	domain := api.NewMinimalDomain(vmi.Name)
+	domain.Spec = *domSpec
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+	domain.Spec.CPU.Topology = cpuTopology
+	domain.Spec.VCPU = &api.VCPU{
+		Placement: "static",
+		CPUs:      cpuCount,
+	}
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	if err != nil {
+		return nil, err
+	}
+
+	return domain, err
+}
+
+func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string, logger *log.FilteredLogger) error {
+	// Marshalling the whole domain, even if we just need the cputune section, for indentation purposes
+	xmlstr, err := xml.MarshalIndent(domain.Spec, "", "  ")
+	if err != nil {
+		logger.Reason(err).Error("Live migration failed. Failed to get XML.")
+		return err
+	}
+	decoder := xml.NewDecoder(bytes.NewReader(xmlstr))
+	var location = make([]string, 0)
+	var newLocation []string = nil
+	injecting := false
+	for {
+		if newLocation != nil {
+			// Postpone popping end elements from `location` to ensure their removal
+			location = newLocation
+			newLocation = nil
+		}
+		token, err := decoder.RawToken()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.Errorf("error getting token: %v\n", err)
+			return err
+		}
+
+		switch v := token.(type) {
+		case xml.StartElement:
+			location = append(location, v.Name.Local)
+
+		case xml.EndElement:
+			newLocation = location[:len(location)-1]
+		}
+
+		if len(location) >= len(section) &&
+			reflect.DeepEqual(location[:len(section)], section) {
+			injecting = true
+		} else {
+			if injecting == true {
+				// We just left the section block, we're done
+				break
+			} else {
+				// We're not in the section block yet, skipping elements
+				continue
+			}
+		}
+
+		if injecting {
+			if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
+				logger.Reason(err).Errorf("Failed to encode token %v", token)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// This function returns true for every section that should be adjusted with target data when migrating a VMI
+//   that includes dedicated CPUs
+// Strict mode only returns true if we just entered the block
+func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
+	if (!strict || len(section) == 2) &&
+		len(section) >= 2 &&
+		section[0] == "domain" &&
+		section[1] == "cputune" {
+		return true
+	}
+	if (!strict || len(section) == 2) &&
+		len(section) >= 2 &&
+		section[0] == "domain" &&
+		section[1] == "numatune" {
+		return true
+	}
+	if (!strict || len(section) == 3) &&
+		len(section) >= 3 &&
+		section[0] == "domain" &&
+		section[1] == "cpu" &&
+		section[2] == "numa" {
+		return true
+	}
+
+	return false
+}
+
 // This returns domain xml without the migration metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
-func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
+func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
+	const (
+		exactLocation = true
+		insideBlock   = false
+	)
+	var domain *api.Domain
+	var err error
+
 	xmlstr, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Live migration failed. Failed to get XML.")
 		return "", err
 	}
+
+	if vmi.IsCPUDedicated() {
+		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
+		// assigned in the source node with the new CPUs assigned in the target node
+		err = xml.Unmarshal([]byte(xmlstr), &domain)
+		if err != nil {
+			return "", err
+		}
+		domain, err = generateDomainForTargetCPUSetAndTopology(vmi, domSpec)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(xmlstr)))
 	var buf bytes.Buffer
 	encoder := xml.NewEncoder(&buf)
 
 	var location = make([]string, 0)
 	var newLocation []string = nil
+
 	for {
 		if newLocation != nil {
 			// Postpone popping end elements from `location` to ensure their removal
@@ -147,6 +295,15 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 		switch v := token.(type) {
 		case xml.StartElement:
 			location = append(location, v.Name.Local)
+
+			// If the VMI requires dedicated CPUs, we need to patch the domain with
+			// the new CPU/NUMA info calculated for the target node prior to migration
+			if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, exactLocation) {
+				err = injectNewSection(encoder, domain, location, log.Log.Object(vmi))
+				if err != nil {
+					return "", err
+				}
+			}
 		case xml.EndElement:
 			newLocation = location[:len(location)-1]
 		}
@@ -157,15 +314,18 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 			location[3] == "migration" {
 			continue // We're inside domain/metadata/kubevirt/migration, continue will skip elements
 		}
+		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, insideBlock) {
+			continue
+		}
 
 		if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
-			log.Log.Object(vmi).Reason(err)
+			log.Log.Object(vmi).Reason(err).Errorf("Failed to encode token %v", token)
 			return "", err
 		}
 	}
 
 	if err := encoder.Flush(); err != nil {
-		log.Log.Object(vmi).Reason(err)
+		log.Log.Object(vmi).Reason(err).Error("Failed to flush XML encoder")
 		return "", err
 	}
 
@@ -251,7 +411,7 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 
 	err = l.asyncMigrate(vmi, options)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return err
 	}
@@ -285,7 +445,8 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		} else {
 			// Don't allow the same migration UID to be executed twice.
 			// Migration attempts are like pods. One shot.
-			return false, fmt.Errorf("migration job already executed")
+			return false, fmt.Errorf("migration job %v already executed, finished at %v, completed: %t, failed: %t, abortStatus: %s",
+				migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Completed, migrationMetadata.Failed, migrationMetadata.AbortStatus)
 		}
 	}
 
@@ -562,6 +723,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 		err = dom.MigrateStartPostCopy(uint32(0))
 		if err != nil {
 			logger.Reason(err).Error("failed to start post migration")
+			return nil
 		}
 
 		err = m.l.updateVMIMigrationMode(dom, m.vmi, v1.MigrationPostCopy)
@@ -631,7 +793,7 @@ func (m *migrationMonitor) startMonitor() {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		logger.Reason(err).Error("Live migration failed.")
+		logger.Reason(err).Error(liveMigrationFailed)
 		m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return
 	}
@@ -646,7 +808,7 @@ func (m *migrationMonitor) startMonitor() {
 			m.migrationFailedWithError = err
 		} else if m.migrationFailedWithError != nil {
 			logger.Info("Didn't manage to get a job status. Post the received error and finilize.")
-			logger.Reason(m.migrationFailedWithError).Error("Live migration failed")
+			logger.Reason(m.migrationFailedWithError).Error(liveMigrationFailed)
 			var abortStatus v1.MigrationAbortStatus
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
@@ -722,13 +884,13 @@ func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Status.MigrationMethod == v1.BlockMigration)
 }
 
-func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string) (*libvirt.DomainMigrateParameters, error) {
-	bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
+func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec) (*libvirt.DomainMigrateParameters, error) {
+	bandwidth, err := vcpu.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
 		return nil, err
 	}
 
-	xmlstr, err := migratableDomXML(dom, vmi)
+	xmlstr, err := migratableDomXML(dom, vmi, domSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -788,8 +950,11 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		if err := prepareDomainForMigration(l.virConn, dom); err != nil {
 			return fmt.Errorf("error encountered during preparing domain for migration: %v", err)
 		}
-
-		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir)
+		domSpec, err := l.getDomainSpec(dom)
+		if err != nil {
+			return fmt.Errorf("failed to get domain spec: %v", err)
+		}
+		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir, domSpec)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
@@ -859,7 +1024,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 
 		err := l.migrateHelper(vmi, options)
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 			migrationErrorChan <- err
 			return
 		}

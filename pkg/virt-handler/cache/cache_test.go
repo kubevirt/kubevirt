@@ -25,7 +25,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -113,7 +113,7 @@ var _ = Describe("Domain informer", func() {
 
 			eventDomain := obj.(*api.Domain)
 			eventDomain.Spec.XMLName = xml.Name{}
-			Expect(reflect.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
 		} else {
 
 			Expect(exists).To(BeFalse())
@@ -214,7 +214,7 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
@@ -241,7 +241,7 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())
@@ -271,7 +271,7 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
@@ -291,7 +291,7 @@ var _ = Describe("Domain informer", func() {
 			domain := api.NewMinimalDomain("test")
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus(domain.Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 			// now prove if we make a change, like adding a label, that the resync
 			// will pick that change up automatically
 			newDomain := domain.DeepCopy()
@@ -299,7 +299,7 @@ var _ = Describe("Domain informer", func() {
 			newDomain.ObjectMeta.Labels["some-label"] = "some-value"
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{newDomain}, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
-			domainManager.EXPECT().InterfacesStatus(newDomain.Spec.Devices.Interfaces).Return(nil)
+			domainManager.EXPECT().InterfacesStatus().Return(nil)
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
@@ -447,7 +447,7 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 
 			// This file doesn't have a unix sock server behind it
 			// verify list still completes regardless

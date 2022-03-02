@@ -22,7 +22,6 @@ package apply
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -35,11 +34,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
@@ -206,8 +209,7 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
-	Context("setting virt-handler maxDevices flag ", func() {
-
+	Describe("on updating/creating virt-handler", func() {
 		var daemonSet *appsv1.DaemonSet
 		var err error
 		var clientset *kubecli.MockKubevirtClient
@@ -215,11 +217,75 @@ var _ = Describe("Apply Apps", func() {
 		var expectations *util.Expectations
 		var stores util.Stores
 		var mockDSCacheStore *MockStore
+		var mockPodCacheStore *cache.FakeCustomStore
 		var dsClient *fake.Clientset
 
 		var ctrl *gomock.Controller
 
-		vmiPerNode := 10
+		createDaemonSetPod := func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet, phase corev1.PodPhase, ready bool) *corev1.Pod {
+			version := kv.Status.TargetKubeVirtVersion
+			registry := kv.Status.TargetKubeVirtRegistry
+			id := kv.Status.TargetDeploymentID
+
+			boolTrue := true
+			pod := &corev1.Pod{
+				ObjectMeta: v12.ObjectMeta{
+					OwnerReferences: []v12.OwnerReference{
+						{Name: daemonSet.Name, Controller: &boolTrue, UID: daemonSet.UID},
+					},
+					Annotations: map[string]string{
+						v1.InstallStrategyVersionAnnotation:    version,
+						v1.InstallStrategyRegistryAnnotation:   registry,
+						v1.InstallStrategyIdentifierAnnotation: id,
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: phase,
+					ContainerStatuses: []corev1.ContainerStatus{
+						{Ready: ready},
+					},
+				},
+			}
+			return pod
+		}
+
+		createCrashedCanaryPod := func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) *corev1.Pod {
+			pod := createDaemonSetPod(kv, daemonSet, corev1.PodRunning, false)
+			pod.Status.ContainerStatuses[0].RestartCount = 1
+			return pod
+		}
+
+		markHandlerReady := func(deamonSet *appsv1.DaemonSet) {
+			daemonSet.Status.DesiredNumberScheduled = 1
+			daemonSet.Status.NumberReady = 1
+			pod := createDaemonSetPod(kv, daemonSet, corev1.PodRunning, true)
+			mockPodCacheStore.ListFunc = func() []interface{} {
+				return []interface{}{pod}
+			}
+		}
+
+		markHandlerNotReady := func(deamonSet *appsv1.DaemonSet) {
+			daemonSet.Status.DesiredNumberScheduled = 1
+			daemonSet.Status.NumberReady = 0
+		}
+
+		markHandlerCrashed := func(deamonSet *appsv1.DaemonSet) {
+			daemonSet.Status.DesiredNumberScheduled = 1
+			daemonSet.Status.NumberReady = 0
+			pod := createCrashedCanaryPod(kv, daemonSet)
+			mockPodCacheStore.ListFunc = func() []interface{} {
+				return []interface{}{pod}
+			}
+		}
+
+		markHandlerCanaryReady := func(deamonSet *appsv1.DaemonSet) {
+			daemonSet.Status.DesiredNumberScheduled = 2
+			daemonSet.Status.NumberReady = 1
+			pod := createDaemonSetPod(kv, daemonSet, corev1.PodRunning, true)
+			mockPodCacheStore.ListFunc = func() []interface{} {
+				return []interface{}{pod}
+			}
+		}
 
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
@@ -230,6 +296,8 @@ var _ = Describe("Apply Apps", func() {
 			stores = util.Stores{}
 			mockDSCacheStore = &MockStore{}
 			stores.DaemonSetCache = mockDSCacheStore
+			mockPodCacheStore = &cache.FakeCustomStore{}
+			stores.InfrastructurePodCache = mockPodCacheStore
 
 			expectations = &util.Expectations{}
 			expectations.DaemonSet = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet"))
@@ -243,107 +311,358 @@ var _ = Describe("Apply Apps", func() {
 				},
 			}
 
-			daemonSet, err = components.NewHandlerDaemonSet(Namespace, Registry, "", Version, "", "", "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
+			daemonSet, err = components.NewHandlerDaemonSet(Namespace, Registry, "", Version, "", "", "", "", corev1.PullIfNotPresent, nil, "verbosity", map[string]string{})
 			Expect(err).ToNot(HaveOccurred())
+			markHandlerReady(daemonSet)
+			daemonSet.UID = "random-id"
 		})
 
 		AfterEach(func() {
 			ctrl.Finish()
 		})
 
-		It("should create with maxDevices Set", func() {
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
-			created := false
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
+		Context("setting virt-handler maxDevices flag", func() {
+			vmiPerNode := 10
 
-			dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				created = true
-
-				ds := update.GetObject().(*appsv1.DaemonSet)
-
-				command := ds.Spec.Template.Spec.Containers[0].Command
-				Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
-
-				return true, update.GetObject(), nil
-			})
-
-			err = r.syncDaemonSet(daemonSet)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(created).To(BeTrue())
-		})
-
-		It("should patch DS with maxDevices and then remove it", func() {
-			mockDSCacheStore.get = daemonSet
-			SetGeneration(&kv.Status.Generations, daemonSet)
-			patched := false
-			containMaxDeviceFlag := false
-
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-
-			// add VirtualMachineInstancesPerNode configuration
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
-			containMaxDeviceFlag = true
-			kv.SetGeneration(2)
-
-			dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				a, ok := action.(testing.PatchAction)
-				Expect(ok).To(BeTrue())
-				patched = true
-
-				patches := []utiltypes.PatchOperation{}
-				json.Unmarshal(a.GetPatch(), &patches)
-
-				var dsSpec *appsv1.DaemonSetSpec
-				for _, v := range patches {
-					if v.Path == "/spec" && v.Op == "replace" {
-						dsSpec = &appsv1.DaemonSetSpec{}
-						template, err := json.Marshal(v.Value)
-						Expect(err).ToNot(HaveOccurred())
-						json.Unmarshal(template, dsSpec)
-					}
+			It("should create with maxDevices Set", func() {
+				kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
+				created := false
+				r := &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
 				}
 
-				Expect(dsSpec).ToNot(BeNil())
+				dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					update, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+					created = true
 
-				command := dsSpec.Template.Spec.Containers[0].Command
-				if containMaxDeviceFlag {
+					ds := update.GetObject().(*appsv1.DaemonSet)
+
+					command := ds.Spec.Template.Spec.Containers[0].Command
 					Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
-				} else {
-					Expect(strings.Join(command, " ")).ToNot(ContainSubstring("--maxDevices 10"))
-				}
 
-				return true, &appsv1.DaemonSet{}, nil
+					return true, update.GetObject(), nil
+				})
+
+				_, err = r.syncDaemonSet(daemonSet)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(created).To(BeTrue())
 			})
 
-			err = r.syncDaemonSet(daemonSet)
+			It("should patch DS with maxDevices and then remove it", func() {
+				mockDSCacheStore.get = daemonSet
+				SetGeneration(&kv.Status.Generations, daemonSet)
+				patched := false
+				containMaxDeviceFlag := false
 
-			Expect(patched).To(BeTrue())
-			Expect(err).ToNot(HaveOccurred())
+				r := &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
+				}
 
-			// remove VirtualMachineInstancesPerNode configuration
-			patched = false
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
-			containMaxDeviceFlag = false
-			kv.SetGeneration(3)
+				// add VirtualMachineInstancesPerNode configuration
+				kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
+				containMaxDeviceFlag = true
+				kv.SetGeneration(2)
 
-			err = r.syncDaemonSet(daemonSet)
+				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					patched = true
 
-			Expect(patched).To(BeTrue())
-			Expect(err).ToNot(HaveOccurred())
+					patches := []utiltypes.PatchOperation{}
+					json.Unmarshal(a.GetPatch(), &patches)
+
+					var dsSpec *appsv1.DaemonSetSpec
+					for _, v := range patches {
+						if v.Path == "/spec" && v.Op == "replace" {
+							dsSpec = &appsv1.DaemonSetSpec{}
+							template, err := json.Marshal(v.Value)
+							Expect(err).ToNot(HaveOccurred())
+							json.Unmarshal(template, dsSpec)
+						}
+					}
+
+					Expect(dsSpec).ToNot(BeNil())
+
+					command := dsSpec.Template.Spec.Containers[0].Command
+					if containMaxDeviceFlag {
+						Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
+					} else {
+						Expect(strings.Join(command, " ")).ToNot(ContainSubstring("--maxDevices 10"))
+					}
+
+					return true, &appsv1.DaemonSet{}, nil
+				})
+
+				_, err = r.syncDaemonSet(daemonSet)
+
+				Expect(patched).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+
+				// remove VirtualMachineInstancesPerNode configuration
+				patched = false
+				kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
+				containMaxDeviceFlag = false
+				kv.SetGeneration(3)
+
+				_, err = r.syncDaemonSet(daemonSet)
+
+				Expect(patched).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
+
+		Context("updating virt-handler", func() {
+
+			addCustomTargetDeployment := func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+				version := "custom.version"
+				registry := "custom.registry"
+				id := "custom.id"
+				kv.Status.TargetKubeVirtVersion = version
+				kv.Status.TargetKubeVirtRegistry = registry
+				kv.Status.TargetDeploymentID = id
+
+				daemonSet.ObjectMeta.Annotations = map[string]string{
+					v1.InstallStrategyVersionAnnotation:    version,
+					v1.InstallStrategyRegistryAnnotation:   registry,
+					v1.InstallStrategyIdentifierAnnotation: id,
+				}
+			}
+
+			It("should start canary upgrade if updating virt-handler", func() {
+				mockDSCacheStore.get = daemonSet
+				SetGeneration(&kv.Status.Generations, daemonSet)
+				patched := false
+
+				r := &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
+				}
+
+				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					patched = true
+
+					patches := []utiltypes.PatchOperation{}
+					json.Unmarshal(a.GetPatch(), &patches)
+
+					var annotations map[string]string
+					for _, v := range patches {
+						if v.Path == "/metadata/annotations" {
+							template, err := json.Marshal(v.Value)
+							Expect(err).ToNot(HaveOccurred())
+							json.Unmarshal(template, &annotations)
+						}
+					}
+
+					patchedDs := &appsv1.DaemonSet{
+						ObjectMeta: v12.ObjectMeta{
+							Annotations: annotations,
+						},
+					}
+					Expect(util.DaemonSetIsUpToDate(kv, patchedDs)).To(BeTrue())
+					return true, patchedDs, nil
+				})
+
+				newDs := daemonSet.DeepCopy()
+				addCustomTargetDeployment(kv, newDs)
+				done, err := r.syncDaemonSet(newDs)
+
+				Expect(patched).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeFalse())
+			})
+
+			type daemonSetBuilder func(*v1.KubeVirt, *appsv1.DaemonSet) (current *appsv1.DaemonSet,
+				target *appsv1.DaemonSet)
+			type daemonSetPatchChecker func(*v1.KubeVirt, *appsv1.DaemonSet)
+
+			table.DescribeTable("process canary upgrade",
+				func(dsBuild daemonSetBuilder,
+					dsCheck daemonSetPatchChecker,
+					expectedStatus CanaryUpgradeStatus,
+					expectedDone bool,
+					expectingError bool,
+					expectingPatch bool) {
+					patched := false
+
+					r := &Reconciler{
+						clientset:    clientset,
+						kv:           kv,
+						expectations: expectations,
+						stores:       stores,
+						recorder:     record.NewFakeRecorder(100),
+					}
+
+					currentDs, newDs := dsBuild(kv, daemonSet)
+					mockDSCacheStore.get = daemonSet
+					SetGeneration(&kv.Status.Generations, currentDs)
+
+					dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+						a, ok := action.(testing.PatchAction)
+						Expect(ok).To(BeTrue())
+						patched = true
+
+						patches := []utiltypes.PatchOperation{}
+						json.Unmarshal(a.GetPatch(), &patches)
+
+						var annotations map[string]string
+						var dsSpec appsv1.DaemonSetSpec
+						for _, v := range patches {
+							if v.Path == "/spec" {
+								template, err := json.Marshal(v.Value)
+								Expect(err).ToNot(HaveOccurred())
+								json.Unmarshal(template, &dsSpec)
+							}
+							if v.Path == "/metadata/annotations" {
+								template, err := json.Marshal(v.Value)
+								Expect(err).ToNot(HaveOccurred())
+								json.Unmarshal(template, &annotations)
+							}
+						}
+
+						patchedDs := &appsv1.DaemonSet{
+							ObjectMeta: v12.ObjectMeta{
+								Annotations: annotations,
+							},
+							Spec: dsSpec,
+						}
+
+						dsCheck(kv, patchedDs)
+						return true, patchedDs, nil
+					})
+
+					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
+
+					Expect(patched).To(Equal(expectingPatch))
+					Expect(done).To(Equal(expectedDone))
+					Expect(status).To(Equal(expectedStatus))
+					if expectingError {
+						Expect(err).To(HaveOccurred())
+					} else {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				},
+				table.Entry("should start canary upgrade with MaxUnavailable 1",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+					},
+					CanaryUpgradeStatusStarted, false, false, true,
+				),
+				table.Entry("should wait for canary pod to be created",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerNotReady(daemonSet)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
+					CanaryUpgradeStatusStarted, false, false, false,
+				),
+				table.Entry("should wait for canary pod to be ready",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerNotReady(daemonSet)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
+					CanaryUpgradeStatusStarted, false, false, false,
+				),
+				table.Entry("should restart daemonset rollout with MaxUnavailable 10%",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerCanaryReady(daemonSet)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: nil,
+						}
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.String()).To(Equal("10%"))
+					},
+					CanaryUpgradeStatusUpgradingDaemonSet, false, false, true,
+				),
+				table.Entry("should report an error when canary pod fails",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerCrashed(daemonSet)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
+					CanaryUpgradeStatusFailed, false, true, false,
+				),
+				table.Entry("should wait for new daemonset rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromString("10%")
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerCanaryReady(daemonSet)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
+					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, false,
+				),
+				table.Entry("should complete rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromString("10%")
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerReady(daemonSet)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+					},
+					CanaryUpgradeStatusSuccessful, true, false, true,
+				),
+			)
+		})
+
 	})
 
 	Context("Injecting Metadata", func() {
@@ -367,7 +686,7 @@ var _ = Describe("Apply Apps", func() {
 			managedBy, ok := deployment.Labels["app.kubernetes.io/managed-by"]
 
 			Expect(ok).To(BeTrue())
-			Expect(managedBy).To(Equal("kubevirt-operator"))
+			Expect(managedBy).To(Equal("virt-operator"))
 
 			version, ok := deployment.Annotations["kubevirt.io/install-strategy-version"]
 			Expect(ok).To(BeTrue())
@@ -565,7 +884,7 @@ var _ = Describe("Apply Apps", func() {
 			orig := componentConfig.DeepCopy()
 			orig.NodePlacement.NodeSelector = map[string]string{kubernetesOSLabel: kubernetesOSLinux}
 			injectPlacementMetadata(componentConfig, nil)
-			Expect(reflect.DeepEqual(orig, componentConfig)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(orig, componentConfig)).To(BeTrue())
 		})
 
 		It("should copy NodeSelectors when podSpec is empty", func() {
@@ -661,7 +980,7 @@ var _ = Describe("Apply Apps", func() {
 		It("It should copy NodePlacement if podSpec Affinity is empty", func() {
 			nodePlacement.Affinity = affinity
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
 
@@ -669,7 +988,7 @@ var _ = Describe("Apply Apps", func() {
 			nodePlacement.Affinity = affinity
 			podSpec.Affinity = &corev1.Affinity{}
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
 
@@ -683,7 +1002,7 @@ var _ = Describe("Apply Apps", func() {
 			Expect(len(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
 			Expect(len(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
 			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
-			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeFalse())
+			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeFalse())
 		})
 
 		It("It should copy Required NodeAffinity", func() {

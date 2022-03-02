@@ -1,4 +1,4 @@
-// +build amd64
+//go:build amd64
 
 /*
  * This file is part of the KubeVirt project
@@ -23,8 +23,6 @@ package nodelabeller
 
 import (
 	"path"
-
-	"kubevirt.io/kubevirt/tests"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -142,7 +140,7 @@ var _ = Describe("Node-labeller config", func() {
 	Context("should return correct host cpu", func() {
 		var hostCpuModel hostCPUModel
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			err := nlController.loadHostSupportedFeatures()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -165,4 +163,25 @@ var _ = Describe("Node-labeller config", func() {
 		})
 	})
 
+	Context("return correct SEV capabilities", func() {
+		It("when SEV is supported", func() {
+			nlController.domCapabilitiesFileName = "domcapabilities_sev.xml"
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(nlController.SEV.Supported).To(Equal("yes"))
+			Expect(nlController.SEV.Cbitpos).To(Equal("47"))
+			Expect(nlController.SEV.ReducedPhysBits).To(Equal("1"))
+		})
+
+		It("when SEV is not supported", func() {
+			nlController.domCapabilitiesFileName = "domcapabilities_nosev.xml"
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(nlController.SEV.Supported).To(Equal("no"))
+			Expect(nlController.SEV.Cbitpos).To(BeEmpty())
+			Expect(nlController.SEV.ReducedPhysBits).To(BeEmpty())
+		})
+	})
 })

@@ -156,6 +156,26 @@ type VirtualMachineInstanceSpec struct {
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 
+func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
+	type VMISpecAlias VirtualMachineInstanceSpec
+	var vmiSpecAlias VMISpecAlias
+
+	if err := json.Unmarshal(data, &vmiSpecAlias); err != nil {
+		return err
+	}
+
+	if vmiSpecAlias.DNSConfig != nil {
+		for i, ns := range vmiSpecAlias.DNSConfig.Nameservers {
+			if sanitizedIP, err := sanitizeIP(ns); err == nil {
+				vmiSpecAlias.DNSConfig.Nameservers[i] = sanitizedIP
+			}
+		}
+	}
+
+	*vmiSpec = VirtualMachineInstanceSpec(vmiSpecAlias)
+	return nil
+}
+
 // VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
 type VirtualMachineInstancePhaseTransitionTimestamp struct {
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
@@ -244,9 +264,13 @@ type PersistentVolumeClaimInfo struct {
 	// +optional
 	VolumeMode *k8sv1.PersistentVolumeMode `json:"volumeMode,omitempty"`
 
-	// Capacity represents the capacity set on the corresponding PVC spec
+	// Capacity represents the capacity set on the corresponding PVC status
 	// +optional
 	Capacity k8sv1.ResourceList `json:"capacity,omitempty"`
+
+	// Requests represents the resources requested by the corresponding PVC spec
+	// +optional
+	Requests k8sv1.ResourceList `json:"requests,omitempty"`
 
 	// Preallocated indicates if the PVC's storage is preallocated or not
 	// +optional
@@ -328,10 +352,6 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 		}
 	}
 	return false
-}
-
-func (v *VirtualMachineInstance) IsEvictable() bool {
-	return v.Spec.EvictionStrategy != nil && *v.Spec.EvictionStrategy == EvictionStrategyLiveMigrate
 }
 
 func (v *VirtualMachineInstance) IsFinal() bool {
@@ -417,6 +437,10 @@ const (
 	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses virtiofs
 	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses PCI host devices
+	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses Secure Encrypted Virtualization (SEV)
+	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 )
 
 const (
@@ -497,12 +521,13 @@ type VirtualMachineInstanceNetworkInterface struct {
 	// Hardware address of a Virtual Machine interface
 	MAC string `json:"mac,omitempty"`
 	// Name of the interface, corresponds to name of the network assigned to the interface
-	// TODO: remove omitempty, when api breaking changes are allowed
 	Name string `json:"name,omitempty"`
 	// List of all IP addresses of a Virtual Machine interface
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
+	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
+	InfoSource string `json:"infoSource,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -524,6 +549,12 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	ID string `json:"id,omitempty"`
 }
 
+// MigrationConfigSource indicates the source of migration configuration.
+//
+// +k8s:openapi-gen=true
+type MigrationConfigSource string
+
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
 	// +nullable
@@ -557,6 +588,17 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// Name of the migration policy. If string is empty, no policy is matched
+	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
+	// Migration configurations to apply
+	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the dedicated CPU set on the target node
+	// +listType=atomic
+	TargetCPUSet []int `json:"targetCPUSet,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the numa topology on the target node
+	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -622,9 +664,10 @@ const (
 )
 
 const (
-	// This label marks resources that belong to KubeVirt. An optional value
+	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
 	AppLabel string = "kubevirt.io"
+	AppName  string = "name"
 	// This annotation is used to match virtual machine instances represented as
 	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
@@ -691,8 +734,9 @@ const (
 	// This label identifies each resource as part of KubeVirt
 	AppComponent = "kubevirt"
 	// This label will be set on all resources created by the operator
-	ManagedByLabel              = AppLabelPrefix + "/managed-by"
-	ManagedByLabelOperatorValue = "kubevirt-operator"
+	ManagedByLabel                 = AppLabelPrefix + "/managed-by"
+	ManagedByLabelOperatorValue    = "virt-operator"
+	ManagedByLabelOperatorOldValue = "kubevirt-operator"
 	// This annotation represents the kubevirt version for an install strategy configmap.
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
@@ -712,6 +756,9 @@ const (
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
+
+	// Set by virt-operator to coordinate component deletion
+	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
 
 	// Set by VMI controller to ensure VMIs are processed during deletion
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
@@ -762,12 +809,33 @@ const (
 	// This exists for functional testing
 	MigrationPendingPodTimeoutSecondsAnnotation string = "kubevirt.io/migrationPendingPodTimeoutSeconds"
 
+	// CustomLibvirtLogFiltersAnnotation can be used to customized libvirt log filters. Example value could be
+	// "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*".
+	// For more info: https://libvirt.org/kbase/debuglogs.html
+	CustomLibvirtLogFiltersAnnotation string = "kubevirt.io/libvirt-log-filters"
+
 	// RealtimeLabel marks the node as capable of running realtime workloads
 	RealtimeLabel string = "kubevirt.io/realtime"
 
 	// VirtualMachineUnpaused is a custom pod condition set for the virt-launcher pod.
 	// It's used as a readiness gate to prevent paused VMs from being marked as ready.
 	VirtualMachineUnpaused k8sv1.PodConditionType = "kubevirt.io/virtual-machine-unpaused"
+
+	// SEVLabel marks the node as capable of running workloads with SEV
+	SEVLabel string = "kubevirt.io/sev"
+
+	// FlavorAnnotation is the name of a VirtualMachineFlavor
+	FlavorAnnotation string = "kubevirt.io/flavor-name"
+
+	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
+	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
+
+	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
+	// originated from.
+	VirtualMachinePoolRevisionName string = "kubevirt.io/vm-pool-revision-name"
+
+	// VirtualMachineNameLabel is the name of the Virtual Machine
+	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -835,6 +903,18 @@ func NewVMIReferenceWithUUID(namespace string, name string, uuid types.UID) *Vir
 type VMISelector struct {
 	// Name of the VirtualMachineInstance to migrate
 	Name string `json:"name" valid:"required"`
+}
+
+func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine {
+	vm := &VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachines/%s", GroupVersion.String(), namespace, name),
+		},
+	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VirtualMachine", Version: GroupVersion.Version})
+	return vm
 }
 
 // Given a VirtualMachineInstance, update all NodeSelectorTerms with anti-affinity for that VirtualMachineInstance's node.
@@ -1155,6 +1235,9 @@ const (
 	// VMI will initially be running--and restarted if a failure occurs.
 	// It will not be restarted upon successful completion.
 	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
+	// VMI will run once and not be restarted upon completion regardless
+	// if the completion is of phase Failure or Success
+	RunStrategyOnce VirtualMachineRunStrategy = "Once"
 )
 
 // VirtualMachineSpec describes how the proper VirtualMachine
@@ -1365,6 +1448,8 @@ const (
 	CacheNone DriverCache = "none"
 	// CacheWriteThrough - I/O from the guest is cached on the host but written through to the physical medium.
 	CacheWriteThrough DriverCache = "writethrough"
+	// CacheWriteBack - I/O from the guest is cached on the host.
+	CacheWriteBack DriverCache = "writeback"
 
 	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
 	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.
@@ -1713,6 +1798,7 @@ const (
 )
 
 const (
+	EvictionStrategyNone        EvictionStrategy = "None"
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
 
@@ -1903,6 +1989,14 @@ type AddVolumeOptions struct {
 	Disk *Disk `json:"disk"`
 	// VolumeSource represents the source of the volume to map to the disk.
 	VolumeSource *HotplugVolumeSource `json:"volumeSource"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty"`
 }
 
 // RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
@@ -1910,6 +2004,14 @@ type RemoveVolumeOptions struct {
 	// Name represents the name that maps to both the disk and volume that
 	// should be removed
 	Name string `json:"name"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty"`
 }
 
 type TokenBucketRateLimiter struct {
@@ -1953,6 +2055,12 @@ type KubeVirtConfiguration struct {
 	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
+
+	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
+	// field is set it overrides the cluster level one.
+	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
+
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
@@ -1987,6 +2095,7 @@ type MigrationConfiguration struct {
 	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,omitempty"`
 	AllowPostCopy                     *bool              `json:"allowPostCopy,omitempty"`
 	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
+	Network                           *string            `json:"network,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits
@@ -2023,7 +2132,7 @@ type LogVerbosity struct {
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
-// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+// PermittedHostDevices holds information about devices allowed for passthrough
 type PermittedHostDevices struct {
 	// +listType=atomic
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
@@ -2053,10 +2162,24 @@ type MediatedHostDevice struct {
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }
 
-// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+	// +optional
+	// +listType=atomic
+	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
+}
+
+// NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+// +k8s:openapi-gen=true
+type NodeMediatedDeviceTypesConfig struct {
+	// NodeSelector is a selector which must be true for the vmi to fit on a node.
+	// Selector which must match a node's labels for the vmi to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	NodeSelector map[string]string `json:"nodeSelector"`
+	// +listType=atomic
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes"`
 }
 
 // NetworkConfiguration holds network options

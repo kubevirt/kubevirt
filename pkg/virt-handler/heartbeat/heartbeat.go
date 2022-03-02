@@ -21,6 +21,8 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
+const failedSetCPUManagerLabelFmt = "failed to set a cpu manager label on host %s"
+
 type HeartBeat struct {
 	clientset                 k8scli.CoreV1Interface
 	deviceManagerController   device_manager.DeviceControllerInterface
@@ -112,6 +114,12 @@ func (h *HeartBeat) do() {
 		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
 		return
 	}
+
+	// A configuration of mediated devices types on this node depends on the existing node labels
+	// and a MediatedDevicesConfiguration in KubeVirt CR.
+	// When labels change we should initialize a refresh to create/remove mdev types and start/stop
+	// relevant device plugins. This operation should be async.
+	h.deviceManagerController.RefreshMediatedDevicesTypes()
 	log.DefaultLogger().V(4).Infof("Heartbeat sent")
 }
 
@@ -119,19 +127,19 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 	var cpuManagerOptions map[string]interface{}
 	cpuManagerPath, err := detectCPUManagerFile(cpuManagerPaths)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", h.host)
+		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
 	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
 	content, err := ioutil.ReadFile(cpuManagerPath)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", h.host)
+		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
 
 	err = json.Unmarshal(content, &cpuManagerOptions)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", h.host)
+		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
 

@@ -174,12 +174,12 @@ func initializeDirs(ephemeralDiskDir string,
 		panic(err)
 	}
 
-	err = cloudinit.SetLocalDirectory(ephemeralDiskDir + "/cloud-init-data")
+	err = cloudinit.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "cloud-init-data"))
 	if err != nil {
 		panic(err)
 	}
 
-	err = ignition.SetLocalDirectory(ephemeralDiskDir + "/ignition-data")
+	err = ignition.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "ignition-data"))
 	if err != nil {
 		panic(err)
 	}
@@ -352,13 +352,14 @@ func main() {
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	noFork := pflag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
 	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
-	qemuAgentSysInterval := pflag.Duration("qemu-agent-sys-interval", 120, "Interval in seconds between consecutive qemu agent calls for sys commands")
-	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300, "Interval in seconds between consecutive qemu agent calls for file command")
-	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10, "Interval in seconds between consecutive qemu agent calls for user command")
-	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300, "Interval in seconds between consecutive qemu agent calls for version command")
-	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5, "Interval in seconds between consecutive qemu agent calls for fsfreeze status command")
+	qemuAgentSysInterval := pflag.Duration("qemu-agent-sys-interval", 120*time.Second, "Interval between consecutive qemu agent calls for sys commands")
+	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300*time.Second, "Interval between consecutive qemu agent calls for file command")
+	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10*time.Second, "Interval between consecutive qemu agent calls for user command")
+	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300*time.Second, "Interval between consecutive qemu agent calls for version command")
+	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
+	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
@@ -415,7 +416,7 @@ func main() {
 	stopChan := make(chan struct{})
 
 	l := util.NewLibvirtWrapper(*runWithNonRoot)
-	err = l.SetupLibvirt()
+	err = l.SetupLibvirt(libvirtLogFilters)
 	if err != nil {
 		panic(err)
 	}
@@ -465,10 +466,14 @@ func main() {
 	}
 
 	finalShutdownCallback := func(pid int) {
-		err := domainManager.KillVMI(vmi)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
-			syscall.Kill(pid, syscall.SIGTERM)
+		if err := domainManager.KillVMI(vmi); err != nil {
+			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt")
+			if pid != 0 {
+				log.Log.Warning("Falling back to SIGTERM")
+				if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+					log.Log.Reason(err).Errorf("Unable to kill PID %d", pid)
+				}
+			}
 		}
 	}
 

@@ -43,20 +43,19 @@ const (
 	connectionTimeout = 5 * time.Second
 )
 
-type GenericDevice interface {
-	Start(chan struct{}) (err error)
+type Device interface {
+	Start(stop <-chan struct{}) (err error)
 	GetDevicePath() string
 	GetDeviceName() string
 	GetInitialized() bool
 }
 
 type GenericDevicePlugin struct {
-	counter      int
 	devs         []*pluginapi.Device
 	server       *grpc.Server
 	socketPath   string
-	stop         chan struct{}
-	health       chan string
+	stop         <-chan struct{}
+	health       chan deviceHealth
 	devicePath   string
 	deviceName   string
 	resourceName string
@@ -66,15 +65,15 @@ type GenericDevicePlugin struct {
 	initialized  bool
 	lock         *sync.Mutex
 	permissions  string
+	deregistered chan struct{}
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, permissions string, preOpen bool) *GenericDevicePlugin {
 	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
-		counter:      0,
 		devs:         []*pluginapi.Device{},
 		socketPath:   serverSock,
-		health:       make(chan string),
+		health:       make(chan deviceHealth),
 		deviceName:   deviceName,
 		devicePath:   devicePath,
 		deviceRoot:   util.HostRootMount,
@@ -84,38 +83,16 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		lock:         &sync.Mutex{},
 		permissions:  permissions,
 	}
+
 	for i := 0; i < maxDevices; i++ {
-		dpi.addNewGenericDevice()
+		deviceId := dpi.deviceName + strconv.Itoa(i)
+		dpi.devs = append(dpi.devs, &pluginapi.Device{
+			ID:     deviceId,
+			Health: pluginapi.Healthy,
+		})
 	}
 
 	return dpi
-}
-
-func waitForGrpcServer(socketPath string, timeout time.Duration) error {
-	conn, err := connect(socketPath, timeout)
-	if err != nil {
-		return err
-	}
-	conn.Close()
-	return nil
-}
-
-// dial establishes the gRPC communication with the registered device plugin.
-func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error) {
-	c, err := grpc.Dial(socketPath,
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
-		grpc.WithTimeout(timeout),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
 }
 
 func (dpi *GenericDevicePlugin) GetDevicePath() string {
@@ -127,10 +104,11 @@ func (dpi *GenericDevicePlugin) GetDeviceName() string {
 }
 
 // Start starts the device plugin
-func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
+func (dpi *GenericDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
 
 	err = dpi.cleanup()
 	if err != nil {
@@ -153,10 +131,10 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.Stop()
+	defer dpi.stopDevicePlugin()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-	err = dpi.Register()
+	err = dpi.register()
 	if err != nil {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
@@ -167,7 +145,7 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.server.Serve(sock)
 	}()
 
-	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
+	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
@@ -184,20 +162,28 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 }
 
 // Stop stops the gRPC server
-func (dpi *GenericDevicePlugin) Stop() error {
+func (dpi *GenericDevicePlugin) stopDevicePlugin() error {
 	defer func() {
 		if !IsChanClosed(dpi.done) {
 			close(dpi.done)
 		}
 	}()
+
+	// Give the device plugin one second to properly deregister
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	select {
+	case <-dpi.deregistered:
+	case <-ticker.C:
+	}
 	dpi.server.Stop()
 	dpi.setInitialized(false)
 	return dpi.cleanup()
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *GenericDevicePlugin) Register() error {
-	conn, err := connect(pluginapi.KubeletSocket, connectionTimeout)
+func (dpi *GenericDevicePlugin) register() error {
+	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -217,16 +203,6 @@ func (dpi *GenericDevicePlugin) Register() error {
 	return nil
 }
 
-func (dpi *GenericDevicePlugin) addNewGenericDevice() {
-	deviceId := dpi.deviceName + strconv.Itoa(dpi.counter)
-	dpi.devs = append(dpi.devs, &pluginapi.Device{
-		ID:     deviceId,
-		Health: pluginapi.Healthy,
-	})
-
-	dpi.counter += 1
-}
-
 func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	// FIXME: sending an empty list up front should not be needed. This is a workaround for:
 	// https://github.com/kubevirt/kubevirt/issues/1196
@@ -236,21 +212,32 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 
+	done := false
 	for {
 		select {
-		case health := <-dpi.health:
+		case devHealth := <-dpi.health:
 			// There's only one shared generic device
 			// so update each plugin device to reflect overall device health
 			for _, dev := range dpi.devs {
-				dev.Health = health
+				dev.Health = devHealth.Health
 			}
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 		case <-dpi.stop:
-			return nil
+			done = true
 		case <-dpi.done:
-			return nil
+			done = true
+		}
+		if done {
+			break
 		}
 	}
+	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
+	// There exists no explicit way to deregister devices
+	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
+		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
+	}
+	close(dpi.deregistered)
+	return nil
 }
 
 func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
@@ -315,7 +302,7 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
 		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
-		dpi.health <- pluginapi.Unhealthy
+		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 	}
 	logger.Infof("device '%s' is present.", dpi.devicePath)
 
@@ -342,10 +329,10 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
 					logger.Infof("monitored device %s appeared", dpi.deviceName)
-					dpi.health <- pluginapi.Healthy
+					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
 					logger.Infof("monitored device %s disappeared", dpi.deviceName)
-					dpi.health <- pluginapi.Unhealthy
+					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
@@ -353,20 +340,6 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 			}
 		}
 	}
-}
-
-func IsChanClosed(ch <-chan struct{}) bool {
-	select {
-	case <-ch:
-		return true
-	default:
-	}
-
-	return false
-}
-
-func SocketPath(deviceName string) string {
-	return filepath.Join(pluginapi.DevicePluginPath, fmt.Sprintf("kubevirt-%s.sock", deviceName))
 }
 
 func (dpi *GenericDevicePlugin) GetInitialized() bool {
@@ -377,6 +350,6 @@ func (dpi *GenericDevicePlugin) GetInitialized() bool {
 
 func (dpi *GenericDevicePlugin) setInitialized(initialized bool) {
 	dpi.lock.Lock()
+	defer dpi.lock.Unlock()
 	dpi.initialized = initialized
-	dpi.lock.Unlock()
 }

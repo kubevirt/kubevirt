@@ -247,6 +247,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.CPU).To(Equal(cpu))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
+				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
 			})
 
 			It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {

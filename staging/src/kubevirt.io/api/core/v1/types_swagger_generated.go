@@ -81,7 +81,8 @@ func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
 		"":                   "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
 		"accessModes":        "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
 		"volumeMode":         "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
-		"capacity":           "Capacity represents the capacity set on the corresponding PVC spec\n+optional",
+		"capacity":           "Capacity represents the capacity set on the corresponding PVC status\n+optional",
+		"requests":           "Requests represents the resources requested by the corresponding PVC spec\n+optional",
 		"preallocated":       "Preallocated indicates if the PVC's storage is preallocated or not\n+optional",
 		"filesystemOverhead": "Percentage of filesystem's size to be reserved when resizing the PVC\n+optional",
 	}
@@ -130,6 +131,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
 		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
 		"interfaceName": "The interface name inside the Virtual Machine",
+		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
 	}
 }
 
@@ -148,6 +150,7 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":                               "+k8s:openapi-gen=true",
 		"startTimestamp":                 "The time the migration action began\n+nullable",
 		"endTimestamp":                   "The time the migration action ended\n+nullable",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
@@ -163,6 +166,10 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
+		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
+		"migrationConfiguration":         "Migration configurations to apply",
+		"targetCPUSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
+		"targetNodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
 	}
 }
 
@@ -586,13 +593,15 @@ func (AddVolumeOptions) SwaggerDoc() map[string]string {
 		"name":         "Name represents the name that will be used to map the\ndisk to the corresponding volume. This overrides any name\nset inside the Disk struct itself.",
 		"disk":         "Disk represents the hotplug disk that will be plugged into the running VMI",
 		"volumeSource": "VolumeSource represents the source of the volume to map to the disk.",
+		"dryRun":       "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 
 func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
-		"name": "Name represents the name that maps to both the disk and volume that\nshould be removed",
+		"":       "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
+		"name":   "Name represents the name that maps to both the disk and volume that\nshould be removed",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 
@@ -624,6 +633,7 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                            "KubeVirtConfiguration holds all kubevirt configurations",
+		"evictionStrategy":            "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
 		"supportedGuestAgentVersions": "deprecated",
 	}
 }
@@ -661,7 +671,7 @@ func (LogVerbosity) SwaggerDoc() map[string]string {
 
 func (PermittedHostDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+		"":                "PermittedHostDevices holds information about devices allowed for passthrough",
 		"pciHostDevices":  "+listType=atomic",
 		"mediatedDevices": "+listType=atomic",
 	}
@@ -684,7 +694,16 @@ func (MediatedHostDevice) SwaggerDoc() map[string]string {
 
 func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                     "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+		"":                        "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
+		"mediatedDevicesTypes":    "+listType=atomic",
+		"nodeMediatedDeviceTypes": "+optional\n+listType=atomic",
+	}
+}
+
+func (NodeMediatedDeviceTypesConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.\n+k8s:openapi-gen=true",
+		"nodeSelector":         "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
 		"mediatedDevicesTypes": "+listType=atomic",
 	}
 }

@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
@@ -63,16 +64,16 @@ var VirtualMachineInstanceReplicaSetGroupVersionResource = metav1.GroupVersionRe
 	Resource: "virtualmachineinstancereplicasets",
 }
 
+var VirtualMachinePoolGroupVersionResource = metav1.GroupVersionResource{
+	Group:    poolv1.SchemeGroupVersion.Group,
+	Version:  poolv1.SchemeGroupVersion.Version,
+	Resource: "virtualmachinepools",
+}
+
 var MigrationGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
 	Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
 	Resource: "virtualmachineinstancemigrations",
-}
-
-var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
-	Group:    v1.KubeVirtGroupVersionKind.Group,
-	Version:  v1.KubeVirtGroupVersionKind.Version,
-	Resource: "kubevirts",
 }
 
 type Informers struct {

@@ -82,6 +82,7 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewStopCommand(clientConfig),
 		vm.NewRestartCommand(clientConfig),
 		vm.NewMigrateCommand(clientConfig),
+		vm.NewMigrateCancelCommand(clientConfig),
 		vm.NewGuestOsInfoCommand(clientConfig),
 		vm.NewUserListCommand(clientConfig),
 		vm.NewFSListCommand(clientConfig),

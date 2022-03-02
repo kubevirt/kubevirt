@@ -2,25 +2,25 @@ package virtoperatorbasic
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 var _ = Describe("virt-operator basic tests", func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
-		checks.SkipTestIfNoCPUManager()
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
@@ -38,25 +38,7 @@ var _ = Describe("virt-operator basic tests", func() {
 			_ = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Delete(ctx, "kubevirt-config", metav1.DeleteOptions{})
 
 			// make sure virt-operators are up before leaving
-			Eventually(func() bool {
-				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, virtOpLabelSelector)
-				if err != nil {
-					fmt.Fprintln(GinkgoWriter, "can't get the virt-operator pods")
-					return false
-				}
-
-				for _, virtOpPod := range pods.Items {
-					for _, containerStatus := range virtOpPod.Status.ContainerStatuses {
-						if !containerStatus.Ready {
-							fmt.Fprintf(GinkgoWriter, "The %s container in pod %s is not ready yet\n", containerStatus.Name, virtOpPod.Name)
-							return false
-						}
-					}
-				}
-
-				return true
-			}, time.Minute*5, time.Second*2).Should(BeTrue())
-
+			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically(">", 0))
 		})
 
 		It("should emit event if the obsolete kubevirt-config configMap still exists", func() {
@@ -75,6 +57,7 @@ var _ = Describe("virt-operator basic tests", func() {
 
 			err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, virtOpLabelSelector)
 			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically("==", 0))
 
 			Eventually(func() int {
 				events, err := virtClient.CoreV1().Events(flags.KubeVirtInstallNamespace).List(

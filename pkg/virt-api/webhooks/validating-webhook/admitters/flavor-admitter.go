@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/api/flavor"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -22,7 +24,7 @@ func (f *FlavorAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.Adm
 		metav1.GroupVersionResource{
 			Group:    flavorv1alpha1.SchemeGroupVersion.Group,
 			Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-			Resource: "virtualmachineflavors",
+			Resource: flavor.PluralResourceName,
 		},
 		func(raw []byte) ([]flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 			flavorObj := flavorv1alpha1.VirtualMachineFlavor{}
@@ -44,7 +46,7 @@ func (f *ClusterFlavorAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissio
 		metav1.GroupVersionResource{
 			Group:    flavorv1alpha1.SchemeGroupVersion.Group,
 			Version:  flavorv1alpha1.SchemeGroupVersion.Version,
-			Resource: "virtualmachineclusterflavors",
+			Resource: flavor.ClusterPluralResourceName,
 		},
 		func(raw []byte) ([]flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 			clusterFlavorObj := flavorv1alpha1.VirtualMachineClusterFlavor{}

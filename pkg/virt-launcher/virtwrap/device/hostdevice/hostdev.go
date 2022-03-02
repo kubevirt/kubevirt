@@ -28,6 +28,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
+const failedCreateHostDeviceFmt = "failed to create hostdevice for %s: %v"
+
 type HostDeviceMetaData struct {
 	AliasPrefix       string
 	Name              string
@@ -61,7 +63,7 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 	for _, hostDeviceData := range hostDevicesData {
 		address, err := addrPool.Pop(hostDeviceData.ResourceName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
+			return nil, fmt.Errorf(failedCreateHostDeviceFmt, hostDeviceData.Name, err)
 		}
 
 		// if pop succeeded but the address is empty, ignore the device and let the caller
@@ -72,11 +74,11 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 
 		hostDevice, err := createHostDev(hostDeviceData, address)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
+			return nil, fmt.Errorf(failedCreateHostDeviceFmt, hostDeviceData.Name, err)
 		}
 		if hostDeviceData.DecorateHook != nil {
 			if err := hostDeviceData.DecorateHook(hostDevice); err != nil {
-				return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
+				return nil, fmt.Errorf(failedCreateHostDeviceFmt, hostDeviceData.Name, err)
 			}
 		}
 		hostDevices = append(hostDevices, *hostDevice)

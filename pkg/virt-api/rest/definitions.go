@@ -22,8 +22,14 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"reflect"
-	"strings"
+
+	"kubevirt.io/api/flavor"
+
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	restful "github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +38,15 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
+)
+
+const (
+	obj   = " object."
+	objs  = " objects."
+	watch = "Watch a "
 )
 
 func ComposeAPIDefinitions() []*restful.WebService {
@@ -42,6 +55,8 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		kubevirtApiServiceDefinitions,
 		snapshotApiServiceDefinitions,
 		flavorApiServiceDefinitions,
+		migrationPoliciesApiServiceDefinitions,
+		poolApiServiceDefinitions,
 	} {
 		result = append(result, f()...)
 	}
@@ -131,9 +146,29 @@ func snapshotApiServiceDefinitions() []*restful.WebService {
 	return []*restful.WebService{ws, ws2}
 }
 
+func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
+	mpGVR := migrationsv1.SchemeGroupVersion.WithResource(migrations.ResourceMigrationPolicies)
+
+	ws, err := GroupVersionProxyBase(schema.GroupVersion{Group: migrationsv1.SchemeGroupVersion.Group, Version: migrationsv1.SchemeGroupVersion.Version})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericClusterResourceProxy(ws, mpGVR, &migrationsv1.MigrationPolicy{}, migrationsv1.MigrationPolicyKind.Kind, &migrationsv1.MigrationPolicyList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(mpGVR)
+	if err != nil {
+		panic(err)
+	}
+	return []*restful.WebService{ws, ws2}
+}
+
 func flavorApiServiceDefinitions() []*restful.WebService {
-	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineflavors")
-	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterflavors")
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralResourceName)
+	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralResourceName)
 
 	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
 	if err != nil {
@@ -151,6 +186,27 @@ func flavorApiServiceDefinitions() []*restful.WebService {
 	}
 
 	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	if err != nil {
+		panic(err)
+	}
+
+	return []*restful.WebService{ws, ws2}
+}
+
+func poolApiServiceDefinitions() []*restful.WebService {
+	poolGVR := poolv1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools")
+
+	ws, err := GroupVersionProxyBase(poolv1alpha1.SchemeGroupVersion)
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, poolGVR, &poolv1alpha1.VirtualMachinePool{}, "VirtualMachinePool", &poolv1alpha1.VirtualMachinePoolList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(poolGVR)
 	if err != nil {
 		panic(err)
 	}
@@ -182,63 +238,63 @@ func GenericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVers
 	ws.Route(addNamespaceParam(ws,
 		createOperation(ws, NamespacedResourceBasePath(gvr), objExample).
 			Operation("createNamespaced"+objKind).
-			Doc("Create a "+objKind+" object."),
+			Doc("Create a "+objKind+obj),
 	))
 
 	ws.Route(addNamespaceParam(ws,
 		replaceOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("replaceNamespaced"+objKind).
-			Doc("Update a "+objKind+" object."),
+			Doc("Update a "+objKind+obj),
 	))
 
 	ws.Route(addNamespaceParam(ws,
 		deleteOperation(ws, NamespacedResourcePath(gvr)).
 			Operation("deleteNamespaced"+objKind).
-			Doc("Delete a "+objKind+" object."),
+			Doc("Delete a "+objKind+obj),
 	))
 
 	ws.Route(addNamespaceParam(ws,
 		readOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("readNamespaced"+objKind).
-			Doc("Get a "+objKind+" object."),
+			Doc("Get a "+objKind+obj),
 	))
 
 	ws.Route(
 		listOperation(ws, gvr.Resource, listExample).
 			Operation("list" + objKind + "ForAllNamespaces").
-			Doc("Get a list of all " + objKind + " objects."),
+			Doc("Get a list of all " + objKind + objs),
 	)
 
 	ws.Route(addNamespaceParam(ws,
 		patchOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("patchNamespaced"+objKind).
-			Doc("Patch a "+objKind+" object."),
+			Doc("Patch a "+objKind+obj),
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(
 		watchOperation(ws, "/watch/"+gvr.Resource).
 			Operation("watch" + objKind + "ListForAllNamespaces").
-			Doc("Watch a " + objKind + "List object."),
+			Doc(watch + objKind + "List object."),
 	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addNamespaceParam(ws,
 		watchOperation(ws, "/watch"+NamespacedResourceBasePath(gvr)).
 			Operation("watchNamespaced"+objKind).
-			Doc("Watch a "+objKind+" object."),
+			Doc(watch+objKind+obj),
 	))
 
 	ws.Route(addNamespaceParam(ws,
 		listOperation(ws, NamespacedResourceBasePath(gvr), listExample).
 			Operation("listNamespaced"+objKind).
-			Doc("Get a list of "+objKind+" objects."),
+			Doc("Get a list of "+objKind+objs),
 	))
 
 	ws.Route(
 		deleteCollectionOperation(ws, NamespacedResourceBasePath(gvr)).
 			Operation("deleteCollectionNamespaced" + objKind).
-			Doc("Delete a collection of " + objKind + " objects."),
+			Doc("Delete a collection of " + objKind + objs),
 	)
 
 	return ws, nil
@@ -252,50 +308,50 @@ func GenericClusterResourceProxy(ws *restful.WebService, gvr schema.GroupVersion
 	ws.Route(
 		createOperation(ws, ClusterResourceBasePath(gvr), objExample).
 			Operation("create" + objKind).
-			Doc("Create a " + objKind + " object."),
+			Doc("Create a " + objKind + obj),
 	)
 
 	ws.Route(
 		replaceOperation(ws, ClusterResourcePath(gvr), objExample).
 			Operation("replace" + objKind).
-			Doc("Update a " + objKind + " object."),
+			Doc("Update a " + objKind + obj),
 	)
 
 	ws.Route(
 		deleteOperation(ws, ClusterResourcePath(gvr)).
 			Operation("delete" + objKind).
-			Doc("Delete a " + objKind + " object."),
+			Doc("Delete a " + objKind + obj),
 	)
 
 	ws.Route(
 		readOperation(ws, ClusterResourcePath(gvr), objExample).
 			Operation("read" + objKind).
-			Doc("Get a " + objKind + " object."),
+			Doc("Get a " + objKind + obj),
 	)
 
 	ws.Route(
 		listOperation(ws, gvr.Resource, listExample).
 			Operation("list" + objKind).
-			Doc("Get a list of " + objKind + " objects."),
+			Doc("Get a list of " + objKind + objs),
 	)
 
 	ws.Route(
 		patchOperation(ws, ClusterResourcePath(gvr), objExample).
 			Operation("patch" + objKind).
-			Doc("Patch a " + objKind + " object."),
+			Doc("Patch a " + objKind + obj),
 	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(
 		watchOperation(ws, "/watch/"+gvr.Resource).
 			Operation("watch" + objKind + "ListForAllNamespaces").
-			Doc("Watch a " + objKind + "List object."),
+			Doc(watch + objKind + "List object."),
 	)
 
 	ws.Route(
 		deleteCollectionOperation(ws, ClusterResourceBasePath(gvr)).
 			Operation("deleteCollection" + objKind).
-			Doc("Delete a collection of " + objKind + " objects."),
+			Doc("Delete a collection of " + objKind + objs),
 	)
 
 	return ws, nil
@@ -539,10 +595,7 @@ func ClusterResourcePath(gvr schema.GroupVersionResource) string {
 }
 
 func SubResourcePath(subResource string) string {
-	if !strings.HasPrefix(subResource, "/") {
-		return "/" + subResource
-	}
-	return subResource
+	return path.Join("/", subResource)
 }
 
 const (

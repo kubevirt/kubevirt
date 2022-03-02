@@ -33,7 +33,7 @@ function up() {
     nodes=$(_kubectl get nodes -o=custom-columns=:.metadata.name | awk NF)
     for node in $nodes; do
         # Create local-volume directories, which, on other providers, are pre-provisioned.
-        # For more info, check https://github.com/kubevirt/kubevirtci/blob/master/cluster-provision/STORAGE.md
+        # For more info, check https://github.com/kubevirt/kubevirtci/blob/main/cluster-provision/STORAGE.md
         for i in {1..10}; do
             mount_disk $node $i
         done

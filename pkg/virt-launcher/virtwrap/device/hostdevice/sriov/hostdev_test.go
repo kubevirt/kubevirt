@@ -23,13 +23,15 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
+
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
+	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
@@ -182,36 +184,8 @@ var _ = Describe("SRIOV HostDevice", func() {
 		})
 	})
 
-	Context("filter", func() {
-		It("filters 0 SRIOV devices, given non-SRIOV devices", func() {
-			var domainSpec api.DomainSpec
-
-			domainSpec.Devices.HostDevices = append(
-				domainSpec.Devices.HostDevices,
-				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov1")},
-				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov2")},
-			)
-			Expect(sriov.FilterHostDevices(&domainSpec)).To(BeEmpty())
-		})
-
-		It("filters 2 SRIOV devices, given 2 SRIOV devices and 2 non-SRIOV devices", func() {
-			var domainSpec api.DomainSpec
-
-			hostDevice1 := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "is-sriov1")}
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "is-sriov2")}
-			domainSpec.Devices.HostDevices = append(
-				domainSpec.Devices.HostDevices,
-				hostDevice1,
-				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov1")},
-				hostDevice2,
-				api.HostDevice{Alias: api.NewUserDefinedAlias("non-sriov2")},
-			)
-			Expect(sriov.FilterHostDevices(&domainSpec)).To(Equal([]api.HostDevice{hostDevice1, hostDevice2}))
-		})
-	})
-
 	Context("safe detachment", func() {
-		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "net1")}
+		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net1")}
 
 		It("ignores an empty list of devices", func() {
 			domainSpec := newDomainSpec()
@@ -272,7 +246,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(sriov.AliasPrefix + "net2")}
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net2")}
 			domainSpec := newDomainSpec(hostDevice, hostDevice2)
 
 			c := newCallbackerStub(false, false)
@@ -281,140 +255,6 @@ var _ = Describe("SRIOV HostDevice", func() {
 			d := deviceDetacherStub{}
 			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
-	})
-
-	Context("attachment", func() {
-		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("net1")}
-
-		It("ignores nil list of devices", func() {
-			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, nil)).Should(Succeed())
-		})
-
-		It("ignores an empty list of devices", func() {
-			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{})).Should(Succeed())
-		})
-
-		It("succeeds to attach device", func() {
-			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{hostDevice})).Should(Succeed())
-		})
-
-		It("succeeds to attach more than one device", func() {
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias("net2")}
-
-			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{hostDevice, hostDevice2})).Should(Succeed())
-		})
-
-		It("fails to attach device", func() {
-			obj := deviceAttacherStub{fail: true}
-			Expect(sriov.AttachHostDevices(obj, []api.HostDevice{hostDevice})).ShouldNot(Succeed())
-		})
-
-		It("error should contain at least the Alias of each device that failed to attach", func() {
-			obj := deviceAttacherStub{fail: true}
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias("net2")}
-			err := sriov.AttachHostDevices(obj, []api.HostDevice{hostDevice, hostDevice2})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(And(
-				ContainSubstring(hostDevice.Alias.GetName()),
-				ContainSubstring(hostDevice2.Alias.GetName())))
-		})
-	})
-
-	Context("difference", func() {
-		table.DescribeTable("should return the correct host-devices set comparing by host-devices's Alias.Name",
-			func(hostDevices, removeHostDevices, expectedHostDevices []api.HostDevice) {
-				Expect(sriov.DifferenceHostDevicesByAlias(hostDevices, removeHostDevices)).To(ConsistOf(expectedHostDevices))
-			},
-			table.Entry("empty set and zero elements to filter",
-				// slice A
-				[]api.HostDevice{},
-				// slice B
-				[]api.HostDevice{},
-				// expected
-				[]api.HostDevice{},
-			),
-			table.Entry("empty set and at least one element to filter",
-				// slice A
-				[]api.HostDevice{},
-				// slice B
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-				},
-				// expected
-				[]api.HostDevice{},
-			),
-			table.Entry("valid set and zero elements to filter",
-				// slice A
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-				},
-				// slice B
-				[]api.HostDevice{},
-				// expected
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-				},
-			),
-			table.Entry("valid set and at least one element to filter",
-				// slice A
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev4")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-				},
-				// slice B
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev4")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-				},
-				// expected
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-				},
-			),
-
-			table.Entry("valid set and a set that includes all elements from the first set",
-				// slice A
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev4")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-				},
-				// slice B
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev4")},
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-				},
-				// expected
-				[]api.HostDevice{},
-			),
-			table.Entry("valid set and larger set to to filter",
-				// slice A
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev4")},
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-				},
-				// slice B
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev4")},
-					{Alias: api.NewUserDefinedAlias("hostdev1")},
-					{Alias: api.NewUserDefinedAlias("hostdev7")},
-					{Alias: api.NewUserDefinedAlias("hostdev3")},
-				},
-				// expected
-				[]api.HostDevice{
-					{Alias: api.NewUserDefinedAlias("hostdev2")},
-				},
-			),
-		)
 	})
 })
 
@@ -425,7 +265,7 @@ func newDomainSpec(hostDevices ...api.HostDevice) *api.DomainSpec {
 }
 
 func newSRIOVAlias(netName string) *api.Alias {
-	return api.NewUserDefinedAlias(sriov.AliasPrefix + netName)
+	return api.NewUserDefinedAlias(netsriov.AliasPrefix + netName)
 }
 
 type stubPCIAddressPool struct {
@@ -458,22 +298,11 @@ func (d deviceDetacherStub) DetachDeviceFlags(data string, flags libvirt.DomainD
 	return nil
 }
 
-type deviceAttacherStub struct {
-	fail bool
-}
-
-func (d deviceAttacherStub) AttachDeviceFlags(data string, flags libvirt.DomainDeviceModifyFlags) error {
-	if d.fail {
-		return fmt.Errorf("attach device error")
-	}
-	return nil
-}
-
 func newCallbackerStub(failRegister, failDeregister bool) *callbackerStub {
 	return &callbackerStub{
 		failRegister:   failRegister,
 		failDeregister: failDeregister,
-		eventChan:      make(chan interface{}, sriov.MaxConcurrentHotPlugDevicesEvents),
+		eventChan:      make(chan interface{}, hostdevice.MaxConcurrentHotPlugDevicesEvents),
 	}
 }
 

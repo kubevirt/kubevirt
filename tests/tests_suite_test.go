@@ -22,7 +22,7 @@ package tests_test
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -37,6 +37,10 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 
+	vmsgeneratorutils "kubevirt.io/kubevirt/tools/vms-generator/utils"
+
+	_ "kubevirt.io/kubevirt/tests/launchsecurity"
+	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
 	_ "kubevirt.io/kubevirt/tests/numa"
 	_ "kubevirt.io/kubevirt/tests/performance"
@@ -51,14 +55,14 @@ func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
 	tests.CalculateNamespaces()
 	maxFails := getMaxFailsFromEnv()
-	artifactsPath := path.Join(flags.ArtifactsDir, "k8s-reporter")
-	junitOutput := path.Join(flags.ArtifactsDir, "junit.functest.xml")
+	artifactsPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter")
+	junitOutput := filepath.Join(flags.ArtifactsDir, "junit.functest.xml")
 	if qe_reporters.JunitOutput != "" {
 		junitOutput = qe_reporters.JunitOutput
 	}
 	if config.GinkgoConfig.ParallelTotal > 1 {
-		artifactsPath = path.Join(artifactsPath, strconv.Itoa(config.GinkgoConfig.ParallelNode))
-		junitOutput = path.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
+		artifactsPath = filepath.Join(artifactsPath, strconv.Itoa(config.GinkgoConfig.ParallelNode))
+		junitOutput = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
 	}
 
 	outputEnricherReporter := reporter.NewCapturedOutputEnricher(
@@ -71,8 +75,14 @@ func TestTests(t *testing.T) {
 		k8sReporter,
 	}
 	if qe_reporters.Polarion.Run {
+		if config.GinkgoConfig.ParallelTotal > 1 {
+			qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", config.GinkgoConfig.ParallelNode))
+		}
 		reporters = append(reporters, &qe_reporters.Polarion)
 	}
+
+	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
+	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
 	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
 }

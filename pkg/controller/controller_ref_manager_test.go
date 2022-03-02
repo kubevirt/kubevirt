@@ -18,12 +18,12 @@ limitations under the License.
 package controller
 
 import (
-	"reflect"
 	"sync"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -178,7 +178,7 @@ func TestClaimVirtualMachineInstance(t *testing.T) {
 		claimed, err := test.manager.ClaimVirtualMachineInstances(test.virtualmachines)
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
-		} else if !reflect.DeepEqual(test.claimed, claimed) {
+		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {
 			t.Errorf("Test case `%s`, claimed wrong virtualmachines. Expected %v, got %v", test.name, virtualmachineToStringSlice(test.claimed), virtualmachineToStringSlice(claimed))
 		}
 
@@ -284,7 +284,7 @@ func TestClaimDataVolume(t *testing.T) {
 		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes)
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
-		} else if !reflect.DeepEqual(test.claimed, claimed) {
+		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {
 			t.Errorf("Test case `%s`, claimed wrong datavolumes. Expected %v, got %v", test.name, datavolumeToStringSlice(test.claimed), datavolumeToStringSlice(claimed))
 		}
 
@@ -316,6 +316,16 @@ type FakeVirtualMachineControl struct {
 
 var _ VirtualMachineControlInterface = &FakeVirtualMachineControl{}
 
+func (f *FakeVirtualMachineControl) PatchVirtualMachineInstance(_, _ string, data []byte) error {
+	f.Lock()
+	defer f.Unlock()
+	f.Patches = append(f.Patches, data)
+	if f.Err != nil {
+		return f.Err
+	}
+	return nil
+}
+
 func (f *FakeVirtualMachineControl) PatchVirtualMachine(_, _ string, data []byte) error {
 	f.Lock()
 	defer f.Unlock()
@@ -325,6 +335,7 @@ func (f *FakeVirtualMachineControl) PatchVirtualMachine(_, _ string, data []byte
 	}
 	return nil
 }
+
 func (f *FakeVirtualMachineControl) PatchDataVolume(_, _ string, data []byte) error {
 	f.Lock()
 	defer f.Unlock()

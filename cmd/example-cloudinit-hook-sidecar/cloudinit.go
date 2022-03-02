@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"google.golang.org/grpc"
 
@@ -100,7 +101,7 @@ func (s v1alpha2Server) PreCloudInitIso(ctx context.Context, params *hooksV1alph
 func main() {
 	log.InitializeLogging("cloudinit-hook-sidecar")
 
-	socketPath := hooks.HookSocketsSharedDirectory + "/cloudinit.sock"
+	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, "cloudinit.sock")
 	socket, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)

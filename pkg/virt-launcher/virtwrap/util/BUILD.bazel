@@ -12,6 +12,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
+        "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
@@ -19,6 +20,7 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
@@ -33,6 +35,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -40,7 +43,9 @@ go_test(
         "//vendor/github.com/go-kit/kit/log:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )

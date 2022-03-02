@@ -94,6 +94,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"devices":         "Devices allows adding disks, network interfaces, and others",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
+		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
 }
 
@@ -228,7 +229,7 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
-		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
 		"inputs":                     "Inputs describe input devices",
@@ -249,7 +250,7 @@ func (Devices) SwaggerDoc() map[string]string {
 
 func (ClientPassthroughDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represent a subset of client devices that can be accessed by VMI. At the\nmoment only, USB devices using Usbredir's library and tooling. Another fit\nwould be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for\nuser-facing APIs. This structure simply turns on USB redirection of\nUsbClientPassthroughMaxNumberOf devices.",
+		"": "Represent a subset of client devices that can be accessed by VMI. At the\nmoment only, USB devices using Usbredir's library and tooling. Another fit\nwould be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for\nuser-facing APIs. This structure simply turns on USB redirection of\nUsbClientPassthroughMaxNumberOf devices.",
 	}
 }
 
@@ -283,6 +284,7 @@ func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
 func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the GPU device as exposed by a device plugin",
+		"tag":  "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 
@@ -300,6 +302,7 @@ func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
+		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 
@@ -313,6 +316,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
+		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
 	}
 }
 
@@ -330,11 +334,10 @@ func (BlockSize) SwaggerDoc() map[string]string {
 
 func (DiskDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
-		"disk":   "Attach a volume as a disk to the vmi.",
-		"lun":    "Attach a volume as a LUN to the vmi.",
-		"floppy": "Attach a volume as a floppy to the vmi.",
-		"cdrom":  "Attach a volume as a cdrom to the vmi.",
+		"":      "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
+		"disk":  "Attach a volume as a disk to the vmi.",
+		"lun":   "Attach a volume as a LUN to the vmi.",
+		"cdrom": "Attach a volume as a cdrom to the vmi.",
 	}
 }
 
@@ -346,17 +349,20 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 	}
 }
 
+func (LaunchSecurity) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"sev": "AMD Secure Encrypted Virtualization (SEV).",
+	}
+}
+
+func (SEV) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to false.",
-	}
-}
-
-func (FloppyTarget) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"readonly": "ReadOnly.\nDefaults to false.",
-		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
 	}
 }
 
@@ -656,7 +662,7 @@ func (InterfaceMacvtap) SwaggerDoc() map[string]string {
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
+		"":         "Port represents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
 		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
 		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
 		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",

@@ -38,6 +38,12 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+const (
+	UsrBinVirtChroot = "/usr/bin/virt-chroot"
+	Mount            = "--mount"
+	Proc1NsMnt       = "/proc/1/ns/mnt"
+)
+
 func NodeNameWithHandler() string {
 	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -74,12 +80,12 @@ func CreateErrorDisk(nodeName string) (address string, device string) {
 
 // CreateSCSIDisk creates a SCSI disk using the scsi_debug module. This function should be used only to check SCSI disk functionalities and not for creating a filesystem or any data. The disk is stored in ram and it isn't suitable for storing large amount of data.
 func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
-	args := []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
+	args := []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
 	args = append(args, opts...)
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
-	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/bin/lsscsi"}
+	args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/bin/lsscsi"}
 	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to find out address of  SCSI disk")
 
@@ -107,7 +113,7 @@ func RemoveSCSIDisk(nodeName, address string) {
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 
-	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
+	args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
 	_, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 }

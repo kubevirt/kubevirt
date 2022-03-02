@@ -380,7 +380,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 		By("Waiting until the VM is ready")
-		return tests.WaitForSuccessfulVMIStart(obj)
+		return tests.WaitForSuccessfulVMIStart(obj).Status.NodeName
 	}
 
 	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
@@ -1566,7 +1566,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 				Expect(err).ToNot(BeNil())
 			})
-			It("[QUARANTINE] is enabled it should allow subresource access", func() {
+			It("is enabled it should allow subresource access", func() {
 				tests.EnableFeatureGate("ClusterProfiler")
 
 				err := virtClient.ClusterProfiler().Start()

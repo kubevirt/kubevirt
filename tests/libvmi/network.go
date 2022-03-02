@@ -62,6 +62,16 @@ func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	}
 }
 
+// InterfaceDeviceWithSlirpBinding returns an Interface with SLIRP binding.
+func InterfaceDeviceWithSlirpBinding(name string) kvirtv1.Interface {
+	return kvirtv1.Interface{
+		Name: name,
+		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
+			Slirp: &kvirtv1.InterfaceSlirp{},
+		},
+	}
+}
+
 // InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
 func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	return kvirtv1.Interface{
@@ -78,13 +88,13 @@ func InterfaceWithMac(iface *kvirtv1.Interface, macAddress string) *kvirtv1.Inte
 	return iface
 }
 
-// MultusNetwork returns a Network with the given name
-func MultusNetwork(networkName string) *kvirtv1.Network {
+// MultusNetwork returns a Network with the given name, associated to the given nad
+func MultusNetwork(name, nadName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
-		Name: networkName,
+		Name: name,
 		NetworkSource: kvirtv1.NetworkSource{
 			Multus: &kvirtv1.MultusNetwork{
-				NetworkName: networkName,
+				NetworkName: nadName,
 			},
 		},
 	}

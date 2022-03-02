@@ -20,9 +20,8 @@
 package admitters
 
 import (
-	"reflect"
-
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -72,7 +71,7 @@ func (admitter *MigrationUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 	}
 
 	// Reject Migration update if spec changed
-	if !reflect.DeepEqual(newMigration.Spec, oldMigration.Spec) {
+	if !equality.Semantic.DeepEqual(newMigration.Spec, oldMigration.Spec) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,

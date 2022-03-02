@@ -23,9 +23,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -136,7 +136,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 
 		for _, obj := range objects {
 			r := obj.(*snapshotv1.VirtualMachineRestore)
-			if reflect.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
+			if equality.Semantic.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
 				(r.Status == nil || r.Status.Complete == nil || !*r.Status.Complete) {
 				cause := metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -156,7 +156,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if !reflect.DeepEqual(prevObj.Spec, vmRestore.Spec) {
+		if !equality.Semantic.DeepEqual(prevObj.Spec, vmRestore.Spec) {
 			causes = []metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,

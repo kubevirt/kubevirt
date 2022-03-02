@@ -192,6 +192,49 @@ func main() {
 	removeMDEVCmd := NewRemoveMDEVCommand()
 	removeMDEVCmd.Flags().String("uuid", "", "uuid of the mediated device to remove")
 
+	cgroupsCmd := &cobra.Command{
+		Use:   "set-cgroups-resources",
+		Short: "Set cgroups resources",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			marshalledPathsHash := cmd.Flag("subsystem-paths").Value.String()
+			if marshalledPathsHash == "" {
+				return fmt.Errorf("path argument cannot be empty")
+			}
+
+			marshalledResourcesHash := cmd.Flag("resources").Value.String()
+			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
+			if err != nil {
+				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
+			}
+			isV2, err := strconv.ParseBool(cmd.Flag("isV2").Value.String())
+			if err != nil {
+				return fmt.Errorf("cannot convert isV2 into bool. err: %v", err)
+			}
+
+			unmarshalledResources, err := decodeResources(marshalledResourcesHash)
+			if err != nil {
+				return err
+			}
+
+			unmarshalledPaths, err := decodePaths(marshalledPathsHash)
+			if err != nil {
+				return err
+			}
+
+			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless, isV2); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
+		"For v1 key is cgroup subsystem and value is its path, for v2 the only key is an empty string and the value is cgroup dir path.")
+	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/runc/libcontainer/configs/cgroup_linux.go), encoded to base64 format")
+	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
+	cgroupsCmd.Flags().Bool("isV2", false, "true to run rootless")
+
 	rootCmd.AddCommand(
 		execCmd,
 		mntCmd,
@@ -200,6 +243,7 @@ func main() {
 		createTapCmd,
 		createMDEVCmd,
 		removeMDEVCmd,
+		cgroupsCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {

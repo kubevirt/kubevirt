@@ -27,6 +27,8 @@ import (
 	"net/url"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -88,6 +90,7 @@ var _ = Describe("Application", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		pdbInformer, _ := testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -107,7 +110,7 @@ var _ = Describe("Application", func() {
 		app.nodeTopologyUpdater = topologyUpdater
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
+		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
 		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
@@ -138,6 +141,7 @@ var _ = Describe("Application", func() {
 			nodeInformer,
 			pvcInformer,
 			pdbInformer,
+			migrationPolicyInformer,
 			recorder,
 			virtClient,
 			config,

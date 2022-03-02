@@ -3,11 +3,11 @@ package disruptionbudget
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -22,7 +22,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+const deleteNotifFail = "Failed to process delete notification"
 
 const (
 	// FailedCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget failed.
@@ -41,6 +44,7 @@ const (
 
 type DisruptionBudgetController struct {
 	clientset                       kubecli.KubevirtClient
+	clusterConfig                   *virtconfig.ClusterConfig
 	Queue                           workqueue.RateLimitingInterface
 	vmiInformer                     cache.SharedIndexInformer
 	pdbInformer                     cache.SharedIndexInformer
@@ -57,6 +61,7 @@ func NewDisruptionBudgetController(
 	migrationInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *DisruptionBudgetController {
 
 	c := &DisruptionBudgetController{
@@ -67,6 +72,7 @@ func NewDisruptionBudgetController(
 		migrationInformer:               migrationInformer,
 		recorder:                        recorder,
 		clientset:                       clientset,
+		clusterConfig:                   clusterConfig,
 		podDisruptionBudgetExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
@@ -150,12 +156,12 @@ func (c *DisruptionBudgetController) enqueueVMI(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
 		}
 	}
@@ -204,7 +210,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 	}
 
 	if curPodDisruptionBudget.DeletionTimestamp != nil {
-		labelChanged := !reflect.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
+		labelChanged := !equality.Semantic.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
 		// having a pdb marked for deletion is enough to count as a deletion expectation
 		c.deletePodDisruptionBudget(curPodDisruptionBudget)
 		if labelChanged {
@@ -216,7 +222,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 
 	curControllerRef := v1.GetControllerOf(curPodDisruptionBudget)
 	oldControllerRef := v1.GetControllerOf(oldPodDisruptionBudget)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPodDisruptionBudget.Namespace, oldControllerRef); vmi != nil {
@@ -245,12 +251,12 @@ func (c *DisruptionBudgetController) deletePodDisruptionBudget(obj interface{}) 
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(deleteNotifFail)
 			return
 		}
 		pdb, ok = tombstone.Obj.(*v1beta1.PodDisruptionBudget)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error(deleteNotifFail)
 			return
 		}
 	}
@@ -451,7 +457,7 @@ func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstanc
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
 		}
-		c.recorder.Eventf(vmi, corev1.EventTypeNormal, SuccessfulUpdatePodDisruptionBudgetReason, "shrank PodDisruptionBudget", pdb.Name)
+		c.recorder.Eventf(vmi, corev1.EventTypeNormal, SuccessfulUpdatePodDisruptionBudgetReason, "shrank PodDisruptionBudget %s", pdb.Name)
 	}
 	return nil
 }
@@ -496,7 +502,7 @@ func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisrupt
 }
 
 func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
-	migratableOnDrain := vmiMigratableOnDrain(vmiExists, vmi)
+	migratableOnDrain := c.vmiMigratableOnDrain(vmiExists, vmi)
 
 	// check for deletions if pod exists
 	if pdb != nil {
@@ -536,9 +542,9 @@ func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv
 	return nil
 }
 
-func vmiMigratableOnDrain(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
-	if !vmiExists || vmi.DeletionTimestamp != nil || vmi.Spec.EvictionStrategy == nil {
+func (c *DisruptionBudgetController) vmiMigratableOnDrain(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
+	if !vmiExists || vmi.DeletionTimestamp != nil {
 		return false
 	}
-	return migrations.MigrationNeedsProtection(vmi)
+	return migrations.VMIMigratableOnEviction(c.clusterConfig, vmi)
 }

@@ -84,7 +84,16 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
         "$WORKDIR/overview.adoc"
 
     # Generate *.html files from *.adoc
-    gradle -b $GRADLE_BUILD_FILE asciidoctor --info
+    rm -rf "$WORKDIR/html5" && mkdir -p "$WORKDIR/html5"
+    adoc_files=("definitions.adoc" "overview.adoc" "security.adoc" "operations.adoc")
+    for html_file in ${adoc_files[@]}; do
+        asciidoctor \
+            --failure-level INFO \
+            --attribute toc=right \
+            --destination-dir $WORKDIR/html5 \
+            $PWD/$WORKDIR/$html_file
+    done
+
     rm -rf "$WORKDIR/html5/content" && mkdir "$WORKDIR/html5/content" && mv -f "$WORKDIR/html5/"*.html "$WORKDIR/html5/content"
     mv -f "$WORKDIR/html5/content/overview.html" "$WORKDIR/html5/content/index.html"
 elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
