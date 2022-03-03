@@ -86,8 +86,6 @@ import (
 	"k8s.io/client-go/transport/spdy"
 	netutils "k8s.io/utils/net"
 
-	"kubevirt.io/client-go/api"
-
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -2061,6 +2059,19 @@ func createNamespaces() {
 	}
 }
 
+func NewMinimalVMIWithNS(namespace, name string) *v1.VirtualMachineInstance {
+	vmi := v1.NewVMIReferenceFromNameWithNS(namespace, name)
+	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
+	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+		k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
+	}
+	vmi.TypeMeta = metav1.TypeMeta{
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachineInstance",
+	}
+	return vmi
+}
+
 func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	sc, exists := GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
@@ -2200,7 +2211,7 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMIWithNS(namespace, libvmi.RandName(libvmi.DefaultVmiName))
+	vmi := NewMinimalVMIWithNS(namespace, libvmi.RandName(libvmi.DefaultVmiName))
 
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
