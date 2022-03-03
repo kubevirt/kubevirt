@@ -32,8 +32,8 @@ function patch_remove_finalizers() {
 function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
-    _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found
-    _kubectl -n cdi delete service cdi-uploadproxy-nodeport
+    _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found || true
+    _kubectl -n cdi delete service cdi-uploadproxy-nodeport || true
     patch_remove_finalizers -n ${namespace} kv kubevirt
     set -e
 }
