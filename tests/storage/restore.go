@@ -39,6 +39,9 @@ const (
 	catTestDataMessageCmd     = "cat /test/data/message\n"
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
+
+	newVmName                     = "new-vm"
+	macAddressCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
@@ -46,9 +49,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
+	//var changeNameCloningPatch string
+
 	groupName := "kubevirt.io"
 
 	BeforeEach(func() {
+		//changeNameCloningPatch = fmt.Sprintf(`{"op": "replace", "path": "/metadata/name", "value": "%s"}`, newVmName)
+
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})
@@ -194,6 +201,20 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		waitDeleted(func() error {
 			return virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
 		})
+	}
+
+	getMacAddressCloningPatch := func(sourceVM *v1.VirtualMachine) string {
+		interfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
+		Expect(interfaces).ToNot(BeEmpty())
+		isMacAddressEmpty := interfaces[0].MacAddress == ""
+
+		if isMacAddressEmpty {
+			// This means there is no KubeMacPool running. Therefore, we can simply choose a random address
+			return fmt.Sprintf(macAddressCloningPatchPattern, "DE-AD-00-00-BE-AF")
+		} else {
+			// KubeMacPool is active. Therefore, we can return an empty address and KubeMacPool would assign a real address for us
+			return fmt.Sprintf(macAddressCloningPatchPattern, "")
+		}
 	}
 
 	Context("With simple VM", func() {
@@ -398,7 +419,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(restore)
 			})
 
-			It("should successfully restore to a different VM", func() {
+			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
 				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				newVM := tests.NewRandomVirtualMachine(newVMI, false)
@@ -408,25 +429,81 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				By("Creating a VM restore")
 				restore := createRestoreDef(newVM.Name, snapshot.Name)
-				restore, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				defer deleteRestore(restore)
+				_, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).To(HaveOccurred(), "Admission webhooks should reject this restore since target VM is different then source and already exists")
+			})
 
-				By("Waiting for VM restore to complete")
-				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
-				Expect(restore.Status.Restores).To(HaveLen(0))
-				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+			Context("restore to a new VM that does not exist", func() {
 
-				By("Verifying that old and new VM specs are equal")
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
+				var (
+					newVM   *v1.VirtualMachine
+					restore *snapshotv1.VirtualMachineRestore
+				)
 
-				Expect(vm.Spec).To(Equal(newVM.Spec))
+				BeforeEach(func() {
+					restore = createRestoreDef(newVmName, snapshot.Name)
+				})
 
-				By("Making sure new VM is runnable")
-				tests.StartVMAndExpectRunning(virtClient, vm)
+				expectNewVMCreation := func(vmName string) (createdVM *v1.VirtualMachine) {
+					Eventually(func() error {
+						createdVM, err = virtClient.VirtualMachine(vm.Namespace).Get(vmName, &metav1.GetOptions{})
+						return err
+					}, 90*time.Second, 5*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("new VM (%s) is not being created", newVmName))
+
+					return createdVM
+				}
+
+				waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineRestore {
+					r = waitRestoreComplete(r, vm.Name, &vm.UID)
+					Expect(r.Status.Restores).To(BeEmpty())
+					Expect(r.Status.DeletedDataVolumes).To(BeEmpty())
+					return r
+				}
+
+				It("with changed name and MAC address", func() {
+					By("Creating a VM restore with patches to change name and MAC address")
+					restore.Spec.Patches = []string{getMacAddressCloningPatch(vm)}
+					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					defer deleteRestore(restore)
+
+					By("Making sure that new VM is finally created")
+					newVM = expectNewVMCreation(newVmName)
+					defer deleteVM(newVM)
+
+					By("Waiting for VM restore to complete")
+					restore = waitRestoreComplete(restore, newVM)
+
+					By("Expecting the restore to be owned by target VM")
+					isOwnedByTargetVM := false
+					for _, ownReference := range restore.ObjectMeta.OwnerReferences {
+						if ownReference.Kind == "VirtualMachine" && ownReference.UID == newVM.UID && ownReference.Name == newVM.Name {
+							isOwnedByTargetVM = true
+							break
+						}
+					}
+					Expect(isOwnedByTargetVM).To(BeTrue(), "restore is expected to be owned by target VM")
+
+					By("Verifying both VMs exist")
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					By("Verifying newly created VM is set properly")
+					Expect(newVM.Name).To(Equal(newVmName), "newly created VM should have correct name")
+					newVMInterfaces := newVM.Spec.Template.Spec.Domain.Devices.Interfaces
+					Expect(newVMInterfaces).ToNot(BeEmpty())
+
+					By("Verifying both VMs have different spec")
+					oldVMInterfaces := vm.Spec.Template.Spec.Domain.Devices.Interfaces
+					Expect(oldVMInterfaces).ToNot(BeEmpty())
+					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
+
+					By("Making sure new VM is runnable")
+					tests.StartVMAndExpectRunning(virtClient, newVM)
+				})
+
 			})
 		})
 	})
@@ -436,6 +513,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			var (
 				vm                   *v1.VirtualMachine
 				vmi                  *v1.VirtualMachineInstance
+				newVM                *v1.VirtualMachine
 				snapshot             *snapshotv1.VirtualMachineSnapshot
 				restore              *snapshotv1.VirtualMachineRestore
 				webhook              *admissionregistrationv1.ValidatingWebhookConfiguration
@@ -457,16 +535,25 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				if vm != nil {
 					deleteVM(vm)
 				}
+				if newVM != nil {
+					deleteVM(newVM)
+				}
 				if snapshot != nil {
 					deleteSnapshot(snapshot)
 				}
 				if restore != nil {
 					deleteRestore(restore)
 				}
-
 				if webhook != nil {
 					deleteWebhook(webhook)
 				}
+
+				vm = nil
+				vmi = nil
+				newVM = nil
+				snapshot = nil
+				restore = nil
+				webhook = nil
 			})
 
 			createMessageWithInitialValue := func(login console.LoginToFunction, device string, vmis ...*v1.VirtualMachineInstance) {
@@ -602,6 +689,31 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			}
 
+			createRestoreDef := func(vmName string, snapshotName string) *snapshotv1.VirtualMachineRestore {
+				r := createRestoreDef(vmName, snapshotName)
+				if vmName != vm.Name {
+					r.Spec.Patches = []string{getMacAddressCloningPatch(vm)}
+				}
+
+				return r
+			}
+
+			getTargetVMName := func(restoreToNewVM bool) string {
+				if restoreToNewVM {
+					return newVmName
+				}
+
+				return vm.Name
+			}
+
+			getTargetVM := func(restoreToNewVM bool) *v1.VirtualMachine {
+				if restoreToNewVM {
+					return newVM
+				}
+
+				return vm
+			}
+
 			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, expectedRestores int, targetVMName string) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
@@ -655,6 +767,17 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("Verifying original file contents")
 				Expect(login(targetVMI)).To(Succeed())
 				verifyOriginalContent(device, targetVMI)
+
+				if isRestoreToDifferentVM {
+					Expect(targetVM.Spec.Template.Spec.Volumes).To(HaveLen(len(vm.Spec.Template.Spec.Volumes)))
+					Expect(targetVM.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(len(vm.Spec.Template.Spec.Domain.Devices.Disks)))
+					Expect(targetVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(HaveLen(len(vm.Spec.Template.Spec.Domain.Devices.Interfaces)))
+					Expect(targetVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
+
+					newVM = targetVM
+				} else {
+					vm = targetVM
+				}
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
@@ -674,7 +797,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				for i := 0; i < 2; i++ {
 					By(fmt.Sprintf("Restoring VM iteration %d", i))
 					restore = createRestoreDef(vm.Name, snapshot.Name)
-
 					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -686,7 +808,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", func() {
+			DescribeTable("should restore a vm that boots from a datavolumetemplate", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -696,15 +818,22 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToCirros, false, 1, vm.Name)
-				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
-				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
+				if restoreToNewVM {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+				} else {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
+					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), originalDVName, metav1.GetOptions{})
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+			},
+				Entry("[test_id:5260] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
-			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
+			DescribeTable("should restore a vm that boots from a datavolume (not template)", func(restoreToNewVM bool) {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -712,7 +841,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				)
 
-				var err error
 				dvt := &vm.Spec.DataVolumeTemplates[0]
 
 				dv := &cdiv1.DataVolume{}
@@ -727,9 +855,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				dv = waitDVReady(dv)
 
 				vm, vmi = createAndStartVM(vm)
-
-				doRestore("", console.LoginToCirros, false, 1, vm.Name)
-
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -749,9 +875,12 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 						Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
 					}
 				}
-			})
+			},
+				Entry("[test_id:5261] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
-			It("[test_id:5262]should restore a vm that boots from a PVC", func() {
+			DescribeTable("should restore a vm that boots from a PVC", func(restoreToNewVM bool) {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				pvc := &corev1.PersistentVolumeClaim{
@@ -785,26 +914,35 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", console.LoginToCirros, false, 1, vm.Name)
+				doRestore("", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				for _, v := range vm.Spec.Template.Spec.Volumes {
-					if v.PersistentVolumeClaim != nil {
-						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
-						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
-						Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
-						Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
+				targetVM := getTargetVM(restoreToNewVM)
+				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if !restoreToNewVM {
+					for _, v := range vm.Spec.Template.Spec.Volumes {
+						if v.PersistentVolumeClaim != nil {
+							Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
+							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
+							Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
+							Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
+							Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
+						}
 					}
 				}
-			})
+			},
+				Entry("[test_id:5262] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
-			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
+			DescribeTable("should restore a vm with containerdisk and blank datavolume", func(restoreToNewVM bool) {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
@@ -812,6 +950,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					tests.BashHelloScript,
 				)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
+
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -853,13 +992,20 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc", console.LoginToCirros, false, 1, vm.Name)
+				doRestore("/dev/vdc", console.LoginToCirros, false, 1, getTargetVMName(restoreToNewVM))
 
-				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
-				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
+				if restoreToNewVM {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+				} else {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
+					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+			},
+				Entry("[test_id:5263] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
 			It("should reject vm start if restore in progress", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
@@ -956,7 +1102,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(restore)
 			})
 
-			It("[test_id:6053]should restore a vm from an online snapshot", func() {
+			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -964,11 +1110,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				))
 
-				doRestore("", console.LoginToCirros, true, 1, vm.Name)
+				doRestore("", console.LoginToCirros, true, 1, getTargetVMName(restoreToNewVM))
 
-			})
+			},
+				Entry("[test_id:6053] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
-			It("[test_id:6766]should restore a vm from an online snapshot with guest agent", func() {
+			DescribeTable("should restore a vm from an online snapshot with guest agent", func(restoreToNewVM bool) {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -1017,11 +1166,14 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				doRestore("/dev/vdc", console.LoginToFedora, true, 1, vm.Name)
+				doRestore("/dev/vdc", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM))
 
-			})
+			},
+				Entry("[test_id:6766] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
-			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
+			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
@@ -1032,13 +1184,20 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", console.LoginToFedora, true, 1, vm.Name)
-				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
-				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
+				doRestore("", console.LoginToFedora, true, 1, getTargetVMName(restoreToNewVM))
+				if restoreToNewVM {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+				} else {
+					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
+					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), originalDVName, metav1.GetOptions{})
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+			},
+				Entry("[test_id:6836] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 
 			It("should restore vm spec at startup without new changes", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
@@ -1079,7 +1238,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				restore = createRestoreDef(newVM.Name, snapshot.Name)
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				restore = waitRestoreComplete(restore, newVM.Name, &vm.UID)
+				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				newVM = tests.StartVirtualMachine(newVM)
@@ -1088,7 +1247,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
 
-			It("[test_id:7425]should restore vm with hot plug disks", func() {
+			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
@@ -1102,14 +1261,15 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("Add temporary hotplug disk")
 				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
-				doRestore("", console.LoginToFedora, true, 2, vm.Name)
+				doRestore("", console.LoginToFedora, true, 2, getTargetVMName(restoreToNewVM))
 
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				targetVM := getTargetVM(restoreToNewVM)
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Volumes).To(HaveLen(2))
+				Expect(targetVMI.Spec.Volumes).To(HaveLen(2))
 				foundHotPlug := false
 				foundTempHotPlug := false
-				for _, volume := range vmi.Spec.Volumes {
+				for _, volume := range targetVMI.Spec.Volumes {
 					if volume.Name == persistVolName {
 						foundHotPlug = true
 					} else if volume.Name == tempVolName {
@@ -1118,7 +1278,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 				Expect(foundHotPlug).To(BeTrue())
 				Expect(foundTempHotPlug).To(BeFalse())
-			})
+			},
+				Entry("[test_id:7425] to the same VM", false),
+				Entry("to a new VM", true),
+			)
 		})
 	})
 })

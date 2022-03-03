@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -318,11 +319,19 @@ var _ = Describe("Restore controlleer", func() {
 		}
 
 		Context("with initialized snapshot and content", func() {
+
+			var (
+				s            *snapshotv1.VirtualMachineSnapshot
+				vm           *v1.VirtualMachine
+				sc           *snapshotv1.VirtualMachineSnapshotContent
+				storageClass *storagev1.StorageClass
+			)
+
 			BeforeEach(func() {
-				s := createSnapshot()
-				vm := createSnapshotVM()
-				sc := createVirtualMachineSnapshotContent(s, vm)
-				storageClass := createStorageClass()
+				s = createSnapshot()
+				vm = createSnapshotVM()
+				sc = createVirtualMachineSnapshotContent(s, vm)
+				storageClass = createStorageClass()
 				s.Status.VirtualMachineSnapshotContentName = &sc.Name
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
@@ -702,8 +711,75 @@ var _ = Describe("Restore controlleer", func() {
 					controller.processVMRestoreWorkItem()
 				})
 
-			})
+				Context("new VM does not exist, should create new VM", func() {
 
+					const (
+						newVmName     = "new-vm"
+						newMacAddress = "00:00:5e:00:53:01"
+					)
+
+					var (
+						r *snapshotv1.VirtualMachineRestore
+
+						changeNamePatch       string
+						changeMacAddressPatch string
+					)
+
+					BeforeEach(func() {
+						r = createRestore()
+						r.Spec.Target.Name = newVmName
+						r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+							Complete: &f,
+						}
+
+						changeNamePatch = fmt.Sprintf(`{"op": "replace", "path": "/metadata/name", "value": "%s"}`, newVmName)
+						changeMacAddressPatch = fmt.Sprintf(`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`, newMacAddress)
+
+						err := vmSnapshotInformer.GetStore().Add(s)
+						Expect(err).ShouldNot(HaveOccurred())
+
+						err = vmSnapshotContentInformer.GetStore().Add(sc)
+						Expect(err).ShouldNot(HaveOccurred())
+					})
+
+					It("with changed name", func() {
+						r.Spec.Patches = []string{changeNamePatch}
+
+						vmInterface.EXPECT().Create(gomock.Any()).DoAndReturn(func(newVM *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+							Expect(newVM.Name).To(Equal(newVmName), "the created VM should be the new VM")
+							return newVM, nil
+						}).Times(1)
+
+						targetVM, err := controller.getTarget(r)
+						Expect(err).ShouldNot(HaveOccurred())
+						success, err := targetVM.Reconcile()
+						Expect(success).To(BeTrue())
+						Expect(err).ShouldNot(HaveOccurred())
+					})
+
+					It("with changed name and MAC address", func() {
+						r.Spec.Patches = []string{changeNamePatch, changeMacAddressPatch}
+
+						vmInterface.EXPECT().Create(gomock.Any()).DoAndReturn(func(newVM *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+							Expect(newVM.Name).To(Equal(newVmName), "the created VM should be the new VM")
+
+							interfaces := newVM.Spec.Template.Spec.Domain.Devices.Interfaces
+							Expect(interfaces).ToNot(BeEmpty())
+							Expect(interfaces[0].MacAddress).To(Equal(newMacAddress))
+
+							return newVM, nil
+						}).Times(1)
+
+						targetVM, err := controller.getTarget(r)
+						Expect(err).ShouldNot(HaveOccurred())
+						success, err := targetVM.Reconcile()
+						Expect(success).To(BeTrue())
+						Expect(err).ShouldNot(HaveOccurred())
+					})
+
+				})
+
+			})
 		})
 	})
 })

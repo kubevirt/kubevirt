@@ -2001,6 +2001,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 									},
 								},
 							},
+							Interfaces: []v1.Interface{{Name: "fake-interface", MacAddress: ""}},
 						},
 						Resources: v1.ResourceRequirements{
 							Requests: corev1.ResourceList{
