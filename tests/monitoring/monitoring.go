@@ -22,6 +22,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"kubevirt.io/kubevirt/tests"
@@ -135,6 +136,21 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			By("By scaling virt-operator to zero")
 			updateScale(virtOperatorDeploymentName, int32(0))
 			verifyAlertExist("VirtOperatorDown")
+		})
+	})
+
+	Context("Alerts runbooks", func() {
+		It("Should have available URLs", func() {
+			alerts, err := getAlerts(virtClient)
+			Expect(err).ToNot(HaveOccurred())
+			for _, alert := range alerts {
+				Expect(alert.Annotations).ToNot(BeNil())
+				url, ok := alert.Annotations["runbook_url"]
+				Expect(ok).To(BeTrue())
+				resp, err := http.Head(string(url))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).Should(Equal(http.StatusOK))
+			}
 		})
 	})
 })
