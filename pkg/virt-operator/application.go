@@ -144,7 +144,7 @@ func Execute() {
 		os.Setenv(k, v)
 	}
 
-	config, err := kubecli.GetConfig()
+	config, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
 	}

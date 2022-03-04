@@ -90,7 +90,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		util.PanicOnError(err)
 
 		if aggregatorClient == nil {
-			config, err := kubecli.GetConfig()
+			config, err := kubecli.GetKubevirtClientConfig()
 			if err != nil {
 				panic(err)
 			}
