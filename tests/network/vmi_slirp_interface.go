@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = SIGDescribe("Slirp Networking", func() {
@@ -187,9 +186,12 @@ var _ = SIGDescribe("Slirp Networking", func() {
 		})
 		It("should reject VMIs with default interface slirp when it's not permitted", func() {
 			var t int64 = 0
-			vmi := tests.NewMinimalVMIWithNS(util.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
+			vmi := tests.NewRandomVMIWithNS(util.NamespaceTestDefault)
 			vmi.Spec.TerminationGracePeriodSeconds = &t
+			// Reset memory, devices and networks
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+			vmi.Spec.Domain.Devices = v1.Devices{}
+			vmi.Spec.Networks = nil
 			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
