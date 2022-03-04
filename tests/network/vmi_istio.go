@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo"
@@ -168,7 +170,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				return nil
 			}
 			BeforeEach(func() {
-				tests.SkipIfMigrationIsNotPossible()
+				checks.SkipIfMigrationIsNotPossible()
 			})
 			JustBeforeEach(func() {
 				sourcePodName = tests.GetVmPodName(virtClient, vmi)

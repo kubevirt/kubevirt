@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -272,7 +274,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
-				tests.SkipIfNoRhelImage(virtClient)
+				checks.SkipIfNoRhelImage(virtClient)
 				tests.CreatePVC(tests.OSRhel, "15Gi", tests.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})

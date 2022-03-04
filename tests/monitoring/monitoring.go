@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -117,7 +119,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(virtClient).ToNot(BeNil())
 
-		tests.SkipIfPrometheusRuleIsNotEnabled(virtClient)
+		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
 		tests.BeforeTestCleanup()
 	})
 

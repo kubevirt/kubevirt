@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"github.com/onsi/ginkgo/extensions/table"
 
 	v1 "k8s.io/api/apps/v1"
@@ -173,9 +175,9 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 		table.DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
 			if isMultiReplica {
-				tests.SkipIfSingleReplica(virtCli)
+				checks.SkipIfSingleReplica(virtCli)
 			} else {
-				tests.SkipIfMultiReplica(virtCli)
+				checks.SkipIfMultiReplica(virtCli)
 			}
 			By(fmt.Sprintf("Try to evict all pods %s\n", podName))
 			podList, err := getPodList()
@@ -212,7 +214,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
 				// Single replica deployments do not create PDBs
-				tests.SkipIfSingleReplica(virtCli)
+				checks.SkipIfSingleReplica(virtCli)
 
 				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
