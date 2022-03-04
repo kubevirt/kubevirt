@@ -139,19 +139,16 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		})
 
 		if mutator.ClusterConfig.NonRootEnabled() {
-			if err := canBeNonRoot(newVMI); err != nil {
+			if err := util.CanBeNonRoot(newVMI); err != nil {
 				return &admissionv1.AdmissionResponse{
 					Result: &metav1.Status{
 						Message: err.Error(),
 						Code:    http.StatusUnprocessableEntity,
 					},
 				}
-			} else {
-				if newVMI.ObjectMeta.Annotations == nil {
-					newVMI.ObjectMeta.Annotations = make(map[string]string)
-				}
-				newVMI.ObjectMeta.Annotations[v1.NonRootVMIAnnotation] = ""
 			}
+
+			util.MarkAsNonroot(newVMI)
 		}
 
 		var value interface{}
@@ -356,14 +353,6 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		}
 	}
 
-}
-
-func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
-	// VirtioFS doesn't work with session mode
-	if util.IsVMIVirtiofsEnabled(vmi) {
-		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
-	}
-	return nil
 }
 
 func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {

@@ -2,7 +2,6 @@ package tests_test
 
 import (
 	"fmt"
-	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -57,22 +56,16 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 
 			vmi := tests.NewRandomVMI()
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Check that runtimeuser was set on creation")
+			Expect(vmi.Status.RuntimeUser).To(Equal(uint64(107)))
 
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			podOutput, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				vmiPod.Spec.Containers[0].Name,
-				[]string{"id"},
-			)
+			By("Check that user used is equal to 107")
+			Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
 
-			groups := strings.Split(podOutput, "=")
-			uid := strings.Split(groups[1], "(")[0]
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(uid).To(Equal("107"))
 		})
 	})
 })

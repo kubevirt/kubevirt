@@ -9843,6 +9843,11 @@ var CRDsValidation map[string]string = map[string]string{
           description: A brief CamelCase message indicating details about why the
             VMI is in this state. e.g. 'NodeUnresponsive'
           type: string
+        runtimeUser:
+          description: RuntimeUser is used to determine what user will be used in
+            launcher
+          format: int64
+          type: integer
         topologyHints:
           properties:
             tscFrequency:

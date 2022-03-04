@@ -98,6 +98,154 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	var virtClient kubecli.KubevirtClient
 	var err error
 
+	createConfigMap := func() string {
+		name := "configmap-" + rand.String(5)
+		data := map[string]string{
+			"config1": "value1",
+			"config2": "value2",
+		}
+		tests.CreateConfigMap(name, data)
+		return name
+	}
+
+	createSecret := func() string {
+		name := "secret-" + rand.String(5)
+		data := map[string]string{
+			"user":     "admin",
+			"password": "redhat",
+		}
+		tests.CreateSecret(name, data)
+		return name
+	}
+
+	withKernelBoot := func() libvmi.Option {
+		return func(vmi *v1.VirtualMachineInstance) {
+			kernelBootFirmware := utils.GetVMIKernelBoot().Spec.Domain.Firmware
+			if vmiFirmware := vmi.Spec.Domain.Firmware; vmiFirmware == nil {
+				vmiFirmware = kernelBootFirmware
+			} else {
+				vmiFirmware.KernelBoot = kernelBootFirmware.KernelBoot
+			}
+		}
+	}
+
+	withSecret := func(secretName string, customLabel ...string) libvmi.Option {
+		volumeLabel := ""
+		if len(customLabel) > 0 {
+			volumeLabel = customLabel[0]
+		}
+		return func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: secretName,
+				VolumeSource: v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{
+						SecretName:  secretName,
+						VolumeLabel: volumeLabel,
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: secretName,
+			})
+		}
+	}
+
+	withConfigMap := func(configMapName string, customLabel ...string) libvmi.Option {
+		volumeLabel := ""
+		if len(customLabel) > 0 {
+			volumeLabel = customLabel[0]
+		}
+		return func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: configMapName,
+				VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: k8sv1.LocalObjectReference{
+							Name: configMapName,
+						},
+						VolumeLabel: volumeLabel,
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: configMapName,
+			})
+		}
+
+	}
+
+	withDefaultServiceAccount := func() libvmi.Option {
+		serviceAccountName := "default"
+		return func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: serviceAccountName + "-disk",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: serviceAccountName,
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: serviceAccountName + "-disk",
+			})
+		}
+	}
+
+	withLabels := func(labels map[string]string) libvmi.Option {
+		return func(vmi *v1.VirtualMachineInstance) {
+			if vmi.ObjectMeta.Labels == nil {
+				vmi.ObjectMeta.Labels = map[string]string{}
+			}
+
+			for key, value := range labels {
+				labels[key] = value
+			}
+		}
+	}
+
+	withDownwardAPI := func(fieldPath string) libvmi.Option {
+		return func(vmi *v1.VirtualMachineInstance) {
+			volumeName := "downwardapi-" + rand.String(5)
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: volumeName,
+				VolumeSource: v1.VolumeSource{
+					DownwardAPI: &v1.DownwardAPIVolumeSource{
+						Fields: []k8sv1.DownwardAPIVolumeFile{
+							{
+								Path: "labels",
+								FieldRef: &k8sv1.ObjectFieldSelector{
+									FieldPath: fieldPath,
+								},
+							},
+						},
+						VolumeLabel: "",
+					},
+				},
+			})
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: volumeName,
+			})
+		}
+	}
+
+	prepareVMIWithAllVolumeSources := func() *v1.VirtualMachineInstance {
+		secretName := createSecret()
+		configMapName := createConfigMap()
+
+		return libvmi.NewTestToolingFedora(
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			withLabels(map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}),
+			withDownwardAPI("metadata.labels"),
+			withDefaultServiceAccount(),
+			withKernelBoot(),
+			withSecret(secretName),
+			withConfigMap(configMapName),
+			libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		)
+	}
+
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
@@ -1461,6 +1609,108 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
+		Context("[Serial] migration to nonroot", func() {
+
+			var cleanUp func()
+			ipProtocol := k8sv1.IPv4Protocol
+			os := string(cd.ContainerDiskAlpine)
+			size := "256Mi"
+
+			BeforeEach(func() {
+				if !checks.HasFeature(virtconfig.NonRoot) {
+					Skip("Test specific to NonRoot featureGate that is not enabled")
+				}
+				tests.DisableFeatureGate(virtconfig.NonRoot)
+			})
+			AfterEach(func() {
+				tests.EnableFeatureGate(virtconfig.NonRoot)
+				if cleanUp != nil {
+					cleanUp()
+				}
+			})
+
+			createPVC := func() (nfsPod *k8sv1.Pod, pvName string) {
+				targetImage, nodeName := tests.CopyAlpineWithNonQEMUPermissions()
+				cleanUp = tests.DeleteAlpineWithNonQEMUPermissions
+
+				By("Starting an NFS POD")
+				nfsPod = storageframework.InitNFS(targetImage, nodeName)
+				pvName = fmt.Sprintf("test-nfs%s", rand.String(48))
+
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new NFS PV and PVC")
+				nfsIP := libnet.GetPodIpByFamily(nfsPod, ipProtocol)
+				ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
+
+				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, nfsIP, os)
+				return
+			}
+
+			table.DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
+				By("Create a VMI that will run root(default)")
+				vmi := createVMI()
+
+				By("Starting the VirtualMachineInstance")
+				// Resizing takes too long and therefor a warning is thrown
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(loginFunc(vmi)).To(Succeed())
+
+				By("Checking that the launcher is running as root")
+				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("0"))
+
+				tests.EnableFeatureGate(virtconfig.NonRoot)
+
+				By("Starting new migration and waiting for it to succeed")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
+
+				By("Verifying Second Migration Succeeeds")
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Checking that the launcher is running as qemu")
+				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(loginFunc(vmi)).To(Succeed())
+
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			},
+				table.Entry("with simple VMI", func() *v1.VirtualMachineInstance {
+					return libvmi.NewAlpine()
+				}, console.LoginToAlpine),
+
+				table.Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+					nfsPod, pvName := createPVC()
+
+					// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
+					dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+					dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
+					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+					Expect(err).To(BeNil())
+					tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
+
+					return tests.NewRandomVMIWithDataVolume(dv.Name)
+				}, console.LoginToAlpine),
+
+				table.Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
+					return prepareVMIWithAllVolumeSources()
+				}, console.LoginToFedora),
+
+				table.Entry("with PVC", func() *v1.VirtualMachineInstance {
+					nfsPod, pvName := createPVC()
+
+					tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
+
+					return tests.NewRandomVMIWithPVC(pvName)
+				}, console.LoginToAlpine),
+			)
+		})
 		Context("migration security", func() {
 			Context("[Serial] with TLS disabled", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
@@ -2594,48 +2844,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	Context("with sata disks", func() {
 
-		addKernelBootContainer := func(vmi *v1.VirtualMachineInstance) {
-			kernelBootFirmware := utils.GetVMIKernelBoot().Spec.Domain.Firmware
-			if vmiFirmware := vmi.Spec.Domain.Firmware; vmiFirmware == nil {
-				vmiFirmware = kernelBootFirmware
-			} else {
-				vmiFirmware.KernelBoot = kernelBootFirmware.KernelBoot
-			}
-		}
-
 		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot", func() {
-			configMapName := "configmap-" + rand.String(5)
-			secretName := "secret-" + rand.String(5)
-			downwardAPIName := "downwardapi-" + rand.String(5)
-
-			config_data := map[string]string{
-				"config1": "value1",
-				"config2": "value2",
-			}
-
-			secret_data := map[string]string{
-				"user":     "admin",
-				"password": "redhat",
-			}
-
-			tests.CreateConfigMap(configMapName, config_data)
-			tests.CreateSecret(secretName, secret_data)
-
-			vmi := libvmi.NewTestToolingFedora(
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			)
-			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
-			tests.AddSecretDisk(vmi, secretName, secretName)
-			tests.AddServiceAccountDisk(vmi, "default")
-			addKernelBootContainer(vmi)
-
-			// In case there are no existing labels add labels to add some data to the downwardAPI disk
-			if vmi.ObjectMeta.Labels == nil {
-				vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
-			}
-			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
+			vmi := prepareVMIWithAllVolumeSources()
 
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(6))
 			Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))

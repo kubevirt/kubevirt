@@ -16035,6 +16035,11 @@
       "description": "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'",
       "type": "string"
      },
+     "runtimeUser": {
+      "description": "RuntimeUser is used to determine what user will be used in launcher",
+      "type": "integer",
+      "format": "int64"
+     },
      "topologyHints": {
       "$ref": "#/definitions/v1.TopologyHints"
      },
