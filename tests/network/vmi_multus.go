@@ -492,10 +492,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				vmiOne := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
-
-				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				updatedVmi := tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(2))
 				interfacesByName := make(map[string]v1.VirtualMachineInstanceNetworkInterface)
