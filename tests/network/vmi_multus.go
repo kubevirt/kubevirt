@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -373,7 +374,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
 			getIfaceIPByNetworkName := func(vmiName, networkName string) (string, error) {
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
+				vmi, err := ThisVMIWith(util.NamespaceTestDefault, vmiName)()
 				if err != nil {
 					return "", err
 				}
@@ -688,16 +689,15 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, agentVMI)
 
-				getOptions := &metav1.GetOptions{}
 				Eventually(func() bool {
-					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					updatedVmi, err := ThisVMI(agentVMI)()
 					if err != nil {
 						return false
 					}
 					return len(updatedVmi.Status.Interfaces) == 4
 				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := ThisVMI(agentVMI)()
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
@@ -784,7 +784,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		waitVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err := ThisVMI(vmi)()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
@@ -857,9 +857,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi1 = waitVmi(vmi1)
 			vmi2 = waitVmi(vmi2)
 
-			vmi1, err = virtClient.VirtualMachineInstance(vmi1.Namespace).Get(vmi1.Name, &metav1.GetOptions{})
+			vmi1, err = ThisVMI(vmi1)()
 			Expect(err).NotTo(HaveOccurred())
-			vmi2, err = virtClient.VirtualMachineInstance(vmi2.Namespace).Get(vmi2.Name, &metav1.GetOptions{})
+			vmi2, err = ThisVMI(vmi2)()
 			Expect(err).NotTo(HaveOccurred())
 
 			return vmi1, vmi2
@@ -931,7 +931,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 						AlignedCPUs: alignedCPUsInt,
 					},
 				}
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = ThisVMI(vmi)()
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -993,7 +993,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 						Tags:    []string{"specialNet"},
 					},
 				}
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = ThisVMI(vmi)()
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -1090,7 +1090,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				var interfaceName string
 				Eventually(func() error {
 					var err error
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					vmi, err = ThisVMI(vmi)()
 					Expect(err).NotTo(HaveOccurred())
 					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
 					return err
@@ -1140,7 +1140,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					// the guest-agent.
 					Eventually(func() error {
 						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						vmi, err = ThisVMI(vmi)()
 						Expect(err).NotTo(HaveOccurred())
 						interfaceName, err = getInterfaceNameByMAC(vmi, mac)
 						return err
@@ -1158,7 +1158,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					// It may take some time for the VMI interface status to be updated with the information reported by
 					// the guest-agent.
 					Eventually(func() error {
-						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						updatedVMI, err := ThisVMI(vmi)()
 						Expect(err).NotTo(HaveOccurred())
 						interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
 						if err != nil {
@@ -1436,7 +1436,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 				var vmiIP string
 				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+					vmi, err := ThisVMI(vmi)()
 					if err != nil {
 						return false, err
 					}
