@@ -172,7 +172,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				runningPods := getRunningReadyPods(podList, []string{podName})
 				Expect(len(runningPods)).ToNot(Equal(0))
 				for index, pod := range runningPods {
-					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					// trying to evict the last running pod in this list should fail
 					if index == len(runningPods)-1 {
 						Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
