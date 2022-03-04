@@ -40,7 +40,8 @@ centos_extra="
 # get latest repo data from repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- fetch ${bazeldnf_repos}
+    //:bazeldnf -- fetch \
+    ${bazeldnf_repos}
 
 # create a rpmtree for our test image with misc. tools.
 testimage_base="
@@ -181,7 +182,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     # create a rpmtree for virt-handler
     bazel run \
         --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree --public --name handlerbase_x86_64 \
+        //:bazeldnf -- rpmtree \
+        --public \
+        --name handlerbase_x86_64 \
         --basesystem centos-stream-release \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -277,7 +280,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     # create a rpmtree for virt-handler
     bazel run \
         --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree --public --arch=aarch64 --name handlerbase_aarch64 \
+        //:bazeldnf -- rpmtree \
+        --public \
+        --name handlerbase_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
