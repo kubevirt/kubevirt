@@ -133,7 +133,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public \
+        --public --nobest \
         --name testimage_x86_64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
@@ -183,7 +183,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public \
+        --public --nobest \
         --name handlerbase_x86_64 \
         --basesystem centos-stream-release \
         --force-ignore-with-dependencies 'python' \
@@ -231,7 +231,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public \
+        --public --nobest \
         --name testimage_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         ${bazeldnf_repos} \
@@ -281,7 +281,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public \
+        --public --nobest \
         --name handlerbase_aarch64 --arch aarch64 \
         --basesystem centos-stream-release \
         --force-ignore-with-dependencies 'python' \
