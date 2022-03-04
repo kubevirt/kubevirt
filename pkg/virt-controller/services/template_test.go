@@ -223,7 +223,7 @@ var _ = Describe("Template", func() {
 
 		})
 		Context("launch template with correct parameters", func() {
-			table.DescribeTable("should check annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
+			table.DescribeTable("should contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
 				config, kvInformer, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -242,46 +242,17 @@ var _ = Describe("Template", func() {
 				})
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.ObjectMeta.Annotations).To(Equal(podExpectedAnnotation))
+				for key, expectedValue := range podExpectedAnnotation {
+					Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue(key, expectedValue))
+				}
+
 			},
-				table.Entry("and don't contain kubectl annotation",
-					map[string]string{
-						"kubectl.kubernetes.io/last-applied-configuration": "open",
-					},
-					map[string]string{
-						"kubevirt.io/domain":                   "testvmi",
-						"pre.hook.backup.velero.io/container":  "compute",
-						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"post.hook.backup.velero.io/container": "compute",
-						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"kubevirt.io/migrationTransportUnix":   "true",
-					},
-				),
-				table.Entry("and don't contain kubevirt annotation added by apiserver",
-					map[string]string{
-						"kubevirt.io/latest-observed-api-version":  "source",
-						"kubevirt.io/storage-observed-api-version": ".com",
-					},
-					map[string]string{
-						"kubevirt.io/domain":                   "testvmi",
-						"pre.hook.backup.velero.io/container":  "compute",
-						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"post.hook.backup.velero.io/container": "compute",
-						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"kubevirt.io/migrationTransportUnix":   "true",
-					},
-				),
 				table.Entry("and contain kubevirt domain annotation",
 					map[string]string{
 						"kubevirt.io/domain": "fedora",
 					},
 					map[string]string{
-						"kubevirt.io/domain":                   "fedora",
-						"pre.hook.backup.velero.io/container":  "compute",
-						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"post.hook.backup.velero.io/container": "compute",
-						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"kubevirt.io/migrationTransportUnix":   "true",
+						"kubevirt.io/domain": "fedora",
 					},
 				),
 				table.Entry("and contain kubernetes annotation",
@@ -290,12 +261,6 @@ var _ = Describe("Template", func() {
 					},
 					map[string]string{
 						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
-						"kubevirt.io/domain":                             "testvmi",
-						"pre.hook.backup.velero.io/container":            "compute",
-						"pre.hook.backup.velero.io/command":              "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"post.hook.backup.velero.io/container":           "compute",
-						"post.hook.backup.velero.io/command":             "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"kubevirt.io/migrationTransportUnix":             "true",
 					},
 				),
 				table.Entry("and contain kubevirt ignitiondata annotation",
@@ -307,17 +272,60 @@ var _ = Describe("Template", func() {
 						}`,
 					},
 					map[string]string{
-						"kubevirt.io/domain": "testvmi",
 						"kubevirt.io/ignitiondata": `{
 							"ignition" :  {
 								"version": "3"
 							 },
 						}`,
-						"pre.hook.backup.velero.io/container":  "compute",
-						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"post.hook.backup.velero.io/container": "compute",
-						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-						"kubevirt.io/migrationTransportUnix":   "true",
+					},
+				),
+				table.Entry("and contain default container for logging and exec",
+					map[string]string{},
+					map[string]string{
+						"kubectl.kubernetes.io/default-container": "compute",
+					},
+				),
+			)
+
+			table.DescribeTable("should not contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
+				config, kvInformer, svc = configFactory(defaultArch)
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "testvmi",
+						Namespace:   "testns",
+						UID:         "1234",
+						Annotations: vmiAnnotation,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+						},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				for key := range podExpectedAnnotation {
+					Expect(pod.ObjectMeta.Annotations).To(Not(HaveKey(key)))
+				}
+			},
+				table.Entry("and don't contain kubectl annotation",
+					map[string]string{
+						"kubectl.kubernetes.io/last-applied-configuration": "open",
+					},
+					map[string]string{
+						"kubectl.kubernetes.io/last-applied-configuration": "open",
+					},
+				),
+				table.Entry("and don't contain kubevirt annotation added by apiserver",
+					map[string]string{
+						"kubevirt.io/latest-observed-api-version":  "source",
+						"kubevirt.io/storage-observed-api-version": ".com",
+					},
+					map[string]string{
+						"kubevirt.io/latest-observed-api-version":  "source",
+						"kubevirt.io/storage-observed-api-version": ".com",
 					},
 				),
 			)
@@ -355,14 +363,15 @@ var _ = Describe("Template", func() {
 					v1.VirtualMachineNameLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:                    "testvmi",
-					"test":                                 "shouldBeInPod",
-					hooks.HookSidecarListAnnotationName:    `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
-					"pre.hook.backup.velero.io/container":  "compute",
-					"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-					"post.hook.backup.velero.io/container": "compute",
-					"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-					"kubevirt.io/migrationTransportUnix":   "true",
+					v1.DomainAnnotation:                       "testvmi",
+					"test":                                    "shouldBeInPod",
+					hooks.HookSidecarListAnnotationName:       `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+					"pre.hook.backup.velero.io/container":     "compute",
+					"pre.hook.backup.velero.io/command":       "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"post.hook.backup.velero.io/container":    "compute",
+					"post.hook.backup.velero.io/command":      "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"kubevirt.io/migrationTransportUnix":      "true",
+					"kubectl.kubernetes.io/default-container": "compute",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
