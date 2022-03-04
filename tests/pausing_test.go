@@ -502,7 +502,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Starting a Cirros VMI")
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-			vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())

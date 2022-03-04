@@ -1347,19 +1347,19 @@ var _ = SIGDescribe("Macvtap", func() {
 	}
 
 	createCirrosVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(
+		runningVMI := tests.RunVMIAndExpectLaunch(
 			newCirrosVMIWithExplicitMac(networkName, mac),
 			180,
-			false)
+		)
 		err := console.LoginToCirros(runningVMI)
 		return runningVMI, err
 	}
 
 	createFedoraVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(
+		runningVMI := tests.RunVMIAndExpectLaunch(
 			newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
 			180,
-			false)
+		)
 		err := console.LoginToFedora(runningVMI)
 		return runningVMI, err
 	}

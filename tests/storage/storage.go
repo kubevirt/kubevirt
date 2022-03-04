@@ -257,7 +257,6 @@ var _ = SIGDescribe("Storage", func() {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 					}
 
-					var ignoreWarnings bool
 					var nodeName string
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
@@ -267,13 +266,16 @@ var _ = SIGDescribe("Storage", func() {
 						}
 						nfsPod = storageframework.InitNFS(targetImage, nodeName)
 						pvName = createNFSPvAndPvc(family, nfsPod)
-						ignoreWarnings = true
 					} else {
 						pvName = tests.DiskAlpineHostPath
 					}
 					vmi = newVMI(pvName)
 
-					tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 180, ignoreWarnings)
+					if storageEngine == "nfs" {
+						tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+					} else {
+						tests.RunVMIAndExpectLaunch(vmi, 180)
+					}
 
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -551,17 +553,20 @@ var _ = SIGDescribe("Storage", func() {
 					if family == k8sv1.IPv6Protocol {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 					}
-					var ignoreWarnings bool
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
 						nfsPod = storageframework.InitNFS(tests.HostPathAlpine, "")
 						pvName = createNFSPvAndPvc(family, nfsPod)
-						ignoreWarnings = true
 					} else {
 						pvName = tests.DiskAlpineHostPath
 					}
 					vmi = newVMI(pvName)
-					vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+
+					if storageEngine == "nfs" {
+						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
+					} else {
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
+					}
 
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())

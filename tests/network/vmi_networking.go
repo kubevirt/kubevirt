@@ -942,7 +942,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 
-				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
