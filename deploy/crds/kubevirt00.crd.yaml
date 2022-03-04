@@ -232,6 +232,12 @@ spec:
                     items:
                       type: string
                     type: array
+                  evictionStrategy:
+                    description: EvictionStrategy defines at the cluster level if
+                      the VirtualMachineInstance should be migrated instead of shut-off
+                      in case of a node drain. If the VirtualMachineInstance specific
+                      field is set it overrides the cluster level one.
+                    type: string
                   handlerConfiguration:
                     description: ReloadableComponentConfiguration holds all generic
                       k8s configuration options which can be reloaded by components
@@ -270,7 +276,7 @@ spec:
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
-                    description: MediatedDevicesConfiguration holds inforamtion about
+                    description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
                       mediatedDevicesTypes:
@@ -280,7 +286,7 @@ spec:
                         x-kubernetes-list-type: atomic
                       nodeMediatedDeviceTypes:
                         items:
-                          description: NodeMediatedDeviceTypesConfig holds inforamtion
+                          description: NodeMediatedDeviceTypesConfig holds information
                             about MDEV types to be defined in a specifc node that
                             matches the NodeSelector field.
                           properties:
@@ -360,7 +366,7 @@ spec:
                   ovmfPath:
                     type: string
                   permittedHostDevices:
-                    description: PermittedHostDevices holds inforamtion about devices
+                    description: PermittedHostDevices holds information about devices
                       allowed for passthrough
                     properties:
                       mediatedDevices:
@@ -2831,6 +2837,12 @@ spec:
                     items:
                       type: string
                     type: array
+                  evictionStrategy:
+                    description: EvictionStrategy defines at the cluster level if
+                      the VirtualMachineInstance should be migrated instead of shut-off
+                      in case of a node drain. If the VirtualMachineInstance specific
+                      field is set it overrides the cluster level one.
+                    type: string
                   handlerConfiguration:
                     description: ReloadableComponentConfiguration holds all generic
                       k8s configuration options which can be reloaded by components
@@ -2869,7 +2881,7 @@ spec:
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
-                    description: MediatedDevicesConfiguration holds inforamtion about
+                    description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
                       mediatedDevicesTypes:
@@ -2879,7 +2891,7 @@ spec:
                         x-kubernetes-list-type: atomic
                       nodeMediatedDeviceTypes:
                         items:
-                          description: NodeMediatedDeviceTypesConfig holds inforamtion
+                          description: NodeMediatedDeviceTypesConfig holds information
                             about MDEV types to be defined in a specifc node that
                             matches the NodeSelector field.
                           properties:
@@ -2959,7 +2971,7 @@ spec:
                   ovmfPath:
                     type: string
                   permittedHostDevices:
-                    description: PermittedHostDevices holds inforamtion about devices
+                    description: PermittedHostDevices holds information about devices
                       allowed for passthrough
                     properties:
                       mediatedDevices:

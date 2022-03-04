@@ -354,10 +354,6 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
-func (v *VirtualMachineInstance) IsEvictable() bool {
-	return v.Spec.EvictionStrategy != nil && *v.Spec.EvictionStrategy == EvictionStrategyLiveMigrate
-}
-
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
@@ -668,9 +664,10 @@ const (
 )
 
 const (
-	// This label marks resources that belong to KubeVirt. An optional value
+	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
 	AppLabel string = "kubevirt.io"
+	AppName  string = "name"
 	// This annotation is used to match virtual machine instances represented as
 	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
@@ -824,12 +821,6 @@ const (
 	// It's used as a readiness gate to prevent paused VMs from being marked as ready.
 	VirtualMachineUnpaused k8sv1.PodConditionType = "kubevirt.io/virtual-machine-unpaused"
 
-	// VirtualMahcineTemplateHash is used by the pool controller to determine when a VM needs to be updated
-	VirtualMachineTemplateHash string = "kubevirt.io/vm-template-hash"
-
-	// VirtualMahcineInstanceTemplateHash is used by the pool controller to determine when a VMI needs to be updated
-	VirtualMachineInstanceTemplateHash string = "kubevirt.io/vmi-template-hash"
-
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
 
@@ -838,6 +829,13 @@ const (
 
 	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
 	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
+
+	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
+	// originated from.
+	VirtualMachinePoolRevisionName string = "kubevirt.io/vm-pool-revision-name"
+
+	// VirtualMachineNameLabel is the name of the Virtual Machine
+	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1237,6 +1235,9 @@ const (
 	// VMI will initially be running--and restarted if a failure occurs.
 	// It will not be restarted upon successful completion.
 	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
+	// VMI will run once and not be restarted upon completion regardless
+	// if the completion is of phase Failure or Success
+	RunStrategyOnce VirtualMachineRunStrategy = "Once"
 )
 
 // VirtualMachineSpec describes how the proper VirtualMachine
@@ -1797,6 +1798,7 @@ const (
 )
 
 const (
+	EvictionStrategyNone        EvictionStrategy = "None"
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
 
@@ -2053,6 +2055,12 @@ type KubeVirtConfiguration struct {
 	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
+
+	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
+	// field is set it overrides the cluster level one.
+	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
+
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
@@ -2124,7 +2132,7 @@ type LogVerbosity struct {
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
-// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+// PermittedHostDevices holds information about devices allowed for passthrough
 type PermittedHostDevices struct {
 	// +listType=atomic
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
@@ -2154,7 +2162,7 @@ type MediatedHostDevice struct {
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }
 
-// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
@@ -2163,7 +2171,7 @@ type MediatedDevicesConfiguration struct {
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
 }
 
-// NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+// NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.
 // +k8s:openapi-gen=true
 type NodeMediatedDeviceTypesConfig struct {
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
