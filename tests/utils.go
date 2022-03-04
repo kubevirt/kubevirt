@@ -103,7 +103,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -211,7 +210,6 @@ const (
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindows        = "disk-windows"
 	DiskWindowsSysprep = "disk-windows-sysprep"
-	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
 
@@ -692,8 +690,8 @@ func BeforeTestSuitSetup(_ []byte) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
 	Config, err = loadConfig()
-	Arch = getArch()
 	Expect(err).ToNot(HaveOccurred())
+	Arch = getArch()
 
 	// Customize host disk paths
 	// Right now we support three nodes. More image copying needs to happen
@@ -1257,19 +1255,6 @@ func isNamespaceScoped(kind schema.GroupVersionKind) bool {
 		return false
 	}
 	return true
-}
-
-func IsOpenShift() bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	isOpenShift, err := cluster.IsOnOpenShift(virtClient)
-	if err != nil {
-		fmt.Printf("ERROR: Can not determine cluster type %v\n", err)
-		panic(err)
-	}
-
-	return isOpenShift
 }
 
 func ServiceMonitorEnabled() bool {
@@ -2184,7 +2169,7 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 			Masquerade: &v1.InterfaceMasquerade{}}}}}
 
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	if isARM64() {
+	if checks.IsARM64(Arch) {
 		// Cirros image need 256M to boot on ARM64,
 		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
 		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
@@ -3485,69 +3470,6 @@ func BeforeAll(fn func()) {
 	})
 }
 
-func SkipIfNonRoot(virtClient kubecli.KubevirtClient, feature string) {
-	if checks.HasFeature(virtconfig.NonRoot) {
-		Skip(fmt.Sprintf("NonRoot implementation doesn't support %s", feature))
-	}
-}
-
-func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
-	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
-	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
-		Skip(fmt.Sprintf("Skip tests that requires PV %s", imageName))
-	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
-		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
-	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), DiskRhel, metav1.GetOptions{})
-	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
-		Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", DiskRhel))
-	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
-		rhelPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), rhelPv, metav1.UpdateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
-	labelSelector := "app=flannel"
-	flannelpod, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-	Expect(err).ToNot(HaveOccurred())
-	if len(flannelpod.Items) > 0 {
-		Skip("Skip networkpolicy test for flannel network")
-	}
-}
-
-func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
-	ext, err := extclient.NewForConfig(virtClient.Config())
-	util2.PanicOnError(err)
-
-	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
-	} else if err != nil {
-		util2.PanicOnError(err)
-	}
-}
-
-func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
-	kv := util2.GetCurrentKv(virtClient)
-	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *(kv.Spec.Infra.Replicas) == 1 {
-		Skip("Skip multi-replica test on single-replica deployments")
-	}
-}
-
-func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
-	kv := util2.GetCurrentKv(virtClient)
-	if kv.Spec.Infra == nil || kv.Spec.Infra.Replicas == nil || *(kv.Spec.Infra.Replicas) > 1 {
-		Skip("Skip single-replica test on multi-replica deployments")
-	}
-}
-
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 
@@ -4006,58 +3928,6 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	return nil
 }
 
-// SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
-func SkipIfVersionBelow(message string, expectedVersion string) {
-	curVersion, err := cluster.GetKubernetesVersion()
-	Expect(err).NotTo(HaveOccurred())
-
-	if curVersion < expectedVersion {
-		Skip(message)
-	}
-}
-
-func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
-	curVersion, err := cluster.GetKubernetesVersion()
-	Expect(err).NotTo(HaveOccurred())
-
-	if curVersion >= expectedVersion {
-		Skip(message)
-	}
-}
-
-func SkipIfOpenShift(message string) {
-	if IsOpenShift() {
-		Skip("Openshift detected: " + message)
-	}
-}
-
-func SkipIfOpenShift4(message string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	if t, err := cluster.IsOnOpenShift(virtClient); err != nil {
-		util2.PanicOnError(err)
-	} else if t && cluster.GetOpenShiftMajorVersion(virtClient) == cluster.OpenShift4Major {
-		Skip(message)
-	}
-}
-
-func SkipIfMigrationIsNotPossible() {
-	if !HasLiveMigration() {
-		Skip("LiveMigration feature gate is not enabled in kubevirt-config")
-	}
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	nodes := util2.GetAllSchedulableNodes(virtClient)
-	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-
-	if len(nodes.Items) < 2 {
-		Skip("Migration tests require at least 2 nodes")
-	}
-}
-
 // CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
 func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -4315,16 +4185,6 @@ func getArch() string {
 	return nodes[0].Status.NodeInfo.Architecture
 }
 
-func isARM64() bool {
-	return Arch == "arm64"
-}
-
-func SkipIfARM64(message string) {
-	if isARM64() {
-		Skip("Skip test on arm64: " + message)
-	}
-}
-
 func VolumeExpansionAllowed(sc string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
@@ -4395,10 +4255,6 @@ func GetCephStorageClass() (string, bool) {
 
 func HasExperimentalIgnitionSupport() bool {
 	return checks.HasFeature("ExperimentalIgnitionSupport")
-}
-
-func HasLiveMigration() bool {
-	return checks.HasFeature("LiveMigration")
 }
 
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {

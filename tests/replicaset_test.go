@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -148,7 +150,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	)
 
 	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
-		tests.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
+		checks.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
 		template := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
 		newRS, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(newRS)
@@ -224,7 +226,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	It("[test_id:1414]should return the correct data when using server-side printing", func() {
-		tests.SkipIfVersionBelow("server-side printing is only enabled by default from 1.11 on", "1.11")
+		checks.SkipIfVersionBelow("server-side printing is only enabled by default from 1.11 on", "1.11")
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 

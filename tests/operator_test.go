@@ -30,6 +30,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -2118,7 +2120,7 @@ spec:
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
 
 			BeforeEach(func() {
-				if !tests.IsOpenShift() {
+				if !checks.IsOpenShift() {
 					Skip("OpenShift operator tests should not be started on k8s")
 				}
 			})
@@ -2194,7 +2196,7 @@ spec:
 			if !tests.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
-			tests.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
+			checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
 			vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)

@@ -230,7 +230,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			})
 
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
-				tests.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
+				checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), tests.BashHelloScript)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -744,7 +744,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.SkipIfNonRoot(virtClient, "SRIOV")
+		checks.SkipIfNonRoot("SRIOV")
 
 		// Check if the hardware supports SRIOV
 		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
@@ -1338,7 +1338,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		var clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			tests.SkipIfMigrationIsNotPossible()
+			checks.SkipIfMigrationIsNotPossible()
 		})
 
 		BeforeEach(func() {

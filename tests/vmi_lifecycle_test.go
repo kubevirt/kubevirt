@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -830,7 +832,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			//store old kubevirt-config
 			BeforeEach(func() {
 				// arm64 does not support cpu model
-				tests.SkipIfARM64("arm64 does not support cpu model")
+				checks.SkipIfARM64(tests.Arch, "arm64 does not support cpu model")
 				kv := util.GetCurrentKv(virtClient)
 				originalConfig = kv.Spec.Configuration
 			})
@@ -933,7 +935,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			BeforeEach(func() {
 				// arm64 does not support cpu model
-				tests.SkipIfARM64("arm64 does not support cpu model")
+				checks.SkipIfARM64(tests.Arch, "arm64 does not support cpu model")
 				nodes := util.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 

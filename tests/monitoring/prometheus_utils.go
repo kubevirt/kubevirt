@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	. "github.com/onsi/gomega"
 
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -50,7 +52,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 
 	var result []byte
 	var err error
-	if tests.IsOpenShift() {
+	if checks.IsOpenShift() {
 		url := getPrometheusURLForOpenShift()
 		resp := doHttpRequest(url, endpoint, token)
 		defer resp.Body.Close()
@@ -154,7 +156,7 @@ func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) stri
 }
 
 func getMonitoringNs(cli kubecli.KubevirtClient) string {
-	if tests.IsOpenShift() {
+	if checks.IsOpenShift() {
 		return "openshift-monitoring"
 	}
 

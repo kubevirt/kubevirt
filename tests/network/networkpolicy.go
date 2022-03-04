@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -38,7 +40,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")
 
-		tests.SkipIfUseFlannel(virtClient)
+		checks.SkipIfUseFlannel(virtClient)
 		skipNetworkPolicyRunningOnKindInfra()
 
 		serverVMILabels = map[string]string{"type": "test"}
