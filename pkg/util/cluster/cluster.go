@@ -20,7 +20,7 @@ const (
 )
 
 func IsOnOpenShift(clientset kubecli.KubevirtClient) (bool, error) {
-	apis, err := clientset.DiscoveryClient().ServerResources()
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}

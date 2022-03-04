@@ -1279,7 +1279,7 @@ func getVirtLauncherPID(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, 
 }
 
 func isDataVolumeEnabled(clientset kubecli.KubevirtClient) (bool, error) {
-	apis, err := clientset.DiscoveryClient().ServerResources()
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}
