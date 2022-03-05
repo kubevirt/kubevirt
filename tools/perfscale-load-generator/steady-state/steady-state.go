@@ -29,13 +29,15 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 	objUtil "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
 
-// SteadyStateLoadGenerator generates VMI workloads
 type SteadyStateLoadGenerator struct {
+	Done <-chan time.Time
+}
+
+type SteadyStateJob struct {
 	Workload   *config.Workload
 	virtClient kubecli.KubevirtClient
 	UUID       string
@@ -44,32 +46,62 @@ type SteadyStateLoadGenerator struct {
 	churn      int
 }
 
-// NewSteadyStateLoadGenerator
-func NewSteadyStateLoadGenerator(virtClient kubecli.KubevirtClient, workload *config.Workload) *SteadyStateLoadGenerator {
-	return &SteadyStateLoadGenerator{
+// NewSteadyStateJob
+func newSteadyStateJob(virtClient kubecli.KubevirtClient, workload *config.Workload) *SteadyStateJob {
+	uid, _ := uuid.NewUUID()
+	return &SteadyStateJob{
 		virtClient: virtClient,
 		Workload:   workload,
 		firstLoop:  true,
 		churn:      workload.Churn,
+		UUID:       uid.String(),
+	}
+}
+
+func (b *SteadyStateLoadGenerator) Delete(virtClient kubecli.KubevirtClient, workload *config.Workload) {
+	ss := newSteadyStateJob(virtClient, workload)
+	getObject, objType := objUtil.FindObject(virtClient, workload.Object, workload.Count)
+	ss.objType = objType
+	if getObject != nil {
+		labels := getObject.GetLabels()
+		jobUUID := labels[config.WorkloadLabel]
+		log.Log.V(2).Infof("Deleting all workloads for job %s", jobUUID)
+		objUtil.DeleteAllObjectsInNamespaces(virtClient, objType, config.GetListOpts(config.WorkloadLabel, jobUUID))
+		ss.watchDelete(getObject)
+	}
+	log.Log.V(2).Infof("All workloads for job have been deleted")
+	return
+}
+
+func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {
+	ss := newSteadyStateJob(virtClient, workload)
+	for {
+		select {
+		case <-b.Done:
+			log.Log.V(1).Infof("SteadyState Load Generator duration has timed out")
+			return
+		default:
+		}
+		ss.CreateWorkload()
+		ss.Wait()
+		ss.DeleteWorkload()
+		ss.Wait()
+		// Replace deleted objects
+		ss.Workload.Count = ss.Workload.Churn
 	}
 }
 
 // TODO: build helper function for createBurst so steady-state can call create burst or other types
 //       of create during its create cycle
-func (b *SteadyStateLoadGenerator) CreateWorkload() {
-	var wg sync.WaitGroup
+func (b *SteadyStateJob) CreateWorkload() {
+	log.Log.V(1).Infof("SteadyState Load Generator CreateWorkload")
 
+	var wg sync.WaitGroup
 	obj := b.Workload.Object
 	count := b.Workload.Count
-	if !b.firstLoop {
-		count = b.churn
-	} else {
-		uid, _ := uuid.NewUUID()
-		b.UUID = uid.String()
-	}
 
 	for replica := 1; replica <= count; replica++ {
-		log.Log.V(2).Infof("Replica %d of %d", replica, b.Workload.Count)
+		log.Log.V(2).Infof("Replica %d of %d", replica, count)
 		templateData := objUtil.GenerateObjectTemplateData(obj, replica)
 
 		newObject, err := objUtil.RenderObject(templateData, obj.ObjectTemplate)
@@ -88,34 +120,18 @@ func (b *SteadyStateLoadGenerator) CreateWorkload() {
 		wg.Add(1)
 		go func(newObject *unstructured.Unstructured) {
 			defer wg.Done()
-			b.Watch(newObject, false)
+			b.watchCreate(newObject)
 			log.Log.Infof("obj %s is available", newObject.GroupVersionKind().Kind)
 		}(newObject)
 	}
 	wg.Wait()
 }
 
-func (b *SteadyStateLoadGenerator) DeleteWorkload() {
+func (b *SteadyStateJob) DeleteWorkload() {
+	log.Log.V(1).Infof("SteadyState Load Generator DeleteWorkload")
 	obj := b.Workload.Object
-	count := b.Workload.Count
+	count := b.Workload.Churn
 
-	if flags.Delete {
-		getObject, objType := objUtil.FindObject(b.virtClient, obj, count)
-		b.objType = objType
-		if getObject != nil {
-			labels := getObject.GetLabels()
-			jobUUID := labels[config.WorkloadLabel]
-			log.Log.V(2).Infof("Deleting all workloads for job %s", jobUUID)
-			objUtil.DeleteAllObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadLabel, jobUUID))
-			b.Watch(getObject, flags.Delete)
-		}
-		log.Log.V(2).Infof("All workloads for job have been deleted")
-		return
-	}
-	if b.firstLoop {
-		b.firstLoop = false
-	}
-	count = b.churn
 	var wg sync.WaitGroup
 	for replica := 1; replica <= count; replica++ {
 		templateData := objUtil.GenerateObjectTemplateData(obj, replica)
@@ -130,41 +146,46 @@ func (b *SteadyStateLoadGenerator) DeleteWorkload() {
 		wg.Add(1)
 		go func(newObject *unstructured.Unstructured) {
 			defer wg.Done()
-			b.Watch(newObject, true)
+			b.watchDelete(newObject)
 			log.Log.Infof("obj %s was deleted", newObject.GroupVersionKind().Kind)
 		}(newObject)
 	}
 	wg.Wait()
 }
 
-func (b *SteadyStateLoadGenerator) Watch(obj *unstructured.Unstructured, delete bool) {
+func (b *SteadyStateJob) watchCreate(obj *unstructured.Unstructured) {
 	count := b.Workload.Count
-	// TODO: break up firstLoop logic so it's clearer when we're creating churn and when we're deleting/creating
-	if !b.firstLoop {
-		if delete {
-			// We expect b.churn fewer objects
-			count = count - b.churn
-		} else {
-			// We expect b.churn objects to be created
-			count = b.churn
-		}
-	}
 	objWatcher := watcher.NewObjListWatcher(
 		b.virtClient,
 		b.objType,
 		count,
 		*config.GetListOpts(config.WorkloadLabel, b.UUID))
 	objWatcher.Run()
-	if delete {
-		log.Log.Infof("Wait for obj(s) %s to be deleted", b.objType)
-		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
-	} else {
-		log.Log.Infof("Wait for obj(s) %s to be available", b.objType)
-		objWatcher.WaitRunning(b.Workload.Timeout.Duration)
-	}
+	log.Log.Infof("Wait for obj(s) %s to be available", b.objType)
+	objWatcher.WaitRunning(b.Workload.Timeout.Duration)
+
 	objWatcher.Stop()
 }
 
-func (b *SteadyStateLoadGenerator) Wait() {
+func (b *SteadyStateJob) watchDelete(obj *unstructured.Unstructured) {
+	count := b.Workload.Count
+	// We expect b.churn fewer objects
+	count = count - b.churn
+
+	objWatcher := watcher.NewObjListWatcher(
+		b.virtClient,
+		b.objType,
+		count,
+		*config.GetListOpts(config.WorkloadLabel, b.UUID))
+	objWatcher.Run()
+	log.Log.Infof("Wait for obj(s) %s to be deleted", b.objType)
+	objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
+
+	objWatcher.Stop()
+}
+
+func (b *SteadyStateJob) Wait() {
+	log.Log.V(1).Infof("SteadyState Load Generator Wait")
+	//TODO: use churn rate to calculate how long to sleep
 	time.Sleep(20 * time.Second)
 }

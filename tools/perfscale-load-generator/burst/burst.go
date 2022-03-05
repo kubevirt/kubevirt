@@ -21,6 +21,7 @@ package burst
 
 import (
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -32,29 +33,52 @@ import (
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
 
-// BurstLoadGenerator generates VMI workloads
 type BurstLoadGenerator struct {
+	Done <-chan time.Time
+}
+
+type BurstJob struct {
 	Workload   *config.Workload
 	virtClient kubecli.KubevirtClient
 	UUID       string
 	objType    string
+	done       <-chan time.Time
 }
 
-// NewBurstLoadGenerator
-func NewBurstLoadGenerator(virtClient kubecli.KubevirtClient, workload *config.Workload) *BurstLoadGenerator {
+// NewBurstJob
+func newBurstJob(virtClient kubecli.KubevirtClient, workload *config.Workload, d <-chan time.Time) *BurstJob {
 	uid, _ := uuid.NewUUID()
-	return &BurstLoadGenerator{
+	return &BurstJob{
 		virtClient: virtClient,
 		Workload:   workload,
 		UUID:       uid.String(),
+		done:       d,
 	}
 }
 
-func (b *BurstLoadGenerator) CreateWorkload() {
-	var wg sync.WaitGroup
+func (b *BurstLoadGenerator) Delete(virtClient kubecli.KubevirtClient, workload *config.Workload) {
+	j := newBurstJob(virtClient, workload, b.Done)
+	j.DeleteWorkload()
+}
 
+func (b *BurstLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {
+	j := newBurstJob(virtClient, workload, b.Done)
+	j.CreateWorkload()
+}
+
+func (b *BurstJob) CreateWorkload() {
+	log.Log.V(1).Infof("Burst Load Generator CreateWorkload")
+
+	var wg sync.WaitGroup
 	obj := b.Workload.Object
 	for replica := 1; replica <= b.Workload.Count; replica++ {
+		select {
+		case <-b.done:
+			log.Log.V(1).Infof("Burst Load Generator duration has timed out")
+			return
+		default:
+		}
+
 		log.Log.V(2).Infof("Replica %d of %d", replica, b.Workload.Count)
 		templateData := objUtil.GenerateObjectTemplateData(obj, replica)
 
@@ -74,14 +98,16 @@ func (b *BurstLoadGenerator) CreateWorkload() {
 		wg.Add(1)
 		go func(newObject *unstructured.Unstructured) {
 			defer wg.Done()
-			b.Watch(newObject, false)
+			b.watchCreate(newObject)
 			log.Log.Infof("obj %s is available", newObject.GroupVersionKind().Kind)
 		}(newObject)
 	}
 	wg.Wait()
 }
 
-func (b *BurstLoadGenerator) DeleteWorkload() {
+func (b *BurstJob) DeleteWorkload() {
+	log.Log.V(1).Infof("Burst Load Generator DeleteWorkload")
+
 	obj := b.Workload.Object
 	getObject, objType := objUtil.FindObject(b.virtClient, obj, b.Workload.Count)
 	b.objType = objType
@@ -90,28 +116,38 @@ func (b *BurstLoadGenerator) DeleteWorkload() {
 		jobUUID := labels[config.WorkloadLabel]
 		log.Log.V(2).Infof("Deleting all workloads for job %s", jobUUID)
 		objUtil.DeleteAllObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadLabel, jobUUID))
-		b.Watch(getObject, true)
+		b.watchDelete(getObject)
 	}
 	log.Log.V(2).Infof("All workloads for job have been deleted")
 }
 
-func (b *BurstLoadGenerator) Watch(obj *unstructured.Unstructured, delete bool) {
+func (b *BurstJob) watchDelete(obj *unstructured.Unstructured) {
 	objWatcher := watcher.NewObjListWatcher(
 		b.virtClient,
 		b.objType,
 		b.Workload.Count,
 		*config.GetListOpts(config.WorkloadLabel, b.UUID))
 	objWatcher.Run()
-	if delete {
-		log.Log.Infof("Wait for obj(s) %s to be deleted", b.objType)
-		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
-	} else {
-		log.Log.Infof("Wait for obj(s) %s to be available", b.objType)
-		objWatcher.WaitRunning(b.Workload.Timeout.Duration)
-	}
+
+	log.Log.Infof("Wait for obj(s) %s to be deleted", b.objType)
+	objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
 	objWatcher.Stop()
 }
 
-func (b *BurstLoadGenerator) Wait() {
+func (b *BurstJob) watchCreate(obj *unstructured.Unstructured) {
+	objWatcher := watcher.NewObjListWatcher(
+		b.virtClient,
+		b.objType,
+		b.Workload.Count,
+		*config.GetListOpts(config.WorkloadLabel, b.UUID))
+	objWatcher.Run()
+
+	log.Log.Infof("Wait for obj(s) %s to be available", b.objType)
+	objWatcher.WaitRunning(b.Workload.Timeout.Duration)
+	objWatcher.Stop()
+}
+
+func (b *BurstJob) Wait() {
+	log.Log.V(1).Infof("Burst Load Generator Wait")
 	return
 }

@@ -21,9 +21,17 @@ package api
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 )
 
 type LoadGenerator interface {
+	Run(kubecli.KubevirtClient, *config.Workload)
+	Delete(kubecli.KubevirtClient, *config.Workload)
+}
+
+type Job interface {
 	CreateWorkload()
 	DeleteWorkload()
 	Watch(*unstructured.Unstructured, bool)

@@ -46,41 +46,20 @@ func main() {
 	}
 
 	var lg api.LoadGenerator
+	timeout := time.After(workload.Timeout.Duration)
 	if workload.Type == "burst" {
-		lg = burst.NewBurstLoadGenerator(client, workload)
+		lg = &burst.BurstLoadGenerator{Done: timeout}
 	} else if workload.Type == "steady-state" {
-		lg = steadyState.NewSteadyStateLoadGenerator(client, workload)
+		lg = &steadyState.SteadyStateLoadGenerator{Done: timeout}
 	} else {
 		log.Log.V(1).Errorf("Load Generator doesn't have type %s", workload.Type)
 		return
 	}
 
 	if flags.Delete {
-		lg.DeleteWorkload()
+		lg.Delete(client, workload)
 	} else {
-		timeout := time.After(workload.Timeout.Duration)
-		working := true
-		for working {
-			select {
-			case <-timeout:
-				log.Log.V(1).Infof("Load Generator duration has timed out")
-				working = false
-			default:
-			}
-
-			log.Log.V(1).Infof("Load Generator CreateWorkload")
-			lg.CreateWorkload()
-			// Burst workload should only be run once and only call Create
-			if workload.Type == "burst" {
-				return
-			}
-			log.Log.V(1).Infof("Load Generator Wait")
-			lg.Wait()
-			log.Log.V(1).Infof("Load Generator DeleteWorkload")
-			lg.DeleteWorkload()
-			log.Log.V(1).Infof("Load Generator Wait")
-			lg.Wait()
-		}
+		lg.Run(client, workload)
 	}
 	return
 }
