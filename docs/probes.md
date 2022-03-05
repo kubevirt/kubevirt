@@ -26,8 +26,8 @@ Make sure to provide enough delay and failureThreshold for the VM and the agent 
 
 ### Example
 
-**Note:** The Fedora image used in this example does not have the qemu-guest-agent available by default. We need to install and enable it through the console until this is resolved.
-The cloud-init defined below will take care of the install for us, but we still need to enable it.
+**Note**: The Fedora image used in this example does not have qemu-guest-agent available by default.
+We need to install and enable it via cloud-init as shown in the example below.
 
 1. Create VM manifest
 
@@ -100,6 +100,9 @@ spec:
                 expire: false
               packages:
                 qemu-guest-agent
+              runcmd:
+                - [ "systemctl", "enable", "--now", "qemu-guest-agent" ]
+                - [ "touch" "/tmp/ready.txt" ]
           name: cloudinitdisk
         - containerDisk:
             image: kubevirt/fedora-cloud-container-disk-demo
@@ -123,21 +126,5 @@ kubectl virt start probe-test
 # This will stream the events including any probe failures.
 # Observe the guest-agent becomming available here.
 kubectl get events --watch
-```
-
-5. Install the guest agent
-
-```sh
-kubectl virt console probe-test
-```
-
-```sh
-sudo systemctl enable --now qemu-guest-agent
-```
-
-6. Create the `/tmp/ready.txt` file to satisfy the probe
-
-```sh
-touch /tmp/ready.txt
 ```
 
