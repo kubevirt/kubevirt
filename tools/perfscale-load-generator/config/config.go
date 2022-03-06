@@ -35,9 +35,10 @@ import (
 )
 
 const (
-	RequestTimeout = 15 * time.Second
-	Burst          = 20
-	QPS            = 20
+	DefaultMinSleepChurn = 20 * time.Second
+	RequestTimeout       = 15 * time.Second
+	Burst                = 20
+	QPS                  = 20
 )
 
 //NewWorkload reads the test configuration file

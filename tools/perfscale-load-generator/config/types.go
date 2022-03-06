@@ -41,6 +41,8 @@ const (
 	Timeout         = time.Duration(5 * time.Minute)
 )
 
+//type Duration time.Duration
+
 type Duration struct {
 	time.Duration
 }
@@ -85,10 +87,11 @@ type TestType string
 
 // Workload defines a load generator workload
 type Workload struct {
-	Name    string      `yaml:"name" json:"name"`
-	Object  *ObjectSpec `yaml:"object" json:"object"`
-	Type    TestType    `yaml:"type" json:"type"`
-	Timeout Duration    `yaml:"timeout" json:"timeout,omitempty"`
-	Count   int         `yaml:"count" json:"count"`
-	Churn   int         `yaml:"churn" json:"churn,omitempty"`
+	Name          string      `yaml:"name" json:"name"`
+	Object        *ObjectSpec `yaml:"object" json:"object"`
+	Type          TestType    `yaml:"type" json:"type"`
+	Timeout       Duration    `yaml:"timeout" json:"timeout,omitempty"`
+	Count         int         `yaml:"count" json:"count"`
+	Churn         int         `yaml:"churn" json:"churn,omitempty"`
+	MinChurnSleep *Duration   `yaml:"minChurnSleep" json:"minChurnSleep,omitempty"`
 }

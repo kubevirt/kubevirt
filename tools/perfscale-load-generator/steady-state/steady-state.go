@@ -39,23 +39,26 @@ type SteadyStateLoadGenerator struct {
 }
 
 type SteadyStateJob struct {
-	Workload   *config.Workload
-	virtClient kubecli.KubevirtClient
-	UUID       string
-	objType    string
-	firstLoop  bool
-	churn      int
+	Workload       *config.Workload
+	virtClient     kubecli.KubevirtClient
+	UUID           string
+	objType        string
+	firstLoop      bool
+	churn          int
+	startTimestamp time.Time
+	minChurnSleep  *config.Duration
 }
 
 // NewSteadyStateJob
 func newSteadyStateJob(virtClient kubecli.KubevirtClient, workload *config.Workload) *SteadyStateJob {
 	uid, _ := uuid.NewUUID()
 	return &SteadyStateJob{
-		virtClient: virtClient,
-		Workload:   workload,
-		firstLoop:  true,
-		churn:      workload.Churn,
-		UUID:       uid.String(),
+		virtClient:    virtClient,
+		Workload:      workload,
+		firstLoop:     true,
+		churn:         workload.Churn,
+		minChurnSleep: workload.MinChurnSleep,
+		UUID:          uid.String(),
 	}
 }
 
@@ -99,6 +102,7 @@ func (b *SteadyStateJob) CreateWorkload() {
 	obj := b.Workload.Object
 	count := b.Workload.Count
 
+	b.startTimestamp = time.Now()
 	for replica := 1; replica <= count; replica++ {
 		log.Log.V(2).Infof("Replica %d of %d", replica, count)
 
@@ -122,10 +126,12 @@ func (b *SteadyStateJob) CreateWorkload() {
 
 func (b *SteadyStateJob) DeleteWorkload() {
 	log.Log.V(1).Infof("SteadyState Load Generator DeleteWorkload")
+
+	var wg sync.WaitGroup
 	obj := b.Workload.Object
 	count := b.Workload.Churn
 
-	var wg sync.WaitGroup
+	b.startTimestamp = time.Now()
 	for replica := 1; replica <= count; replica++ {
 		templateData := objUtil.GenerateObjectTemplateData(obj, replica)
 		newObject, err := objUtil.RenderObject(templateData, obj.ObjectTemplate)
@@ -183,6 +189,16 @@ func (b *SteadyStateJob) watchDelete(obj *unstructured.Unstructured) {
 
 func (b *SteadyStateJob) Wait() {
 	log.Log.V(1).Infof("SteadyState Load Generator Wait")
-	//TODO: use churn rate to calculate how long to sleep
-	time.Sleep(20 * time.Second)
+	if b.minChurnSleep.Duration < time.Duration(1*time.Microsecond) {
+		time.Sleep(config.DefaultMinSleepChurn)
+		return
+	}
+
+	timePassed := time.Since(b.startTimestamp)
+	remainingTime := timePassed - b.minChurnSleep.Duration
+	if remainingTime > time.Duration(1*time.Microsecond) {
+		time.Sleep(remainingTime)
+	} else {
+		time.Sleep(config.DefaultMinSleepChurn)
+	}
 }
