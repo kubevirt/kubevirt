@@ -8,14 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -60,14 +58,10 @@ var _ = Describe("Device Controller", func() {
 	var fakeConfigMap *virtconfig.ClusterConfig
 	var mockPCI *MockDeviceHandler
 	var ctrl *gomock.Controller
-	var virtHandlerNodeInformer cache.SharedIndexInformer
-	syncCache := func(stop chan struct{}) {
-		go virtHandlerNodeInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, virtHandlerNodeInformer.HasSynced)).To(BeTrue())
-	}
+	var clientTest *fake.Clientset
 
 	BeforeEach(func() {
-		virtHandlerNodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
+		clientTest = fake.NewSimpleClientset()
 		ctrl = gomock.NewController(GinkgoT())
 		mockPCI = NewMockDeviceHandler(ctrl)
 		mockPCI.EXPECT().GetDevicePCIID(gomock.Any(), gomock.Any()).Return("1234:5678", nil).AnyTimes()
@@ -96,7 +90,6 @@ var _ = Describe("Device Controller", func() {
 
 		host = "master"
 		stop = make(chan struct{})
-		syncCache(stop)
 	})
 
 	AfterEach(func() {
@@ -108,7 +101,7 @@ var _ = Describe("Device Controller", func() {
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
 			var noDevices []Device
-			deviceController := NewDeviceController(host, noDevices, fakeConfigMap, virtHandlerNodeInformer)
+			deviceController := NewDeviceController(host, noDevices, fakeConfigMap, clientTest.CoreV1())
 			devicePath := path.Join(workDir, "fake-device")
 			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
@@ -145,7 +138,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("should start the device plugin immediately without delays", func() {
 			initialDevices := []Device{plugin2}
-			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, virtHandlerNodeInformer)
+			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 
 			go deviceController.Run(stop)
@@ -160,7 +153,7 @@ var _ = Describe("Device Controller", func() {
 			plugin2.Error = fmt.Errorf("failing")
 			initialDevices := []Device{plugin2}
 
-			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, virtHandlerNodeInformer)
+			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
 
 			go deviceController.Run(stop)
@@ -172,7 +165,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("Should not block on other plugins", func() {
 			initialDevices := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, virtHandlerNodeInformer)
+			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
 
 			go deviceController.Run(stop)
 
@@ -193,7 +186,7 @@ var _ = Describe("Device Controller", func() {
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
 			initialDevices := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, initialDevices, emptyConfigMap, virtHandlerNodeInformer)
+			deviceController := NewDeviceController(host, initialDevices, emptyConfigMap, clientTest.CoreV1())
 
 			go deviceController.Run(stop)
 

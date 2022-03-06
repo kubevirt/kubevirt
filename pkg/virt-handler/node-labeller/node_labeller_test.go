@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
@@ -52,11 +51,6 @@ var _ = Describe("Node-labeller ", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var config *virtconfig.ClusterConfig
 	var addedNode *v1.Node
-	var virtHandlerNodeInformer cache.SharedIndexInformer
-	syncCache := func(stop chan struct{}) {
-		go virtHandlerNodeInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, virtHandlerNodeInformer.HasSynced)).To(BeTrue())
-	}
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
@@ -80,9 +74,6 @@ var _ = Describe("Node-labeller ", func() {
 		var err error
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
-
-		virtHandlerNodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
-		syncCache(stop)
 
 		kubeClient = fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -108,16 +99,13 @@ var _ = Describe("Node-labeller ", func() {
 
 		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
 
-		node := newNode("testNode")
-		virtHandlerNodeInformer.GetStore().Add(node)
-
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", virtHandlerNodeInformer)
+		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata")
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 
 		nlController.queue = mockQueue
-		addNode(node)
+		addNode(newNode("testNode"))
 	})
 
 	It("should run node-labelling", func() {

@@ -13,11 +13,12 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/kubernetes/fake"
 
-	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -34,12 +35,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	var fakeMdevBasePath string
 	var fakeMdevDevicesPath string
 	var configuredMdevTypesOnCards map[string]map[string]struct{}
-	var stop chan struct{}
-	var virtHandlerNodeInformer cache.SharedIndexInformer
-	syncCache := func(stop chan struct{}) {
-		go virtHandlerNodeInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, virtHandlerNodeInformer.HasSynced)).To(BeTrue())
-	}
+	var clientTest *fake.Clientset
 	var mdevTypesDetailsMap = map[string]mdevTypesDetails{
 		"nvidia-222": mdevTypesDetails{
 			name:               "GRID T4-1B",
@@ -139,9 +135,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	BeforeEach(func() {
 		By("mocking MDEV functions to simulate an mdev creation and removal")
 		ctrl = gomock.NewController(GinkgoT())
-		virtHandlerNodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
-		stop = make(chan struct{})
-		syncCache(stop)
+		clientTest = fake.NewSimpleClientset()
 		mockMDEV = NewMockDeviceHandler(ctrl)
 		Handler = mockMDEV
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
@@ -339,9 +333,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		)
 		table.DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues) {
 			sc := scenario()
-			virtHandlerNodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
-			stop = make(chan struct{})
-			syncCache(stop)
+			clientTest = fake.NewSimpleClientset()
 			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
 			By("creating a cluster config")
 			kv := &v1.KubeVirt{
@@ -405,11 +397,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 			node.Status.Phase = kubev1.NodeRunning
 			node.ObjectMeta.Labels = sc.nodeLabels
-			virtHandlerNodeInformer.GetStore().Add(node)
+			addNode(clientTest, node)
 
 			By("creating an empty device controller")
 			var noDevices []Device
-			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, virtHandlerNodeInformer)
+			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
 			deviceController.refreshMediatedDevicesTypes()
 			By("creating the desired mdev types")
 			desiredDevicesToConfigure := make(map[string]struct{})
@@ -453,3 +445,9 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		)
 	})
 })
+
+func addNode(client *fake.Clientset, node *kubev1.Node) {
+	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+		return true, node, nil
+	})
+}

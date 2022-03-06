@@ -250,7 +250,7 @@ func NewController(
 		permissions = "rwm"
 	}
 
-	c.deviceManagerController = device_manager.NewDeviceController(c.host, device_manager.PermanentHostDevicePlugins(maxDevices, permissions), clusterConfig, virtHandlerNodeInformer)
+	c.deviceManagerController = device_manager.NewDeviceController(c.host, device_manager.PermanentHostDevicePlugins(maxDevices, permissions), clusterConfig, clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c

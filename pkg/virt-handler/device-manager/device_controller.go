@@ -26,8 +26,9 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
+	"golang.org/x/net/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -120,30 +121,30 @@ type DeviceControllerInterface interface {
 }
 
 type DeviceController struct {
-	permanentPlugins        map[string]Device
-	startedPlugins          map[string]controlledDevice
-	startedPluginsMutex     sync.Mutex
-	host                    string
-	backoff                 []time.Duration
-	virtConfig              *virtconfig.ClusterConfig
-	mdevTypesManager        *MDEVTypesManager
-	virtHandlerNodeInformer cache.SharedIndexInformer
+	permanentPlugins    map[string]Device
+	startedPlugins      map[string]controlledDevice
+	startedPluginsMutex sync.Mutex
+	host                string
+	backoff             []time.Duration
+	virtConfig          *virtconfig.ClusterConfig
+	mdevTypesManager    *MDEVTypesManager
+	clientset           k8scli.CoreV1Interface
 }
 
-func NewDeviceController(host string, permanentPlugins []Device, clusterConfig *virtconfig.ClusterConfig, virtHandlerNodeInformer cache.SharedIndexInformer) *DeviceController {
+func NewDeviceController(host string, permanentPlugins []Device, clusterConfig *virtconfig.ClusterConfig, clientset k8scli.CoreV1Interface) *DeviceController {
 	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
 		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
 	}
 
 	controller := &DeviceController{
-		permanentPlugins:        permanentPluginsMap,
-		startedPlugins:          map[string]controlledDevice{},
-		host:                    host,
-		backoff:                 []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
-		virtConfig:              clusterConfig,
-		mdevTypesManager:        NewMDEVTypesManager(),
-		virtHandlerNodeInformer: virtHandlerNodeInformer,
+		permanentPlugins: permanentPluginsMap,
+		startedPlugins:   map[string]controlledDevice{},
+		host:             host,
+		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		virtConfig:       clusterConfig,
+		mdevTypesManager: NewMDEVTypesManager(),
+		clientset:        clientset,
 	}
 
 	return controller
@@ -246,12 +247,11 @@ func (c *DeviceController) RefreshMediatedDevicesTypes() {
 
 func (c *DeviceController) refreshMediatedDevicesTypes() bool {
 	requiresDevicePluginsUpdate := false
-	obj, exists, err := c.virtHandlerNodeInformer.GetStore().GetByKey(c.host)
-	if err != nil || !exists {
-		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details from cache")
+	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
 		return requiresDevicePluginsUpdate
 	}
-	node := obj.(*v1.Node)
 	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
 	requiresDevicePluginsUpdate, err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
 	if err != nil {

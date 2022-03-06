@@ -307,16 +307,16 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
-	var nodeLabellerController *nodelabeller.NodeLabeller
 	if virtconfig.IsAMD64(runtime.GOARCH) {
-		nodeLabellerController, err = nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, virtHandlerNodeInformer)
+		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
 		if err != nil {
 			panic(err)
 		}
 		capabilities = nodeLabellerController.HostCapabilities()
+
+		go nodeLabellerController.Run(10, stop)
 	}
 
 	migrationIpAddress := app.PodIpAddress
@@ -394,11 +394,8 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, virtHandlerNodeInformer.HasSynced)
+	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
 
-	if nodeLabellerController != nil {
-		go nodeLabellerController.Run(10, stop)
-	}
 	go vmController.Run(10, stop)
 
 	doneCh := make(chan string)

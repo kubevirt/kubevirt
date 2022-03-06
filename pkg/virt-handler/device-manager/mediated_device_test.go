@@ -14,10 +14,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -37,21 +36,14 @@ var _ = Describe("Mediated Device", func() {
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var ctrl *gomock.Controller
 	var fakeSupportedTypesPath string
-	var stop chan struct{}
-	var virtHandlerNodeInformer cache.SharedIndexInformer
-	syncCache := func(stop chan struct{}) {
-		go virtHandlerNodeInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, virtHandlerNodeInformer.HasSynced)).To(BeTrue())
-	}
+	var clientTest *fake.Clientset
 	resourceNameToTypeName := func(rawName string) string {
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		return typeNameStr
 	}
 	BeforeEach(func() {
-		virtHandlerNodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
-		stop = make(chan struct{})
-		syncCache(stop)
+		clientTest = fake.NewSimpleClientset()
 		By("creating a temporary fake mdev directory tree")
 		// create base mdev dir instead of /sys/bus/mdev/devices
 		fakeMdevBasePath, err := ioutil.TempDir("/tmp", "mdevs")
@@ -195,7 +187,7 @@ var _ = Describe("Mediated Device", func() {
 
 			By("creating an empty device controller")
 			var noDevices []Device
-			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, virtHandlerNodeInformer)
+			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
