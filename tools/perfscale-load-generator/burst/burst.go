@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 	objUtil "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/utils"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
 
@@ -80,19 +81,12 @@ func (b *BurstJob) CreateWorkload() {
 		}
 
 		log.Log.V(2).Infof("Replica %d of %d", replica, b.Workload.Count)
-		templateData := objUtil.GenerateObjectTemplateData(obj, replica)
-
-		newObject, err := objUtil.RenderObject(templateData, obj.ObjectTemplate)
+		newObject, err := utils.Create(b.virtClient, replica, obj, b.UUID)
 		if err != nil {
-			log.Log.Errorf("error rendering obj: %v", err)
+			continue
 		}
-		config.AddLabels(newObject, b.UUID)
 		if b.objType == "" {
 			b.objType = objUtil.GetObjectResource(newObject)
-		}
-
-		if _, err := objUtil.CreateObject(b.virtClient, newObject); err != nil {
-			log.Log.Errorf("error creating obj %s: %v", newObject.GroupVersionKind().Kind, err)
 		}
 
 		wg.Add(1)
