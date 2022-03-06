@@ -493,8 +493,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				"pidof",
 				"libvirtd",
 			})
-		errorMassageFormat := "faild after running `pidof libvirtd`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
+		errorMessageFormat := "faild after running `pidof libvirtd` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, stdout, stderr, err))
 		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
 	}
@@ -512,11 +512,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		BeforeEach(func() {
 			memoryRequestSize = resource.MustParse(fedoraVMSize)
-			pvName = "test-nfs" + rand.String(48)
+			pvName = "test-nfs-" + rand.String(48)
 		})
 
 		guestAgentMigrationTestFunc := func(mode v1.MigrationMode) {
-			By("Creating the  VMI")
+			By("Creating the VMI")
 			vmi := tests.NewRandomVMIWithPVC(pvName)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -964,8 +964,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						"-9",
 						pid,
 					})
-				errorMassageFormat := "failed after running `kill -9 %v` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
-				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, pid, stdout, stderr, err))
+				errorMessageFormat := "failed after running `kill -9 %v` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, pid, stdout, stderr, err))
 
 				// wait for both libvirt to respawn and all connections to re-establish
 				time.Sleep(30 * time.Second)
@@ -1509,59 +1509,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				quantity, err := resource.ParseQuantity(cd.FedoraVolumeSize)
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv = tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dv = tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				dv.Spec.PVC.Resources.Requests["storage"] = quantity
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				wffcPod = tests.RenderPod("wffc-temp-pod", []string{"echo"}, []string{"done"})
-				wffcPod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
-
-					{
-						Name:      "tmp-data",
-						MountPath: "/data/tmp-data",
-					},
-				}
-				wffcPod.Spec.Volumes = []k8sv1.Volume{
-					{
-						Name: "tmp-data",
-						VolumeSource: k8sv1.VolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: dv.Name,
-							},
-						},
-					},
-				}
-
-				By("pinning the wffc dv")
-				wffcPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), wffcPod, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisPod(wffcPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-
-				By("waiting for the dv import to pvc to finish")
-				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
-
-				// Prepare a NFS backed PV
-				By("Starting an NFS POD to serve the PVC contents")
-				nfsPod := storageframework.RenderNFSServerWithPVC("nfsserver", dv.Name)
-				nfsPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisPod(nfsPod), 120).Should(BeInPhase(k8sv1.PodRunning))
-				nfsPod, err = ThisPod(nfsPod)()
-				Expect(err).ToNot(HaveOccurred())
-				nfsIP := libnet.GetPodIpByFamily(nfsPod, k8sv1.IPv4Protocol)
-				Expect(nfsIP).NotTo(BeEmpty())
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				os := string(cd.ContainerDiskFedoraTestTooling)
-				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, cd.FedoraVolumeSize, nfsIP, os)
+				pvName = dv.Name
 			})
 
 			AfterEach(func() {
-				By("Deleting NFS pod")
-				// PVs can't be reused
-				tests.DeletePvAndPvc(pvName)
-
 				if dv != nil {
 					By("Deleting the DataVolume")
 					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -1580,7 +1535,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
-				By("Creating the  VMI")
+				By("Creating the VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -1635,7 +1590,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting an NFS POD")
 				nfsPod = storageframework.InitNFS(targetImage, nodeName)
-				pvName = fmt.Sprintf("test-nfs%s", rand.String(48))
+				pvName = fmt.Sprintf("test-nfs-%s", rand.String(48))
 
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
@@ -1927,59 +1882,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				quantity, err := resource.ParseQuantity(cd.FedoraVolumeSize)
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				dv.Spec.PVC.Resources.Requests["storage"] = quantity
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				wffcPod = tests.RenderPod("wffc-temp-pod", []string{"echo"}, []string{"done"})
-				wffcPod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
-
-					{
-						Name:      "tmp-data",
-						MountPath: "/data/tmp-data",
-					},
-				}
-				wffcPod.Spec.Volumes = []k8sv1.Volume{
-					{
-						Name: "tmp-data",
-						VolumeSource: k8sv1.VolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: dv.Name,
-							},
-						},
-					},
-				}
-
-				By("pinning the wffc dv")
-				wffcPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), wffcPod, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisPod(wffcPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-
-				By("waiting for the dv import to pvc to finish")
-				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
-
-				// Prepare a NFS backed PV
-				By("Starting an NFS POD to serve the PVC contents")
-				nfsPod := storageframework.RenderNFSServerWithPVC("nfsserver", dv.Name)
-				nfsPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisPod(nfsPod), 120).Should(BeInPhase(k8sv1.PodRunning))
-				nfsPod, err = ThisPod(nfsPod)()
-				Expect(err).ToNot(HaveOccurred())
-				nfsIP := libnet.GetPodIpByFamily(nfsPod, k8sv1.IPv4Protocol)
-				Expect(nfsIP).NotTo(BeEmpty())
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				os := string(cd.ContainerDiskFedoraTestTooling)
-				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, cd.FedoraVolumeSize, nfsIP, os)
+				pvName = dv.Name
 			})
 
 			AfterEach(func() {
-				By("Deleting NFS pod")
-				// PVs can't be reused
-				tests.DeletePvAndPvc(pvName)
-
 				if dv != nil {
 					By("Deleting the DataVolume")
 					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
