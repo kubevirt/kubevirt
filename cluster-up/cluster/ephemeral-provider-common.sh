@@ -86,6 +86,7 @@ function _add_common_params() {
     elif [[ $TARGET =~ os-.* ]] && [ -n "$RHEL_NFS_DIR" ]; then
         params=" --nfs-data $RHEL_NFS_DIR $params"
     fi
+
     if [ -n "${KUBEVIRTCI_PROVISION_CHECK}" ]; then
         params=" --container-registry=quay.io --container-suffix=:latest $params"
     fi
@@ -96,8 +97,13 @@ function _add_common_params() {
             params=" --etcd-capacity $KUBEVIRT_WITH_ETC_CAPACITY $params"
         fi
     fi
+
     if [ $KUBEVIRT_DEPLOY_ISTIO == "true" ]; then
         params=" --enable-istio $params"
+    fi
+
+    if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
+        params=" --enable-nfs-csi $params"
     fi
 
     # alternate (new) way to specify storage providers
