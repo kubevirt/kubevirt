@@ -745,7 +745,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -911,7 +911,6 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.ApiAuthConfigMap()
 	kubeInformerFactory.KubeVirtCAConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
-	vmiInformer := kubeInformerFactory.VMI()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	namespaceLimitsInformer := kubeInformerFactory.LimitRanges()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
@@ -949,7 +948,6 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	webhookInformers := &webhooks.Informers{
-		VMIInformer:             vmiInformer,
 		VMIPresetInformer:       vmiPresetInformer,
 		NamespaceLimitsInformer: namespaceLimitsInformer,
 		VMRestoreInformer:       vmRestoreInformer,
