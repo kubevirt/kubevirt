@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/onsi/ginkgo/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/ginkgo:go_default_library",
         "//vendor/github.com/wadey/gocovmerge:go_default_library",
         "//vendor/mvdan.cc/sh/v3/cmd/shfmt:go_default_library",
     ],

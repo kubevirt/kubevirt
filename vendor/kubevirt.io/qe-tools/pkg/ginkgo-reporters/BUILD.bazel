@@ -10,9 +10,9 @@ go_library(
     importpath = "kubevirt.io/qe-tools/pkg/ginkgo-reporters",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/onsi/ginkgo/config:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/reporters:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/types:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/config:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
         "//vendor/kubevirt.io/qe-tools/pkg/polarion-xml:go_default_library",
     ],
 )
