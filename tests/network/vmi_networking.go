@@ -134,17 +134,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			table.DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				var cmdCheck, addrShow, addr string
-				if vmiRef == nil {
-					addr = "kubevirt.io"
-				} else {
-					vmi := *vmiRef
-					if vmiHasCustomMacAddress(vmi) {
-						tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
-					}
-					vmi = runVMI(vmi)
-					addr = vmi.Status.Interfaces[0].IP
+				vmi := *vmiRef
+				if vmiHasCustomMacAddress(vmi) {
+					tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
 				}
+				vmi = runVMI(vmi)
+				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0
 				ipHeaderSize := 28 // IPv4 specific
@@ -175,7 +170,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("checking eth0 MTU inside the VirtualMachineInstance")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(outboundVMI)).To(Succeed())
 
-				addrShow = "ip address show eth0\n"
+				addrShow := "ip address show eth0\n"
 				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -192,7 +187,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				//
 				// NOTE: cirros ping doesn't support -M do that could be used to
 				// validate end-to-end connectivity with Don't Fragment flag set
-				cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+				cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
 				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -202,22 +197,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("checking the VirtualMachineInstance can fetch via HTTP")
-				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 15)
-				Expect(err).ToNot(HaveOccurred())
 			},
 				table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
 				table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
-				table.Entry("[test_id:1542]the internet", nil),
 			)
 		})
 
@@ -309,6 +292,25 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Expect(err).To(HaveOccurred())
 				})
 			})
+		})
+	})
+
+	Context("VirtualMachineInstance with default settings", func() {
+		It("[test_id:1542]should be able to reach the internet", func() {
+			outboundVMI := libvmi.NewCirros()
+			outboundVMI = runVMI(outboundVMI)
+			Expect(libnet.WithIPv6(console.LoginToCirros)(outboundVMI)).To(Succeed())
+
+			By("checking the VirtualMachineInstance can fetch via HTTP")
+			err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: tests.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
