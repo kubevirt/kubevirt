@@ -1427,6 +1427,20 @@ var _ = Describe("Migration watcher", func() {
 				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
 				Expect(matchedPolicy).To(BeNil())
 			})
+
+			It("VMI labels should have precedence over namespace labels", func() {
+				numberOfLabels := rand.Intn(5) + 1
+
+				By(fmt.Sprintf("Defining two policies with %d labels, one with VMI labels and one with NS labels", numberOfLabels))
+				policyWithNSLabels := tests.GetPolicyMatchedToVmi("aa-policy-with-ns-labels", vmi, &namespace, 0, numberOfLabels)
+				policyWithVmiLabels := tests.GetPolicyMatchedToVmi("zz-policy-with-vmi-labels", vmi, &namespace, numberOfLabels, 0)
+
+				policyList := kubecli.NewMinimalMigrationPolicyList(*policyWithNSLabels, *policyWithVmiLabels)
+
+				By("Expecting VMI labels policy to be matched")
+				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				Expect(matchedPolicy.Name).To(Equal(policyWithVmiLabels.Name), "policy with VMI labels should match")
+			})
 		})
 
 		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
