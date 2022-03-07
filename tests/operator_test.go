@@ -148,7 +148,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util2.PanicOnError(err)
-		config, err := kubecli.GetConfig()
+		config, err := kubecli.GetKubevirtClientConfig()
 		util2.PanicOnError(err)
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 

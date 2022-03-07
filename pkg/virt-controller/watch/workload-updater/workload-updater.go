@@ -510,7 +510,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				errChan <- err
 			}
 
-			err = c.clientset.CoreV1().Pods(vmi.Namespace).Evict(context.Background(),
+			err = c.clientset.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(),
 				&policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pod.Name,
