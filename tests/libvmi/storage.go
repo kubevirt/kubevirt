@@ -24,11 +24,40 @@ import (
 )
 
 // WithContainerImage specifies the name of the container image to be used.
-func WithContainerImage(name string) Option {
+func WithContainerImage(volumeName string) Option {
+	const (
+		bus      = "virtio"
+		diskName = "disk0"
+	)
+	return WithNamedContainerImage(diskName, bus, volumeName)
+}
+
+// WithNamedContainerImage specifies the name of the container image to be used.
+func WithNamedContainerImage(diskName, bus, volumeName string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		diskName, bus := "disk0", "virtio"
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, newDisk(diskName, bus))
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newContainerVolume(diskName, name))
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newContainerVolume(diskName, volumeName))
+	}
+}
+
+// WithDataVolume specifies the name of the dataVolume to be used.
+func WithDataVolume(name string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		const (
+			bus      = "virtio"
+			diskName = "disk0"
+		)
+
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, newDisk(diskName, bus))
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newDataVolumeDisk(diskName, name))
+	}
+}
+
+// WithFSFromDataVolume adds aFS and a matching data volume
+func WithFSFromDataVolume(diskName, dvName string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, newFS(diskName))
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newDataVolumeDisk(diskName, dvName))
 	}
 }
 
@@ -94,5 +123,23 @@ func newContainerVolume(name, image string) kvirtv1.Volume {
 				Image: image,
 			},
 		},
+	}
+}
+
+func newDataVolumeDisk(name, dataVolumeName string) kvirtv1.Volume {
+	return kvirtv1.Volume{
+		Name: name,
+		VolumeSource: kvirtv1.VolumeSource{
+			DataVolume: &kvirtv1.DataVolumeSource{
+				Name: dataVolumeName,
+			},
+		},
+	}
+}
+
+func newFS(diskName string) kvirtv1.Filesystem {
+	return kvirtv1.Filesystem{
+		Name:     diskName,
+		Virtiofs: &kvirtv1.FilesystemVirtiofs{},
 	}
 }

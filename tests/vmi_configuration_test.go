@@ -1931,19 +1931,17 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewWithNamespace(util.NamespaceTestDefault,
+				libvmi.WithNamedContainerImage("ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithNamedContainerImage("ephemeral-disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithNamedContainerImage("ephemeral-disk5", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithNamedContainerImage("ephemeral-disk3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 
 			By("adding disks to a VMI")
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
-
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk5", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tmpHostDiskDir := tests.RandTmpDir()
 			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")

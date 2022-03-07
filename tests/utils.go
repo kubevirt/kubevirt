@@ -743,8 +743,9 @@ func BeforeTestSuitSetup(_ []byte) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
 	Config, err = loadConfig()
-	Arch = getArch()
 	Expect(err).ToNot(HaveOccurred())
+	Arch = getArch()
+	libvmi.Setup(Arch)
 
 	// Customize host disk paths
 	// Right now we support three nodes. More image copying needs to happen
@@ -2206,37 +2207,10 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func AddDataVolumeDisk(vmi *v1.VirtualMachineInstance, diskName, dataVolumeName string) *v1.VirtualMachineInstance {
-	bus := "virtio"
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-
-	return vmi
-}
-
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	diskName := "disk0"
-
-	vmi = AddDataVolumeDisk(vmi, diskName, dataVolumeName)
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	return vmi
+	return libvmi.NewWithNamespace(util2.NamespaceTestDefault,
+		libvmi.WithDataVolume(dataVolumeName),
+		libvmi.WithResourceMemory("1Gi"))
 }
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
@@ -2373,9 +2347,8 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 }
 
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.NewWithNamespace(util2.NamespaceTestDefault, libvmi.WithContainerImage(containerImage))
 
-	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 	}
@@ -2507,29 +2480,15 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 }
 
 func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
-	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-		Name:     "disk1",
-		Virtiofs: &v1.FilesystemVirtiofs{},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk1",
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-	return vmi
+	return libvmi.NewWithNamespace(util2.NamespaceTestDefault,
+		libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+		libvmi.WithFSFromDataVolume("disk1", dataVolumeName))
 }
 
 func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	vmi := libvmi.NewWithNamespace(util2.NamespaceTestDefault,
+		libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)))
 
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	vmi = AddPVCFS(vmi, "disk1", claimName)
 	return vmi
 }

@@ -30,14 +30,38 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const defaultTestGracePeriod int64 = 0
+
+var (
+	arch string
+)
+
+func Setup(ar string) {
+	arch = ar
+}
+
+func isARM64() bool {
+	return arch == "arm64"
+}
+
 // Option represents an action that enables an option.
 type Option func(vmi *kvirtv1.VirtualMachineInstance)
 
 // New instantiates a new VMI configuration,
 // building its properties based on the specified With* options.
 func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
-	vmi := baseVmi(name)
+	vmi := baseVmi(name, "")
+	return applyOptions(vmi, opts...)
+}
 
+// NewWithNamespace instantiates a new VMI configuration,
+// building its properties based on the specified With* options.
+func NewWithNamespace(namespace string, opts ...Option) *kvirtv1.VirtualMachineInstance {
+	vmi := baseVmi(RandName(DefaultVmiName), namespace)
+	return applyOptions(vmi, opts...)
+}
+
+func applyOptions(vmi *kvirtv1.VirtualMachineInstance, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	for _, f := range opts {
 		f(vmi)
 	}
@@ -125,12 +149,35 @@ func WithSEV() Option {
 	}
 }
 
-func baseVmi(name string) *kvirtv1.VirtualMachineInstance {
-	vmi := kvirtv1.NewVMIReferenceFromNameWithNS("", name)
+func baseVmi(name, namespace string) *kvirtv1.VirtualMachineInstance {
+	vmi := kvirtv1.NewVMIReferenceFromNameWithNS(namespace, name)
 	vmi.Spec = kvirtv1.VirtualMachineInstanceSpec{Domain: kvirtv1.DomainSpec{}}
 	vmi.TypeMeta = k8smetav1.TypeMeta{
 		APIVersion: kvirtv1.GroupVersion.String(),
 		Kind:       "VirtualMachineInstance",
 	}
+
+	t := defaultTestGracePeriod
+	vmi.Spec.TerminationGracePeriodSeconds = &t
+
+	// To avoid mac address issue in the tests change the pod interface binding to masquerade
+	// https://github.com/kubevirt/kubevirt/issues/1494
+	vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Masquerade: &v1.InterfaceMasquerade{}}}}}
+
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	var resourceMemory resource.Quantity
+	if isARM64() {
+		// Cirros image need 256M to boot on ARM64,
+		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+		resourceMemory = resource.MustParse("256Mi")
+	} else {
+		resourceMemory = resource.MustParse("128Mi")
+	}
+	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+		k8sv1.ResourceMemory: resourceMemory,
+	}
+
 	return vmi
 }

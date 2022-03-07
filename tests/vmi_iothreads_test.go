@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[sig-compute]IOThreads", func() {
@@ -54,7 +55,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmi.NewWithNamespace(util.NamespaceTestDefault, libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)))
 	})
 
 	Context("IOThreads Policies", func() {
