@@ -161,7 +161,7 @@ func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map
 	countLabelsHelper := func(policyLabels, labelsToMatch map[string]string) {
 		for policyKey, policyValue := range policyLabels {
 			value, exists := labelsToMatch[policyKey]
-			if exists && value == policyValue {
+			if exists && (value == policyValue || policyValue == "") {
 				matchingLabels++
 			} else {
 				doesMatch = false
