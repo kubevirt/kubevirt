@@ -35,3 +35,9 @@ func (MigrationPolicyList) SwaggerDoc() map[string]string {
 		"items": "+listType=atomic",
 	}
 }
+
+func (migrationPolicyMatchScore) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=false",
+	}
+}
