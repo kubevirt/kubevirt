@@ -28,8 +28,8 @@ import (
 
 	"kubevirt.io/qe-tools/pkg/polarion-xml"
 
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/types"
+	"github.com/onsi/ginkgo/v2/config"
+	"github.com/onsi/ginkgo/v2/types"
 )
 
 var Polarion = PolarionReporter{}
@@ -95,7 +95,7 @@ type PolarionReporter struct {
 	TestRunTitle    string
 }
 
-func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
+func (reporter *PolarionReporter) SuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
 
 	reporter.Suite = PolarionTestSuite{
 		Properties: PolarionProperties{},
@@ -103,7 +103,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 	}
 
 	valuesString := ""
-	suiteParams := strings.Split(reporter.TestSuiteParams, " ")
+	suiteParams := splitAny(reporter.TestSuiteParams, " ,")
 	for _, s := range suiteParams {
 		keyValue := strings.Split(s, "=")
 		if len(keyValue) > 1 {
@@ -120,7 +120,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 	reporter.Suite.Properties.Property = addProperty(
 		reporter.Suite.Properties.Property, "polarion-custom-plannedin", reporter.PlannedIn)
 	reporter.Suite.Properties.Property = addProperty(
-		reporter.Suite.Properties.Property, "polarion-testrun-id", reporter.PlannedIn + valuesString)
+		reporter.Suite.Properties.Property, "polarion-testrun-id", reporter.PlannedIn+valuesString)
 	reporter.Suite.Properties.Property = addProperty(
 		reporter.Suite.Properties.Property, "polarion-custom-isautomated", "True")
 	reporter.Suite.Properties.Property = addProperty(
@@ -133,8 +133,11 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 		reporter.Suite.Properties.Property = addProperty(
 			reporter.Suite.Properties.Property, "polarion-testrun-title", reporter.TestRunTitle)
 	}
-		
+
 	reporter.TestSuiteName = summary.SuiteDescription
+}
+
+func (reporter *PolarionReporter) JustAfterEach(specReport types.SpecReport) {
 }
 
 func (reporter *PolarionReporter) SpecWillRun(specSummary *types.SpecSummary) {
@@ -175,8 +178,8 @@ func (reporter *PolarionReporter) handleSetupSummary(name string, setupSummary *
 func (reporter *PolarionReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	testName := fmt.Sprintf(
 		"%s: %s",
-		specSummary.ComponentTexts[1],
-		strings.Join(specSummary.ComponentTexts[2:], " "),
+		specSummary.ComponentTexts[0],
+		strings.Join(specSummary.ComponentTexts[1:], " "),
 	)
 	testCase := PolarionTestCase{
 		Name: testName,
@@ -188,7 +191,7 @@ func (reporter *PolarionReporter) SpecDidComplete(specSummary *types.SpecSummary
 		testCase.Properties = extractTestID(testName, reporter.ProjectId)
 	}
 
-	if specSummary.State == types.SpecStateFailed || specSummary.State == types.SpecStateTimedOut || specSummary.State == types.SpecStatePanicked {
+	if specSummary.State == types.SpecStateFailed || specSummary.State == types.SpecStateInterrupted || specSummary.State == types.SpecStatePanicked {
 		testCase.FailureMessage = &JUnitFailureMessage{
 			Type:    reporter.failureTypeForState(specSummary.State),
 			Message: failureMessage(specSummary.Failure),
@@ -201,7 +204,7 @@ func (reporter *PolarionReporter) SpecDidComplete(specSummary *types.SpecSummary
 	reporter.Suite.TestCases = append(reporter.Suite.TestCases, testCase)
 }
 
-func (reporter *PolarionReporter) SpecSuiteDidEnd(summary *types.SuiteSummary) {
+func (reporter *PolarionReporter) SuiteDidEnd(summary *types.SuiteSummary) {
 	if reporter.ProjectId == "" {
 		fmt.Println("Can not create Polarion report without project ID")
 		return
@@ -224,8 +227,8 @@ func (reporter *PolarionReporter) failureTypeForState(state types.SpecState) str
 	switch state {
 	case types.SpecStateFailed:
 		return "Failure"
-	case types.SpecStateTimedOut:
-		return "Timeout"
+	case types.SpecStateInterrupted:
+		return "Interrupted"
 	case types.SpecStatePanicked:
 		return "Panic"
 	default:
@@ -256,6 +259,13 @@ func addProperty(properties []PolarionProperty, key string, value string) []Pola
 		properties, PolarionProperty{
 			Name:  key,
 			Value: value,
-	})
+		})
 	return properties
+}
+
+func splitAny(s string, seps string) []string {
+	splitter := func(r rune) bool {
+		return strings.ContainsRune(seps, r)
+	}
+	return strings.FieldsFunc(s, splitter)
 }

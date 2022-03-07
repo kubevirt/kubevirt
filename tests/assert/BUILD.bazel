@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/assert",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

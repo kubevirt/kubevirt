@@ -12,7 +12,7 @@ go_library(
         "//tests/framework/checks:go_default_library",
         "//tests/libvmi:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )
