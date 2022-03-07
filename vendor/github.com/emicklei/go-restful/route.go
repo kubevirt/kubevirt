@@ -52,6 +52,11 @@ type Route struct {
 
 	// indicate route path has custom verb
 	hasCustomVerb bool
+
+	// if a request does not include a content-type header then
+	// depending on the method, it may return a 415 Unsupported Media
+	// Must have uppercase HTTP Method names such as GET,HEAD,OPTIONS,...
+	allowedMethodsWithoutContentType []string
 }
 
 // Initialize for Route
@@ -114,8 +119,17 @@ func (r Route) matchesContentType(mimeTypes string) bool {
 	if len(mimeTypes) == 0 {
 		// idempotent methods with (most-likely or guaranteed) empty content match missing Content-Type
 		m := r.Method
-		if m == "GET" || m == "HEAD" || m == "OPTIONS" || m == "DELETE" || m == "TRACE" {
-			return true
+		// if route specifies less or non-idempotent methods then use that
+		if len(r.allowedMethodsWithoutContentType) > 0 {
+			for _, each := range r.allowedMethodsWithoutContentType {
+				if m == each {
+					return true
+				}
+			}
+		} else {
+			if m == "GET" || m == "HEAD" || m == "OPTIONS" || m == "DELETE" || m == "TRACE" {
+				return true
+			}
 		}
 		// proceed with default
 		mimeTypes = MIME_OCTET
