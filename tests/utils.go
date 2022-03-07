@@ -125,6 +125,7 @@ const (
 	KubevirtIoTest               = "kubevirt.io/test"
 	KubernetesIoHostName         = "kubernetes.io/hostname"
 	BinBash                      = "/bin/bash"
+	DefaultPvcMountPath          = "/pvc"
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
 	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
@@ -3086,6 +3087,52 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &pod
 }
 
+func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	pod := RenderPod(name, cmd, args)
+
+	volumeName := "disk0"
+	pod.Spec.Volumes = []k8sv1.Volume{
+		{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.GetName(),
+				},
+			},
+		},
+	}
+	volumeMode := pvc.Spec.VolumeMode
+	if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
+		pod.Spec.Containers[0].VolumeDevices = addVolumeDevices(volumeName)
+	} else {
+		pod.Spec.Containers[0].VolumeMounts = addVolumeMounts(volumeName)
+	}
+
+	return pod
+}
+
+// this is being called for pods using PV with block volume mode
+func addVolumeDevices(volumeName string) []k8sv1.VolumeDevice {
+	volumeDevices := []k8sv1.VolumeDevice{
+		{
+			Name:       volumeName,
+			DevicePath: DefaultPvcMountPath,
+		},
+	}
+	return volumeDevices
+}
+
+// this is being called for pods using PV with filesystem volume mode
+func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
+	volumeMounts := []k8sv1.VolumeMount{
+		{
+			Name:      volumeName,
+			MountPath: DefaultPvcMountPath,
+		},
+	}
+	return volumeMounts
+}
+
 func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
@@ -3110,6 +3157,15 @@ func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())
 	return pod
+}
+
+func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
+	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(DefaultPvcMountPath, "disk.img"), filepath.Join(DefaultPvcMountPath, "disk.img"))}
+
+	By("changing disk.img permissions to non qemu")
+	pod := RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
+
+	RunPodAndExpectCompletion(pod)
 }
 
 func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {

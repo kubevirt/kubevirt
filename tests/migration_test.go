@@ -63,8 +63,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 
-	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
-
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -1503,7 +1501,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume
-			var wffcPod *k8sv1.Pod
 
 			BeforeEach(func() {
 				quantity, err := resource.ParseQuantity(cd.FedoraVolumeSize)
@@ -1521,12 +1518,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Deleting the DataVolume")
 					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 					dv = nil
-				}
-				if wffcPod != nil {
-					By("Deleting the wffc pod")
-					err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), wffcPod.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					wffcPod = nil
 				}
 			})
 
@@ -1565,10 +1556,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("[Serial] migration to nonroot", func() {
-
-			var cleanUp func()
-			ipProtocol := k8sv1.IPv4Protocol
-			os := string(cd.ContainerDiskAlpine)
+			var dv *cdiv1.DataVolume
 			size := "256Mi"
 
 			BeforeEach(func() {
@@ -1579,26 +1567,33 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 			AfterEach(func() {
 				tests.EnableFeatureGate(virtconfig.NonRoot)
-				if cleanUp != nil {
-					cleanUp()
+				if dv != nil {
+					By("Deleting the DataVolume")
+					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
+					dv = nil
 				}
 			})
 
-			createPVC := func() (nfsPod *k8sv1.Pod, pvName string) {
-				targetImage, nodeName := tests.CopyAlpineWithNonQEMUPermissions()
-				cleanUp = tests.DeleteAlpineWithNonQEMUPermissions
-
-				By("Starting an NFS POD")
-				nfsPod = storageframework.InitNFS(targetImage, nodeName)
-				pvName = fmt.Sprintf("test-nfs-%s", rand.String(48))
-
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				nfsIP := libnet.GetPodIpByFamily(nfsPod, ipProtocol)
-				ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
-
-				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, nfsIP, os)
-				return
+			createDataVolumePVCAndChangeDiskImgPermissions := func() {
+				// Create DV and alter permission of disk.img
+				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+				dv = tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				tests.SetDataVolumeForceBindAnnotation(dv)
+				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).To(BeNil())
+				var pvc *k8sv1.PersistentVolumeClaim
+				Eventually(func() *k8sv1.PersistentVolumeClaim {
+					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return pvc
+				}, 30*time.Second).Should(Not(BeNil()))
+				By("waiting for the dv import to pvc to finish")
+				Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
+				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+				pvName = pvc.Name
 			}
 
 			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
@@ -1643,16 +1638,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToAlpine),
 
 				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
-					nfsPod, pvName := createPVC()
-
-					// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
-					dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-					dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
-					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-					Expect(err).To(BeNil())
-					tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
-
-					return tests.NewRandomVMIWithDataVolume(dv.Name)
+					createDataVolumePVCAndChangeDiskImgPermissions()
+					// Use the DataVolume
+					return tests.NewRandomVMIWithDataVolume(pvName)
 				}, console.LoginToAlpine),
 
 				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
@@ -1660,10 +1648,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToFedora),
 
 				Entry("with PVC", func() *v1.VirtualMachineInstance {
-					nfsPod, pvName := createPVC()
-
-					tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
-
+					createDataVolumePVCAndChangeDiskImgPermissions()
+					// Use the Underlying PVC
 					return tests.NewRandomVMIWithPVC(pvName)
 				}, console.LoginToAlpine),
 			)
@@ -1864,9 +1850,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("[Serial] migration postcopy", func() {
-
 			var dv *cdiv1.DataVolume
-			var wffcPod *k8sv1.Pod
 
 			BeforeEach(func() {
 				By("Limit migration bandwidth")
@@ -1894,12 +1878,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("Deleting the DataVolume")
 					Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 					dv = nil
-				}
-				if wffcPod != nil {
-					By("Deleting the wffc pod")
-					err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), wffcPod.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					wffcPod = nil
 				}
 			})
 

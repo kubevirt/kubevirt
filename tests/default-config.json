@@ -1,7 +1,6 @@
 {
     "storageClassRhel":        "rhel",
     "storageClassWindows":     "windows",
-    "storageRWXFileSystem":    "nfs-csi",
     "storageRWOFileSystem":    "local"
 }
 

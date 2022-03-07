@@ -48,8 +48,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -153,41 +151,27 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 
 		Context("[Serial]without fsgroup support", func() {
-
-			ipProtocol := k8sv1.IPv4Protocol
-			os := string(cd.ContainerDiskAlpine)
 			size := "1Gi"
 
-			AfterEach(func() {
-				tests.DeleteAlpineWithNonQEMUPermissions()
-			})
-
-			createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
-				pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
-
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
-				ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
-
-				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, nfsIP, os)
-				return pvName
-			}
-
 			It("should succesfully start", func() {
-
-				targetImage, nodeName := tests.CopyAlpineWithNonQEMUPermissions()
-
-				By("Starting an NFS POD")
-				nfsPod := storageframework.InitNFS(targetImage, nodeName)
-				pvName := createNFSPvAndPvc(ipProtocol, nfsPod)
-
-				// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
-				dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				// Create DV and alter permission of disk.img
+				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				tests.SetDataVolumeForceBindAnnotation(dv)
 				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
-				tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
+				var pvc *k8sv1.PersistentVolumeClaim
+				Eventually(func() *k8sv1.PersistentVolumeClaim {
+					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return pvc
+				}, 30*time.Second).Should(Not(BeNil()))
+				By("waiting for the dv import to pvc to finish")
+				Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
+				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 

@@ -220,7 +220,6 @@ go_test(
         "//tests/framework/checks:go_default_library",
         "//tests/framework/cleanup:go_default_library",
         "//tests/framework/matcher:go_default_library",
-        "//tests/framework/storage:go_default_library",
         "//tests/launchsecurity:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libreplicaset:go_default_library",
