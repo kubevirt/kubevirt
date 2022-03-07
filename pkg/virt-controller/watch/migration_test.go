@@ -1400,10 +1400,10 @@ var _ = Describe("Migration watcher", func() {
 				Entry("only one policy should be matched", "one", policyInfo{"one", 1, 4}),
 				Entry("most detail policy should be matched", "two",
 					policyInfo{"one", 1, 4}, policyInfo{"two", 4, 2}),
-				Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (1)", "one",
-					policyInfo{"one", 1, 2}, policyInfo{"two", 2, 1}),
-				Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "a_two",
-					policyInfo{"one", 1, 2}, policyInfo{"a_two", 2, 1}),
+				Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (1)", "aa",
+					policyInfo{"aa", 2, 2}, policyInfo{"zz", 2, 2}),
+				Entry("if two policies are detailed at the same level, matching policy should be the first name in lexicographic order (2)", "aa",
+					policyInfo{"zz", 2, 2}, policyInfo{"aa", 2, 2}),
 			)
 
 			It("policy with one non-fitting label should not match", func() {
