@@ -51,7 +51,7 @@ func (j *capturedOutputEnricher) SpecWillRun(specSummary *types.SpecSummary) {
 }
 
 func (j *capturedOutputEnricher) SpecDidComplete(specSummary *types.SpecSummary) {
-	if specSummary.State.IsFailure() {
+	if specSummary.HasFailureState() {
 		if j.additionalOutput != "" {
 			specSummary.CapturedOutput = fmt.Sprintf("%s\n%s", specSummary.CapturedOutput, j.additionalOutput)
 		}
