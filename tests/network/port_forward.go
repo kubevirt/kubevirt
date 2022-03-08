@@ -25,7 +25,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -65,7 +64,7 @@ var _ = SIGDescribe("Port-forward", func() {
 			vmi := createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
 			tests.StartHTTPServer(vmi, vmiHttpServerPort)
 
-			localPort = 1500 + config.GinkgoConfig.ParallelNode
+			localPort = 1500 + GinkgoParallelProcess()
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			Expect(vmiPod).ToNot(BeNil())
 			portForwardCmd, err = portForwardCommand(vmiPod, localPort, vmiHttpServerPort)

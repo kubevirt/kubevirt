@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/config"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
 
@@ -35,13 +34,15 @@ func KubeVirtTestSuiteSetup(t *testing.T) {
 	testsWrapped := os.Getenv("GO_TEST_WRAP")
 	outputFile := os.Getenv("XML_OUTPUT_FILE")
 
+	suiteConfig, _ := ginkgo.GinkgoConfiguration()
+
 	// if run on bazel (XML_OUTPUT_FILE is not empty)
 	// and rules_go is configured to not produce the junit xml
 	// produce it here. Otherwise just run the default RunSpec
 	if testsWrapped == "0" && outputFile != "" {
 		testTarget := os.Getenv("TEST_TARGET")
-		if config.GinkgoConfig.ParallelTotal > 1 {
-			outputFile = fmt.Sprintf("%s-%d", outputFile, config.GinkgoConfig.ParallelNode)
+		if suiteConfig.ParallelTotal > 1 {
+			outputFile = fmt.Sprintf("%s-%d", outputFile, ginkgo.GinkgoParallelProcess())
 		}
 
 		ginkgo.RunSpecsWithDefaultAndCustomReporters(
