@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
+	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
@@ -432,6 +433,33 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					By("Checking that VirtualMachineInstance start succeeded")
 					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(ctx, tests.NormalEvent, v1.Started)
 				})
+			})
+		})
+
+		Context("with nodeselector", func() {
+			It("[test_id:5760]should check if vm's with non existing nodeselector is not running and node selector is not updated", func() {
+				vmi := libvmi.NewCirros()
+				By("setting nodeselector with non-existing-os label")
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
+				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
+
+				pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					for _, owner := range pod.GetOwnerReferences() {
+						if owner.Name == vmi.Name {
+							break
+						}
+					}
+					Expect(pod.Spec.NodeSelector[k8sv1.LabelOSStable]).To(Equal("not-existing-os"), "pod should have node selector")
+					Expect(pod.Status.Phase).To(Equal(k8sv1.PodPending), "pod has to be in pending state")
+					for _, condition := range pod.Status.Conditions {
+						if condition.Type == k8sv1.PodScheduled {
+							Expect(condition.Reason).To(Equal(k8sv1.PodReasonUnschedulable), "condition reason has to be unschedulable")
+						}
+					}
+				}
 			})
 		})
 
