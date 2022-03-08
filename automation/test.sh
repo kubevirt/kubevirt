@@ -191,9 +191,9 @@ determine_cri_bin() {
     elif [ "${KUBEVIRTCI_RUNTIME}" = "docker" ]; then
         echo docker
     else
-        if curl --unix-socket /${HOME}/podman.sock http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+        if curl --unix-socket "${XDG_RUNTIME_DIR}/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
             echo podman
-        elif docker ps >/dev/null; then
+        elif docker ps >/dev/null 2>&1; then
             echo docker
         else
             >&2 echo "no working container runtime found. Neither docker nor podman seems to work."
