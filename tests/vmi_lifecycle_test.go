@@ -461,6 +461,30 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					}
 				}
 			})
+
+			It("[test_id:5761]should check if vm with valid node selector is scheduled and running and node selector is not updated", func() {
+				vmi := libvmi.NewCirros()
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "linux"}
+				tests.RunVMIAndExpectLaunch(vmi, 60)
+
+				pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					for _, owner := range pod.GetOwnerReferences() {
+						if owner.Name == vmi.Name {
+							break
+						}
+					}
+					Expect(pod.Spec.NodeSelector[k8sv1.LabelOSStable]).To(Equal("linux"), "pod should have node selector")
+					Expect(pod.Status.Phase).To(Equal(k8sv1.PodRunning), "pod has to be in running state")
+					for _, condition := range pod.Status.Conditions {
+						if condition.Type == k8sv1.ContainersReady {
+							Expect(condition.Reason).To(Equal(""), "condition reason has to be empty")
+						}
+					}
+				}
+			})
 		})
 
 		Context("when virt-launcher crashes", func() {
