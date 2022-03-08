@@ -57,6 +57,8 @@ var PathToTestingInfrastrucureManifests = ""
 var DNSServiceName = ""
 var DNSServiceNamespace = ""
 
+var MigrationNetworkNIC = "eth1"
+
 func init() {
 	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
@@ -88,6 +90,7 @@ func init() {
 	flag.BoolVar(&ApplyDefaulte2eConfiguration, "apply-default-e2e-configuration", false, "Apply the default e2e test configuration (feature gates, selinux contexts, ...)")
 	flag.StringVar(&DNSServiceName, "dns-service-name", "kube-dns", "cluster DNS service name")
 	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
+	flag.StringVar(&MigrationNetworkNIC, "migration-network-nic", "eth1", "NIC to use on cluster nodes to access the dedicated migration network")
 }
 
 func NormalizeFlags() {
