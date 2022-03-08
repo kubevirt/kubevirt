@@ -26,6 +26,9 @@ import (
 	"sync"
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
+
+	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -202,6 +205,11 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	cloneClient, err := clonev1alpha1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -218,6 +226,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		snapshotClient,
 		dynamicClient,
 		migrationsClient,
+		cloneClient,
 		coreClient,
 	}, nil
 }
@@ -369,6 +378,11 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	cloneClient, err := clonev1alpha1.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -385,6 +399,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		snapshotClient,
 		dynamicClient,
 		migrationsClient,
+		cloneClient,
 		coreClient,
 	}, nil
 }

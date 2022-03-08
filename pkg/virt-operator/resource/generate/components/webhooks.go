@@ -6,6 +6,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/api/clone"
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/api/flavor"
 
 	"kubevirt.io/api/core"
@@ -253,6 +256,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	launcherEvictionValidatePath := LauncherEvictionValidatePath
 	statusValidatePath := StatusValidatePath
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
+	vmCloneCreateValidatePath := VMCloneCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 	ignorePolicy := admissionregistrationv1.Ignore
 
@@ -723,6 +727,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					},
 				},
 			},
+			{
+				Name:                    "vm-clone-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{clonev1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{clonev1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{clone.ResourceVMClonePlural},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmCloneCreateValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -788,3 +817,5 @@ const StatusValidatePath = "/status-validate"
 const LauncherEvictionValidatePath = "/launcher-eviction-validate"
 
 const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
+
+const VMCloneCreateValidatePath = "/vm-clone-validate-create"

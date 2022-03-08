@@ -26,6 +26,9 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/api/clone"
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -127,6 +130,9 @@ type KubeInformerFactory interface {
 
 	// Watches MigrationPolicy objects
 	MigrationPolicy() cache.SharedIndexInformer
+
+	// Watches VirtualMachineClone objects
+	VirtualMachineClone() cache.SharedIndexInformer
 
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
@@ -615,6 +621,13 @@ func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
 	return f.getInformer("migrationPolicyInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().MigrationsV1alpha1().RESTClient(), migrations.ResourceMigrationPolicies, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &migrationsv1.MigrationPolicy{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineClone() cache.SharedIndexInformer {
+	return f.getInformer("virtualMachineCloneInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().CloneV1alpha1().RESTClient(), clone.ResourceVMClonePlural, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &clonev1alpha1.VirtualMachineClone{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

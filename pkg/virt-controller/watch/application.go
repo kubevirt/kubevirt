@@ -30,6 +30,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 
 	"github.com/emicklei/go-restful"
@@ -189,6 +191,8 @@ type VirtControllerApp struct {
 
 	migrationPolicyInformer cache.SharedIndexInformer
 
+	vmCloneInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
@@ -244,6 +248,7 @@ func init() {
 	snapshotv1.AddToScheme(scheme.Scheme)
 	exportv1.AddToScheme(scheme.Scheme)
 	poolv1.AddToScheme(scheme.Scheme)
+	clonev1alpha1.AddToScheme(scheme.Scheme)
 
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)
@@ -368,6 +373,8 @@ func Execute() {
 	}
 
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
+
+	app.vmCloneInformer = app.informerFactory.VirtualMachineClone()
 
 	app.initCommon()
 	app.initReplicaSet()

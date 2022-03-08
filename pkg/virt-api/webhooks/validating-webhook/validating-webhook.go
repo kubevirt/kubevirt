@@ -109,3 +109,7 @@ func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, cl
 func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient) {
 	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter(virtCli))
 }
+
+func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(virtCli))
+}
