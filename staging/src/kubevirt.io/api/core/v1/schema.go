@@ -665,6 +665,10 @@ type SEV struct {
 	// If specified, run the attestation process for a vmi.
 	// +opitonal
 	Attestation *SEVAttestation `json:"attestation,omitempty"`
+	// Base64 encoded session blob.
+	Session string `json:"session,omitempty"`
+	// Base64 encoded guest owner's Diffie-Hellman key.
+	DHCert string `json:"dhCert,omitempty"`
 }
 
 type SEVPolicy struct {

@@ -2960,6 +2960,14 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err != nil {
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
+
+		if util.IsSEVAttestationRequested(vmi) {
+			sev := vmi.Spec.Domain.LaunchSecurity.SEV
+			if sev.Session == "" || sev.DHCert == "" {
+				// Wait for the session parameters to be provided
+				return nil
+			}
+		}
 	} else if vmi.IsRunning() {
 		if err := d.hotplugSriovInterfaces(vmi); err != nil {
 			log.Log.Object(vmi).Error(err.Error())

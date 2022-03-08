@@ -254,6 +254,7 @@ type VirtualMachineInstanceInterface interface {
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
+	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
 }
 
 type ReplicaSetInterface interface {

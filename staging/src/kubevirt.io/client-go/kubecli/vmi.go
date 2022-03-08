@@ -520,3 +520,12 @@ func (v *vmis) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, er
 	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevMeasurementInfo)
 	return sevMeasurementInfo, err
 }
+
+func (v *vmis) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+	body, err := json.Marshal(sevSessionOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/setupsession")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+}

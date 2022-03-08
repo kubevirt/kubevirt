@@ -955,3 +955,11 @@ func (SEVMeasurementInfo) SwaggerDoc() map[string]string {
 		"loaderSHA":   "SHA256 of the loader binary",
 	}
 }
+
+func (SEVSessionOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "SEVSessionOptions is used to provide SEV session parameters.",
+		"session": "Base64 encoded session blob.",
+		"dhCert":  "Base64 encoded guest owner's Diffie-Hellman key.",
+	}
+}

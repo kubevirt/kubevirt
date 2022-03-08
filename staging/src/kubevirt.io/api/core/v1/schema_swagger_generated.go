@@ -369,6 +369,8 @@ func (SEV) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"policy":      "Guest policy flags as defined in AMD SEV API specification.\nNote: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
 		"attestation": "If specified, run the attestation process for a vmi.\n+opitonal",
+		"session":     "Base64 encoded session blob.",
+		"dhCert":      "Base64 encoded guest owner's Diffie-Hellman key.",
 	}
 }
 

@@ -1289,6 +1289,16 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVQueryLaunchMeasureme
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVQueryLaunchMeasurement", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) SEVSetupSession(name string, sevSessionOptions *v120.SEVSessionOptions) error {
+	ret := _m.ctrl.Call(_m, "SEVSetupSession", name, sevSessionOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVSetupSession(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVSetupSession", arg0, arg1)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller
