@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,7 +79,7 @@ var _ = Describe("Disruptionbudget", func() {
 		Expect(err).To(BeNil())
 	}
 
-	shouldExpectPDBDeletion := func(pdb *v1beta1.PodDisruptionBudget) {
+	shouldExpectPDBDeletion := func(pdb *policyv1.PodDisruptionBudget) {
 		// Expect pod deletion
 		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
@@ -94,10 +94,10 @@ var _ = Describe("Disruptionbudget", func() {
 		// Expect pod creation
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
-			pdb := update.GetObject().(*v1beta1.PodDisruptionBudget)
+			pdb := update.GetObject().(*policyv1.PodDisruptionBudget)
 			Expect(ok).To(BeTrue())
 			Expect(pdb.Spec.MinAvailable.String()).To(Equal("1"))
-			Expect(update.GetObject().(*v1beta1.PodDisruptionBudget).Spec.Selector.MatchLabels[v1.CreatedByLabel]).To(Equal(string(uid)))
+			Expect(update.GetObject().(*policyv1.PodDisruptionBudget).Spec.Selector.MatchLabels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			return true, update.GetObject(), nil
 		})
 	}
@@ -112,7 +112,7 @@ var _ = Describe("Disruptionbudget", func() {
 			expectedPatch := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
 				ctrl_util.EscapeJSONPointer(v1.MigrationNameLabel))
 			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
-			return true, &v1beta1.PodDisruptionBudget{}, nil
+			return true, &policyv1.PodDisruptionBudget{}, nil
 		})
 	}
 
@@ -133,7 +133,7 @@ var _ = Describe("Disruptionbudget", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-		pdbInformer, pdbSource = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		pdbInformer, pdbSource = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		vmimInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		podInformer, _ = testutils.NewFakeInformerFor(&corev1.Pod{})
 		recorder = record.NewFakeRecorder(100)
@@ -144,7 +144,7 @@ var _ = Describe("Disruptionbudget", func() {
 		virtClient.EXPECT().VirtualMachineInstance(corev1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
+		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -450,9 +450,9 @@ func newVirtualMachine() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newPodDisruptionBudget(vmi *v1.VirtualMachineInstance, pods int) *v1beta1.PodDisruptionBudget {
+func newPodDisruptionBudget(vmi *v1.VirtualMachineInstance, pods int) *policyv1.PodDisruptionBudget {
 	minAvailable := intstr.FromInt(pods)
-	return &v1beta1.PodDisruptionBudget{
+	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
@@ -460,7 +460,7 @@ func newPodDisruptionBudget(vmi *v1.VirtualMachineInstance, pods int) *v1beta1.P
 			Name:      "pdb-" + vmi.Name,
 			Namespace: vmi.Namespace,
 		},
-		Spec: v1beta1.PodDisruptionBudgetSpec{
+		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{

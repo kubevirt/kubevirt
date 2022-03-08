@@ -33,7 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,7 +67,7 @@ var _ = Describe("Apply Apps", func() {
 		var stores util.Stores
 		var mockPodDisruptionBudgetCacheStore *MockStore
 		var pdbClient *fake.Clientset
-		var cachedPodDisruptionBudget *v1beta1.PodDisruptionBudget
+		var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 		var patched bool
 		var shouldPatchFail bool
 		var created bool
@@ -92,7 +92,7 @@ var _ = Describe("Apply Apps", func() {
 					return true, nil, fmt.Errorf("Patch failed!")
 				}
 				patched = true
-				return true, &v1beta1.PodDisruptionBudget{}, nil
+				return true, &policyv1.PodDisruptionBudget{}, nil
 			})
 
 			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -114,7 +114,7 @@ var _ = Describe("Apply Apps", func() {
 
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-			clientset.EXPECT().PolicyV1beta1().Return(pdbClient.PolicyV1beta1()).AnyTimes()
+			clientset.EXPECT().PolicyV1().Return(pdbClient.PolicyV1()).AnyTimes()
 			kv = &v1.KubeVirt{}
 
 			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, "", "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})

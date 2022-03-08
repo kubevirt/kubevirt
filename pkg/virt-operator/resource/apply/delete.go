@@ -30,7 +30,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,9 +139,9 @@ func DeleteAll(kv *v1.KubeVirt,
 	// delete podDisruptionBudgets
 	objects = stores.PodDisruptionBudgetCache.List()
 	for _, obj := range objects {
-		if pdb, ok := obj.(*policyv1beta1.PodDisruptionBudget); ok && pdb.DeletionTimestamp == nil {
+		if pdb, ok := obj.(*policyv1.PodDisruptionBudget); ok && pdb.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(pdb); err == nil {
-				pdbClient := clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace)
+				pdbClient := clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace)
 				expectations.PodDisruptionBudget.AddExpectedDeletion(kvkey, key)
 				err = pdbClient.Delete(context.Background(), pdb.Name, metav1.DeleteOptions{})
 				if err != nil {

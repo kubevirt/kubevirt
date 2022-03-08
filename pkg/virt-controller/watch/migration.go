@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/api/migrations/v1alpha1"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -594,7 +594,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	return nil
 }
 
-func (c *MigrationController) expandPDB(pdb *v1beta1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) error {
+func (c *MigrationController) expandPDB(pdb *policyv1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) error {
 	minAvailable := 2
 
 	if pdb.Spec.MinAvailable.IntValue() == minAvailable && pdb.Labels[virtv1.MigrationNameLabel] == vmim.Name {
@@ -604,7 +604,7 @@ func (c *MigrationController) expandPDB(pdb *v1beta1.PodDisruptionBudget, vmi *v
 
 	patch := []byte(fmt.Sprintf(`{"spec":{"minAvailable": %d},"metadata":{"labels":{"%s": "%s"}}}`, minAvailable, virtv1.MigrationNameLabel, vmim.Name))
 
-	_, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.StrategicMergePatchType, patch, v1.PatchOptions{})
+	_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.StrategicMergePatchType, patch, v1.PatchOptions{})
 	if err != nil {
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, failedUpdatePodDisruptionBudgetReason, "Error expanding the PodDisruptionBudget %s: %v", pdb.Name, err)
 		return err
@@ -715,12 +715,12 @@ func (c *MigrationController) handleSignalMigrationAbort(migration *virtv1.Virtu
 	return nil
 }
 
-func isMigrationProtected(pdb *v1beta1.PodDisruptionBudget) bool {
+func isMigrationProtected(pdb *policyv1.PodDisruptionBudget) bool {
 	return pdb.Status.DesiredHealthy == 2 && pdb.Generation == pdb.Status.ObservedGeneration
 }
 
-func filterOutOldPDBs(pdbList []*v1beta1.PodDisruptionBudget) []*v1beta1.PodDisruptionBudget {
-	var filteredPdbs []*v1beta1.PodDisruptionBudget
+func filterOutOldPDBs(pdbList []*policyv1.PodDisruptionBudget) []*policyv1.PodDisruptionBudget {
+	var filteredPdbs []*policyv1.PodDisruptionBudget
 
 	for i := range pdbList {
 		if !pdbs.IsPDBFromOldMigrationController(pdbList[i]) {
@@ -1258,8 +1258,8 @@ func (c *MigrationController) deletePod(obj interface{}) {
 }
 
 func (c *MigrationController) updatePDB(old, cur interface{}) {
-	curPDB := cur.(*v1beta1.PodDisruptionBudget)
-	oldPDB := old.(*v1beta1.PodDisruptionBudget)
+	curPDB := cur.(*policyv1.PodDisruptionBudget)
+	oldPDB := old.(*policyv1.PodDisruptionBudget)
 	if curPDB.ResourceVersion == oldPDB.ResourceVersion {
 		return
 	}

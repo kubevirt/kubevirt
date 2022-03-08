@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -32,12 +32,12 @@ var _ = Describe("Apply PDBs", func() {
 	var kv *v1.KubeVirt
 	var deployment *v12.Deployment
 	var mockPodDisruptionBudgetCacheStore *MockStore
-	var requiredPDB *v1beta1.PodDisruptionBudget
+	var requiredPDB *policyv1.PodDisruptionBudget
 	var r *Reconciler
 	var mockGeneration int64
 	var err error
 
-	getCachedPDB := func() *v1beta1.PodDisruptionBudget {
+	getCachedPDB := func() *policyv1.PodDisruptionBudget {
 		Expect(requiredPDB).ToNot(BeNil())
 
 		cachedPDB := requiredPDB.DeepCopy()
@@ -61,7 +61,7 @@ var _ = Describe("Apply PDBs", func() {
 
 		clientset = kubecli.NewMockKubevirtClient(ctrl)
 		clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-		clientset.EXPECT().PolicyV1beta1().Return(pdbClient.PolicyV1beta1()).AnyTimes()
+		clientset.EXPECT().PolicyV1().Return(pdbClient.PolicyV1()).AnyTimes()
 		kv = &v1.KubeVirt{}
 
 		r = &Reconciler{
@@ -135,7 +135,7 @@ var _ = Describe("Apply PDBs", func() {
 				obj, err = patch.Apply(obj)
 				Expect(err).To(BeNil())
 
-				pdb := &v1beta1.PodDisruptionBudget{}
+				pdb := &policyv1.PodDisruptionBudget{}
 				Expect(json.Unmarshal(obj, pdb)).To(Succeed())
 				Expect(pdb.ObjectMeta.Annotations[versionAnnotation]).To(Equal(originalVersion))
 
