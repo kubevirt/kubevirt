@@ -34,7 +34,7 @@ ginkgo_test = rule(
         "data": attr.label_list(allow_files = True),
         "go_test": attr.label(executable = True, cfg = "target"),
         "ginkgo_args": attr.string_list(),
-        "_ginkgo": attr.label(default = "//vendor/github.com/onsi/ginkgo/ginkgo", executable = True, cfg = "target"),
+        "_ginkgo": attr.label(default = "//vendor/github.com/onsi/ginkgo/v2/ginkgo", executable = True, cfg = "target"),
         "_merger": attr.label(default = "//tools/junit-merger:junit-merger", executable = True, cfg = "target"),
     },
     executable = True,
