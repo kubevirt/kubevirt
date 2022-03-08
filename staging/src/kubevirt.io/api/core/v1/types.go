@@ -2559,3 +2559,11 @@ type SEVMeasurementInfo struct {
 	// SHA256 of the loader binary
 	LoaderSHA string `json:"loaderSHA,omitempty"`
 }
+
+// SEVSessionOptions is used to provide SEV session parameters.
+type SEVSessionOptions struct {
+	// Base64 encoded session blob.
+	Session string `json:"session,omitempty"`
+	// Base64 encoded guest owner's Diffie-Hellman key.
+	DHCert string `json:"dhCert,omitempty"`
+}

@@ -5729,6 +5729,13 @@ var CRDsValidation map[string]string = map[string]string{
                               description: If specified, run the attestation process
                                 for a vmi.
                               type: object
+                            dhCert:
+                              description: Base64 encoded guest owner's Diffie-Hellman
+                                key.
+                              type: string
+                            session:
+                              description: Base64 encoded session blob.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -7319,6 +7326,12 @@ var CRDsValidation map[string]string = map[string]string{
                 attestation:
                   description: If specified, run the attestation process for a vmi.
                   type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
               type: object
           type: object
         memory:
@@ -9936,6 +9949,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: If specified, run the attestation process for a
                         vmi.
                       type: object
+                    dhCert:
+                      description: Base64 encoded guest owner's Diffie-Hellman key.
+                      type: string
+                    session:
+                      description: Base64 encoded session blob.
+                      type: string
                   type: object
               type: object
             machine:
@@ -12442,6 +12461,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: If specified, run the attestation process for a
                         vmi.
                       type: object
+                    dhCert:
+                      description: Base64 encoded guest owner's Diffie-Hellman key.
+                      type: string
+                    session:
+                      description: Base64 encoded session blob.
+                      type: string
                   type: object
               type: object
             machine:
@@ -14581,6 +14606,13 @@ var CRDsValidation map[string]string = map[string]string{
                               description: If specified, run the attestation process
                                 for a vmi.
                               type: object
+                            dhCert:
+                              description: Base64 encoded guest owner's Diffie-Hellman
+                                key.
+                              type: string
+                            session:
+                              description: Base64 encoded session blob.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -15735,6 +15767,12 @@ var CRDsValidation map[string]string = map[string]string{
                 attestation:
                   description: If specified, run the attestation process for a vmi.
                   type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
               type: object
           type: object
         memory:
@@ -18592,6 +18630,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: If specified, run the attestation
                                         process for a vmi.
                                       type: object
+                                    dhCert:
+                                      description: Base64 encoded guest owner's Diffie-Hellman
+                                        key.
+                                      type: string
+                                    session:
+                                      description: Base64 encoded session blob.
+                                      type: string
                                   type: object
                               type: object
                             machine:
@@ -23319,6 +23364,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: If specified, run the attestation
                                             process for a vmi.
                                           type: object
+                                        dhCert:
+                                          description: Base64 encoded guest owner's
+                                            Diffie-Hellman key.
+                                          type: string
+                                        session:
+                                          description: Base64 encoded session blob.
+                                          type: string
                                       type: object
                                   type: object
                                 machine:

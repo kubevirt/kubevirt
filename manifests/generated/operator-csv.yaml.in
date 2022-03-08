@@ -627,6 +627,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/sev/setupsession
           verbs:
           - update
         - apiGroups:
@@ -867,6 +868,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/sev/setupsession
           verbs:
           - update
         - apiGroups:
@@ -1013,6 +1015,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/sev/setupsession
           verbs:
           - update
         - apiGroups:

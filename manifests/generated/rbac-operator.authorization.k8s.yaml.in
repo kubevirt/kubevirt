@@ -555,6 +555,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/sev/setupsession
   verbs:
   - update
 - apiGroups:
@@ -795,6 +796,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/sev/setupsession
   verbs:
   - update
 - apiGroups:
@@ -941,6 +943,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/sev/setupsession
   verbs:
   - update
 - apiGroups:

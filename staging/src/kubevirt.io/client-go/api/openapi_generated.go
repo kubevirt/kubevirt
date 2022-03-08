@@ -438,6 +438,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SEVAttestation":                                                     schema_kubevirtio_api_core_v1_SEVAttestation(ref),
 		"kubevirt.io/api/core/v1.SEVMeasurementInfo":                                                 schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPlatformInfo":                                                    schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref),
+		"kubevirt.io/api/core/v1.SEVSessionOptions":                                                  schema_kubevirtio_api_core_v1_SEVSessionOptions(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredential":                                       schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialPropagationMethod":                      schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
@@ -19658,6 +19659,20 @@ func schema_kubevirtio_api_core_v1_SEV(ref common.ReferenceCallback) common.Open
 							Ref:         ref("kubevirt.io/api/core/v1.SEVAttestation"),
 						},
 					},
+					"session": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded session blob.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dhCert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded guest owner's Diffie-Hellman key.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -19776,6 +19791,33 @@ func schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref common.ReferenceCallback)
 					"certChain": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Base64 encoded SEV certificate chain.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVSessionOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SEVSessionOptions is used to provide SEV session parameters.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"session": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded session blob.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dhCert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded guest owner's Diffie-Hellman key.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
