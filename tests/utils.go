@@ -86,8 +86,6 @@ import (
 	"k8s.io/client-go/transport/spdy"
 	netutils "k8s.io/utils/net"
 
-	"kubevirt.io/client-go/api"
-
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -2179,7 +2177,13 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMIWithNS(namespace, libvmi.RandName(libvmi.DefaultVmiName))
+	vmi := v1.NewVMIReferenceFromNameWithNS(namespace, libvmi.RandName(libvmi.DefaultVmiName))
+	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
+	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+	vmi.TypeMeta = metav1.TypeMeta{
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachineInstance",
+	}
 
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
