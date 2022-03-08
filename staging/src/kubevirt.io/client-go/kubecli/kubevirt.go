@@ -77,7 +77,7 @@ type KubevirtClient interface {
 	VirtualMachineClusterPreference() flavorv1alpha1.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ServerVersion() ServerVersionInterface
-	VirtualMachineClone() clonev1alpha1.VirtualMachineCloneInterface
+	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
 	RestClient() *rest.RESTClient
@@ -208,12 +208,12 @@ func (k kubevirt) MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
 	return k.migrationsClient
 }
 
-func (k kubevirt) VirtualMachineClone() clonev1alpha1.VirtualMachineCloneInterface {
-	return k.generatedKubeVirtClient.CloneV1alpha1().VirtualMachineClones()
+func (k kubevirt) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface {
+	return k.generatedKubeVirtClient.CloneV1alpha1().VirtualMachineClones(namespace)
 }
 
 func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
-	return k.cloneClient
+	return k.cloneClient // TODO ihol3 delete function? who's using it?
 }
 
 type StreamOptions struct {

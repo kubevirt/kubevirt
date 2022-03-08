@@ -46,9 +46,11 @@ type VirtualMachineCloneSpec struct {
 	Target *corev1.TypedLocalObjectReference `json:"target,omitempty"`
 
 	// +optional
+	// +listType=atomic
 	AnnotationFilters []string `json:"annotationFilters,omitempty"`
 	// +optional
-	LabelFilters []string `json:"LabelFilters,omitempty"`
+	// +listType=atomic
+	LabelFilters []string `json:"labelFilters,omitempty"`
 
 	// NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the
 	// value is the new mac address. If this field is not specified, a new MAC address will
