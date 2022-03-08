@@ -60,10 +60,6 @@ spec:
                 description: Multus plugin enables attaching multiple network interfaces
                   to Pods in Kubernetes
                 type: object
-              nmstate:
-                description: NMState is a declarative node network configuration driven
-                  through Kubernetes API
-                type: object
               ovs:
                 description: Ovs plugin allows users to define Kubernetes networks
                   on top of Open vSwitch bridges available on nodes
@@ -1582,10 +1578,6 @@ spec:
               multus:
                 description: Multus plugin enables attaching multiple network interfaces
                   to Pods in Kubernetes
-                type: object
-              nmstate:
-                description: NMState is a declarative node network configuration driven
-                  through Kubernetes API
                 type: object
               ovs:
                 description: Ovs plugin allows users to define Kubernetes networks
