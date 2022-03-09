@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
 	"kubevirt.io/kubevirt/pkg/flavor"
 
@@ -191,7 +192,8 @@ type VirtControllerApp struct {
 
 	migrationPolicyInformer cache.SharedIndexInformer
 
-	vmCloneInformer cache.SharedIndexInformer
+	vmCloneInformer   cache.SharedIndexInformer
+	vmCloneController *clone.VMCloneController
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -231,6 +233,7 @@ type VirtControllerApp struct {
 	snapshotControllerThreads         int
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
+	cloneControllerThreads            int
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -386,6 +389,7 @@ func Execute() {
 	app.initRestoreController()
 	app.initExportController()
 	app.initWorkloadUpdaterController()
+	app.initCloneController()
 	go app.Run()
 
 	<-app.reInitChan
@@ -485,6 +489,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.exportController.Run(vca.exportControllerThreads, stop)
 		go vca.workloadUpdateController.Run(stop)
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
+		go vca.vmCloneController.Run(vca.cloneControllerThreads, stop)
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
@@ -684,6 +689,13 @@ func (vca *VirtControllerApp) initExportController() {
 	vca.exportController.Init()
 }
 
+func (vca *VirtControllerApp) initCloneController() {
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
+	vca.vmCloneController = clone.NewVmCloneController(
+		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, recorder,
+	)
+}
+
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
@@ -785,6 +797,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.promKeyFilePath, "prom-key-file", defaultPromKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
+
+	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for clone controller")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {

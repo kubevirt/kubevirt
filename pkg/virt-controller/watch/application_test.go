@@ -27,6 +27,9 @@ import (
 	"net/url"
 	"time"
 
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	restful "github.com/emicklei/go-restful"
@@ -107,6 +110,7 @@ var _ = Describe("Application", func() {
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		flavorMethods := testutils.NewMockFlavorMethods()
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
+		cloneInformer, _ := testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 
 		var qemuGid int64 = 107
 
@@ -193,6 +197,14 @@ var _ = Describe("Application", func() {
 		app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer
 		app.nodeInformer = nodeInformer
+		app.vmCloneController = clone.NewVmCloneController(
+			virtClient,
+			cloneInformer,
+			vmSnapshotInformer,
+			vmRestoreInformer,
+			vmInformer,
+			recorder,
+		)
 
 		app.readyChan = make(chan bool)
 
