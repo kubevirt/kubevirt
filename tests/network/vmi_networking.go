@@ -872,10 +872,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, loginMethod)
-
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = tests.WaitUntilVMIReady(vmi, loginMethod)
 
 				if ipFamily == k8sv1.IPv6Protocol {
 					err = configureIpv6(vmi, api.DefaultVMIpv6CIDR)
@@ -957,13 +954,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				tests.WaitUntilVMIReady(anotherVmi, libnet.WithIPv6(console.LoginToCirros))
-				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Get(anotherVmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, libnet.WithIPv6(console.LoginToCirros))
 
-				tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})
 
 			table.DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
