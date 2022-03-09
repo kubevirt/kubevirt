@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v12 "kubevirt.io/api/core/v1"
@@ -188,7 +190,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 		virtCli, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
+		checks.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
 
 		vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -273,7 +275,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning), MatchRegexp(vmReadyRegex)),
 			"VM should be in the %s status", v12.VirtualMachineStatusRunning)
 
-		tests.SkipIfMigrationIsNotPossible()
+		checks.SkipIfMigrationIsNotPossible()
 
 		By("Migrating the VirtualMachine")
 

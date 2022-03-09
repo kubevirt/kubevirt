@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -293,7 +295,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
-		tests.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
+		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
 		tests.CreatePVC(tests.OSWindowsSysprep, "35Gi", tests.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})

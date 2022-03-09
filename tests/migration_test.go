@@ -320,7 +320,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 
-		tests.SkipIfMigrationIsNotPossible()
+		checks.SkipIfMigrationIsNotPossible()
 
 	})
 
@@ -3051,7 +3051,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
 
@@ -3101,7 +3101,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
 
@@ -3146,7 +3146,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = cirrosVMIWithEvictionStrategy()
 
@@ -3184,7 +3184,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 400)
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi_evict1 := cirrosVMIWithEvictionStrategy()
 					vmi_evict2 := cirrosVMIWithEvictionStrategy()

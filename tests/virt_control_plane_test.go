@@ -25,6 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
+	"github.com/onsi/ginkgo/extensions/table"
+
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -43,6 +47,11 @@ import (
 const (
 	DefaultStabilizationTimeoutInSeconds = 300
 	DefaultPollIntervalInSeconds         = 3
+)
+
+const (
+	multiReplica  = true
+	singleReplica = false
 )
 
 var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", func() {
@@ -164,27 +173,39 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})
 
-		When("evicting pods of control plane", func() {
-			test := func(podName string) {
-				By(fmt.Sprintf("Try to evict all pods %s\n", podName))
-				podList, err := getPodList()
-				Expect(err).ToNot(HaveOccurred())
-				runningPods := getRunningReadyPods(podList, []string{podName})
-				Expect(len(runningPods)).ToNot(Equal(0))
-				for index, pod := range runningPods {
-					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-					// trying to evict the last running pod in this list should fail
-					if index == len(runningPods)-1 {
-						Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
+		table.DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
+			if isMultiReplica {
+				checks.SkipIfSingleReplica(virtCli)
+			} else {
+				checks.SkipIfMultiReplica(virtCli)
+			}
+			By(fmt.Sprintf("Try to evict all pods %s\n", podName))
+			podList, err := getPodList()
+			Expect(err).ToNot(HaveOccurred())
+			runningPods := getRunningReadyPods(podList, []string{podName})
+			Expect(len(runningPods)).ToNot(Equal(0))
+			for index, pod := range runningPods {
+				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				if index == len(runningPods)-1 {
+					if isMultiReplica {
+						Expect(err).To(HaveOccurred(), msg)
 					} else {
-						Expect(err).ToNot(HaveOccurred())
+						Expect(err).ToNot(HaveOccurred(), msg)
 					}
+				} else {
+					Expect(err).ToNot(HaveOccurred())
 				}
 			}
-
-			It("[test_id:2830]last eviction should fail for virt-controller pods", func() { test("virt-controller") })
-			It("[test_id:2799]last eviction should fail for virt-api pods", func() { test("virt-api") })
-		})
+		},
+			table.Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods",
+				"virt-controller", multiReplica, "no error occurred on evict of last virt-controller pod"),
+			table.Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods",
+				"virt-api", multiReplica, "no error occurred on evict of last virt-api pod"),
+			table.Entry("eviction of single-replica virt-controller pod should succeed",
+				"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"),
+			table.Entry("eviction of multi-replica virt-api pod should succeed",
+				"virt-api", singleReplica, "error occurred on eviction of single-replica virt-api pod"),
+		)
 	})
 
 	Context("control plane components check", func() {
@@ -192,12 +213,14 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 		When("control plane pods are running", func() {
 
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
+				// Single replica deployments do not create PDBs
+				checks.SkipIfSingleReplica(virtCli)
+
 				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
 				deployments, err := deploymentsClient.List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				expectedDeployments := []string{"virt-api", "virt-controller"}
-				for _, expectedDeployment := range expectedDeployments {
+				for _, expectedDeployment := range controlPlaneDeploymentNames {
 					found := false
 					for _, deployment := range deployments.Items {
 						if deployment.Name != expectedDeployment {

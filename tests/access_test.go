@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -353,7 +355,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			// Generate unique usernames based on the test namespace which is unique per ginkgo node
 			testUser = "testuser-" + util.NamespaceTestDefault
 			tests.SkipIfNoCmd("oc")
-			if !tests.IsOpenShift() {
+			if !checks.IsOpenShift() {
 				Skip("Skip tests which require an openshift managed test user if not running on openshift")
 			}
 			By("Ensuring the cluster has new test user")

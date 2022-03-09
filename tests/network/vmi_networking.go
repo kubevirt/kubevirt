@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -140,7 +142,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				} else {
 					vmi := *vmiRef
 					if vmiHasCustomMacAddress(vmi) {
-						tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
+						checks.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
 					}
 					vmi = runVMI(vmi)
 					addr = vmi.Status.Interfaces[0].IP
@@ -832,7 +834,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			}
 
 			BeforeEach(func() {
-				tests.SkipIfMigrationIsNotPossible()
+				checks.SkipIfMigrationIsNotPossible()
 			})
 
 			AfterEach(func() {

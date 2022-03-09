@@ -1,8 +1,12 @@
 package checks
 
 import (
+	"fmt"
+
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/util"
@@ -66,4 +70,25 @@ func IsSEVCapable(node *v1.Node) bool {
 		}
 	}
 	return false
+}
+
+func IsARM64(arch string) bool {
+	return arch == "arm64"
+}
+
+func HasLiveMigration() bool {
+	return HasFeature("LiveMigration")
+}
+
+func IsOpenShift() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	isOpenShift, err := cluster.IsOnOpenShift(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can not determine cluster type %v\n", err)
+		panic(err)
+	}
+
+	return isOpenShift
 }
