@@ -186,6 +186,9 @@ bump-kubevirtci:
 fossa:
 	hack/dockerized "FOSSA_TOKEN_FILE=${FOSSA_TOKEN_FILE} ./hack/fossa.sh"
 
+format:
+	./hack/dockerized "hack/bazel-fmt.sh"	
+
 .PHONY: \
 	build-verify \
 	conformance \
