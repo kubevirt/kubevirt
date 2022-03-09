@@ -529,3 +529,12 @@ func (v *vmis) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOpti
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/setupsession")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
+
+func (v *vmis) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+	body, err := json.Marshal(sevSecretOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/injectlaunchsecret")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+}

@@ -255,6 +255,7 @@ type VirtualMachineInstanceInterface interface {
 	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
+	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
 
 type ReplicaSetInterface interface {

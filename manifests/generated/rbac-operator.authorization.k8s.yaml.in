@@ -556,6 +556,7 @@ rules:
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
   - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - update
 - apiGroups:
@@ -797,6 +798,7 @@ rules:
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
   - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - update
 - apiGroups:
@@ -944,6 +946,7 @@ rules:
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
   - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - update
 - apiGroups:

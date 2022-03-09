@@ -1004,6 +1004,29 @@ var _ = Describe("Manager", func() {
 			Expect(sevMeasurementInfo.Measurement).To(Equal(domainLaunchSecurityParameters.SEVMeasurement))
 			Expect(sevMeasurementInfo.LoaderSHA).To(Equal(fmt.Sprintf("%x", sha256.Sum256(loaderBytes))))
 		})
+
+		It("should inject a secret into a VirtualMachineInstance", func() {
+			sevSecretOptions := &v1.SEVSecretOptions{
+				Header: "AAABBB",
+				Secret: "CCCDDD",
+			}
+			domainLaunchSecurityStateParameters := &libvirt.DomainLaunchSecurityStateParameters{
+				SEVSecret:          sevSecretOptions.Secret,
+				SEVSecretSet:       true,
+				SEVSecretHeader:    sevSecretOptions.Header,
+				SEVSecretHeaderSet: true,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			mockDomain.EXPECT().SetLaunchSecurityState(domainLaunchSecurityStateParameters, uint32(0)).Return(nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+			err := manager.InjectLaunchSecret(vmi, sevSecretOptions)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 	Context("test marking graceful shutdown", func() {
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {

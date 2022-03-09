@@ -537,6 +537,15 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/injectlaunchsecret")).
+			To(subresourceApp.SEVInjectLaunchSecretHandler).
+			Reads(v1.SEVSecretOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"SEVInjectLaunchSecret").
+			Doc("Inject SEV launch secret into a Virtual Machine").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -637,6 +646,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/sev/setupsession",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/sev/injectlaunchsecret",
 						Namespaced: true,
 					},
 				}

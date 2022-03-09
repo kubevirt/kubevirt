@@ -2567,3 +2567,11 @@ type SEVSessionOptions struct {
 	// Base64 encoded guest owner's Diffie-Hellman key.
 	DHCert string `json:"dhCert,omitempty"`
 }
+
+// SEVSecretOptions is used to provide a secret for a running guest.
+type SEVSecretOptions struct {
+	// Base64 encoded header needed to decrypt the secret.
+	Header string `json:"header,omitempty"`
+	// Base64 encoded encrypted launch secret.
+	Secret string `json:"secret,omitempty"`
+}

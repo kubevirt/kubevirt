@@ -1635,25 +1635,11 @@ func (app *SubresourceAPIApp) SEVQueryLaunchMeasurementHandler(request *restful.
 		return
 	}
 
-	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		if !vmi.IsRunning() {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
-		}
-		if !kutil.IsSEVAttestationRequested(vmi) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
-		}
-		condManager := controller.NewVirtualMachineInstanceConditionManager()
-		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotPaused))
-		}
-		return nil
-	}
-
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.SEVQueryLaunchMeasurementURI(vmi)
 	}
 
-	app.httpGetRequestHandler(request, response, validate, getURL, v1.SEVMeasurementInfo{})
+	app.httpGetRequestHandler(request, response, validateVMIForSEVAttestation, getURL, v1.SEVMeasurementInfo{})
 }
 
 func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, response *restful.Response) {
@@ -1726,4 +1712,36 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) SEVInjectLaunchSecretHandler(request *restful.Request, response *restful.Response) {
+	if !app.ensureSEVEnabled(response) {
+		return
+	}
+
+	if request.Request.Body == nil {
+		writeError(errors.NewBadRequest("Request with no body: SEV secret parameters are required"), response)
+		return
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SEVInjectLaunchSecretURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validateVMIForSEVAttestation, getURL, false)
+}
+
+// Validate a VMI for SEV attestation: Running, Paused and with Attestation requested.
+func validateVMIForSEVAttestation(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+	if !vmi.IsRunning() {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+	}
+	if !kutil.IsSEVAttestationRequested(vmi) {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
+	}
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotPaused))
+	}
+	return nil
 }

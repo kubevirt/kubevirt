@@ -299,6 +299,14 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(fetchedSEVMeasurementInfo).To(Equal(sevMeasurementInfo))
 		})
 
+		It("should inject a launch secret into a vmi", func() {
+			sevSecretOptions := &v1.SEVSecretOptions{}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().InjectLaunchSecret(vmi, sevSecretOptions).Return(nil)
+			err := client.InjectLaunchSecret(vmi, sevSecretOptions)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"
