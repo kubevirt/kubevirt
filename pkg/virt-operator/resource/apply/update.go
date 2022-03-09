@@ -36,7 +36,6 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 
 	// create/update API Deployments
 	for _, deployment := range r.targetStrategy.ApiDeployments() {
-		deployment := deployment.DeepCopy()
 		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err
