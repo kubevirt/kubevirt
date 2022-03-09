@@ -43,7 +43,6 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
-  export KUBEVIRT_NUM_SECONDARY_NICS=1
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
   fi
@@ -56,6 +55,8 @@ elif [[ $TARGET =~ sig-compute-realtime ]]; then
   export KUBEVIRT_REALTIME_SCHEDULER=true
 elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
+  export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then

@@ -914,53 +914,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 		})
 
-		Context("[Serial]with a dedicated migration network", func() {
-			BeforeEach(func() {
-				virtClient, err = kubecli.GetKubevirtClient()
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Creating the Network Attachment Definition")
-				nad := tests.GenerateMigrationCNINetworkAttachmentDefinition()
-				_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.TODO(), nad, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
-
-				By("Setting it as the migration network in the KubeVirt CR")
-				tests.SetDedicatedMigrationNetwork(nad.Name)
-			})
-			AfterEach(func() {
-				By("Clearing the migration network in the KubeVirt CR")
-				tests.ClearDedicatedMigrationNetwork()
-
-				By("Deleting the Network Attachment Definition")
-				nad := tests.GenerateMigrationCNINetworkAttachmentDefinition()
-				err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
-			})
-			It("Should migrate over that network", func() {
-				vmi := libvmi.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				)
-
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-
-				By("Starting the migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-				By("Checking if the migration happened, and over the right network")
-				vmi = tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-				Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("172.21.42."), "The migration did not appear to go over the dedicated migration network")
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the VMI")
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-			})
-		})
-
 		Context("MTU verification", func() {
 			var vmi *v1.VirtualMachineInstance
 			var anotherVmi *v1.VirtualMachineInstance
