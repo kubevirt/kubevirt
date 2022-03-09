@@ -197,6 +197,10 @@ var _ = Describe("Pool", func() {
 			syncCaches(stop)
 		})
 
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
 		addPool := func(pool *poolv1.VirtualMachinePool) {
 			mockQueue.ExpectAdds(1)
 			poolSource.Add(pool)
@@ -296,7 +300,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(newPoolRevision)
 
 			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(0)
-			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Update(gomock.Any()).MaxTimes(1).Do(func(arg interface{}) {
 				newVM := arg.(*v1.VirtualMachine)
 				revisionName := newVM.Labels[virtv1.VirtualMachinePoolRevisionName]
 				Expect(revisionName).To(Equal(newPoolRevision.Name))

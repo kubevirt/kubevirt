@@ -154,6 +154,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
@@ -624,7 +628,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return &vmi, nil
-					})
+					}).AnyTimes()
 				vmClient.EXPECT().Patch(vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
@@ -686,7 +690,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name))
+			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name)).AnyTimes()
 
 			app.RestartVMRequestHandler(request, response)
 
@@ -742,7 +746,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				patchedVM := vm.DeepCopy()
 				patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
 
-				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
+				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).AnyTimes()
 
 				if addOpts != nil {
 					vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -750,7 +754,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 							return patchedVM, nil
-						})
+						}).AnyTimes()
 					app.VMAddVolumeRequestHandler(request, response)
 				} else {
 					vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -777,7 +781,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					},
 				})
 
-				vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 
 				if addOpts != nil {
 					vmiClient.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -785,7 +789,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 							return vmi, nil
-						})
+						}).AnyTimes()
 					app.VMIAddVolumeRequestHandler(request, response)
 				} else {
 					vmiClient.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -793,7 +797,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 							return vmi, nil
-						})
+						}).AnyTimes()
 					app.VMIRemoveVolumeRequestHandler(request, response)
 				}
 			}
