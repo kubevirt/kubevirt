@@ -123,7 +123,7 @@ function up() {
 
     # Copy k8s config and kubectl
     # Workaround https://github.com/containers/conmon/issues/315 by not dumping the file to stdout for the time being
-    if [ ${_cri_bin} == "podman" ]; then
+    if [[ ${_cri_bin} = podman* ]]; then
         ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl /kubevirtci_config/.kubectl
         ${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf /kubevirtci_config/.kubeconfig
     else
