@@ -111,6 +111,7 @@ type LauncherClient interface {
 	SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
+	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 }
 
 type VirtLauncherClient struct {
@@ -825,4 +826,30 @@ func (c *VirtLauncherClient) GetLaunchMeasurement(vmi *v1.VirtualMachineInstance
 	}
 
 	return sevMeasurementInfo, nil
+}
+
+func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, sevSecretOptions *v1.SEVSecretOptions) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(sevSecretOptions)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.InjectLaunchSecretRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+
+	response, err := c.v1client.InjectLaunchSecret(ctx, request)
+
+	return handleError(err, "InjectLaunchSecret", response)
 }

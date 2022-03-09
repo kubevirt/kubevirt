@@ -963,3 +963,11 @@ func (SEVSessionOptions) SwaggerDoc() map[string]string {
 		"dhCert":  "Base64 encoded guest owner's Diffie-Hellman key.",
 	}
 }
+
+func (SEVSecretOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "SEVSecretOptions is used to provide a secret for a running guest.",
+		"header": "Base64 encoded header needed to decrypt the secret.",
+		"secret": "Base64 encoded encrypted launch secret.",
+	}
+}

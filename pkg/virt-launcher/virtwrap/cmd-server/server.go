@@ -698,6 +698,29 @@ func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIReq
 	return launchMeasurementResponse, nil
 }
 
+func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLaunchSecretRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	var sevSecretOptions v1.SEVSecretOptions
+	if err := json.Unmarshal(request.Options, &sevSecretOptions); err != nil {
+		response.Success = false
+		response.Message = "No valid secret options present in command server request"
+		return response, nil
+	}
+
+	if err := l.domainManager.InjectLaunchSecret(vmi, &sevSecretOptions); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to inject SEV launch secret")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	return response, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit

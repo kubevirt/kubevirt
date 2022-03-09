@@ -32,6 +32,7 @@ service Cmd {
   rpc SyncVirtualMachineCPUs(VMIRequest) returns (Response) {}
   rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
   rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
+  rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
 }
 
 message QemuVersionResponse {
@@ -189,4 +190,9 @@ message SEVInfoResponse {
 message LaunchMeasurementResponse {
   Response response = 1;
   bytes launchMeasurement = 2;
+}
+
+message InjectLaunchSecretRequest {
+    VMI vmi = 1;
+    bytes options = 2;
 }

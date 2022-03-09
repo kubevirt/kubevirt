@@ -2320,6 +2320,26 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		})
+
+		It("Should allow to inject SEV launch secret into a paused VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/sev/injectlaunchsecret"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, ""),
+				),
+			)
+
+			sevSecretOptions := &v1.SEVSecretOptions{}
+			body, err := json.Marshal(sevSecretOptions)
+			Expect(err).ToNot(HaveOccurred())
+			request.Request.Body = &readCloserWrapper{bytes.NewReader(body)}
+
+			expectVMI(Running, Paused, withSEVAttestation)
+
+			app.SEVInjectLaunchSecretHandler(request, response)
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
 	})
 
 	AfterEach(func() {

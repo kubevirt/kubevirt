@@ -483,6 +483,20 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	It("should inject SEV launch secret into a VirtualMachineInstance", func() {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PUT", path.Join(subVMIPath, "sev/injectlaunchsecret")),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+		))
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVInjectLaunchSecret("testvm", &v1.SEVSecretOptions{})
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})

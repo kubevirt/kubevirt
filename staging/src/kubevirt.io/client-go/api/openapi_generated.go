@@ -454,6 +454,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SEVMeasurementInfo":                                                 schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPlatformInfo":                                                    schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPolicy":                                                          schema_kubevirtio_api_core_v1_SEVPolicy(ref),
+		"kubevirt.io/api/core/v1.SEVSecretOptions":                                                   schema_kubevirtio_api_core_v1_SEVSecretOptions(ref),
 		"kubevirt.io/api/core/v1.SEVSessionOptions":                                                  schema_kubevirtio_api_core_v1_SEVSessionOptions(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredential":                                       schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
@@ -21244,6 +21245,33 @@ func schema_kubevirtio_api_core_v1_SEVPolicy(ref common.ReferenceCallback) commo
 						SchemaProps: spec.SchemaProps{
 							Description: "SEV-ES is required. Defaults to false.",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVSecretOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SEVSecretOptions is used to provide a secret for a running guest.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"header": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded header needed to decrypt the secret.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64 encoded encrypted launch secret.",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},

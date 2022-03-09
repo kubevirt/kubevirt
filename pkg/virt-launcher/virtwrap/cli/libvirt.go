@@ -533,6 +533,7 @@ type VirDomain interface {
 	PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error
 	SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error
 	GetLaunchSecurityInfo(flags uint32) (*libvirt.DomainLaunchSecurityParameters, error)
+	SetLaunchSecurityState(params *libvirt.DomainLaunchSecurityStateParameters, flags uint32) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

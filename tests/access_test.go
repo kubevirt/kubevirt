@@ -372,6 +372,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "sev/setupsession",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("default")),
+			Entry("on vmi sev/injectlaunchsecret",
+				"virtualmachineinstances", "sev/injectlaunchsecret",
+				allowUpdateFor("admin", "edit"),
+				denyAllFor("default")),
 		)
 	})
 
@@ -486,6 +490,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Entry("[test_id:2921]given a vmi (sev/fetchcertchain)", "virtualmachineinstances/sev/fetchcertchain", "get"),
 				Entry("[test_id:2921]given a vmi (sev/querylaunchmeasurement)", "virtualmachineinstances/sev/querylaunchmeasurement", "get"),
 				Entry("[test_id:2921]given a vmi (sev/setupsession)", "virtualmachineinstances/sev/setupsession", "update"),
+				Entry("[test_id:2921]given a vmi (sev/injectlaunchsecret)", "virtualmachineinstances/sev/injectlaunchsecret", "update"),
 			)
 		})
 	})
