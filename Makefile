@@ -187,7 +187,9 @@ fossa:
 	hack/dockerized "FOSSA_TOKEN_FILE=${FOSSA_TOKEN_FILE} ./hack/fossa.sh"
 
 format:
-	./hack/dockerized "hack/bazel-fmt.sh"	
+	./hack/dockerized "hack/bazel-fmt.sh"
+
+fmt: format
 
 .PHONY: \
 	build-verify \
@@ -221,4 +223,6 @@ format:
 	goveralls \
 	build-functests \
 	fossa \
-	realtime-perftest
+	realtime-perftest \
+	format \
+	fmt
