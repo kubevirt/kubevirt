@@ -85,6 +85,19 @@ func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine
 	return newVm, err
 }
 
+func (v *vm) GetWithExpandedSpec(name string) (*v1.VirtualMachine, error) {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "expand-spec")
+	newVm := &v1.VirtualMachine{}
+	err := v.restClient.Get().
+		RequestURI(uri).
+		Do(context.Background()).
+		Into(newVm)
+
+	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+
+	return newVm, err
+}
+
 // Update the VirtualMachine instance in the cluster in given namespace
 func (v *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	updatedVm := &v1.VirtualMachine{}

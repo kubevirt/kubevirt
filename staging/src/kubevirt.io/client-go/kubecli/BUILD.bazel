@@ -7,6 +7,7 @@ go_library(
         "generated_mock_kubevirt.go",
         "guestfs.go",
         "handler.go",
+        "instancetype.go",
         "kubecli.go",
         "kubevirt.go",
         "kubevirt_test_utils.go",

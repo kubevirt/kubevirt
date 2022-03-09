@@ -76,6 +76,7 @@ type KubevirtClient interface {
 	VirtualMachinePreference(namespace string) instancetypev1alpha1.VirtualMachinePreferenceInterface
 	VirtualMachineClusterPreference() instancetypev1alpha1.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
+	ExpandSpec() *ExpandSpec
 	ServerVersion() ServerVersionInterface
 	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
 	ClusterProfiler() *ClusterProfiler
@@ -276,6 +277,7 @@ type VirtualMachineInstancePresetInterface interface {
 // virtual machines inside the cluster
 type VirtualMachineInterface interface {
 	Get(name string, options *metav1.GetOptions) (*v1.VirtualMachine, error)
+	GetWithExpandedSpec(name string) (*v1.VirtualMachine, error)
 	List(opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
 	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)

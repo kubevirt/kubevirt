@@ -265,6 +265,16 @@ func (app *virtAPIApp) composeSubresources() {
 		stopRouteBuilder.ParameterNamed("body").Required(false)
 		subws.Route(stopRouteBuilder)
 
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("expand-spec")).
+			To(subresourceApp.ExpandSpecVMRequestHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-ExpandSpec").
+			Produces(restful.MIME_JSON).
+			Doc("Get VirtualMachine object with expanded instancetype and preference.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("freeze")).
 			To(subresourceApp.FreezeVMIRequestHandler).
 			Reads(v1.FreezeUnfreezeTimeout{}).
@@ -358,6 +368,16 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(definitions.PortForwardProtocolParameter(subws)).
 			Operation(version.Version + "vm-PortForwardWithProtocol").
 			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port."))
+
+		subws.Route(subws.PUT(definitions.SubResourcePath("expand-spec")).
+			To(subresourceApp.ExpandSpecRequestHandler).
+			Operation(version.Version+"ExpandSpec").
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Doc("Expands instancetype and preference into the passed VirtualMachine object.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
 		// An empty handler function would respond with HTTP OK by default
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("test")).
@@ -537,6 +557,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/migrate",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/expand-spec",
 						Namespaced: true,
 					},
 					{
