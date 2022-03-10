@@ -24,6 +24,7 @@ go_library(
     importpath = "kubevirt.io/client-go/kubecli",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",

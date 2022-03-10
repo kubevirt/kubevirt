@@ -23,7 +23,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/client-go/log"
+
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -35,7 +39,7 @@ type CloneCreateMutator struct {
 }
 
 func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if !webhookutils.ValidateRequestResource(ar.Request.Resource, clone.GroupName, clone.ResourceVMClonePlural) {
+	if resource := ar.Request.Resource; resource.Group != clone.GroupName || resource.Resource != clone.ResourceVMClonePlural {
 		err := fmt.Errorf("expect resource to be '%s'", clone.ResourceVMClonePlural)
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -68,6 +72,8 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	log.Log.Object(vmClone).V(4).Info(fmt.Sprintf("Mutating clone %s. Patch: %s", vmClone.Name, string(patchBytes)))
+
 	jsonPatchType := admissionv1.PatchTypeJSONPatch
 	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
@@ -77,4 +83,28 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 }
 
 func mutateClone(vmClone *clonev1alpha1.VirtualMachineClone) {
+	if vmClone.Spec.Target == nil {
+		vmClone.Spec.Target = generateDefaultTarget(&vmClone.Spec)
+	} else if vmClone.Spec.Target.Name == "" {
+		vmClone.Spec.Target.Name = generateTargetName(vmClone.Spec.Source.Name)
+	}
+}
+
+func generateTargetName(sourceName string) string {
+	const randomSuffixLength = 5
+	return fmt.Sprintf("clone-%s-%s", sourceName, rand.String(randomSuffixLength))
+}
+
+func generateDefaultTarget(cloneSpec *clonev1alpha1.VirtualMachineCloneSpec) (target *k8sv1.TypedLocalObjectReference) {
+	const defaultTargetKind = "VirtualMachine"
+
+	source := cloneSpec.Source
+
+	target = &k8sv1.TypedLocalObjectReference{
+		APIGroup: source.APIGroup,
+		Kind:     defaultTargetKind,
+		Name:     generateTargetName(source.Name),
+	}
+
+	return target
 }
