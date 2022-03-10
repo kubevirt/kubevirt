@@ -34,9 +34,11 @@ func WithCloudInitNoCloudUserData(data string, b64Encoding bool) Option {
 		volume := getVolume(vmi, diskName)
 		if b64Encoding {
 			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
+			volume.CloudInitNoCloud.UserData = ""
 			volume.CloudInitNoCloud.UserDataBase64 = encodedData
 		} else {
 			volume.CloudInitNoCloud.UserData = data
+			volume.CloudInitNoCloud.UserDataBase64 = ""
 		}
 	}
 }
