@@ -117,29 +117,36 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		currentConfiguration = kv.Spec.Configuration
 	}
 
-	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
+	Describe("[MTU_DEBUG] Multiple virtual machines connectivity using bridge binding interface", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 		var outboundVMI *v1.VirtualMachineInstance
-		var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
-		var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
+		//var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
+		//var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 
 		Context("with a test outbound VMI", func() {
 			BeforeEach(func() {
 				inboundVMI = libvmi.NewCirros()
-				outboundVMI = libvmi.NewCirros()
-				inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
-				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
+				outboundVMI = libvmi.NewFedora()
+				//	inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
+				//	inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
 
-				outboundVMI = runVMI(outboundVMI)
+				outboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(outboundVMI)
+				Expect(err).ToNot(HaveOccurred())
+				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, console.LoginToFedora)
 			})
 
-			table.DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				vmi := *vmiRef
-				if vmiHasCustomMacAddress(vmi) {
-					tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
+			table.DescribeTable("should be able to reach - fragment", func(vmiRef **v1.VirtualMachineInstance) {
+				var addr string
+				if vmiRef == nil {
+					addr = "kubevirt.io"
+				} else {
+					vmi := *vmiRef
+					if vmiHasCustomMacAddress(vmi) {
+						tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
+					}
+					vmi = runVMI(vmi)
+					addr = vmi.Status.Interfaces[0].IP
 				}
-				vmi = runVMI(vmi)
-				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0
 				ipHeaderSize := 28 // IPv4 specific
@@ -168,7 +175,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 				By("checking eth0 MTU inside the VirtualMachineInstance")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(outboundVMI)).To(Succeed())
+				Expect(console.LoginToFedora(outboundVMI)).To(Succeed())
 
 				addrShow := "ip address show eth0\n"
 				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
@@ -180,31 +187,152 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)).To(Succeed())
 
-				By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
+				By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance - fragment")
+				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "tracepath kubevirt.io\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 180)).To(Succeed())
 				// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
 				// we transferred its IP address under DHCP server control, so the
 				// only thing we can validate is connectivity between VMIs
 				//
 				// NOTE: cirros ping doesn't support -M do that could be used to
 				// validate end-to-end connectivity with Don't Fragment flag set
-				cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
-				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+				Expect(libnet.PingFromVMConsole(outboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize))).To(Succeed())
+
+				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance - fragment")
+				Expect(libnet.PingFromVMConsole(outboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1))).ToNot(Succeed())
+			},
+				//	table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				//	table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
+				//	table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+				table.Entry("[test_id:1542]the internet", nil),
+			)
+
+			It("should be able to reach - no fragment", func() {
+				addr := "kubevirt.io"
+
+				payloadSize := 0
+				ipHeaderSize := 28 // IPv4 specific
+
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(outboundVMI, util.NamespaceTestDefault)
+				var mtu int
+				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
+					By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
+					output, err := tests.ExecuteCommandOnPod(
+						virtClient,
+						vmiPod,
+						"compute",
+						[]string{"cat", fmt.Sprintf("/sys/class/net/%s/mtu", ifaceName)},
+					)
+					log.Log.Infof("%s mtu is %v", ifaceName, output)
+					Expect(err).ToNot(HaveOccurred())
+
+					output = strings.TrimSuffix(output, "\n")
+					mtu, err = strconv.Atoi(output)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(mtu > 1000).To(BeTrue())
+
+					payloadSize = mtu - ipHeaderSize
+				}
+				expectedMtuString := fmt.Sprintf("mtu %d", mtu)
+
+				By("checking eth0 MTU inside the VirtualMachineInstance")
+				Expect(console.LoginToFedora(outboundVMI)).To(Succeed())
+
+				addrShow := "ip address show eth0\n"
+				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: cmdCheck},
+					&expect.BSnd{S: addrShow},
+					&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 180)).To(Succeed())
+
+				By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance - no fragment")
+				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "tracepath kubevirt.io\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: tests.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
-				}, 180)
+				}, 180)).To(Succeed())
+				// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
+				// we transferred its IP address under DHCP server control, so the
+				// only thing we can validate is connectivity between VMIs
+				Expect(libnet.PingFromVMConsole(outboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize), "-M do")).To(Succeed())
+
+				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance - no fragment")
+				Expect(libnet.PingFromVMConsole(outboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
+			})
+
+			It("should be able to reach - cirros", func() {
+				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
-			},
-				table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
-				table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
-				table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
-			)
+				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+
+				addr := "kubevirt.io"
+				payloadSize := 0
+				ipHeaderSize := 28 // IPv4 specific
+
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(inboundVMI, util.NamespaceTestDefault)
+				var mtu int
+				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
+					By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
+					output, err := tests.ExecuteCommandOnPod(
+						virtClient,
+						vmiPod,
+						"compute",
+						[]string{"cat", fmt.Sprintf("/sys/class/net/%s/mtu", ifaceName)},
+					)
+					log.Log.Infof("%s mtu is %v", ifaceName, output)
+					Expect(err).ToNot(HaveOccurred())
+
+					output = strings.TrimSuffix(output, "\n")
+					mtu, err = strconv.Atoi(output)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(mtu > 1000).To(BeTrue())
+
+					payloadSize = mtu - ipHeaderSize
+				}
+				expectedMtuString := fmt.Sprintf("mtu %d", mtu)
+
+				By("checking eth0 MTU inside the VirtualMachineInstance")
+				Expect(console.LoginToCirros(inboundVMI)).To(Succeed())
+
+				addrShow := "ip address show eth0\n"
+				Expect(console.SafeExpectBatch(inboundVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: addrShow},
+					&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 180)).To(Succeed())
+
+				// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
+				// we transferred its IP address under DHCP server control, so the
+				// only thing we can validate is connectivity between VMIs
+				//
+				// NOTE: cirros ping doesn't support -M do that could be used to
+				// validate end-to-end connectivity with Don't Fragment flag set
+				By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance - cirros fragment")
+				Expect(libnet.PingFromVMConsole(inboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize))).To(Succeed())
+
+				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance - cirros fragment")
+				Expect(libnet.PingFromVMConsole(inboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1))).ToNot(Succeed())
+			})
 		})
 
-		Context("with propagated IP from a pod", func() {
+		XContext("with propagated IP from a pod", func() {
 			BeforeEach(func() {
 				inboundVMI = libvmi.NewCirros()
 				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
