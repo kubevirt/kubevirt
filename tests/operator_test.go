@@ -91,7 +91,7 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
-var _ = Describe("[Serial][sig-operator]Operator", Ordered, func() {
+var _ = Describe("[Serial][sig-operator]Operator", func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
@@ -147,7 +147,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Ordered, func() {
 		fetchVirtHandlerCommand                func() string
 	)
 
-	BeforeAll(func() {
+	tests.DeprecatedBeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util2.PanicOnError(err)
 		config, err := kubecli.GetKubevirtClientConfig()
