@@ -19,9 +19,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
+type Event string
+
 const (
 	defaultVerbosityLevel = 2
 	unknownTypeErrFmt     = "clone controller expected object of type %s but found object of unknown type"
+
+	SnapshotCreated Event = "SnapshotCreated"
+	SnapshotReady   Event = "SnapshotReady"
+	RestoreCreated  Event = "RestoreCreated"
+	RestoreReady    Event = "RestoreReady"
+	TargetVMCreated Event = "TargetVMCreated"
+	SnapshotDeleted Event = "SnapshotDeleted"
 )
 
 type VMCloneController struct {
@@ -160,11 +169,14 @@ func (ctrl *VMCloneController) Execute() bool {
 	}
 	defer ctrl.vmCloneQueue.Done(key)
 
-	err := ctrl.execute(key.(string))
+	err, reenqueueInfo := ctrl.execute(key.(string))
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing clone %v", key)
 		ctrl.vmCloneQueue.AddRateLimited(key)
+	} else if reenqueueInfo.toReenqueue() {
+		log.Log.Infof("reenqueuing clone %v. Reason: %s", key, reenqueueInfo.reenqueueReason)
+		ctrl.vmCloneQueue.AddAfter(key, 1*time.Second)
 	} else {
 		log.Log.V(defaultVerbosityLevel).Infof("processed clone %v", key)
 		ctrl.vmCloneQueue.Forget(key)
