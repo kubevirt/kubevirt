@@ -240,6 +240,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				for idx := 0; idx < numVmis; idx++ {
 					dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 
 					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
