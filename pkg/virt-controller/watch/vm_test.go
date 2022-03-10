@@ -1347,6 +1347,20 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
 		})
 
+		It("vmi labels should have same labels with vm.Spec.Template.ObjectMeta.Labels", func() {
+			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			labels := vm1.GetLabels()
+			if labels == nil {
+				labels = make(map[string]string)
+			}
+
+			labels["testvm1"] = "testvm1"
+			vm1.SetLabels(labels)
+			vmi1 := controller.setupVMIFromVM(vm1)
+
+			Expect(vm1.Spec.Template.ObjectMeta.Labels).To(Equal(vmi1.ObjectMeta.Labels))
+		})
+
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewRandom().String()
 			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")

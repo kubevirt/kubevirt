@@ -1100,7 +1100,7 @@ func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, erro
 	return cr.Name, nil
 }
 
-// setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
+// setupVMIFromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
@@ -1117,8 +1117,6 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 
 	setupStableFirmwareUUID(vm, vmi)
 
-	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
-	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
 	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
