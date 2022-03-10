@@ -3821,6 +3821,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	Context("[Serial]with a dedicated migration network", func() {
 		BeforeEach(func() {
+			checks.SkipIfMigrationIsNotPossible()
+
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 
