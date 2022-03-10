@@ -20,7 +20,6 @@
 package virthandler
 
 import (
-	"context"
 	"encoding/json"
 	goerror "errors"
 	"fmt"
@@ -2804,18 +2803,13 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 
 func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineInstance) error {
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == v1.CPUModeHostModel {
-		node, err := d.clientset.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		if !nodeHasHostModelLabel(node) {
-			err = fmt.Errorf("the node \"%s\" has no (%s/...) label to allow migration with host-model", node.Name, v1.HostModelCPULabel)
+		// Host CPU model was successfully loaded by NodeLabeller if capabilities is set
+		if d.capabilities == nil {
+			err := fmt.Errorf("the node \"%s\" does not allow migration with host-model", vmi.Status.NodeName)
 			log.Log.Object(vmi).Errorf(err.Error())
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -2828,15 +2822,6 @@ func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount, d
 	}
 
 	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
-}
-
-func nodeHasHostModelLabel(node *k8sv1.Node) bool {
-	for key, _ := range node.Labels {
-		if strings.HasPrefix(key, v1.HostModelCPULabel) {
-			return true
-		}
-	}
-	return false
 }
 
 func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
