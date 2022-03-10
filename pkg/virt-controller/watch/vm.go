@@ -723,8 +723,10 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
-		err := c.stopVMI(vm, vmi)
-		return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+		if err := c.stopVMI(vm, vmi); err != nil {
+			return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+		}
+		return nil
 	case virtv1.RunStrategyOnce:
 		if vmi == nil {
 			log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
