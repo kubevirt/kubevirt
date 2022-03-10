@@ -160,7 +160,7 @@ func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.N
       "cniVersion": "0.3.1",
       "name": "migration-bridge",
       "type": "macvlan",
-      "master": "eth1",
+      "master": "` + flags.MigrationNetworkNIC + `",
       "mode": "bridge",
       "ipam": {
         "type": "whereabouts",
