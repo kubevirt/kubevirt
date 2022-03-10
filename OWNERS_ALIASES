@@ -14,7 +14,6 @@ aliases:
       - jean-edouard
       - mhenriks
       - enp0s3
-      - zcahana
   emeritus_approvers:
       - cynepco3hahue
       - slintes
@@ -22,6 +21,7 @@ aliases:
       - SchSeba
       - codificat
       - ashleyschuett
+      - zcahana
   code-reviewers:
       - davidvossel
       - rmohr
