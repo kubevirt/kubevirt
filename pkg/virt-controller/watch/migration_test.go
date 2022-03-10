@@ -1424,26 +1424,54 @@ var _ = Describe("Migration watcher", func() {
 				Expect(matchedPolicy).To(BeNil())
 			})
 
-			It("label with an empty value should match any value", func() {
-				const labelKey = "mp-key-0"
-				labelValue := rand.String(5)
+			Context("wildcard selectors", func() {
 
-				By("Defining a policy that matches a key with empty value")
-				policy := kubecli.NewMinimalMigrationPolicy("testpolicy")
-				policy.Spec.Selectors = &migrationsv1.Selectors{
-					VirtualMachineInstanceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{labelKey: ""},
-					},
+				type selectorType int64
+				const (
+					vmiSelectorType       selectorType = iota
+					namespaceSelectorType selectorType = iota
+				)
+
+				getWildcardSelectors := func(labelKey string, selectorType selectorType) *migrationsv1.Selectors {
+					labelSelector := &metav1.LabelSelector{MatchLabels: map[string]string{labelKey: ""}}
+					selectors := &migrationsv1.Selectors{}
+
+					switch selectorType {
+					case vmiSelectorType:
+						selectors.VirtualMachineInstanceSelector = labelSelector
+					case namespaceSelectorType:
+						selectors.NamespaceSelector = labelSelector
+					}
+					return selectors
 				}
 
-				By(fmt.Sprintf("Adding a label with same key but random value (%s) to vmi", labelValue))
-				vmi.Labels = map[string]string{labelKey: labelValue}
+				table.DescribeTable("with an empty value should match any value", func(selectorType selectorType) {
+					Expect(selectorType).To(Or(Equal(vmiSelectorType), Equal(namespaceSelectorType)), "selector type is unknown")
 
-				By("Expecting the policy to match")
-				policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
-				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
-				Expect(matchedPolicy).ToNot(BeNil())
-				Expect(matchedPolicy.Name).To(Equal(policy.Name))
+					const labelKey = "mp-key-0"
+					labelValue := rand.String(5)
+
+					By("Defining a policy that matches a key with empty value")
+					policy := kubecli.NewMinimalMigrationPolicy("testpolicy")
+					policy.Spec.Selectors = getWildcardSelectors(labelKey, selectorType)
+
+					By(fmt.Sprintf("Adding a label with same key but random value: %s", labelValue))
+					switch selectorType {
+					case vmiSelectorType:
+						vmi.Labels = map[string]string{labelKey: labelValue}
+					case namespaceSelectorType:
+						namespace.Labels = map[string]string{labelKey: labelValue}
+					}
+
+					By("Expecting the policy to match")
+					policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
+					matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+					Expect(matchedPolicy).ToNot(BeNil())
+					Expect(matchedPolicy.Name).To(Equal(policy.Name))
+				},
+					table.Entry("with vmi selector", vmiSelectorType),
+					table.Entry("with namespace selector", namespaceSelectorType),
+				)
 			})
 
 			It("when no policies exist, MatchPolicy() should return nil", func() {
