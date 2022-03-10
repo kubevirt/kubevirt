@@ -22,6 +22,13 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -35,21 +42,29 @@ import (
 
 // VirtualMachineCloneAdmitter validates VirtualMachineClones
 type VirtualMachineCloneAdmitter struct {
+	Config *virtconfig.ClusterConfig
 	Client kubecli.KubevirtClient
 }
 
 // NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
-func NewVMCloneAdmitter(client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
+func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
+		Config: config,
 		Client: client,
 	}
 }
 
 // Admit validates an AdmissionReview
 func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if ar.Request.Resource.Group != clonev1alpha1.VirtualMachineCloneKind.Group ||
-		ar.Request.Resource.Resource != clone.ResourceVMClonePlural {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
+	if ar.Request.Resource.Group != clonev1alpha1.VirtualMachineCloneKind.Group {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected group: %+v. Expected group: %+v", ar.Request.Resource.Group, clonev1alpha1.VirtualMachineCloneKind.Group))
+	}
+	if ar.Request.Resource.Resource != clone.ResourceVMClonePlural {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clone.ResourceVMClonePlural))
+	}
+
+	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate is not enabled"))
 	}
 
 	vmClone := &clonev1alpha1.VirtualMachineClone{}
@@ -60,6 +75,21 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 
 	var causes []metav1.StatusCause
 
+	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "Annotations"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "Labels"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := validateSource(admitter.Client, vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := validateSourceAndTargetKind(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -68,4 +98,145 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 		Allowed: true,
 	}
 	return &reviewResponse
+}
+
+func validateFilters(filters []string, fieldName string) (causes []metav1.StatusCause) {
+	if filters == nil {
+		return nil
+	}
+
+	addCause := func(message string) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: message,
+			Field:   k8sfield.NewPath("spec").Child(fieldName).String(),
+		})
+	}
+	const negationChar = "!"
+	const wildcardChar = "*"
+
+	for _, filter := range filters {
+		if len(filter) == 1 {
+			if filter == negationChar {
+				addCause("a negation character is not a valid filter")
+			}
+			continue
+		}
+
+		const errPattern = "filter %s is invalid: cannot contain a %s character (%s) at any place that is not the beginning"
+
+		if filterWithoutFirstChar := filter[1:]; strings.Contains(filterWithoutFirstChar, negationChar) {
+			addCause(fmt.Sprintf(errPattern, filter, "negation", negationChar))
+		}
+
+		if filterWithoutLastChar := filter[:len(filter)-1]; strings.Contains(filterWithoutLastChar, wildcardChar) {
+			addCause(fmt.Sprintf(errPattern, filter, "wildcard", wildcardChar))
+		}
+	}
+
+	return causes
+}
+
+func validateSourceAndTargetKind(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+	var causes []metav1.StatusCause = nil
+	sourceField := k8sfield.NewPath("spec")
+
+	supportedSourceTypes := []string{"VirtualMachine"}
+	supportedTargetTypes := []string{"VirtualMachine"}
+
+	if !doesSliceContainStr(supportedSourceTypes, vmClone.Spec.Source.Kind) {
+		causes = []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source kind is not supported",
+			Field:   sourceField.Child("Source").Child("Kind").String(),
+		}}
+	}
+
+	if vmClone.Spec.Target != nil && !doesSliceContainStr(supportedTargetTypes, vmClone.Spec.Target.Kind) {
+		if causes == nil {
+			causes = []metav1.StatusCause{}
+		}
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Target kind is not supported",
+			Field:   sourceField.Child("Target").Child("Kind").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+	var causes []metav1.StatusCause = nil
+	sourceField := k8sfield.NewPath("spec")
+	source := vmClone.Spec.Source
+
+	if source == nil {
+		causes = []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source cannot be nil",
+			Field:   sourceField.Child("Source").String(),
+		}}
+		return causes
+	}
+
+	if source.Kind == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source's Kind cannot be empty",
+			Field:   sourceField.Child("Source").String(),
+		})
+	}
+	if source.Name == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source's name cannot be empty",
+			Field:   sourceField.Child("Source").Child("Name").String(),
+		})
+	} else {
+		causes = append(causes, verifySourceExists(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
+	}
+	if source.APIGroup == nil || *source.APIGroup == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source's APIGroup cannot be empty",
+			Field:   sourceField.Child("Source").Child("APIGroup").String(),
+		})
+	}
+
+	return causes
+}
+
+func doesSliceContainStr(slice []string, str string) (isFound bool) {
+	for _, curSliceStr := range slice {
+		if curSliceStr == str {
+			isFound = true
+			break
+		}
+	}
+
+	return isFound
+}
+
+func verifySourceExists(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
+	_, err := client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Virtual Machine %s does not exist in namespace %s", name, namespace),
+				Field:   sourceField.String(),
+			},
+		}
+	} else if err != nil {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("error occurred while trying to get source VM: %v", err),
+				Field:   sourceField.String(),
+			},
+		}
+	}
+
+	return nil
 }

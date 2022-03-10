@@ -110,6 +110,6 @@ func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, virtCli
 	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter(virtCli))
 }
 
-func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(virtCli))
+func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(clusterConfig, virtCli))
 }
