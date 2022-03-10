@@ -106,7 +106,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
 	}
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
-	// Set listenAddres to localhost if proxy-only flag is not set
+	// Set listenAddress to localhost if proxy-only flag is not set
 	if !proxyOnly {
 		listenAddress = "127.0.0.1"
 		glog.V(2).Infof("--proxy-only is set to false, listening on %s\n", listenAddress)
