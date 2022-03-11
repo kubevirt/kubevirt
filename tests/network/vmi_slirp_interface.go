@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = SIGDescribe("Slirp Networking", func() {
@@ -74,6 +75,8 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
+
+		libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 
 		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration

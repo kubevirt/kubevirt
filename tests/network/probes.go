@@ -69,8 +69,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
 		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
+			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
 			if ipFamily == corev1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
 				defer func() {
@@ -163,9 +163,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
 		table.DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool) {
-
+			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
 			if ipFamily == corev1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
 
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)

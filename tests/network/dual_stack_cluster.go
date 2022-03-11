@@ -4,9 +4,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = SIGDescribe("Dual stack cluster network configuration", func() {
@@ -24,7 +25,7 @@ var _ = SIGDescribe("Dual stack cluster network configuration", func() {
 				Skip("user requested the dual stack check on the live cluster to be skipped")
 			}
 
-			isClusterDualStack, err := libnet.IsClusterDualStack(virtClient)
+			isClusterDualStack, err := cluster.DualStack(virtClient)
 			Expect(err).NotTo(HaveOccurred(), "must be able to infer the dual stack configuration from the live cluster")
 			Expect(isClusterDualStack).To(BeTrue(), "the live cluster should be in dual stack mode")
 		})

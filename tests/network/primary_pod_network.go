@@ -90,6 +90,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					}
 				)
 				BeforeEach(func() {
+					libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 					var err error
 
 					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName))

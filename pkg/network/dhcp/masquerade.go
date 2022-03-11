@@ -48,15 +48,22 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	dhcpConfig.Subdomain = d.subdomain
 	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
 
-	ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv4)
+	ipv4Enabled, err := d.handler.HasIPv4GlobalUnicastAddress(d.podInterfaceName)
 	if err != nil {
+		log.Log.Reason(err).Errorf("failed to verify whether ipv4 is configured on %s", d.podInterfaceName)
 		return nil, err
 	}
-	dhcpConfig.IP = *ipv4
-	dhcpConfig.AdvertisingIPAddr = ipv4Gateway.IP.To4()
-	dhcpConfig.Gateway = ipv4Gateway.IP.To4()
+	if ipv4Enabled {
+		ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv4)
+		if err != nil {
+			return nil, err
+		}
+		dhcpConfig.IP = *ipv4
+		dhcpConfig.AdvertisingIPAddr = ipv4Gateway.IP.To4()
+		dhcpConfig.Gateway = ipv4Gateway.IP.To4()
+	}
 
-	ipv6Enabled, err := d.handler.IsIpv6Enabled(d.podInterfaceName)
+	ipv6Enabled, err := d.handler.HasIPv6GlobalUnicastAddress(d.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", d.podInterfaceName)
 		return nil, err
