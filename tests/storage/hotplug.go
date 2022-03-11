@@ -812,7 +812,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				By("Verifying the volume is attached and usable")
 				getVmiConsoleAndLogin(vmi)
 				targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
-				Expect(len(targets)).To(Equal(1))
+				Expect(targets).To(HaveLen(1))
 
 				By("stopping VM")
 				vm = tests.StopVirtualMachine(vm)
@@ -986,7 +986,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				By("Verifying the volume is attached and usable")
 				getVmiConsoleAndLogin(vmi)
 				targets := verifyHotplugAttachedAndUseable(vmi, []string{volumeName})
-				Expect(len(targets) == 1).To(BeTrue())
+				Expect(targets).To(HaveLen(1))
 
 				By("Starting the migration multiple times")
 				for i := 0; i < numberOfMigrations; i++ {
@@ -998,7 +998,7 @@ var _ = SIGDescribe("Hotplug", func() {
 							sourceAttachmentPods = append(sourceAttachmentPods, volumeStatus.HotplugVolume.AttachPodName)
 						}
 					}
-					Expect(len(sourceAttachmentPods) == 1).To(BeTrue())
+					Expect(sourceAttachmentPods).To(HaveLen(1))
 
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)

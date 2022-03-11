@@ -1033,7 +1033,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(vmi.Spec.Volumes)).To(Equal(2))
+				Expect(vmi.Spec.Volumes).To(HaveLen(2))
 				foundHotPlug := false
 				foundTempHotPlug := false
 				for _, volume := range vmi.Spec.Volumes {
