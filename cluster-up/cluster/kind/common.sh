@@ -94,7 +94,7 @@ function _run_registry() {
         docker rm $REGISTRY_NAME || true
         sleep 5
     done
-    docker run -d --network=${network} -p $HOST_PORT:5000  --restart=always --name $REGISTRY_NAME registry:2
+    docker run -d --network=${network} -p $HOST_PORT:5000  --restart=always --name $REGISTRY_NAME quay.io/libpod/registry:2.7
 }
 
 function _configure_registry_on_node() {
