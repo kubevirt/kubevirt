@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	v12 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -56,23 +56,8 @@ func NewLifecycleHandler(recorder record.EventRecorder, vmiInformer cache.Shared
 }
 
 func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
-		return
-	}
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -87,23 +72,8 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 }
 
 func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
-		return
-	}
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -118,17 +88,15 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 }
 
 func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
 		return
 	}
 
-	unfreezeTimeout := &v12.FreezeUnfreezeTimeout{}
+	unfreezeTimeout := &v1.FreezeUnfreezeTimeout{}
 	if request.Request.Body == nil {
 		log.Log.Object(vmi).Reason(err).Error("No unfreeze timeout in freeze request")
-		response.WriteError(code, fmt.Errorf("failed to retrieve unfreeze timeout"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve unfreeze timeout"))
 		return
 	}
 
@@ -139,26 +107,13 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 		break
 	default:
 		log.Log.Object(vmi).Reason(err).Error("Failed to unmarshal unfreeze timeout in freeze request")
-		response.WriteError(code, fmt.Errorf("failed to unmarshal unfreeze timeout"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to unmarshal unfreeze timeout"))
 		return
 	}
 
 	if unfreezeTimeout.UnfreezeTimeout == nil {
 		log.Log.Object(vmi).Reason(err).Error("Unfreeze timeout in freeze request is not set")
-		response.WriteError(code, fmt.Errorf("Unfreeze timeout in freeze request is not set"))
-		return
-	}
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("Unfreeze timeout in freeze request is not set"))
 		return
 	}
 
@@ -174,23 +129,8 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 }
 
 func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
-		return
-	}
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -205,23 +145,8 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 }
 
 func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
-		return
-	}
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -238,27 +163,12 @@ func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response
 
 func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *restful.Response) {
 	log.Log.Info("Retreiving guestinfo")
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
 		return
 	}
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
 
 	guestInfo, err := client.GetGuestInfo()
 	if err != nil {
@@ -272,27 +182,12 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 }
 
 func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
 		return
 	}
 
 	log.Log.Object(vmi).Infof("Retreiving userlist from %s", vmi.Name)
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
 
 	userList, err := client.GetUsers()
 	if err != nil {
@@ -305,34 +200,43 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 }
 
 func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *restful.Response) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
-		response.WriteError(code, err)
 		return
 	}
 
 	log.Log.Object(vmi).Infof("Retreiving filesystem list from %s", vmi.Name)
 
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
 	fsList, err := client.GetFilesystems()
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to get guest info")
+		log.Log.Object(vmi).Reason(err).Error("Failed to get file systems")
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
 	response.WriteEntity(fsList)
+}
+
+func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, response *restful.Response) (*v1.VirtualMachineInstance, cmdclient.LauncherClient, error) {
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return nil, nil, err
+	}
+
+	sockFile, err := cmdclient.FindSocketOnHost(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
+		response.WriteError(http.StatusInternalServerError, err)
+		return nil, nil, err
+	}
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
+		response.WriteError(http.StatusInternalServerError, err)
+		return nil, nil, err
+	}
+
+	return vmi, client, nil
 }
