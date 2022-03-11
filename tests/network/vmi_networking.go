@@ -318,14 +318,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)).To(Succeed())
 
-				Expect(console.SafeExpectBatch(inboundVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "tracepath kubevirt.io\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 180)).To(Succeed())
 				// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
 				// we transferred its IP address under DHCP server control, so the
 				// only thing we can validate is connectivity between VMIs
