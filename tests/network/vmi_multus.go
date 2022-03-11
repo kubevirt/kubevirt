@@ -178,7 +178,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		tests.BeforeTestCleanup()
 
 		nodes = util.GetAllSchedulableNodes(virtClient)
-		Expect(len(nodes.Items) > 0).To(BeTrue())
+		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100
 		Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, bridge10CNIType, bridge10Name, vlanID100, "", bridge10MacSpoofCheck)).To(Succeed())
@@ -494,7 +494,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(2))
+				Expect(updatedVmi.Status.Interfaces).To(HaveLen(2))
 				interfacesByName := make(map[string]v1.VirtualMachineInstanceNetworkInterface)
 				for _, ifc := range updatedVmi.Status.Interfaces {
 					interfacesByName[ifc.Name] = ifc
@@ -698,7 +698,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
+				Expect(updatedVmi.Status.Interfaces).To(HaveLen(4))
 				interfaceByIfcName := make(map[string]v1.VirtualMachineInstanceNetworkInterface)
 				for _, ifc := range updatedVmi.Status.Interfaces {
 					interfaceByIfcName[ifc.InterfaceName] = ifc
@@ -1385,7 +1385,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		})
 
 		It("should have the specified MAC address reported back via the API", func() {
-			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1), "should have a single interface")
+			Expect(serverVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
 			Expect(serverVMI.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
 		})
 
