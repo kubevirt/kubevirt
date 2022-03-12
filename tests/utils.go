@@ -123,19 +123,18 @@ import (
 )
 
 const (
-	KubevirtIoTest                = "kubevirt.io/test"
-	KubernetesIoHostName          = "kubernetes.io/hostname"
-	BinBash                       = "/bin/bash"
-	StartingVMInstance            = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart        = "Waiting until the VirtualMachineInstance will start"
-	KubevirtIoV1Alpha1            = "cdi.kubevirt.io/v1alpha1"
-	ServerName                    = "--server"
-	CouldNotFindComputeContainer  = "could not find compute container for pod"
-	CommandPipeFailed             = "command pipe failed"
-	CommandPipeFailedFmt          = "command pipe failed: %v"
-	EchoLastReturnValue           = "echo $?\n"
-	BashHelloScript               = "#!/bin/bash\necho 'hello'\n"
-	ApiServerCloseConnectionError = "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding"
+	KubevirtIoTest               = "kubevirt.io/test"
+	KubernetesIoHostName         = "kubernetes.io/hostname"
+	BinBash                      = "/bin/bash"
+	StartingVMInstance           = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
+	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
+	ServerName                   = "--server"
+	CouldNotFindComputeContainer = "could not find compute container for pod"
+	CommandPipeFailed            = "command pipe failed"
+	CommandPipeFailedFmt         = "command pipe failed: %v"
+	EchoLastReturnValue          = "echo $?\n"
+	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
 var Config *KubeVirtTestsConfiguration
@@ -417,7 +416,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 					status := watchEvent.Object.(*metav1.Status)
 					//api server sometimes closes connections to Watch() client command
 					//ignore this error, because it will reconnect automatically
-					if status.Message != ApiServerCloseConnectionError {
+					if status.Message != "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
 						Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
 					}
 				default:
