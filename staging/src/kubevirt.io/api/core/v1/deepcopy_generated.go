@@ -2277,6 +2277,11 @@ func (in *KubeVirtStatus) DeepCopyInto(out *KubeVirtStatus) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.ObservedGeneration != nil {
+		in, out := &in.ObservedGeneration, &out.ObservedGeneration
+		*out = new(int64)
+		**out = **in
+	}
 	if in.Generations != nil {
 		in, out := &in.Generations, &out.Generations
 		*out = make([]GenerationStatus, len(*in))

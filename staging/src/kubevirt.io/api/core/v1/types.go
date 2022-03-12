@@ -1750,6 +1750,7 @@ type KubeVirtStatus struct {
 	ObservedDeploymentConfig                string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
 	ObservedDeploymentID                    string              `json:"observedDeploymentID,omitempty" optional:"true"`
 	OutdatedVirtualMachineInstanceWorkloads *int                `json:"outdatedVirtualMachineInstanceWorkloads,omitempty" optional:"true"`
+	ObservedGeneration                      *int64              `json:"observedGeneration,omitempty"`
 	// +listType=atomic
 	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
 }

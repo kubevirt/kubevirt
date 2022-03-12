@@ -2595,6 +2595,9 @@ spec:
                 type: string
               observedDeploymentID:
                 type: string
+              observedGeneration:
+                format: int64
+                type: integer
               observedKubeVirtRegistry:
                 type: string
               observedKubeVirtVersion:
@@ -5200,6 +5203,9 @@ spec:
                 type: string
               observedDeploymentID:
                 type: string
+              observedGeneration:
+                format: int64
+                type: integer
               observedKubeVirtRegistry:
                 type: string
               observedKubeVirtVersion:

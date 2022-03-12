@@ -17574,6 +17574,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtStatus(ref common.ReferenceCallback) 
 							Format: "int32",
 						},
 					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 					"generations": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
