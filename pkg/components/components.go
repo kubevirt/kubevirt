@@ -453,6 +453,11 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			Verbs:     stringListToSlice("get", "list", "delete"),
 		},
 		{
+			APIGroups: emptyAPIGroup,
+			Resources: stringListToSlice("namespaces"),
+			Verbs:     stringListToSlice("get", "list", "watch", "patch", "update"),
+		},
+		{
 			APIGroups: stringListToSlice("apps"),
 			Resources: stringListToSlice("deployments", "replicasets"),
 			Verbs:     stringListToSlice("get", "list"),
@@ -776,7 +781,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		FailurePolicy:           &failurePolicy,
 		TimeoutSeconds:          &webhookTimeout,
 		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"name": params.Namespace},
+			MatchLabels: map[string]string{util.KubernetesMetadataName: params.Namespace},
 		},
 		Rules: []admissionregistrationv1.RuleWithOperations{
 			{

@@ -63,6 +63,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 			(*genericOperand)(newCliDownloadHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadsRouteHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadsServiceHandler(client, scheme)),
+			newNamespaceHandler(client, scheme),
 		}...)
 	}
 

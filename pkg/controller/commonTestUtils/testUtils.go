@@ -57,6 +57,14 @@ func NewHco() *hcov1beta1.HyperConverged {
 	return hco
 }
 
+func NewHcoNamespace() *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: Namespace,
+		},
+	}
+}
+
 func NewReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {
 	return &common.HcoRequest{
 		Request:      TestRequest,

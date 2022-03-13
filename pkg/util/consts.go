@@ -37,7 +37,9 @@ const (
 	// Operator name for managed-by label
 	OperatorName = "hco-operator"
 	// Value for "part-of" label
-	HyperConvergedCluster = "hyperconverged-cluster"
+	HyperConvergedCluster    = "hyperconverged-cluster"
+	OpenshiftNodeSelectorAnn = "openshift.io/node-selector"
+	KubernetesMetadataName   = "kubernetes.io/metadata.name"
 
 	// HyperConvergedName is the name of the HyperConverged resource that will be reconciled
 	HyperConvergedName          = "kubevirt-hyperconverged"

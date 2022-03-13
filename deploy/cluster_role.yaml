@@ -512,6 +512,16 @@ rules:
   - list
   - delete
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+- apiGroups:
   - apps
   resources:
   - deployments

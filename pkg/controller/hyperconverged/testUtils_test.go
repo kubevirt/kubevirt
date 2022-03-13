@@ -104,6 +104,7 @@ func validateOperatorCondition(r *ReconcileHyperConverged, status metav1.Conditi
 }
 
 type BasicExpected struct {
+	namespace            *corev1.Namespace
 	hco                  *hcov1beta1.HyperConverged
 	pc                   *schedulingv1.PriorityClass
 	kvStorageConfig      *corev1.ConfigMap
@@ -127,6 +128,7 @@ type BasicExpected struct {
 
 func (be BasicExpected) toArray() []runtime.Object {
 	return []runtime.Object{
+		be.namespace,
 		be.hco,
 		be.pc,
 		be.kvStorageConfig,
@@ -184,6 +186,15 @@ func getBasicDeployment() *BasicExpected {
 	res.hco = hco
 
 	components.GetOperatorCR().Spec.DeepCopyInto(&res.hco.Spec)
+
+	res.namespace = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hco.Namespace,
+			Annotations: map[string]string{
+				hcoutil.OpenshiftNodeSelectorAnn: "",
+			},
+		},
+	}
 
 	res.pc = operands.NewKubeVirtPriorityClass(hco)
 	res.mService = operands.NewMetricsService(hco, namespace)

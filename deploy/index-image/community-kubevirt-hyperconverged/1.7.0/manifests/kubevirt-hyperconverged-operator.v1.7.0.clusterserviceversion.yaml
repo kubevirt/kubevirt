@@ -301,6 +301,16 @@ spec:
           - list
           - delete
         - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - update
+        - apiGroups:
           - apps
           resources:
           - deployments
@@ -3382,7 +3392,7 @@ spec:
     generateName: mutate-ns-hco.kubevirt.io
     objectSelector:
       matchLabels:
-        name: kubevirt-hyperconverged
+        kubernetes.io/metadata.name: kubevirt-hyperconverged
     rules:
     - apiGroups:
       - ""

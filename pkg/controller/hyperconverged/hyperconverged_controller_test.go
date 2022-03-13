@@ -79,10 +79,15 @@ var _ = Describe("HyperconvergedController", func() {
 	Describe("Reconcile HyperConverged", func() {
 		Context("HCO Lifecycle", func() {
 
+			var (
+				hcoNamespace *corev1.Namespace
+			)
+
 			BeforeEach(func() {
 				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
+				hcoNamespace = commonTestUtils.NewHcoNamespace()
 			})
 
 			It("should handle not found", func() {
@@ -106,7 +111,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Conditions: []metav1.Condition{},
 					},
 				}
-				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 				r := initReconciler(cl, nil)
 
 				// Do the reconcile
@@ -137,13 +142,12 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should create all managed resources", func() {
-
 				hco := commonTestUtils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: true,
 				}
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 
 				r := initReconciler(cl, nil)
 
@@ -511,7 +515,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
 				// mock a reconciliation triggered by a change in secondary CR
@@ -571,7 +575,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
 				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
@@ -756,7 +760,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("Should not be ready if one of the operands is returns error, on create", func() {
 				hco := commonTestUtils.NewHco()
-				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 				cl.InitiateCreateErrors(func(obj client.Object) error {
 					if _, ok := obj.(*cdiv1beta1.CDI); ok {
 						return errors.New("fake create error")
@@ -2212,9 +2216,11 @@ var _ = Describe("HyperconvergedController", func() {
 
 		Context("Detection of a tainted configuration", func() {
 			var (
-				hco *hcov1beta1.HyperConverged
+				hcoNamespace *corev1.Namespace
+				hco          *hcov1beta1.HyperConverged
 			)
 			BeforeEach(func() {
+				hcoNamespace = commonTestUtils.NewHcoNamespace()
 				hco = commonTestUtils.NewHco()
 				UpdateVersion(&hco.Status, hcoVersionName, version.Version)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
@@ -2236,7 +2242,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -2290,7 +2296,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -2344,7 +2350,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -2396,7 +2402,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -2454,7 +2460,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -2501,7 +2507,7 @@ var _ = Describe("HyperconvergedController", func() {
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -2552,7 +2558,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -2606,7 +2612,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -2645,7 +2651,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -2718,7 +2724,7 @@ var _ = Describe("HyperconvergedController", func() {
 					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
 					Expect(err).To(BeNil())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hco})
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {

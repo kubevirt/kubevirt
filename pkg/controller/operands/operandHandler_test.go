@@ -25,13 +25,20 @@ var _ = Describe("Test operandHandler", func() {
 	Context("Test operandHandler", func() {
 		testFileLocation := getTestFilesLocation()
 
-		_ = os.Setenv(quickStartManifestLocationVarName, testFileLocation+"/quickstarts")
-		_ = os.Setenv(dashboardManifestLocationVarName, testFileLocation+"/dashboards")
-		_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
+		var (
+			hcoNamespace *corev1.Namespace
+		)
+
+		BeforeEach(func() {
+			_ = os.Setenv(quickStartManifestLocationVarName, testFileLocation+"/quickstarts")
+			_ = os.Setenv(dashboardManifestLocationVarName, testFileLocation+"/dashboards")
+			_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
+			hcoNamespace = commonTestUtils.NewHcoNamespace()
+		})
 
 		It("should create all objects are created", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 
@@ -153,7 +160,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		It("should handle errors on ensure loop", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 
@@ -195,7 +202,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		It("make sure the all objects are deleted", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
@@ -287,7 +294,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		It("delete KV error handling", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 
@@ -337,7 +344,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		It("delete CDI error handling", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
@@ -387,7 +394,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		It("default delete error handling", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			fakeError := fmt.Errorf("fake CNA deletion error")
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
@@ -438,7 +445,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		It("delete timeout error handling", func() {
 			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
 
