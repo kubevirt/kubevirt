@@ -135,7 +135,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, console.LoginToFedora)
 			})
 
-			table.DescribeTable("should be able to reach - fragment", func(vmiRef **v1.VirtualMachineInstance) {
+			table.XDescribeTable("should be able to reach - fragment", func(vmiRef **v1.VirtualMachineInstance) {
 				var addr string
 				if vmiRef == nil {
 					addr = "kubevirt.io"
@@ -213,7 +213,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				table.Entry("[test_id:1542]the internet", nil),
 			)
 
-			It("should be able to reach - no fragment", func() {
+			XIt("should be able to reach - no fragment", func() {
 				addr := "kubevirt.io"
 
 				payloadSize := 0
@@ -273,12 +273,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(libnet.PingFromVMConsole(outboundVMI, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			})
 
-			It("should be able to reach - cirros", func() {
+			It("should be able to reach - from cirros to vmi", func() {
 				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 
-				addr := "kubevirt.io"
+				addr := outboundVMI.Status.Interfaces[0].IP
 				payloadSize := 0
 				ipHeaderSize := 28 // IPv4 specific
 
