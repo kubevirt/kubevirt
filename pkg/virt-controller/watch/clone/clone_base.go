@@ -30,7 +30,9 @@ const (
 	RestoreCreated  Event = "RestoreCreated"
 	RestoreReady    Event = "RestoreReady"
 	TargetVMCreated Event = "TargetVMCreated"
-	SnapshotDeleted Event = "SnapshotDeleted"
+
+	SnapshotDeleted    Event = "SnapshotDeleted"
+	SnapshotNotCreated Event = "SnapshotNotCreated"
 )
 
 type VMCloneController struct {
@@ -41,20 +43,22 @@ type VMCloneController struct {
 	vmInformer       cache.SharedIndexInformer
 	recorder         record.EventRecorder
 
-	vmCloneQueue    workqueue.RateLimitingInterface
-	vmStatusUpdater *status.VMStatusUpdater
+	vmCloneQueue       workqueue.RateLimitingInterface
+	vmStatusUpdater    *status.VMStatusUpdater
+	cloneStatusUpdater *status.CloneStatusUpdater
 }
 
 func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer cache.SharedIndexInformer, recorder record.EventRecorder) *VMCloneController {
 	ctrl := VMCloneController{
-		client:           client,
-		vmCloneInformer:  vmCloneInformer,
-		snapshotInformer: snapshotInformer,
-		restoreInformer:  restoreInformer,
-		vmInformer:       vmInformer,
-		recorder:         recorder,
-		vmCloneQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
-		vmStatusUpdater:  status.NewVMStatusUpdater(client),
+		client:             client,
+		vmCloneInformer:    vmCloneInformer,
+		snapshotInformer:   snapshotInformer,
+		restoreInformer:    restoreInformer,
+		vmInformer:         vmInformer,
+		recorder:           recorder,
+		vmCloneQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
+		vmStatusUpdater:    status.NewVMStatusUpdater(client),
+		cloneStatusUpdater: status.NewCloneStatusUpdater(client),
 	}
 
 	ctrl.vmCloneInformer.AddEventHandler(
@@ -169,14 +173,11 @@ func (ctrl *VMCloneController) Execute() bool {
 	}
 	defer ctrl.vmCloneQueue.Done(key)
 
-	err, reenqueueInfo := ctrl.execute(key.(string))
+	err := ctrl.execute(key.(string))
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing clone %v", key)
 		ctrl.vmCloneQueue.AddRateLimited(key)
-	} else if reenqueueInfo.toReenqueue() {
-		log.Log.Infof("reenqueuing clone %v. Reason: %s", key, reenqueueInfo.reenqueueReason)
-		ctrl.vmCloneQueue.AddAfter(key, 1*time.Second)
 	} else {
 		log.Log.V(defaultVerbosityLevel).Infof("processed clone %v", key)
 		ctrl.vmCloneQueue.Forget(key)

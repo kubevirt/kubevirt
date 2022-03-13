@@ -1,7 +1,10 @@
 package status
 
 import (
+	"context"
 	"sync"
+
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -211,22 +214,23 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
 		_, err = u.cli.VirtualMachine(a.GetNamespace()).UpdateStatus(oldObj)
-		return err
 	case *v1.VirtualMachineInstanceReplicaSet:
 		oldObj := obj.(*v1.VirtualMachineInstanceReplicaSet)
 		_, err = u.cli.ReplicaSet(a.GetNamespace()).UpdateStatus(oldObj)
-		return err
 	case *v1.VirtualMachineInstanceMigration:
 		oldObj := obj.(*v1.VirtualMachineInstanceMigration)
 		_, err = u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).UpdateStatus(oldObj)
-		return err
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
 		_, err = u.cli.KubeVirt(a.GetNamespace()).UpdateStatus(oldObj)
-		return err
+	case *clonev1alpha1.VirtualMachineClone:
+		oldObj := obj.(*clonev1alpha1.VirtualMachineClone)
+		_, err = u.cli.VirtualMachineClone(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	default:
 		panic(unknownObj)
 	}
+
+	return err
 }
 
 func (u *updater) setSubresource(exists bool) {
@@ -313,6 +317,24 @@ func (v *MigrationStatusUpdater) UpdateStatus(migration *v1.VirtualMachineInstan
 
 func NewMigrationStatusUpdater(cli kubecli.KubevirtClient) *MigrationStatusUpdater {
 	return &MigrationStatusUpdater{
+		updater: updater{
+			lock:        sync.Mutex{},
+			subresource: true,
+			cli:         cli,
+		},
+	}
+}
+
+type CloneStatusUpdater struct {
+	updater
+}
+
+func (v *CloneStatusUpdater) UpdateStatus(vmClone *clonev1alpha1.VirtualMachineClone) error {
+	return v.update(vmClone)
+}
+
+func NewCloneStatusUpdater(cli kubecli.KubevirtClient) *CloneStatusUpdater {
+	return &CloneStatusUpdater{
 		updater: updater{
 			lock:        sync.Mutex{},
 			subresource: true,
