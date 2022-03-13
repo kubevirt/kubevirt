@@ -240,9 +240,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(endpoints.Subsets)).To(Equal(1))
+				Expect(endpoints.Subsets).To(HaveLen(1))
 				endpoint := endpoints.Subsets[0]
-				Expect(len(endpoint.Ports)).To(Equal(1))
+				Expect(endpoint.Ports).To(HaveLen(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
 
 				isDualStack := isDualStack(ipFamily)
@@ -251,7 +251,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					numOfIps = 2
 				}
 				assert.XFail(xfailError, func() {
-					Expect(len(endpoints.Subsets[0].Addresses)).To(Equal(numOfIps))
+					Expect(endpoints.Subsets[0].Addresses).To(HaveLen(numOfIps))
 				}, isDualStack)
 			},
 				table.Entry("[test_id:1532] over default IPv4 IP family", ipv4),
@@ -290,9 +290,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(endpoints.Subsets)).To(Equal(1))
+				Expect(endpoints.Subsets).To(HaveLen(1))
 				endpoint := endpoints.Subsets[0]
-				Expect(len(endpoint.Ports)).To(Equal(4))
+				Expect(endpoint.Ports).To(HaveLen(4))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-1", Port: 80, Protocol: "TCP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-2", Port: 1500, Protocol: "TCP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-3", Port: 82, Protocol: "UDP"}))
@@ -351,7 +351,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Validating the num of cluster ips")
-				Expect(len(svc.Spec.ClusterIPs)).To(Equal(calcNumOfClusterIPs()))
+				Expect(svc.Spec.ClusterIPs).To(HaveLen(calcNumOfClusterIPs()))
 			},
 				table.Entry("over SingleStack IP family policy", k8sv1.IPFamilyPolicySingleStack),
 				table.Entry("over PreferDualStack IP family policy", k8sv1.IPFamilyPolicyPreferDualStack),
@@ -827,14 +827,14 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				// There should be one - and only one - subset for this endpoint,
 				// pointing to a single pod (the VMI's virt-launcher pod).
 				// This subset should hold a single IP address only - the VM's pod address.
-				Expect(len(svcEndpoints.Subsets)).To(Equal(1))
+				Expect(svcEndpoints.Subsets).To(HaveLen(1))
 
 				numOfIps := 1
 				if secondaryVmPodAddr != "" {
 					numOfIps = 2
 				}
 				assert.XFail(xfailError, func() {
-					Expect(len(svcEndpoints.Subsets[0].Addresses)).To(Equal(numOfIps))
+					Expect(svcEndpoints.Subsets[0].Addresses).To(HaveLen(numOfIps))
 				}, secondaryVmPodAddr != "")
 
 				endptSubsetIpAddress := svcEndpoints.Subsets[0].Addresses[0].IP
