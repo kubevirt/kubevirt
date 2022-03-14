@@ -659,7 +659,7 @@ func istioProxyPresent(httpClient *http.Client) bool {
 	err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
 		resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", istio.EnvoyHealthCheckPort))
 		if err != nil {
-			log.Log.Reason(err).Error("error when checking for istio-proxy presence")
+			log.Log.Reason(err).V(4).Info("error when checking for istio-proxy presence")
 			return err
 		}
 		defer resp.Body.Close()
