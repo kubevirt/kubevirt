@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -93,7 +95,16 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	found := h.hooks.getEmptyCr()
 	err = h.Client.Get(req.Ctx, key, found)
 	if err != nil {
-		return h.createNewCr(req, err, cr, res)
+		result := h.createNewCr(req, err, cr, res)
+
+		if apierrors.IsAlreadyExists(result.Err) {
+			// we failed trying to create it due to a caching error
+			// or we neither tried because we know that the object is already there for sure,
+			// but we cannot get it due to a bad cache hit.
+			// Let's try updating it bypassing the client cache mechanism
+			return h.handleExistingCrSkipCache(req, key, found, cr, res)
+		}
+		return result
 	}
 
 	return h.handleExistingCr(req, key, found, cr, res)
@@ -124,6 +135,40 @@ func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.Obj
 	}
 	// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+}
+
+func (h *genericOperand) handleExistingCrSkipCache(req *common.HcoRequest, key client.ObjectKey, found client.Object, cr client.Object, res *EnsureResult) *EnsureResult {
+	cfg, configerr := config.GetConfig()
+	if configerr != nil {
+		req.Logger.Error(configerr, "failed creating a config for a custom client")
+		return &EnsureResult{
+			Err: configerr,
+		}
+	}
+	apiClient, acerr := client.New(cfg, client.Options{
+		Scheme: h.Scheme,
+	})
+	if acerr != nil {
+		req.Logger.Error(acerr, "failed creating a custom client to bypass the cache")
+		return &EnsureResult{
+			Err: acerr,
+		}
+	}
+	geterr := apiClient.Get(req.Ctx, key, found)
+	if geterr != nil {
+		req.Logger.Error(geterr, "failed trying to get the object bypassing the cache")
+		return &EnsureResult{
+			Err: geterr,
+		}
+	}
+	originalClient := h.Client
+	// this is not exactly thread safe,
+	// but we are not supposed to call twice in parallel
+	// the handler for a single CR
+	h.Client = apiClient
+	existingcrresult := h.handleExistingCr(req, key, found, cr, res)
+	h.Client = originalClient
+	return existingcrresult
 }
 
 func (h *genericOperand) completeEnsureOperands(req *common.HcoRequest, opr hcoOperandHooks, found client.Object, res *EnsureResult) *EnsureResult {

@@ -50,5 +50,10 @@ KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_defaults.sh
 # check golden images
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
 
+# check if HCO is able to correctly add back a label used as a label selector
+${KUBECTL_BINARY} label priorityclass kubevirt-cluster-critical app-
+sleep 10
+[[ $(${KUBECTL_BINARY} get priorityclass kubevirt-cluster-critical -o=jsonpath='{.metadata.labels.app}') == 'kubevirt-hyperconverged' ]]
+
 # Check the webhook, to see if it allow deleteing of the HyperConverged CR
 ./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged"
