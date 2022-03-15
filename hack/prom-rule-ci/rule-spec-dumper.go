@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 )
 
 func verifyArgs(args []string) error {

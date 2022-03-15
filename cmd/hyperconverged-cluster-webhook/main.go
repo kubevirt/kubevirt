@@ -18,8 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/api"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -32,7 +32,7 @@ var (
 	logger               = logf.Log.WithName("hyperconverged-webhook-cmd")
 	cmdHelper            = cmdcommon.NewHelper(logger, "webhook")
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
-		apis.AddToScheme,
+		api.AddToScheme,
 		corev1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddonsv1.AddToScheme,

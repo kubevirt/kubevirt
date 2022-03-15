@@ -12,9 +12,10 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     go get -v github.com/onsi/gomega
     go get -u github.com/evanphx/json-patch
     go mod vendor
-    PACKAGE_PATH="pkg/"
+    PKG_PACKAGE_PATH="pkg/"
+    CONTROLLERS_PACKAGE_PATH="controllers/"
     mkdir -p coverprofiles
-    KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1 ginkgo -r -covermode atomic -outputdir=./coverprofiles -coverprofile=cover.coverprofile ${PACKAGE_PATH}
+    KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1 ginkgo -r -covermode atomic -outputdir=./coverprofiles -coverprofile=cover.coverprofile ${PKG_PACKAGE_PATH} ${CONTROLLERS_PACKAGE_PATH}
 else
     test_path="tests/func-tests"
     (cd $test_path; go install github.com/onsi/ginkgo/ginkgo@latest)

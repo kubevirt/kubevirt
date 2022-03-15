@@ -177,7 +177,7 @@ generate:
 	./hack/generate.sh
 
 generate-doc: build-docgen
-	_out/docgen ./pkg/apis/hco/v1beta1/hyperconverged_types.go > docs/api.md
+	_out/docgen ./api/v1beta1/hyperconverged_types.go > docs/api.md
 	_out/metricsdocs > docs/metrics.md
 
 build-docgen:

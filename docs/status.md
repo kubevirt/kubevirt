@@ -31,7 +31,7 @@ Available condition type with status set to false will simply be written as
 
 # HyperConvergedStatus
 
-See [hyperconverged_types.go](../pkg/apis/hco/v1alpha1/hyperconverged_types.go).
+See [hyperconverged_types.go](../api/v1beta1/hyperconverged_types.go).
 
 The `HyperConvergedStatus` type belongs on the `Status` field of the
 `HyperConverged` struct. The `HyperConverged` has two fields:

@@ -61,7 +61,7 @@ If there is a real need for a new feature gate, please follow these steps:
 
 1. In the PR message, describe the new feature gate, what it does and why it needed to be added to the HCO API.
 1. Add the new feature gate to the HyperConvergedFeatureGates struct
-   in [pkg/apis/hco/v1beta1/hyperconverged_types.go](pkg/apis/hco/v1beta1/hyperconverged_types.go)
+   in [api/v1beta1/hyperconverged_types.go](api/v1beta1/hyperconverged_types.go)
     - make sure the name of the feature gate field is as the feature gate field in the target operand, including casing.
       It also must start with a capital letter, to be exposed from the api package.
     - Set the field type to `bool`.
@@ -81,11 +81,11 @@ for example:
 
 1. Run `make generate` to trigger automatic code generation (`deepcopy-gen` and  `openapi-gen`)
 1. Add a set of unit tests
-   in [pkg/apis/hco/v1beta1/hyperconverged_types_test.go](pkg/apis/hco/v1beta1/hyperconverged_types_test.go)
+   in [api/v1beta1/hyperconverged_types_test.go](api/v1beta1/hyperconverged_types_test.go)
    to check this new function.
 1. Add the new feature gate to the relevant operator handler. Currently, this is only supported for KubeVirt. For
    KubeVirt, do the following:
-   In [pkg/controller/operands/kubevirt.go](pkg/controller/operands/kubevirt.go)
+   In [controllers/operands/kubevirt.go](controllers/operands/kubevirt.go)
     - Add a constant for the feature gate name in the constant block marked with
       the `// KubeVirt feature gates that are exposed in HCO API`
       comment.

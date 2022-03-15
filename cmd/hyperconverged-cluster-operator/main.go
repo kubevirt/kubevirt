@@ -37,11 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/api"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/hyperconverged"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -53,7 +53,7 @@ var (
 	logger               = logf.Log.WithName("hyperconverged-operator-cmd")
 	cmdHelper            = cmdcommon.NewHelper(logger, "operator")
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
-		apis.AddToScheme,
+		api.AddToScheme,
 		schedulingv1.AddToScheme,
 		corev1.AddToScheme,
 		appsv1.AddToScheme,

@@ -1,0 +1,6 @@
+apiVersion: cache.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: hyperconverged-sample
+spec:
+  # Add fields here

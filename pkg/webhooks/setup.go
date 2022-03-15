@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks/mutator"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks/validator"
 

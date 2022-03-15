@@ -3198,6 +3198,7 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               dataImportSchedule:
                 description: DataImportSchedule is the cron expression that is used
                   in for the hard-coded data import cron templates. HCO generates
@@ -3275,6 +3276,7 @@ spec:
                       type: string
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               versions:
                 description: 'Versions is a list of HCO component versions, as name/version
                   pairs. The version with a name of "operator" is the HCO version
@@ -3287,6 +3289,7 @@ spec:
                       type: string
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
             type: object
         type: object
     served: true
