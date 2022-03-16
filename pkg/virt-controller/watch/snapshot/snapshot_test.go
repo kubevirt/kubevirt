@@ -1404,7 +1404,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(2))
+						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(2))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeFalse())
 						updateCalled = true
@@ -1469,7 +1469,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(2))
+						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(2))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeTrue())
 						updateCalled = true
@@ -1674,7 +1674,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(8))
+						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(8))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Name).To(Equal("disk1"))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
@@ -1763,7 +1763,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(1))
+						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(1))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
 						updateCalled = true
 					})
@@ -1782,7 +1782,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(1))
+						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(1))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
 						updateCalled = true
 					})
@@ -1848,7 +1848,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(2))
+						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(2))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeTrue())
 						updateCalled = true
