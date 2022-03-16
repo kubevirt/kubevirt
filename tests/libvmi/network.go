@@ -63,12 +63,13 @@ func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 }
 
 // InterfaceDeviceWithSlirpBinding returns an Interface with SLIRP binding.
-func InterfaceDeviceWithSlirpBinding(name string) kvirtv1.Interface {
+func InterfaceDeviceWithSlirpBinding(name string, ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
 		Name: name,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Slirp: &kvirtv1.InterfaceSlirp{},
 		},
+		Ports: ports,
 	}
 }
 

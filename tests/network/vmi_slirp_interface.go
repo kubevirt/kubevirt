@@ -41,6 +41,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = SIGDescribe("Slirp Networking", func() {
@@ -91,9 +92,14 @@ var _ = SIGDescribe("Slirp Networking", func() {
 
 		BeforeEach(func() {
 			ports = []v1.Port{{Name: "http", Port: 80}}
-
-			genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-			deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			genericVmi = libvmi.NewCirros(
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(
+					libvmi.InterfaceDeviceWithSlirpBinding(libvmi.DefaultInterfaceName, ports...)))
+			deadbeafVmi = libvmi.NewCirros(
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(
+					libvmi.InterfaceDeviceWithSlirpBinding(libvmi.DefaultInterfaceName, ports...)))
 			deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 		})
 
