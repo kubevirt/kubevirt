@@ -51,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -509,7 +508,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
-			dhcpVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+			dhcpVMI := libvmi.NewTestToolingFedora()
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
 			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
@@ -526,10 +525,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(dhcpVMI)
-			Expect(err).ToNot(HaveOccurred())
-
-			tests.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
+			dhcpVMI = tests.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LoginToFedora)
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -556,7 +552,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 			userData := "#cloud-config\n"
-			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
+			dnsVMI := libvmi.NewCirros(libvmi.WithCloudInitNoCloudUserData(userData, false))
 
 			dnsVMI.Spec.DNSPolicy = "None"
 
@@ -568,9 +564,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
 				Searches:    []string{"example.com"},
 			}
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(dnsVMI)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(dnsVMI, libnet.WithIPv6(console.LoginToCirros))
+			dnsVMI = tests.WaitUntilVMIReady(tests.RunVMI(dnsVMI, 40), libnet.WithIPv6(console.LoginToCirros))
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
