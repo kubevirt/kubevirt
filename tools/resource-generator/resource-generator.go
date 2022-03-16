@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -35,18 +36,29 @@ import (
 )
 
 const (
-	featureGatesPlaceholder = "FeatureGatesPlaceholder"
+	featureGatesPlaceholder  = "FeatureGatesPlaceholder"
+	infraReplicasPlaceholder = 255
 )
 
-func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featureGatesFlag *string) {
+func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featureGatesFlag *string, infraReplicasFlag *string) {
 	var featureGates string
 	if strings.HasPrefix(*featureGatesFlag, "{{") {
 		featureGates = featureGatesPlaceholder
 	} else {
 		featureGates = *featureGatesFlag
 	}
+	var infraReplicas uint8
+	if strings.HasPrefix(*infraReplicasFlag, "{{") {
+		infraReplicas = infraReplicasPlaceholder
+	} else {
+		val, err := strconv.ParseUint(*infraReplicasFlag, 10, 8)
+		if err != nil {
+			panic(err)
+		}
+		infraReplicas = uint8(val)
+	}
 	var buf bytes.Buffer
-	util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy, featureGates), &buf)
+	util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy, featureGates, infraReplicas), &buf)
 	cr := buf.String()
 	// When creating a template, we need to add code to iterate over the feature-gates slice variable.
 	// util.MarshallObject(), called above, uses yaml.Marshall(), which can only generate valid yaml.
@@ -70,6 +82,12 @@ $1{{- range `+featureGatesVar+`}}
 $1- {{.}}
 $1{{- end}}{{else}} []{{end}}`)
 	}
+	// Same idea as above, but simpler. infra.replicas is a uint8.
+	// However, when creating a template, we want its value to be something like "{{.InfraReplicas}}", which is not a uint8.
+	// Therefore, the value was substituted for a placeholder above (255). Replacing with the templated value now.
+	if strings.HasPrefix(*infraReplicasFlag, "{{") {
+		cr = strings.Replace(cr, fmt.Sprintf("replicas: %d", infraReplicasPlaceholder), "replicas: "+*infraReplicasFlag, 1)
+	}
 
 	fmt.Print(cr)
 }
@@ -79,6 +97,7 @@ func main() {
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	featureGates := flag.String("featureGates", "", "Feature gates to enable.")
+	infraReplicas := flag.String("infraReplicas", "2", "Number of replicas for virt-controller and virt-api")
 
 	flag.Parse()
 
@@ -92,7 +111,7 @@ func main() {
 		}
 		util.MarshallObject(kv, os.Stdout)
 	case "kv-cr":
-		generateKubeVirtCR(namespace, imagePullPolicy, featureGates)
+		generateKubeVirtCR(namespace, imagePullPolicy, featureGates, infraReplicas)
 	case "operator-rbac":
 		all := rbac.GetAllOperator(*namespace)
 		for _, r := range all {
