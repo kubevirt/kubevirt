@@ -232,7 +232,7 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	WithHostPassthroughCPU bool `json:"withHostPassthroughCPU"`
 
-	// Allow migrating a virtual machine with SRIOV interfaces.
+	// Allow migrating a virtual machine with SRIOV interfaces. Ignored on single node clusters.
 	// +optional
 	// +kubebuilder:default=true
 	SRIOVLiveMigration bool `json:"sriovLiveMigration"`

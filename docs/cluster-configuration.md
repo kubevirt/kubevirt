@@ -143,7 +143,7 @@ Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/Lib
 
 Set the `sriovLiveMigration` feature gate in order to allow migrating a virtual machine with SRIOV interfaces. When
 enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may
-degrade virt-launcher security.
+degrade virt-launcher security. `sriovLiveMigration` is ignored on single node clusters.
 
 **Default**: `true`
 

@@ -869,6 +869,7 @@ spec:
                   sriovLiveMigration:
                     default: true
                     description: Allow migrating a virtual machine with SRIOV interfaces.
+                      Ignored on single node clusters.
                     type: boolean
                   withHostPassthroughCPU:
                     default: false

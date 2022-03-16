@@ -30,6 +30,7 @@ import (
 var _ = Describe("KubeVirt Operand", func() {
 	var (
 		basicNumFgOnOpenshift = len(hardCodeKvFgs) + len(sspConditionKvFgs)
+		deltaFGNotSNO         = 1
 	)
 
 	Context("KubeVirt Priority Classes", func() {
@@ -1214,6 +1215,19 @@ Version: 1.2.3`)
 		})
 
 		Context("Feature Gates", func() {
+
+			getClusterInfo := hcoutil.GetClusterInfo
+
+			BeforeEach(func() {
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commonTestUtils.ClusterInfoMock{}
+				}
+			})
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
 			Context("test feature gates in NewKubeVirt", func() {
 				It("should add the WithHostPassthroughCPU feature gate if it's set in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
@@ -1271,6 +1285,42 @@ Version: 1.2.3`)
 					})
 				})
 
+				Context("should ignore SRIOVLiveMigration on SNO ", func() {
+					BeforeEach(func() {
+						hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+							return &commonTestUtils.ClusterInfoSNOMock{}
+						}
+					})
+
+					It("should not add the SRIOVLiveMigration feature gate if it's set in HyperConverged on SNO", func() {
+						// one enabled, one disabled and one missing
+						hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+							SRIOVLiveMigration: true,
+						}
+
+						existingResource, err := NewKubeVirt(hco)
+						Expect(err).ToNot(HaveOccurred())
+						By("KV CR should contain the HotplugVolumes feature gate", func() {
+							Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+							Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvSRIOVLiveMigration))
+						})
+					})
+
+					It("should not add the SRIOVLiveMigration feature gate if it's disabled in HyperConverged CR on SNO", func() {
+						// one enabled, one disabled and one missing
+						hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+							SRIOVLiveMigration: false,
+						}
+
+						existingResource, err := NewKubeVirt(hco)
+						Expect(err).ToNot(HaveOccurred())
+						By("KV CR should contain the HotplugVolumes feature gate", func() {
+							Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+							Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("SRIOVLiveMigration"))
+						})
+					})
+				})
+
 				It("should not add the feature gates if FeatureGates field is empty", func() {
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
@@ -1280,13 +1330,26 @@ Version: 1.2.3`)
 
 					Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 					fgList := getKvFeatureGateList(&hco.Spec.FeatureGates)
-					Expect(fgList).To(HaveLen(basicNumFgOnOpenshift))
+					Expect(fgList).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
 					Expect(fgList).Should(ContainElements(hardCodeKvFgs))
 					Expect(fgList).Should(ContainElements(sspConditionKvFgs))
 				})
 			})
 
 			Context("test feature gates in KV handler", func() {
+
+				getClusterInfo := hcoutil.GetClusterInfo
+
+				BeforeEach(func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+				})
+
+				AfterEach(func() {
+					hcoutil.GetClusterInfo = getClusterInfo
+				})
+
 				It("should add feature gates if they are set to true", func() {
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -1346,7 +1409,7 @@ Version: 1.2.3`)
 						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						fgList := getKvFeatureGateList(&hco.Spec.FeatureGates)
-						Expect(fgList).To(HaveLen(basicNumFgOnOpenshift))
+						Expect(fgList).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
 						Expect(fgList).Should(ContainElements(hardCodeKvFgs))
 						Expect(fgList).Should(ContainElements(sspConditionKvFgs))
 					})
@@ -1377,7 +1440,7 @@ Version: 1.2.3`)
 						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						fgList := getKvFeatureGateList(&hco.Spec.FeatureGates)
-						Expect(fgList).To(HaveLen(basicNumFgOnOpenshift))
+						Expect(fgList).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
 						Expect(fgList).Should(ContainElements(hardCodeKvFgs))
 						Expect(fgList).Should(ContainElements(sspConditionKvFgs))
 					})
@@ -1385,7 +1448,7 @@ Version: 1.2.3`)
 
 				It("should keep FG if already exist", func() {
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(true)
-					fgs := append(hardCodeKvFgs, kvWithHostPassthroughCPU, kvSRIOVLiveMigration)
+					fgs := append(hardCodeKvFgs, kvWithHostPassthroughCPU, kvSRIOVLiveMigration, kvLiveMigrationGate)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
@@ -1398,7 +1461,7 @@ Version: 1.2.3`)
 					By("Make sure the existing KV is with the the expected FGs", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+							To(ContainElements(kvLiveMigrationGate, kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
 					})
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1419,6 +1482,8 @@ Version: 1.2.3`)
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
 						To(ContainElements(kvWithHostPassthroughCPU, kvSRIOVLiveMigration))
+
+					Expect(res.Updated).To(BeFalse())
 				})
 
 				It("should remove FG if it disabled in HC CR", func() {
@@ -1456,7 +1521,7 @@ Version: 1.2.3`)
 					).To(BeNil())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift))
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(sspConditionKvFgs))
 				})
@@ -1493,7 +1558,7 @@ Version: 1.2.3`)
 					).To(BeNil())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift))
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(sspConditionKvFgs))
 				})
@@ -1530,7 +1595,7 @@ Version: 1.2.3`)
 					).To(BeNil())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(hardCodeKvFgs)))
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(hardCodeKvFgs) + deltaFGNotSNO))
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 				})
 			})
@@ -1538,6 +1603,12 @@ Version: 1.2.3`)
 			Context("Test getKvFeatureGateList", func() {
 
 				getClusterInfo := hcoutil.GetClusterInfo
+
+				BeforeEach(func() {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoMock{}
+					}
+				})
 
 				AfterEach(func() {
 					hcoutil.GetClusterInfo = getClusterInfo
@@ -1555,37 +1626,37 @@ Version: 1.2.3`)
 					Entry("When not using kvm-emulation and FG is empty",
 						false,
 						&hcov1beta1.HyperConvergedFeatureGates{},
-						basicNumFgOnOpenshift,
+						basicNumFgOnOpenshift+deltaFGNotSNO,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
 					Entry("When using kvm-emulation and FG is empty",
 						true,
 						&hcov1beta1.HyperConvergedFeatureGates{},
-						len(hardCodeKvFgs),
+						len(hardCodeKvFgs)+deltaFGNotSNO,
 						[][]string{hardCodeKvFgs},
 					),
 					Entry("When not using kvm-emulation and all FGs are disabled",
 						false,
 						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: false, WithHostPassthroughCPU: false},
-						basicNumFgOnOpenshift,
+						basicNumFgOnOpenshift+deltaFGNotSNO,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
 					Entry("When using kvm-emulation all FGs are disabled",
 						true,
 						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: false, WithHostPassthroughCPU: false},
-						len(hardCodeKvFgs),
+						len(hardCodeKvFgs)+deltaFGNotSNO,
 						[][]string{hardCodeKvFgs},
 					),
 					Entry("When not using kvm-emulation and all FGs are enabled",
 						false,
 						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: true, WithHostPassthroughCPU: true},
-						basicNumFgOnOpenshift+2,
+						basicNumFgOnOpenshift+deltaFGNotSNO+2,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs, {kvWithHostPassthroughCPU}},
 					),
 					Entry("When using kvm-emulation all FGs are enabled",
 						true,
 						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: true, WithHostPassthroughCPU: true},
-						len(hardCodeKvFgs)+2,
+						len(hardCodeKvFgs)+deltaFGNotSNO+2,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
 
@@ -2397,6 +2468,19 @@ Version: 1.2.3`)
 		})
 
 		Context("jsonpath Annotation", func() {
+
+			getClusterInfo := hcoutil.GetClusterInfo
+
+			BeforeEach(func() {
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commonTestUtils.ClusterInfoMock{}
+				}
+			})
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			It("Should create KV object with changes from the annotation", func() {
 
@@ -2597,7 +2681,7 @@ Version: 1.2.3`)
 				).ToNot(HaveOccurred())
 
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + 1))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + deltaFGNotSNO + 1))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVGate))
 				Expect(kv.Spec.Configuration.CPURequest).To(BeNil())
