@@ -178,6 +178,20 @@ func WithSEV() Option {
 	}
 }
 
+func WithSEVAttestation() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		startStrategy := v1.StartStrategyPaused
+		vmi.Spec.StartStrategy = &startStrategy
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		}
+		if vmi.Spec.Domain.LaunchSecurity.SEV == nil {
+			vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
+		}
+		vmi.Spec.Domain.LaunchSecurity.SEV.Attestation = &v1.SEVAttestation{}
+	}
+}
+
 func WithCPUFeature(featureName, policy string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.CPU == nil {
