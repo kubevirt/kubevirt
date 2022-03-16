@@ -115,7 +115,7 @@ var _ = Describe("Virt remote commands", func() {
 			// listing all sockets should detect both the new and legacy sockets
 			sockets, err := ListAllSockets()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(sockets)).To(Equal(2))
+			Expect(sockets).To(HaveLen(2))
 		})
 
 		It("Detect unresponsive socket", func() {
