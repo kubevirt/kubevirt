@@ -31,7 +31,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
 	table.DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
 		causes := validateCustomizeComponents(cc)
-		Expect(len(causes)).To(Equal(expectedCauses))
+		Expect(causes).To(HaveLen(expectedCauses))
 	},
 		table.Entry("invalid values rejected", v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
