@@ -20,9 +20,12 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -30,6 +33,46 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/tools/util"
 )
+
+const (
+	featureGatesPlaceholder = "FeatureGatesPlaceholder"
+)
+
+func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featureGatesFlag *string) {
+	var featureGates string
+	if strings.HasPrefix(*featureGatesFlag, "{{") {
+		featureGates = featureGatesPlaceholder
+	} else {
+		featureGates = *featureGatesFlag
+	}
+	var buf bytes.Buffer
+	util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy, featureGates), &buf)
+	cr := buf.String()
+	// When creating a template, we need to add code to iterate over the feature-gates slice variable.
+	// util.MarshallObject(), called above, uses yaml.Marshall(), which can only generate valid yaml.
+	// However, the template syntax to iterate over an array variable is not valid yaml.
+	// Since most templated values are strings, this is not usually a problem, as "{{.Variable}}" is a valid string.
+	// At this point (again when creating a template), the value of featureGates looks like:
+	//      featureGates:
+	//      - FeatureGatesPlaceholder
+	// however we want to treat the variable (".FeatureGates" here) as a slice and iterate over it (with a special case for empty list):
+	//      featureGates:{{if .FeatureGates}}
+	//      {{- range .FeatureGates}}
+	//      - {{.}}
+	//      {{- end}}{{else}} []{{end}}
+	// The replace call below will transform the former into the latter, keeping the intendation ($1)
+	if strings.HasPrefix(*featureGatesFlag, "{{") {
+		featureGatesVar := strings.TrimPrefix(*featureGatesFlag, "{{")
+		featureGatesVar = strings.TrimSuffix(featureGatesVar, "}}")
+		re := regexp.MustCompile(`(?m)featureGates:\n([ \t]+)- ` + featureGatesPlaceholder)
+		cr = re.ReplaceAllString(cr, `featureGates:{{if `+featureGatesVar+`}}
+$1{{- range `+featureGatesVar+`}}
+$1- {{.}}
+$1{{- end}}{{else}} []{{end}}`)
+	}
+
+	fmt.Print(cr)
+}
 
 func main() {
 	resourceType := flag.String("type", "", "Type of resource to generate. kv | kv-cr | operator-rbac | priorityclass")
@@ -49,7 +92,7 @@ func main() {
 		}
 		util.MarshallObject(kv, os.Stdout)
 	case "kv-cr":
-		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy, *featureGates), os.Stdout)
+		generateKubeVirtCR(namespace, imagePullPolicy, featureGates)
 	case "operator-rbac":
 		all := rbac.GetAllOperator(*namespace)
 		for _, r := range all {
