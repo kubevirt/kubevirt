@@ -91,7 +91,7 @@ var _ = Describe("Migration watcher", func() {
 
 	shouldExpectMigrationFinalizerRemoval := func(migration *virtv1.VirtualMachineInstanceMigration) {
 		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
-			Expect(len(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers)).To(Equal(0))
+			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers).To(HaveLen(0))
 			return arg, nil
 		})
 	}
@@ -106,13 +106,13 @@ var _ = Describe("Migration watcher", func() {
 
 			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity).ToNot(BeNil())
 			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
-			Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(expectedAntiAffinityCount))
+			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAntiAffinityCount))
 
 			if expectedAffinityCount > 0 {
-				Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(expectedAffinityCount))
+				Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAffinityCount))
 			}
 			if expectedNodeAffinityCount > 0 {
-				Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(expectedNodeAffinityCount))
+				Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
 			}
 
 			return true, update.GetObject(), nil
@@ -137,7 +137,7 @@ var _ = Describe("Migration watcher", func() {
 
 			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity).ToNot(BeNil())
 			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(1))
+			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 
 			return true, update.GetObject(), nil
 		})
