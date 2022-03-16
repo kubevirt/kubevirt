@@ -112,7 +112,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
 		})
 
@@ -130,7 +130,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.name"))
 		})
 
@@ -158,7 +158,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		})
 
@@ -238,7 +238,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
 			})
 
@@ -260,7 +260,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
 			})
 
