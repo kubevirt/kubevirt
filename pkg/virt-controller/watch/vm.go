@@ -88,7 +88,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
-	flaovrMethods flavor.Methods,
+	flavorMethods flavor.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) *VMController {
 
@@ -101,7 +101,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
 		crInformer:             crInformer,
-		flavorMethods:          flaovrMethods,
+		flavorMethods:          flavorMethods,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -1127,23 +1127,25 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 }
 
 func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	flavorProfile, err := c.flavorMethods.FindProfile(vm)
+
+	flavorSpec, err := c.flavorMethods.FindFlavorSpec(vm)
+
 	if err != nil {
 		return err
 	}
 
-	if flavorProfile == nil {
+	if flavorSpec == nil {
 		return nil
 	}
 
 	flavor.AddFlavorNameAnnotations(vm, vmi)
 
-	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorProfile, &vmi.Spec)
+	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, &vmi.Spec)
 	if len(conflicts) == 0 {
 		return nil
 	}
 
-	return fmt.Errorf("VMI conflicts with flavor profile in fields: [%s]", conflicts.String())
+	return fmt.Errorf("VMI conflicts with flavor spec in fields: [%s]", conflicts.String())
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {

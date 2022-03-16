@@ -736,9 +736,8 @@ func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
 
 func (FlavorMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
-		"name":    "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
-		"kind":    "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
-		"profile": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.\n+optional",
+		"":     "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
+		"name": "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
+		"kind": "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
 	}
 }

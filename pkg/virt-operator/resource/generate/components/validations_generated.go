@@ -3667,10 +3667,6 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               description: Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
               type: string
-            profile:
-              description: Profile is the name of a custom profile in the flavor.
-                If left empty, the default profile is used.
-              type: string
           required:
           - name
           type: object
@@ -6793,107 +6789,91 @@ var CRDsValidation map[string]string = map[string]string{
       type: string
     metadata:
       type: object
-    profiles:
-      items:
-        description: VirtualMachineFlavorProfile contains definitions that will be
-          applied to VirtualMachine.
-        properties:
-          cpu:
-            description: CPU allows specifying the CPU topology.
-            properties:
-              cores:
-                description: Cores specifies the number of cores inside the vmi. Must
-                  be a value greater or equal 1.
-                format: int32
-                type: integer
-              dedicatedCpuPlacement:
-                description: DedicatedCPUPlacement requests the scheduler to place
-                  the VirtualMachineInstance on a node with enough dedicated pCPUs
-                  and pin the vCPUs to it.
-                type: boolean
-              features:
-                description: Features specifies the CPU features list inside the VMI.
-                items:
-                  description: CPUFeature allows specifying a CPU feature.
-                  properties:
-                    name:
-                      description: Name of the CPU feature
-                      type: string
-                    policy:
-                      description: 'Policy is the CPU feature attribute which can
-                        have the following attributes: force    - The virtual CPU
-                        will claim the feature is supported regardless of it being
-                        supported by host CPU. require  - Guest creation will fail
-                        unless the feature is supported by the host CPU or the hypervisor
-                        is able to emulate it. optional - The feature will be supported
-                        by virtual CPU if and only if it is supported by host CPU.
-                        disable  - The feature will not be supported by virtual CPU.
-                        forbid   - Guest creation will fail if the feature is supported
-                        by host CPU. Defaults to require'
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
-              isolateEmulatorThread:
-                description: IsolateEmulatorThread requests one more dedicated pCPU
-                  to be allocated for the VMI to place the emulator thread on it.
-                type: boolean
-              model:
-                description: Model specifies the CPU model inside the VMI. List of
-                  available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
-                  It is possible to specify special cases like "host-passthrough"
-                  to get the same CPU as the node and "host-model" to get CPU closest
-                  to the node one. Defaults to host-model.
-                type: string
-              numa:
-                description: NUMA allows specifying settings for the guest NUMA topology
+    spec:
+      description: VirtualMachineFlavorSpec for the flavor
+      properties:
+        cpu:
+          description: CPU allows specifying the CPU topology.
+          properties:
+            cores:
+              description: Cores specifies the number of cores inside the vmi. Must
+                be a value greater or equal 1.
+              format: int32
+              type: integer
+            dedicatedCpuPlacement:
+              description: DedicatedCPUPlacement requests the scheduler to place the
+                VirtualMachineInstance on a node with enough dedicated pCPUs and pin
+                the vCPUs to it.
+              type: boolean
+            features:
+              description: Features specifies the CPU features list inside the VMI.
+              items:
+                description: CPUFeature allows specifying a CPU feature.
                 properties:
-                  guestMappingPassthrough:
-                    description: GuestMappingPassthrough will create an efficient
-                      guest topology based on host CPUs exclusively assigned to a
-                      pod. The created topology ensures that memory and CPUs on the
-                      virtual numa nodes never cross boundaries of host numa nodes.
-                    type: object
-                type: object
-              realtime:
-                description: Realtime instructs the virt-launcher to tune the VMI
-                  for lower latency, optional for real time workloads
-                properties:
-                  mask:
-                    description: 'Mask defines the vcpu mask expression that defines
-                      which vcpus are used for realtime. Format matches libvirt''s
-                      expressions. Example: "0-3,^1","0,2,3","2-3"'
+                  name:
+                    description: Name of the CPU feature
                     type: string
+                  policy:
+                    description: 'Policy is the CPU feature attribute which can have
+                      the following attributes: force    - The virtual CPU will claim
+                      the feature is supported regardless of it being supported by
+                      host CPU. require  - Guest creation will fail unless the feature
+                      is supported by the host CPU or the hypervisor is able to emulate
+                      it. optional - The feature will be supported by virtual CPU
+                      if and only if it is supported by host CPU. disable  - The feature
+                      will not be supported by virtual CPU. forbid   - Guest creation
+                      will fail if the feature is supported by host CPU. Defaults
+                      to require'
+                    type: string
+                required:
+                - name
                 type: object
-              sockets:
-                description: Sockets specifies the number of sockets inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-              threads:
-                description: Threads specifies the number of threads inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-            type: object
-          default:
-            description: Default specifies if this VirtualMachineFlavorProfile is
-              the default for the VirtualMachineFlavor. Zero or one profile can be
-              set to default.
-            type: boolean
-          name:
-            description: Name specifies the name of this custom profile.
-            type: string
-        required:
-        - name
-        type: object
-      type: array
-      x-kubernetes-list-map-keys:
-      - name
-      x-kubernetes-list-type: map
+              type: array
+            isolateEmulatorThread:
+              description: IsolateEmulatorThread requests one more dedicated pCPU
+                to be allocated for the VMI to place the emulator thread on it.
+              type: boolean
+            model:
+              description: Model specifies the CPU model inside the VMI. List of available
+                models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
+                It is possible to specify special cases like "host-passthrough" to
+                get the same CPU as the node and "host-model" to get CPU closest to
+                the node one. Defaults to host-model.
+              type: string
+            numa:
+              description: NUMA allows specifying settings for the guest NUMA topology
+              properties:
+                guestMappingPassthrough:
+                  description: GuestMappingPassthrough will create an efficient guest
+                    topology based on host CPUs exclusively assigned to a pod. The
+                    created topology ensures that memory and CPUs on the virtual numa
+                    nodes never cross boundaries of host numa nodes.
+                  type: object
+              type: object
+            realtime:
+              description: Realtime instructs the virt-launcher to tune the VMI for
+                lower latency, optional for real time workloads
+              properties:
+                mask:
+                  description: 'Mask defines the vcpu mask expression that defines
+                    which vcpus are used for realtime. Format matches libvirt''s expressions.
+                    Example: "0-3,^1","0,2,3","2-3"'
+                  type: string
+              type: object
+            sockets:
+              description: Sockets specifies the number of sockets inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+            threads:
+              description: Threads specifies the number of threads inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+          type: object
+      type: object
   required:
-  - profiles
+  - spec
   type: object
 `,
 	"virtualmachineflavor": `openAPIV3Schema:
@@ -6912,107 +6892,91 @@ var CRDsValidation map[string]string = map[string]string{
       type: string
     metadata:
       type: object
-    profiles:
-      items:
-        description: VirtualMachineFlavorProfile contains definitions that will be
-          applied to VirtualMachine.
-        properties:
-          cpu:
-            description: CPU allows specifying the CPU topology.
-            properties:
-              cores:
-                description: Cores specifies the number of cores inside the vmi. Must
-                  be a value greater or equal 1.
-                format: int32
-                type: integer
-              dedicatedCpuPlacement:
-                description: DedicatedCPUPlacement requests the scheduler to place
-                  the VirtualMachineInstance on a node with enough dedicated pCPUs
-                  and pin the vCPUs to it.
-                type: boolean
-              features:
-                description: Features specifies the CPU features list inside the VMI.
-                items:
-                  description: CPUFeature allows specifying a CPU feature.
-                  properties:
-                    name:
-                      description: Name of the CPU feature
-                      type: string
-                    policy:
-                      description: 'Policy is the CPU feature attribute which can
-                        have the following attributes: force    - The virtual CPU
-                        will claim the feature is supported regardless of it being
-                        supported by host CPU. require  - Guest creation will fail
-                        unless the feature is supported by the host CPU or the hypervisor
-                        is able to emulate it. optional - The feature will be supported
-                        by virtual CPU if and only if it is supported by host CPU.
-                        disable  - The feature will not be supported by virtual CPU.
-                        forbid   - Guest creation will fail if the feature is supported
-                        by host CPU. Defaults to require'
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
-              isolateEmulatorThread:
-                description: IsolateEmulatorThread requests one more dedicated pCPU
-                  to be allocated for the VMI to place the emulator thread on it.
-                type: boolean
-              model:
-                description: Model specifies the CPU model inside the VMI. List of
-                  available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
-                  It is possible to specify special cases like "host-passthrough"
-                  to get the same CPU as the node and "host-model" to get CPU closest
-                  to the node one. Defaults to host-model.
-                type: string
-              numa:
-                description: NUMA allows specifying settings for the guest NUMA topology
+    spec:
+      description: VirtualMachineFlavorSpec for the flavor
+      properties:
+        cpu:
+          description: CPU allows specifying the CPU topology.
+          properties:
+            cores:
+              description: Cores specifies the number of cores inside the vmi. Must
+                be a value greater or equal 1.
+              format: int32
+              type: integer
+            dedicatedCpuPlacement:
+              description: DedicatedCPUPlacement requests the scheduler to place the
+                VirtualMachineInstance on a node with enough dedicated pCPUs and pin
+                the vCPUs to it.
+              type: boolean
+            features:
+              description: Features specifies the CPU features list inside the VMI.
+              items:
+                description: CPUFeature allows specifying a CPU feature.
                 properties:
-                  guestMappingPassthrough:
-                    description: GuestMappingPassthrough will create an efficient
-                      guest topology based on host CPUs exclusively assigned to a
-                      pod. The created topology ensures that memory and CPUs on the
-                      virtual numa nodes never cross boundaries of host numa nodes.
-                    type: object
-                type: object
-              realtime:
-                description: Realtime instructs the virt-launcher to tune the VMI
-                  for lower latency, optional for real time workloads
-                properties:
-                  mask:
-                    description: 'Mask defines the vcpu mask expression that defines
-                      which vcpus are used for realtime. Format matches libvirt''s
-                      expressions. Example: "0-3,^1","0,2,3","2-3"'
+                  name:
+                    description: Name of the CPU feature
                     type: string
+                  policy:
+                    description: 'Policy is the CPU feature attribute which can have
+                      the following attributes: force    - The virtual CPU will claim
+                      the feature is supported regardless of it being supported by
+                      host CPU. require  - Guest creation will fail unless the feature
+                      is supported by the host CPU or the hypervisor is able to emulate
+                      it. optional - The feature will be supported by virtual CPU
+                      if and only if it is supported by host CPU. disable  - The feature
+                      will not be supported by virtual CPU. forbid   - Guest creation
+                      will fail if the feature is supported by host CPU. Defaults
+                      to require'
+                    type: string
+                required:
+                - name
                 type: object
-              sockets:
-                description: Sockets specifies the number of sockets inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-              threads:
-                description: Threads specifies the number of threads inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-            type: object
-          default:
-            description: Default specifies if this VirtualMachineFlavorProfile is
-              the default for the VirtualMachineFlavor. Zero or one profile can be
-              set to default.
-            type: boolean
-          name:
-            description: Name specifies the name of this custom profile.
-            type: string
-        required:
-        - name
-        type: object
-      type: array
-      x-kubernetes-list-map-keys:
-      - name
-      x-kubernetes-list-type: map
+              type: array
+            isolateEmulatorThread:
+              description: IsolateEmulatorThread requests one more dedicated pCPU
+                to be allocated for the VMI to place the emulator thread on it.
+              type: boolean
+            model:
+              description: Model specifies the CPU model inside the VMI. List of available
+                models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
+                It is possible to specify special cases like "host-passthrough" to
+                get the same CPU as the node and "host-model" to get CPU closest to
+                the node one. Defaults to host-model.
+              type: string
+            numa:
+              description: NUMA allows specifying settings for the guest NUMA topology
+              properties:
+                guestMappingPassthrough:
+                  description: GuestMappingPassthrough will create an efficient guest
+                    topology based on host CPUs exclusively assigned to a pod. The
+                    created topology ensures that memory and CPUs on the virtual numa
+                    nodes never cross boundaries of host numa nodes.
+                  type: object
+              type: object
+            realtime:
+              description: Realtime instructs the virt-launcher to tune the VMI for
+                lower latency, optional for real time workloads
+              properties:
+                mask:
+                  description: 'Mask defines the vcpu mask expression that defines
+                    which vcpus are used for realtime. Format matches libvirt''s expressions.
+                    Example: "0-3,^1","0,2,3","2-3"'
+                  type: string
+              type: object
+            sockets:
+              description: Sockets specifies the number of sockets inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+            threads:
+              description: Threads specifies the number of threads inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+          type: object
+      type: object
   required:
-  - profiles
+  - spec
   type: object
 `,
 	"virtualmachineinstance": `openAPIV3Schema:
@@ -14609,10 +14573,6 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Name is the name of the VirtualMachineFlavor or
                         VirtualMachineClusterFlavor
                       type: string
-                    profile:
-                      description: Profile is the name of a custom profile in the
-                        flavor. If left empty, the default profile is used.
-                      type: string
                   required:
                   - name
                   type: object
@@ -18519,10 +18479,6 @@ var CRDsValidation map[string]string = map[string]string{
                         name:
                           description: Name is the name of the VirtualMachineFlavor
                             or VirtualMachineClusterFlavor
-                          type: string
-                        profile:
-                          description: Profile is the name of a custom profile in
-                            the flavor. If left empty, the default profile is used.
                           type: string
                       required:
                       - name

@@ -30,15 +30,6 @@ var _ = Describe("Validating Flavor Admitter", func() {
 				Name:      "test-name",
 				Namespace: "test-namespace",
 			},
-			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
-				Name:    "default",
-				Default: true,
-				CPU:     nil,
-			}, {
-				Name:    "second",
-				Default: false,
-				CPU:     nil,
-			}},
 		}
 	})
 
@@ -46,19 +37,6 @@ var _ = Describe("Validating Flavor Admitter", func() {
 		ar := createFlavorAdmissionReview(flavorObj)
 		response := admitter.Admit(ar)
 		Expect(response.Allowed).To(BeTrue(), "Expected flavor to be allowed.")
-	})
-
-	It("should reject flavor with multiple default profiles", func() {
-		for i := range flavorObj.Profiles {
-			flavorObj.Profiles[i].Default = true
-		}
-
-		ar := createFlavorAdmissionReview(flavorObj)
-		response := admitter.Admit(ar)
-		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
-		Expect(response.Result.Details.Causes[0].Message).To(HavePrefix("Flavor contains more than one default profile"))
 	})
 
 	It("should reject unsupported version", func() {
@@ -85,15 +63,6 @@ var _ = Describe("Validating ClusterFlavor Admitter", func() {
 				Name:      "test-name",
 				Namespace: "test-namespace",
 			},
-			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
-				Name:    "default",
-				Default: true,
-				CPU:     nil,
-			}, {
-				Name:    "second",
-				Default: false,
-				CPU:     nil,
-			}},
 		}
 	})
 
@@ -101,19 +70,6 @@ var _ = Describe("Validating ClusterFlavor Admitter", func() {
 		ar := createClusterFlavorAdmissionReview(clusterFlavorObj)
 		response := admitter.Admit(ar)
 		Expect(response.Allowed).To(BeTrue(), "Expected flavor to be allowed.")
-	})
-
-	It("should reject flavor with multiple default profiles", func() {
-		for i := range clusterFlavorObj.Profiles {
-			clusterFlavorObj.Profiles[i].Default = true
-		}
-
-		ar := createClusterFlavorAdmissionReview(clusterFlavorObj)
-		response := admitter.Admit(ar)
-		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
-		Expect(response.Result.Details.Causes[0].Message).To(HavePrefix("Flavor contains more than one default profile."))
 	})
 
 	It("should reject unsupported version", func() {

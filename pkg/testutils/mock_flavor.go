@@ -9,26 +9,26 @@ import (
 )
 
 type MockFlavorMethods struct {
-	FindFlavorFunc func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error)
-	ApplyToVmiFunc func(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
+	FindFlavorSpecFunc func(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
+	ApplyToVmiFunc     func(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts
 }
 
 var _ flavor.Methods = &MockFlavorMethods{}
 
-func (m *MockFlavorMethods) FindProfile(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
-	return m.FindFlavorFunc(vm)
+func (m *MockFlavorMethods) FindFlavorSpec(vm *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+	return m.FindFlavorSpecFunc(vm)
 }
 
-func (m *MockFlavorMethods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
-	return m.ApplyToVmiFunc(field, profile, vmiSpec)
+func (m *MockFlavorMethods) ApplyToVmi(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+	return m.ApplyToVmiFunc(field, flavorspec, vmiSpec)
 }
 
 func NewMockFlavorMethods() *MockFlavorMethods {
 	return &MockFlavorMethods{
-		FindFlavorFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+		FindFlavorSpecFunc: func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 			return nil, nil
 		},
-		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
 			return nil
 		},
 	}

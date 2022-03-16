@@ -5,9 +5,12 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -22,6 +25,8 @@ var _ = Describe("Flavor", func() {
 		flavorInformer        cache.SharedIndexInformer
 		clusterFlavorInformer cache.SharedIndexInformer
 		flavorMethods         flavor.Methods
+		vm                    *v1.VirtualMachine
+		vmi                   *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
@@ -30,17 +35,7 @@ var _ = Describe("Flavor", func() {
 		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore())
 	})
 
-	Context("Find Flavor profile", func() {
-		const (
-			defaultProfileName = "default"
-			customProfileName1 = "custom-profile-1"
-			customProfileName2 = "custom-profile-2"
-		)
-
-		var (
-			vm             *v1.VirtualMachine
-			flavorProfiles []flavorv1alpha1.VirtualMachineFlavorProfile
-		)
+	Context("Find Flavor Spec", func() {
 
 		BeforeEach(func() {
 			vm = &v1.VirtualMachine{
@@ -52,25 +47,24 @@ var _ = Describe("Flavor", func() {
 					Flavor: &v1.FlavorMatcher{},
 				},
 			}
-
-			flavorProfiles = []flavorv1alpha1.VirtualMachineFlavorProfile{{
-				Name:    defaultProfileName,
-				Default: true,
-				CPU:     &v1.CPU{Sockets: 2, Cores: 1, Threads: 1},
-			}, {
-				Name: customProfileName1,
-				CPU:  &v1.CPU{Sockets: 4, Cores: 1, Threads: 1},
-			}, {
-				Name: customProfileName2,
-				CPU:  &v1.CPU{Sockets: 6, Cores: 1, Threads: 1},
-			}}
 		})
 
 		It("returns nil when no flavor is specified", func() {
 			vm.Spec.Flavor = nil
-			profile, err := flavorMethods.FindProfile(vm)
+			spec, err := flavorMethods.FindFlavorSpec(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(profile).To(BeNil())
+			Expect(spec).To(BeNil())
+		})
+
+		It("returns error when invalid Flavor Kind is specified", func() {
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: "foo",
+				Kind: "bar",
+			}
+			spec, err := flavorMethods.FindFlavorSpec(vm)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("got unexpected kind in FlavorMatcher"))
+			Expect(spec).To(BeNil())
 		})
 
 		Context("Using global ClusterFlavor", func() {
@@ -81,7 +75,11 @@ var _ = Describe("Flavor", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-cluster-flavor",
 					},
-					Profiles: flavorProfiles,
+					Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
+						CPU: &v1.CPU{
+							Cores: 1,
+						},
+					},
 				}
 
 				err := clusterFlavorInformer.GetStore().Add(flavor)
@@ -89,60 +87,28 @@ var _ = Describe("Flavor", func() {
 
 				vm.Spec.Flavor = &v1.FlavorMatcher{
 					Name: flavor.Name,
+					Kind: apiflavor.ClusterSingularResourceName,
 				}
 			})
 
 			It("should find cluster flavor if Kind is not specified", func() {
 				vm.Spec.Flavor.Kind = ""
 
-				profile, err := flavorMethods.FindProfile(vm)
+				f, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(profile).ToNot(BeNil())
+				Expect(*f).To(Equal(flavor.Spec))
 			})
 
-			It("returns default profile when no profile is specified", func() {
-				vm.Spec.Flavor.Profile = ""
-
-				profile, err := flavorMethods.FindProfile(vm)
+			It("returns expected flavor", func() {
+				f, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*profile).To(Equal(flavorProfiles[0]))
-			})
-
-			It("returns custom profile when specified", func() {
-				vm.Spec.Flavor.Profile = flavorProfiles[1].Name
-
-				profile, err := flavorMethods.FindProfile(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*profile).To(Equal(flavorProfiles[1]))
-			})
-
-			It("fails when default profile does not exist", func() {
-				for i := range flavor.Profiles {
-					flavor.Profiles[i].Default = false
-				}
-
-				err := clusterFlavorInformer.GetStore().Update(flavor)
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Flavor.Profile = ""
-
-				_, err = flavorMethods.FindProfile(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("flavor does not specify a default profile"))
-			})
-
-			It("fails when custom profile does not exist", func() {
-				vm.Spec.Flavor.Profile = "non-existing-profile"
-
-				_, err := flavorMethods.FindProfile(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("flavor does not have a profile with name"))
+				Expect(*f).To(Equal(flavor.Spec))
 			})
 
 			It("fails when flavor does not exist", func() {
 				vm.Spec.Flavor.Name = "non-existing-flavor"
 
-				_, err := flavorMethods.FindProfile(vm)
+				_, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -157,7 +123,11 @@ var _ = Describe("Flavor", func() {
 						Name:      "test-flavor",
 						Namespace: vm.Namespace,
 					},
-					Profiles: flavorProfiles,
+					Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
+						CPU: &v1.CPU{
+							Cores: 2,
+						},
+					},
 				}
 
 				err := flavorInformer.GetStore().Add(flavor)
@@ -169,49 +139,16 @@ var _ = Describe("Flavor", func() {
 				}
 			})
 
-			It("returns default profile when no profile is specified", func() {
-				vm.Spec.Flavor.Profile = ""
-
-				profile, err := flavorMethods.FindProfile(vm)
+			It("returns expected flavor", func() {
+				f, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*profile).To(Equal(flavorProfiles[0]))
-			})
-
-			It("returns custom profile when specified", func() {
-				vm.Spec.Flavor.Profile = flavorProfiles[1].Name
-
-				profile, err := flavorMethods.FindProfile(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*profile).To(Equal(flavorProfiles[1]))
-			})
-
-			It("fails when default profile does not exist", func() {
-				for i := range flavor.Profiles {
-					flavor.Profiles[i].Default = false
-				}
-
-				err := flavorInformer.GetStore().Update(flavor)
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Flavor.Profile = ""
-
-				_, err = flavorMethods.FindProfile(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("flavor does not specify a default profile"))
-			})
-
-			It("fails when custom profile does not exist", func() {
-				vm.Spec.Flavor.Profile = "non-existing-profile"
-
-				_, err := flavorMethods.FindProfile(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("flavor does not have a profile with name"))
+				Expect(*f).To(Equal(flavor.Spec))
 			})
 
 			It("fails when flavor does not exist", func() {
 				vm.Spec.Flavor.Name = "non-existing-flavor"
 
-				_, err := flavorMethods.FindProfile(vm)
+				_, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -219,7 +156,7 @@ var _ = Describe("Flavor", func() {
 			It("fails when flavor is in different namespace", func() {
 				vm.Namespace = "other-namespace"
 
-				_, err := flavorMethods.FindProfile(vm)
+				_, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -228,8 +165,6 @@ var _ = Describe("Flavor", func() {
 
 	Context("Add flavor name annotations", func() {
 		const flavorName = "flavor-name"
-
-		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
 			vm = kubecli.NewMinimalVM("testvm")
@@ -267,65 +202,86 @@ var _ = Describe("Flavor", func() {
 		})
 	})
 
-	Context("Apply flavor to VMI", func() {
-		Context("CPU count", func() {
-			var (
-				vmiSpec *v1.VirtualMachineInstanceSpec
-				profile *flavorv1alpha1.VirtualMachineFlavorProfile
-			)
+	Context("Apply flavor Spec to VMI", func() {
 
-			BeforeEach(func() {
-				vmiSpec = &v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{},
-				}
+		var (
+			flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec
+			field      *field.Path
+		)
 
-				profile = &flavorv1alpha1.VirtualMachineFlavorProfile{
+		BeforeEach(func() {
+			vm = kubecli.NewMinimalVM("testvm")
+			vm.Namespace = "test-namespace"
+			vmi = api.NewMinimalVMI("testvmi")
+
+			vmi.Spec = v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{},
+			}
+			field = k8sfield.NewPath("spec", "template", "spec")
+		})
+
+		Context("Apply flavor.CPU", func() {
+
+			It("in full to VMI", func() {
+
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
 					CPU: &v1.CPU{
 						Sockets: 2,
 						Cores:   1,
 						Threads: 1,
 					},
 				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
+
 			})
 
-			It("ignores CPU count if not defined", func() {
+			It("is skipped if CPU count if not defined in spec", func() {
+
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					CPU: nil,
+				}
+
 				const vmiCpuCount = uint32(4)
-				vmiSpec.Domain.CPU = &v1.CPU{
+				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: vmiCpuCount,
 					Cores:   1,
 					Threads: 1,
 				}
 
-				profile.CPU = nil
-
-				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vmiSpec)
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(vmiCpuCount))
-				Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(1)))
-				Expect(vmiSpec.Domain.CPU.Threads).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vmiCpuCount))
+
 			})
 
-			It("sets CPU count", func() {
-				vmiSpec.Domain.CPU = nil
+			It("detects CPU conflict", func() {
 
-				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vmiSpec)
-				Expect(conflicts).To(BeEmpty())
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					CPU: &v1.CPU{
+						Sockets: 2,
+						Cores:   1,
+						Threads: 1,
+					},
+				}
 
-				Expect(vmiSpec.Domain.CPU).To(Equal(profile.CPU))
-			})
-
-			It("detects CPU count conflict", func() {
 				const vmiCpuCount = uint32(4)
-				vmiSpec.Domain.CPU = &v1.CPU{
+				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:   vmiCpuCount,
 					Sockets: 1,
 					Threads: 1,
 				}
 
-				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vmiSpec)
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
-				Expect(conflicts[0].String()).To(Equal("spec.domain.cpu"))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
+
 			})
 		})
 	})

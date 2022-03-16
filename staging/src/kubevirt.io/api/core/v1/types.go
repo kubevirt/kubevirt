@@ -2230,8 +2230,4 @@ type FlavorMatcher struct {
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`
-
-	// Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.
-	// +optional
-	Profile string `json:"profile,omitempty"`
 }

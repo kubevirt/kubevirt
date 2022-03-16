@@ -13367,10 +13367,6 @@
      "name": {
       "description": "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
       "type": "string"
-     },
-     "profile": {
-      "description": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.",
-      "type": "string"
      }
     }
    },
@@ -16573,7 +16569,7 @@
     "description": "VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.",
     "type": "object",
     "required": [
-     "profiles"
+     "spec"
     ],
     "properties": {
      "apiVersion": {
@@ -16587,15 +16583,9 @@
      "metadata": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
-     "profiles": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorProfile"
-      },
-      "x-kubernetes-list-map-keys": [
-       "name"
-      ],
-      "x-kubernetes-list-type": "map"
+     "spec": {
+      "description": "VirtualMachineFlavorSpec for the flavor",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorSpec"
      }
     }
    },
@@ -16629,7 +16619,7 @@
     "description": "VirtualMachineFlavor resource contains common VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
     "type": "object",
     "required": [
-     "profiles"
+     "spec"
     ],
     "properties": {
      "apiVersion": {
@@ -16643,15 +16633,9 @@
      "metadata": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
-     "profiles": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorProfile"
-      },
-      "x-kubernetes-list-map-keys": [
-       "name"
-      ],
-      "x-kubernetes-list-type": "map"
+     "spec": {
+      "description": "VirtualMachineFlavorSpec for the flavor",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorSpec"
      }
     }
    },
@@ -16681,23 +16665,12 @@
      }
     }
    },
-   "v1alpha1.VirtualMachineFlavorProfile": {
-    "description": "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.",
+   "v1alpha1.VirtualMachineFlavorSpec": {
+    "description": "VirtualMachineFlavorSpec",
     "type": "object",
-    "required": [
-     "name"
-    ],
     "properties": {
      "cpu": {
       "$ref": "#/definitions/v1.CPU"
-     },
-     "default": {
-      "description": "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor. Zero or one profile can be set to default.",
-      "type": "boolean"
-     },
-     "name": {
-      "description": "Name specifies the name of this custom profile.",
-      "type": "string"
      }
     }
    },

@@ -35,9 +35,8 @@ type VirtualMachineFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +listType=map
-	// +listMapKey=name
-	Profiles []VirtualMachineFlavorProfile `json:"profiles"`
+	// VirtualMachineFlavorSpec for the flavor
+	Spec VirtualMachineFlavorSpec `json:"spec"`
 }
 
 // VirtualMachineFlavorList is a list of VirtualMachineFlavor resources.
@@ -60,9 +59,8 @@ type VirtualMachineClusterFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +listType=map
-	// +listMapKey=name
-	Profiles []VirtualMachineFlavorProfile `json:"profiles"`
+	// VirtualMachineFlavorSpec for the flavor
+	Spec VirtualMachineFlavorSpec `json:"spec"`
 }
 
 // VirtualMachineClusterFlavorList is a list of VirtualMachineClusterFlavor resources.
@@ -75,18 +73,10 @@ type VirtualMachineClusterFlavorList struct {
 	Items           []VirtualMachineClusterFlavor `json:"items"`
 }
 
-// VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.
+// VirtualMachineFlavorSpec
 //
 // +k8s:openapi-gen=true
-type VirtualMachineFlavorProfile struct {
-	// Name specifies the name of this custom profile.
-	Name string `json:"name"`
-
-	// Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor.
-	// Zero or one profile can be set to default.
-	//
-	// +optional
-	Default bool `json:"default,omitempty"`
+type VirtualMachineFlavorSpec struct {
 
 	// +optional
 	CPU *v1.CPU `json:"cpu,omitempty"`

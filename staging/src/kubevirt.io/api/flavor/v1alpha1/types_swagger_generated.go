@@ -4,8 +4,8 @@ package v1alpha1
 
 func (VirtualMachineFlavor) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "VirtualMachineFlavor resource contains common VirtualMachine configuration\nthat can be used by multiple VirtualMachine resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
-		"profiles": "+listType=map\n+listMapKey=name",
+		"":     "VirtualMachineFlavor resource contains common VirtualMachine configuration\nthat can be used by multiple VirtualMachine resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
+		"spec": "VirtualMachineFlavorSpec for the flavor",
 	}
 }
 
@@ -17,8 +17,8 @@ func (VirtualMachineFlavorList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineClusterFlavor) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
-		"profiles": "+listType=map\n+listMapKey=name",
+		"":     "VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
+		"spec": "VirtualMachineFlavorSpec for the flavor",
 	}
 }
 
@@ -28,11 +28,9 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VirtualMachineFlavorProfile) SwaggerDoc() map[string]string {
+func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.\n\n+k8s:openapi-gen=true",
-		"name":    "Name specifies the name of this custom profile.",
-		"default": "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor.\nZero or one profile can be set to default.\n\n+optional",
-		"cpu":     "+optional",
+		"":    "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true",
+		"cpu": "+optional",
 	}
 }
