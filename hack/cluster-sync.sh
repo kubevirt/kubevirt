@@ -28,6 +28,7 @@ function main() {
     CLEAN_PID=$!
 
     make cluster-build
+    make manifests
 
     echo "waiting for cluster-clean to finish"
     if ! wait $CLEAN_PID; then

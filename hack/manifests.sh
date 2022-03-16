@@ -14,24 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2022 Red Hat, Inc.
 #
-
-# This script is called by cluster-sync.sh
 
 set -e
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 
-source hack/common.sh
-source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
-source hack/config.sh
+echo "Building manifests..."
 
-echo "Building ..."
-
-# Build everyting and publish it
-${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-func-tests.sh"
-${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-push-images.sh"
+${KUBEVIRT_PATH}hack/dockerized "KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL} BUILD_ARCH=${BUILD_ARCH} && CSV_VERSION=${CSV_VERSION} QUAY_REPOSITORY=${QUAY_REPOSITORY} \
+	  DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} KUBEVIRT_ONLY_USE_TAGS=${KUBEVIRT_ONLY_USE_TAGS} \
+	  IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PACKAGE_NAME=${PACKAGE_NAME} \
+	  KUBEVIRT_INSTALLED_NAMESPACE=${KUBEVIRT_INSTALLED_NAMESPACE} ./hack/build-manifests.sh"
 
 echo "Done $0"
