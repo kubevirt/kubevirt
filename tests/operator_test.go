@@ -1434,7 +1434,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
-			}, 60*time.Second, 5*time.Second).Should(Equal(""))
+			}, 60*time.Second, 5*time.Second).Should(BeEmpty())
 		})
 	})
 
@@ -1457,7 +1457,7 @@ spec:
 			migratableVMIs := generateMigratableVMIs(2)
 			launcherSha := getVirtLauncherSha()
 			if !flags.SkipShasumCheck {
-				Expect(launcherSha).ToNot(Equal(""))
+				Expect(launcherSha).ToNot(BeEmpty())
 			}
 
 			previousImageTag := flags.PreviousReleaseTag

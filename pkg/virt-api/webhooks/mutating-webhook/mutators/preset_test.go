@@ -450,7 +450,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			By("checking annotations were not applied")
 			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
-			Expect(annotation).To(Equal(""))
+			Expect(annotation).To(BeEmpty())
 			Expect(ok).To(BeFalse())
 
 			By("checking settings were not applied to VirtualMachineInstance")
@@ -476,7 +476,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			By("checking annotations were not applied")
 			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
-			Expect(annotation).To(Equal(""))
+			Expect(annotation).To(BeEmpty())
 			Expect(ok).To(BeFalse())
 
 			By("checking settings were not applied to VirtualMachineInstance")

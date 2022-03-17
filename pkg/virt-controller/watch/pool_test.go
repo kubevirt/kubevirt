@@ -252,7 +252,7 @@ var _ = Describe("Pool", func() {
 
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
+				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(BeEmpty())
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -635,7 +635,7 @@ var _ = Describe("Pool", func() {
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).ToNot(Equal(nonMatchingVM.Name))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
+				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(BeEmpty())
 			}).Return(vm, nil)
 
 			poolRevision := createPoolRevision(pool)
@@ -659,7 +659,7 @@ var _ = Describe("Pool", func() {
 
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
+				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(BeEmpty())
 			}).Return(vm, nil)
 
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {

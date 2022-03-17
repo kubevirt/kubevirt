@@ -54,7 +54,7 @@ var _ = Describe("Apply", func() {
 
 	Context("Services", func() {
 
-		It("should patch if ClusterIp == \"\" during update", func() {
+		It(`should not patch if ClusterIp == "" during update`, func() {
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
 			cachedService.Spec.ClusterIP = "10.10.10.10"
@@ -63,12 +63,10 @@ var _ = Describe("Apply", func() {
 			service.Spec.Type = corev1.ServiceTypeClusterIP
 			service.Spec.ClusterIP = ""
 
-			ops, err := generateServicePatch(cachedService, service)
-			Expect(err).To(BeNil())
-			Expect(ops).ToNot(Equal(""))
+			Expect(generateServicePatch(cachedService, service)).To(BeEmpty())
 		})
 
-		It("should replace if ClusterIp != \"\" during update and ip changes", func() {
+		It(`should replace if ClusterIp != "" during update and ip changes`, func() {
 
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP

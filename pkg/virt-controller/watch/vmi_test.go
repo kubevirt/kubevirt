@@ -1407,7 +1407,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				_, ok := arg.(*virtv1.VirtualMachineInstance).Labels[virtv1.OutdatedLauncherImageLabel]
 				Expect(ok).To(BeFalse())
 				// outdated launcher image should get cleared after being finalized
-				Expect(arg.(*virtv1.VirtualMachineInstance).Status.LauncherContainerImageVersion).To(Equal(""))
+				Expect(arg.(*virtv1.VirtualMachineInstance).Status.LauncherContainerImageVersion).To(BeEmpty())
 
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(phase))
 				Expect(arg.(*virtv1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(virtv1.VirtualMachineInstanceFinalizer))

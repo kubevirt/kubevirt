@@ -1869,13 +1869,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			podRunningRe, err := regexp.Compile(fmt.Sprintf("%s.*Running", expectedPodName))
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(podRunningRe.FindString(stdout)).ToNot(Equal(""), "Pod is not Running")
+			Expect(podRunningRe.FindString(stdout)).ToNot(BeEmpty(), "Pod is not Running")
 
 			By("Checking that VM is running")
 			stdout, _, err = tests.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+			Expect(vmRunningRe.FindString(stdout)).ToNot(BeEmpty(), "VMI is not Running")
 		},
 			table.Entry("with v1 api", "kubevirt.io/v1"),
 			table.Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
@@ -1904,7 +1904,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+			Expect(vmRunningRe.FindString(stdout)).ToNot(BeEmpty(), "VMI is not Running")
 
 			By("Deleting VM using k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
@@ -1974,7 +1974,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Checking that VM is still running")
 				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+				Expect(vmRunningRe.FindString(stdout)).ToNot(BeEmpty(), "VMI is not Running")
 
 				By("Checking VM Running spec does not change")
 				actualVm, err := virtClient.VirtualMachine(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
@@ -2032,7 +2032,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Checking that VM is running")
 				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+				Expect(vmRunningRe.FindString(stdout)).ToNot(BeEmpty(), "VMI is not Running")
 			})
 		})
 

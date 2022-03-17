@@ -345,7 +345,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
 		Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
 		Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
-		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(BeEmpty())
 		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 
 		By("Verifying the VMI's is in the running state")
@@ -375,7 +375,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
 		Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
-		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(BeEmpty())
 		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 		Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
 		Expect(vmi.Status.MigrationState.AbortRequested).To(BeTrue())
@@ -2296,7 +2296,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.MigrationState).ToNot(BeNil())
-				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
+				Expect(vmi.Status.MigrationState.TargetPod).ToNot(BeEmpty())
 
 				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2379,7 +2379,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.MigrationState).ToNot(BeNil())
-				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
+				Expect(vmi.Status.MigrationState.TargetPod).ToNot(BeEmpty())
 
 				By("Sanity checking the volume status size and the actual virt-launcher file")
 				for _, volume := range vmi.Spec.Volumes {
@@ -2909,7 +2909,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 				resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
+				Expect(resVMI.Status.EvacuationNodeName).To(BeEmpty(), "vmi evacuation state should be clean")
 			})
 
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
@@ -3428,7 +3428,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 					resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
-					Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
+					Expect(resVMI.Status.EvacuationNodeName).To(BeEmpty(), "vmi evacuation state should be clean")
 				})
 			})
 

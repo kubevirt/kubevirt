@@ -1286,7 +1286,7 @@ var _ = Describe("VirtualMachine", func() {
 			// expect creation called
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("vmname"))
-				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal(""))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.GenerateName).To(BeEmpty())
 			}).Return(vmi, nil)
 
 			// expect update status is called

@@ -269,7 +269,7 @@ var _ = Describe("Flavor", func() {
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
 
 				// ClusterFlavor should be set
-				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(""))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(BeEmpty())
 				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(testFlavor))
 			})
 
@@ -285,7 +285,7 @@ var _ = Describe("Flavor", func() {
 
 				// Flavor should be nil
 				// ClusterFlavor should be set
-				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(""))
+				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(BeEmpty())
 				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(testFlavor))
 			})
 

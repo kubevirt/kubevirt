@@ -21,7 +21,7 @@ var _ = Describe("Hostmetrics", func() {
 
 		Expect(len(metrics)).To(Equal(9))
 		Expect(metrics[0].Name).To(Equal("NumberOfPhysicalCPUs"))
-		Expect(metrics[0].Unit).To(Equal(""))
+		Expect(metrics[0].Unit).To(BeEmpty())
 		Expect(metrics[0].Value).To(Equal("3"))
 		Expect(metrics[1].Name).To(Equal("TotalCPUTime"))
 		Expect(metrics[1].Unit).To(Equal("s"))

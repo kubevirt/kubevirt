@@ -133,7 +133,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 		break
 	}
 
-	Expect(pid).ToNot(Equal(""), "qemu pid not found")
+	Expect(pid).ToNot(BeEmpty(), "qemu pid not found")
 	return pid
 }
 

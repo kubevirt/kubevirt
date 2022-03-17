@@ -106,7 +106,7 @@ var _ = Describe("Resolveconf", func() {
 
 			const subdomain = ""
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
-			Expect(domain).To(Equal(""))
+			Expect(domain).To(BeEmpty())
 		})
 
 		It("should be added even if the longest existing service domain isn't the first", func() {
@@ -122,7 +122,7 @@ var _ = Describe("Resolveconf", func() {
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
-			Expect(domain).To(Equal(""))
+			Expect(domain).To(BeEmpty())
 		})
 
 		It("should be added to the right entry if the longest entry is not a service entry", func() {
@@ -139,7 +139,7 @@ var _ = Describe("Resolveconf", func() {
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
-			Expect(domain).To(Equal(""))
+			Expect(domain).To(BeEmpty())
 		})
 	})
 })

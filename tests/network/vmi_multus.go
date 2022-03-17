@@ -708,12 +708,12 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				Expect(interfaceByIfcName["eth1"].Name).To(Equal(linuxBridgeIfaceName))
 				Expect(interfaceByIfcName["eth1"].InterfaceName).To(Equal("eth1"))
 
-				Expect(interfaceByIfcName["ep1"].Name).To(Equal(""))
+				Expect(interfaceByIfcName["ep1"].Name).To(BeEmpty())
 				Expect(interfaceByIfcName["ep1"].InterfaceName).To(Equal("ep1"))
 				Expect(interfaceByIfcName["ep1"].IP).To(Equal(ep1Ip))
 				Expect(interfaceByIfcName["ep1"].IPs).To(Equal([]string{ep1Ip, ep1IpV6}))
 
-				Expect(interfaceByIfcName["ep2"].Name).To(Equal(""))
+				Expect(interfaceByIfcName["ep2"].Name).To(BeEmpty())
 				Expect(interfaceByIfcName["ep2"].InterfaceName).To(Equal("ep2"))
 				Expect(interfaceByIfcName["ep2"].IP).To(Equal(ep2Ip))
 				Expect(interfaceByIfcName["ep2"].IPs).To(Equal([]string{ep2Ip, ep2IpV6}))

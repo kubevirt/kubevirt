@@ -118,7 +118,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 					break
 				}
 			}
-			Expect(container.Name).ToNot(Equal(""))
+			Expect(container.Name).ToNot(BeEmpty())
 			Expect(container.Ports).ToNot(BeNil())
 			Expect(container.Ports[0].Name).To(Equal("http"))
 			Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))

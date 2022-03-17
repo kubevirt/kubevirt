@@ -99,7 +99,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 					}
 				}
 			}
-			Expect(gpuName).ToNot(Equal(""))
+			Expect(gpuName).ToNot(BeEmpty())
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			gpus := []v1.GPU{
 				{

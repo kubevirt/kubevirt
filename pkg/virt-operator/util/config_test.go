@@ -232,7 +232,7 @@ var _ = Describe("Operator Config", func() {
 			result, found, err := getImagePrefixFromDeploymentConfig(blob)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeFalse())
-			Expect(result).To(Equal(""))
+			Expect(result).To(BeEmpty())
 		})
 	})
 

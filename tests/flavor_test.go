@@ -248,7 +248,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.CPU).To(Equal(cpu))
 				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
-				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
+				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(BeEmpty())
 			})
 
 			It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {

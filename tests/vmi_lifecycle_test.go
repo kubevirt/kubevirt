@@ -502,7 +502,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					Expect(pod.Status.Phase).To(Equal(k8sv1.PodRunning), "pod has to be in running state")
 					for _, condition := range pod.Status.Conditions {
 						if condition.Type == k8sv1.ContainersReady {
-							Expect(condition.Reason).To(Equal(""), "condition reason has to be empty")
+							Expect(condition.Reason).To(BeEmpty(), "condition reason has to be empty")
 						}
 					}
 				}

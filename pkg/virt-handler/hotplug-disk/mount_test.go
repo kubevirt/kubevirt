@@ -375,7 +375,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(major).To(Equal(int64(-1)))
 			Expect(minor).To(Equal(int64(-1)))
-			Expect(perm).To(Equal(""))
+			Expect(perm).To(BeEmpty())
 		})
 
 		It("isBlockFile should return proper value based on stat command", func() {

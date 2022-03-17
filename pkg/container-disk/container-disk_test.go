@@ -106,7 +106,7 @@ var _ = Describe("ContainerDisk", func() {
 				path, found, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeFalse())
-				Expect(path).To(Equal(""))
+				Expect(path).To(BeEmpty())
 
 				// should be found if dir does exist
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
@@ -150,7 +150,7 @@ var _ = Describe("ContainerDisk", func() {
 				path, found, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(found).To(BeFalse())
-				Expect(path).To(Equal(""))
+				Expect(path).To(BeEmpty())
 			})
 
 			It("by verifying launcher directory locations", func() {
@@ -160,7 +160,7 @@ var _ = Describe("ContainerDisk", func() {
 				// This should fail if no file exists
 				path, err := GetDiskTargetPartFromLauncherView(1)
 				Expect(err).To(HaveOccurred())
-				Expect(path).To(Equal(""))
+				Expect(path).To(BeEmpty())
 
 				expectedPath := fmt.Sprintf("%s/disk_1.img", tmpDir)
 				_, err = os.Create(expectedPath)

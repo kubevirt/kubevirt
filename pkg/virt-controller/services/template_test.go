@@ -572,7 +572,7 @@ var _ = Describe("Template", func() {
 						break
 					}
 				}
-				Expect(debugLogsValue).To(Or(Equal(""), Equal("0")))
+				Expect(debugLogsValue).To(Or(BeEmpty(), Equal("0")))
 			})
 		})
 
@@ -2433,10 +2433,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Ports[0].Name).To(Equal("http"))
 				Expect(pod.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(80)))
 				Expect(pod.Spec.Containers[0].Ports[0].Protocol).To(Equal(kubev1.Protocol("TCP")))
-				Expect(pod.Spec.Containers[0].Ports[1].Name).To(Equal(""))
+				Expect(pod.Spec.Containers[0].Ports[1].Name).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Ports[1].ContainerPort).To(Equal(int32(80)))
 				Expect(pod.Spec.Containers[0].Ports[1].Protocol).To(Equal(kubev1.Protocol("UDP")))
-				Expect(pod.Spec.Containers[0].Ports[2].Name).To(Equal(""))
+				Expect(pod.Spec.Containers[0].Ports[2].Name).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Ports[2].ContainerPort).To(Equal(int32(90)))
 				Expect(pod.Spec.Containers[0].Ports[2].Protocol).To(Equal(kubev1.Protocol("TCP")))
 				Expect(pod.Spec.Containers[0].Ports[3].Name).To(Equal("other-http"))
@@ -3367,7 +3367,7 @@ var _ = Describe("Template", func() {
 var _ = Describe("getResourceNameForNetwork", func() {
 	It("should return empty string when resource name is not specified", func() {
 		network := &networkv1.NetworkAttachmentDefinition{}
-		Expect(getResourceNameForNetwork(network)).To(Equal(""))
+		Expect(getResourceNameForNetwork(network)).To(BeEmpty())
 	})
 
 	It("should return resource name if specified", func() {
@@ -3469,7 +3469,7 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 		}
 	}
 
-	Expect(timeoutString).ToNot(Equal(""))
+	Expect(timeoutString).ToNot(BeEmpty())
 
 	timeoutInt, err := strconv.Atoi(strings.TrimSuffix(timeoutString, "s"))
 	Expect(err).To(BeNil())
@@ -3483,7 +3483,7 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 		failMsg = fmt.Sprintf("randomized qemu timeout [%d] is greater than max range [%d]", timeoutInt, qemuTimeoutBaseSeconds+qemuTimeoutJitterRange)
 
 	}
-	Expect(failMsg).To(Equal(""))
+	Expect(failMsg).To(BeEmpty())
 
 	return timeoutString
 }

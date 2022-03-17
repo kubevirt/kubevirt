@@ -138,7 +138,7 @@ var _ = Describe("findmnt", func() {
 		test := FindmntInfo{
 			Source: "/dev/test",
 		}
-		Expect(test.GetSourceDevice()).To(Equal(""))
+		Expect(test.GetSourceDevice()).To(BeEmpty())
 		test2 := FindmntInfo{
 			Source: "/dev/test[/mnt/something/else/]",
 		}
@@ -150,7 +150,7 @@ var _ = Describe("findmnt", func() {
 		test4 := FindmntInfo{
 			Source: "/path/to/somewhere",
 		}
-		Expect(test4.GetSourceDevice()).To(Equal(""))
+		Expect(test4.GetSourceDevice()).To(BeEmpty())
 	})
 
 	It("GetOptions should properly return a list", func() {

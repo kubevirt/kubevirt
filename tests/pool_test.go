@@ -217,7 +217,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 				dvOrigUID = dv.UID
 			}
 		}
-		Expect(string(dvOrigUID)).ToNot(Equal(""))
+		Expect(string(dvOrigUID)).ToNot(BeEmpty())
 
 		By("deleting a VM")
 		foreGround := metav1.DeletePropagationForeground
