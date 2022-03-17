@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/client-go/kubecli"
+
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,6 +60,13 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 			deployment.Spec.Replicas = &replicas
 			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
 				"auto-scaling for core kubevirt components. Please use with caution!")
+		}
+	} else if deployment.Name == components.VirtAPIName {
+		replicas, err := getDesiredApiReplicas(r.clientset)
+		if err != nil {
+			log.Log.Object(deployment).Warningf(err.Error())
+		} else {
+			deployment.Spec.Replicas = pointer.Int32(replicas)
 		}
 	}
 
@@ -388,4 +399,30 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
 	return nil
+}
+
+func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
+	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get number of nodes to determine virt-api replicas: %v", err)
+	}
+
+	nodesCount := len(nodeList.Items)
+	// This is a simple heuristic to achieve basic scalability so we could be running on large clusters.
+	// From recent experiments we know that for a 100 nodes cluster, 9 virt-api replicas are enough.
+	// This heuristic is not accurate. It could, and should, be replaced by something more sophisticated and refined
+	// in the future.
+
+	if nodesCount == 1 {
+		return 1, nil
+	}
+
+	const minReplicas = 2
+
+	replicas = int32(nodesCount) / 10
+	if replicas < minReplicas {
+		replicas = minReplicas
+	}
+
+	return replicas, nil
 }
