@@ -67,7 +67,7 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 			It("should only have 1 condition", func() {
 				cm.AddPodCondition(vmi, pc1)
 				cm.AddPodCondition(vmi, pc2)
-				Expect(len(vmi.Status.Conditions)).To(Equal(1))
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
 			})
 		})
 	})
@@ -100,7 +100,7 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 			}
 
 			cm.UpdateCondition(vmi, vc2)
-			Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
 			Expect(cm.GetCondition(vmi, vc1.Type)).To(Equal(vc2))
 		})
 
@@ -113,7 +113,7 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 			}
 
 			cm.UpdateCondition(vmi, vc2)
-			Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
 			Expect(cm.GetCondition(vmi, vc1.Type)).To(Equal(vc2))
 		})
 
@@ -126,7 +126,7 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 			}
 
 			cm.UpdateCondition(vmi, vc2)
-			Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
 			Expect(cm.GetCondition(vmi, vc1.Type)).To(Equal(vc1))
 		})
 	})
