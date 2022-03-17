@@ -482,7 +482,7 @@ var _ = Describe("Pool", func() {
 				update, ok := action.(testing.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Conditions).To(HaveLen(0))
+				Expect(updateObj.Status.Conditions).To(BeEmpty())
 				return true, update.GetObject(), nil
 			})
 
@@ -515,7 +515,7 @@ var _ = Describe("Pool", func() {
 				update, ok := action.(testing.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Conditions).To(HaveLen(0))
+				Expect(updateObj.Status.Conditions).To(BeEmpty())
 				return true, update.GetObject(), nil
 			})
 
