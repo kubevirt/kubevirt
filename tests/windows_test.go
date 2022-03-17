@@ -22,9 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -310,22 +308,12 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	})
 
 	Context("[ref_id:142]with kubectl command", func() {
-		var workDir string
 		var yamlFile string
 		BeforeEach(func() {
 			tests.SkipIfNoCmd("kubectl")
-			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
-			Expect(err).ToNot(HaveOccurred())
+			workDir := GinkgoT().TempDir()
 			yamlFile, err = tests.GenerateVMIJson(windowsVMI, workDir)
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			if workDir != "" {
-				err = os.RemoveAll(workDir)
-				Expect(err).ToNot(HaveOccurred())
-				workDir = ""
-			}
 		})
 
 		It("[test_id:223]should succeed to start a vmi", func() {

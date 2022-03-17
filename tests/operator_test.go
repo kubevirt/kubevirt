@@ -1018,8 +1018,7 @@ spec:
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 
-		workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		vmYamls = make(map[string]*vmYamlDefinition)
 
@@ -1044,12 +1043,6 @@ spec:
 		By("Waiting for original KV to stabilize")
 		waitForKvWithTimeout(originalKv, 420)
 		allPodsAreReady(originalKv)
-
-		if workDir != "" {
-			err = os.RemoveAll(workDir)
-			workDir = ""
-			Expect(err).ToNot(HaveOccurred())
-		}
 
 		// repost original CDI object if it doesn't still exist
 		// in order to restore original environment

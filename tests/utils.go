@@ -142,8 +142,6 @@ var Arch string
 
 type EventType string
 
-const TempDirPrefix = "kubevirt-test"
-
 const (
 	defaultEventuallyTimeout         = 5 * time.Second
 	defaultEventuallyPollingInterval = 1 * time.Second
