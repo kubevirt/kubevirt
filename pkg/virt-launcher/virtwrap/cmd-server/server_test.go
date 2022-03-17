@@ -152,7 +152,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(exists).To(BeTrue())
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
 			Expect(domain.Status.OSInfo).To(Equal(api.GuestOSInfo{}))
 			Expect(domain.Status.Interfaces).To(BeNil())
@@ -190,7 +190,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(exists).To(BeFalse())
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 		})
 
 		It("client should return disconnected after server stops", func() {
@@ -224,7 +224,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(exists).To(BeTrue())
-			Expect(domStats).ToNot(Equal(nil))
+			Expect(domStats).ToNot(BeNil())
 			Expect(domStats.Name).To(Equal(list[0].Name))
 			Expect(domStats.UUID).To(Equal(list[0].UUID))
 		})

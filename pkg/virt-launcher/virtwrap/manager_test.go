@@ -2442,7 +2442,7 @@ var _ = Describe("Manager helper functions", func() {
 			size, ok := possibleGuestSize(properDisk)
 			Expect(ok).To(BeTrue())
 			capacity := properDisk.Capacity
-			Expect(capacity).ToNot(Equal(nil))
+			Expect(capacity).ToNot(BeNil())
 
 			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
 			// The size is expected to be 1MiB-aligned

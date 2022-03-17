@@ -2032,7 +2032,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 		})
 		It("Should create two network configuration for slirp device", func() {
@@ -2054,7 +2054,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
 		})
 		It("Should create two network configuration one for slirp device and one for bridge device", func() {
@@ -2076,7 +2076,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface1, iface2}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
@@ -2116,7 +2116,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(3))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
@@ -2146,7 +2146,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
@@ -2168,7 +2168,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface1, *iface2}
 			vmi.Spec.Networks = []v1.Network{*net1, *net2}
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder).NotTo(BeNil())
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
@@ -2187,7 +2187,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 		})
@@ -2212,7 +2212,7 @@ var _ = Describe("Converter", func() {
 				}}
 
 			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
+			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
