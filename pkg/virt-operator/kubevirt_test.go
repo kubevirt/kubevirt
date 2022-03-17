@@ -289,6 +289,11 @@ func (k *KubeVirtTestData) BeforeTest() {
 		if action.GetVerb() == "get" && action.GetResource().Resource == "configmaps" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, "whatever")
 		}
+		if action.GetVerb() == "list" && action.GetResource().Resource == "nodes" {
+			dummyNode := k8sv1.Node{}
+			nodeList := &k8sv1.NodeList{Items: []k8sv1.Node{dummyNode, *dummyNode.DeepCopy(), *dummyNode.DeepCopy()}}
+			return true, nodeList, nil
+		}
 		if action.GetVerb() != "get" || action.GetResource().Resource != "namespaces" {
 			Expect(action).To(BeNil())
 		}
