@@ -44,7 +44,7 @@ func WithNetwork(network *kvirtv1.Network) Option {
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
-		Name: "default",
+		Name: DefaultInterfaceName,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Masquerade: &kvirtv1.InterfaceMasquerade{},
 		},
