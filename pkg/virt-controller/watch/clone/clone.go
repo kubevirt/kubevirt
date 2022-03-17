@@ -208,7 +208,8 @@ func (ctrl *VMCloneController) syncSourceVMTargetVM(key string, source *k6tv1.Vi
 
 		// Create restore
 		if vmClone.Status.RestoreName == nil {
-			restore := generateRestore(targetVMInfo, source.Name, vmClone.Namespace, vmClone.Name, snapshot.Name, vmClone.UID)
+			patches := generatePatches(source, &vmClone.Spec)
+			restore := generateRestore(targetVMInfo, source.Name, vmClone.Namespace, vmClone.Name, snapshot.Name, vmClone.UID, patches)
 			logger.Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
 
 			restore, syncInfo.err = ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})

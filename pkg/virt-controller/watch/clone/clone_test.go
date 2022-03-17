@@ -19,6 +19,11 @@
 package clone
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,14 +38,13 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/api/clone"
-	"kubevirt.io/kubevirt/tests"
-
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -400,6 +404,202 @@ var _ = Describe("Clone", func() {
 
 			controller.Execute()
 			expectEvent(SnapshotDeleted)
+		})
+
+	})
+
+	Context("generation of target VM", func() {
+
+		var snapshotName string
+
+		BeforeEach(func() {
+			snapshot := createVirtualMachineSnapshot(sourceVM)
+			snapshotName = snapshot.Name
+			snapshot.Status.ReadyToUse = pointer.BoolPtr(true)
+
+			vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
+			vmClone.Status.Phase = clonev1alpha1.RestoreInProgress
+
+			addVM(sourceVM)
+			addSnapshot(snapshot)
+
+			// update to restore name is expected, although phase remains the same
+			expectCloneUpdate(clonev1alpha1.RestoreInProgress)
+		})
+
+		AfterEach(func() {
+			expectEvent(RestoreCreated)
+		})
+
+		offlinePatchVM := func(vm *virtv1.VirtualMachine, patches []string) (virtv1.VirtualMachine, error) {
+			patchedVM := virtv1.VirtualMachine{}
+
+			marshalledVM, err := json.Marshal(vm)
+			if err != nil {
+				return patchedVM, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
+			}
+
+			jsonPatch := "[\n" + strings.Join(patches, ",\n") + "\n]"
+
+			patch, err := jsonpatch.DecodePatch([]byte(jsonPatch))
+			if err != nil {
+				return patchedVM, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
+			}
+
+			modifiedMarshalledVM, err := patch.Apply(marshalledVM)
+			if err != nil {
+				return patchedVM, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
+			}
+
+			err = json.Unmarshal(modifiedMarshalledVM, &patchedVM)
+			if err != nil {
+				return patchedVM, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
+			}
+
+			return patchedVM, nil
+		}
+
+		expectVMCreationFromPatches := func(expectedVM *virtv1.VirtualMachine) {
+			client.Fake.PrependReactor("create", restoreResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+
+				restore := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
+
+				patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
+				Expect(patchedVM.Spec).To(Equal(patchedVM.Spec))
+
+				return true, create.GetObject(), nil
+			})
+		}
+
+		Context("MAC address", func() {
+			var macAddressesCreatedCount int
+
+			generateNewMacAddress := func() string {
+				const macAddressPattern = "DE-AD-00-00-BE-0%d"
+				address := fmt.Sprintf(macAddressPattern, macAddressesCreatedCount)
+				macAddressesCreatedCount++
+				Expect(macAddressesCreatedCount).To(BeNumerically("<", 10), "test assumes less then 10 new macs created")
+
+				return address
+			}
+
+			BeforeEach(func() {
+				macAddressesCreatedCount = 0
+			})
+
+			It("should delete mac address if manual mac address is not provided", func() {
+				interfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
+				Expect(interfaces).To(HaveLen(1))
+				interfaces[0].Name = "test-interface"
+				interfaces[0].MacAddress = generateNewMacAddress()
+
+				vmClone.Spec.NewMacAddresses = map[string]string{}
+				addClone(vmClone)
+
+				expectedVM := sourceVM.DeepCopy()
+				expectedInterfaces := expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces
+				expectedInterfaces[0].MacAddress = ""
+
+				expectVMCreationFromPatches(expectedVM)
+
+				controller.Execute()
+			})
+
+			It("if mac is defined in clone spec - should use the one in clone spec", func() {
+				interfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
+				Expect(interfaces).To(HaveLen(1))
+				interfaces[0].Name = "test-interface"
+				interfaces[0].MacAddress = generateNewMacAddress()
+
+				newMacAddress := generateNewMacAddress()
+
+				vmClone.Spec.NewMacAddresses = map[string]string{interfaces[0].Name: newMacAddress}
+				addClone(vmClone)
+
+				expectedVM := sourceVM.DeepCopy()
+				expectedInterfaces := expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces
+				expectedInterfaces[0].MacAddress = newMacAddress
+
+				expectVMCreationFromPatches(expectedVM)
+
+				controller.Execute()
+			})
+
+			It("should handle multiple patches", func() {
+				const numberOfDevicesToAdd = 6
+				const interfaceNamePattern = "test-interface-%d"
+
+				newMacAddresses := make(map[string]string, numberOfDevicesToAdd/2)
+				originalInterfaces := make([]virtv1.Interface, numberOfDevicesToAdd)
+				expectedInterfaces := make([]virtv1.Interface, numberOfDevicesToAdd)
+
+				// Changing only even addresses
+				for i := 0; i < numberOfDevicesToAdd; i++ {
+					iface := virtv1.Interface{}
+					iface.Name = fmt.Sprintf(interfaceNamePattern, i)
+					iface.MacAddress = generateNewMacAddress()
+
+					originalInterfaces[i] = iface
+
+					if i%2 == 0 {
+						iface.MacAddress = generateNewMacAddress()
+						newMacAddresses[iface.Name] = iface.MacAddress
+						expectedInterfaces[i] = iface
+					}
+				}
+
+				sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces = originalInterfaces
+
+				vmClone.Spec.NewMacAddresses = newMacAddresses
+				addClone(vmClone)
+
+				expectedVM := sourceVM.DeepCopy()
+				expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces = expectedInterfaces
+
+				expectVMCreationFromPatches(expectedVM)
+
+				controller.Execute()
+			})
+
+		})
+
+		Context("SMBios Serial", func() {
+			const manuallySetSerial = "manually-set-serial"
+			const originalSerial = "original-serial"
+			const emptySerial = ""
+
+			BeforeEach(func() {
+				sourceVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{Serial: originalSerial}
+			})
+
+			expectSMbiosSerial := func(serial string) {
+				expectedVM := sourceVM.DeepCopy()
+				expectedFirmware := expectedVM.Spec.Template.Spec.Domain.Firmware
+				Expect(expectedFirmware).ShouldNot(BeNil())
+				expectedFirmware.Serial = serial
+
+				expectVMCreationFromPatches(expectedVM)
+			}
+
+			It("should delete smbios serial if serial is not provided", func() {
+				addClone(vmClone)
+				expectSMbiosSerial(emptySerial)
+
+				controller.Execute()
+			})
+
+			It("if serial is defined in clone spec - should use the one in clone spec", func() {
+				vmClone.Spec.NewSMBiosSerial = pointer.String(manuallySetSerial)
+				addClone(vmClone)
+
+				expectSMbiosSerial(manuallySetSerial)
+
+				controller.Execute()
+			})
+
 		})
 
 	})
