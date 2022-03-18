@@ -37,8 +37,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
@@ -51,7 +51,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmi.NewAlpine()
 	})
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
@@ -81,7 +81,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				Expect(err).ToNot(HaveOccurred())
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
-				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				Eventually(func() error {
 					newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
@@ -90,12 +90,12 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
 
 				By("checking if the VMI with bridged networking is still running, it will verify the CNI didn't cause the pod to be killed")
-				tests.WaitForSuccessfulVMIStart(bridgeVMI)
+				bridgeVMI = tests.WaitForSuccessfulVMIStart(bridgeVMI)
 			})
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", func() {
 				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
-				bridgeVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				bridgeVMI := libvmi.NewCirros()
 				// Remove the masquerade interface to use the default bridge one
 				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
 				bridgeVMI.Spec.Networks = nil
@@ -103,17 +103,12 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
 				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(bridgeVMI)
-				Expect(err).To(BeNil(), "Should submit VMI successfully")
+				bridgeVMI = tests.RunVMI(bridgeVMI, 40)
 
 				// Start a VirtualMachineInstance with bridged networking
 				By("Waiting the VirtualMachineInstance start")
-				tests.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
+				bridgeVMI = tests.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
 				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
-
-				// Update the VMI object so we get the IP address
-				bridgeVMI, err = virtClient.VirtualMachineInstance(bridgeVMI.Namespace).Get(bridgeVMI.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
 
 				vmIP := libnet.GetVmiPrimaryIpByFamily(bridgeVMI, k8sv1.IPv4Protocol)
 				dadCommand := fmt.Sprintf("sudo /usr/sbin/arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
