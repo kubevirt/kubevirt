@@ -35,7 +35,7 @@ var _ = Describe("DHCPv6", func() {
 			clientIP := net.ParseIP("fd10:0:2::2")
 			serverInterfaceMac, _ := net.ParseMAC("12:34:56:78:9A:BC")
 			modifiers := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac)
-			Expect(len(modifiers)).To(Equal(2))
+			Expect(modifiers).To(HaveLen(2))
 
 			msg := &dhcpv6.Message{
 				MessageType: dhcpv6.MessageTypeAdvertise,
@@ -44,7 +44,7 @@ var _ = Describe("DHCPv6", func() {
 			modifiers[0](msg)
 			opt := msg.GetOneOption(dhcpv6.OptionIANA)
 			optIana := opt.(*dhcpv6.OptIANA)
-			Expect(len(optIana.Options.Addresses())).To(Equal(1))
+			Expect(optIana.Options.Addresses()).To(HaveLen(1))
 			Expect(optIana.Options.OneAddress().String()).To(Equal(expectedIaAddr.String()))
 
 			duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
@@ -108,7 +108,8 @@ var _ = Describe("DHCPv6", func() {
 
 			replyMessage, err := handler.buildResponse(clientMessage)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(replyMessage.Options.Options)).To(Equal(len(handler.modifiers) + 1))
+			expectedLength := len(handler.modifiers) + 1
+			Expect(replyMessage.Options.Options).To(HaveLen(expectedLength))
 		})
 	})
 })
