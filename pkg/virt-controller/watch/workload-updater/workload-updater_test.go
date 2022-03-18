@@ -107,7 +107,11 @@ var _ = Describe("Workload Updater", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(200)
 		recorder.IncludeObject = true
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{virtconfig.LiveMigrationGate},
+			},
+		})
 
 		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
@@ -433,6 +437,32 @@ var _ = Describe("Workload Updater", func() {
 			Expect(evictionCount).To(Equal(batchDeletions * 2))
 		})
 
+		DescribeTable("should migrate VMIs only if the LiveMigration feature gate is enabled",
+			func(featureGates []string, migratableVMIs int) {
+				newVirtualMachine("testvm", true, "madeup", vmiSource, podSource)
+
+				Eventually(func() []interface{} {
+					return controller.vmiInformer.GetStore().List()
+				}, 5*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+
+				kv := newKubeVirt(1)
+				kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = featureGates
+
+				ephemeralKVConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kv.Spec.Configuration)
+				ephemeralController := NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, ephemeralKVConfig)
+
+				data := ephemeralController.getUpdateData(kv)
+				Expect(data.migratableOutdatedVMIs).To(HaveLen(migratableVMIs))
+
+				if migratableVMIs < 1 {
+					testutils.ExpectEvents(recorder, FailedEnableWorkloadMigrationReason)
+				}
+			},
+			Entry("should count the VMI as migratable", []string{virtconfig.LiveMigrationGate}, 1),
+			Entry("should not count any VMI as migratable", []string{}, 0),
+		)
+
 	})
 
 	AfterEach(func() {
@@ -449,7 +479,13 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 			Name:      "test",
 			Namespace: "default",
 		},
-		Spec: v1.KubeVirtSpec{},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{virtconfig.LiveMigrationGate},
+				},
+			},
+		},
 		Status: v1.KubeVirtStatus{
 			Phase:                                   v1.KubeVirtPhaseDeployed,
 			OutdatedVirtualMachineInstanceWorkloads: &expectedNumOutdated,

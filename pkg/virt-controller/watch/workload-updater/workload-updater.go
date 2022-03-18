@@ -41,6 +41,8 @@ const (
 	FailedEvictVirtualMachineInstanceReason = "FailedEvict"
 	// SuccessfulEvictVirtualMachineReason is added in an event if a deletion of a VMI Succeeds
 	SuccessfulEvictVirtualMachineInstanceReason = "SuccessfulEvict"
+	// FailedCreateVirtualMachineInstanceMigrationReason is added in an event if creating a VirtualMachineInstanceMigration failed.
+	FailedEnableWorkloadMigrationReason = "FailedEnable"
 )
 
 var (
@@ -294,7 +296,11 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 
 	for _, method := range kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods {
 		if method == virtv1.WorkloadUpdateMethodLiveMigrate {
-			automatedMigrationAllowed = true
+			if c.clusterConfig.LiveMigrationEnabled() {
+				automatedMigrationAllowed = true
+			} else {
+				c.recorder.Eventf(kv, k8sv1.EventTypeWarning, FailedEnableWorkloadMigrationReason, "Error enabling live-migration method for workload updates: the '%s' feature-gate is not enabled", virtconfig.LiveMigrationGate)
+			}
 		} else if method == virtv1.WorkloadUpdateMethodEvict {
 			automatedShutdownAllowed = true
 		}
