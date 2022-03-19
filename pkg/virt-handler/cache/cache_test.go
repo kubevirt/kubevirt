@@ -231,7 +231,7 @@ var _ = Describe("Domain informer", func() {
 			listResults, err := d.listAllKnownDomains()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(len(listResults)).To(Equal(1))
+			Expect(listResults).To(HaveLen(1))
 		})
 
 		It("should list current domains including inactive domains with ghost record", func() {
@@ -261,7 +261,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// includes both the domain with an active socket and the ghost record with deleted socket
-			Expect(len(listResults)).To(Equal(2))
+			Expect(listResults).To(HaveLen(2))
 		})
 		It("should detect active domains at startup.", func() {
 			var list []*api.Domain
