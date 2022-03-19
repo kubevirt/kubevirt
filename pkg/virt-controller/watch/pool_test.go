@@ -65,7 +65,7 @@ var _ = Describe("Pool", func() {
 
 		newNames := calculateNewVMNames(count, baseName, namespace, vmInformer.GetStore())
 
-		Expect(len(newNames)).To(Equal(len(expected)))
+		Expect(newNames).To(HaveLen(len(expected)))
 		Expect(newNames).To(Equal(expected))
 
 	},
@@ -418,7 +418,7 @@ var _ = Describe("Pool", func() {
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
 				Expect(updateObj.Status.Replicas).To(Equal(int32(0)))
-				Expect(len(updateObj.Status.Conditions)).To(Equal(1))
+				Expect(updateObj.Status.Conditions).To(HaveLen(1))
 				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaPaused))
 				Expect(updateObj.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
 				return true, update.GetObject(), nil
@@ -445,7 +445,7 @@ var _ = Describe("Pool", func() {
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
 				Expect(updateObj.Status.Replicas).To(Equal(int32(0)))
-				Expect(len(updateObj.Status.Conditions)).To(Equal(1))
+				Expect(updateObj.Status.Conditions).To(HaveLen(1))
 				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
 				Expect(updateObj.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
 				return true, update.GetObject(), nil
@@ -482,7 +482,7 @@ var _ = Describe("Pool", func() {
 				update, ok := action.(testing.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(len(updateObj.Status.Conditions)).To(Equal(0))
+				Expect(updateObj.Status.Conditions).To(BeEmpty())
 				return true, update.GetObject(), nil
 			})
 
@@ -515,7 +515,7 @@ var _ = Describe("Pool", func() {
 				update, ok := action.(testing.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(len(updateObj.Status.Conditions)).To(Equal(0))
+				Expect(updateObj.Status.Conditions).To(BeEmpty())
 				return true, update.GetObject(), nil
 			})
 
