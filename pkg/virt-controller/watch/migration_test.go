@@ -91,7 +91,7 @@ var _ = Describe("Migration watcher", func() {
 
 	shouldExpectMigrationFinalizerRemoval := func(migration *virtv1.VirtualMachineInstanceMigration) {
 		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
-			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers).To(HaveLen(0))
+			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers).To(BeEmpty())
 			return arg, nil
 		})
 	}
