@@ -44,6 +44,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/numa"
 	_ "kubevirt.io/kubevirt/tests/performance"
 	_ "kubevirt.io/kubevirt/tests/realtime"
+	_ "kubevirt.io/kubevirt/tests/scale"
 	_ "kubevirt.io/kubevirt/tests/storage"
 )
 
