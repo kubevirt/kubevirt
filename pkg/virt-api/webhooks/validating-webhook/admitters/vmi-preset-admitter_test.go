@@ -92,7 +92,7 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 
 		resp := vmiPresetAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
 	})
 	It("should accept valid vmi spec", func() {
