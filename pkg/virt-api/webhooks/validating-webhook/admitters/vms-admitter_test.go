@@ -748,7 +748,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 				testutils.AddDataVolumeAPI(crdInformer)
 				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-				Expect(causes).To(HaveLen(0))
+				Expect(causes).To(BeEmpty())
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}),
 			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
