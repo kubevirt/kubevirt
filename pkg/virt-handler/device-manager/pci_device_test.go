@@ -156,7 +156,7 @@ pciHostDevices:
 			deviceController.updatePermittedHostDevicePlugins(),
 		)
 		Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
-		Expect(disabledDevicePlugins).To(HaveLen(0))
+		Expect(disabledDevicePlugins).To(BeEmpty())
 		Ω(enabledDevicePlugins).Should(HaveKey(fakeName))
 		// Manually adding the enabled plugin, since the device controller is not actually running
 		deviceController.startedPlugins[fakeName] = controlledDevice{devicePlugin: enabledDevicePlugins[fakeName]}
@@ -172,7 +172,7 @@ pciHostDevices:
 		enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
 			deviceController.updatePermittedHostDevicePlugins(),
 		)
-		Expect(enabledDevicePlugins).To(HaveLen(0))
+		Expect(enabledDevicePlugins).To(BeEmpty())
 		Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
 	})
