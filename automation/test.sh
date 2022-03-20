@@ -373,7 +373,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
     export KUBEVIRT_E2E_FOCUS="Migration"
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
-    export KUBEVIRT_STORAGE="rook-ceph"
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices|Migration"
@@ -393,7 +392,11 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
 
   if ! [[ $TARGET =~ sig-storage ]]; then
     if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
-        export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
+        if [[ -z $KUBEVIRT_E2E_FOCUS ]]; then
+          export KUBEVIRT_E2E_FOCUS="\\[storage-req\\]"
+        else
+          export KUBEVIRT_E2E_FOCUS="$KUBEVIRT_E2E_FOCUS|\\[storage-req\\]"
+        fi
     fi
   fi
 fi
