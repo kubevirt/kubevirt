@@ -302,7 +302,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			// in cases where multiple mdev types are required to be configured but the amount of cards is significantly lower
 			// it will be hard to estimate which of the requested types will be created. Simply check that amount of created types matches the avaiable cards.
 			if len(sc.expectedConfiguredTypes) == 1 && sc.expectedConfiguredTypes[0] == "ANY" {
-				Expect(len(configuredMdevTypesOnCards)).To(Equal(len(sc.pciMDEVDevicesMap)))
+				Expect(configuredMdevTypesOnCards).To(HaveLen(len(sc.pciMDEVDevicesMap)))
 			} else {
 				for mdevType, _ := range mdevTypesDetailsMap {
 					numberOfCreatedMDEVs := countCreatedMdevs(mdevType)
@@ -412,7 +412,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			// in cases where multiple mdev types are required to be configured but the amount of cards is significantly lower
 			// it will be hard to estimate which of the requested types will be created. Simply check that amount of created types matches the avaiable cards.
 			if len(sc.expectedConfiguredTypes) == 1 && sc.expectedConfiguredTypes[0] == "ANY" {
-				Expect(len(configuredMdevTypesOnCards)).To(Equal(len(sc.pciMDEVDevicesMap)))
+				Expect(configuredMdevTypesOnCards).To(HaveLen(len(sc.pciMDEVDevicesMap)))
 			} else {
 				for mdevType, _ := range mdevTypesDetailsMap {
 					numberOfCreatedMDEVs := countCreatedMdevs(mdevType)
