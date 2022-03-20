@@ -364,7 +364,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(HaveLen(0))
+				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
 			}).Return(nil, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
@@ -414,7 +414,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(0))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -446,7 +446,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(0))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
 			controller.Execute()
