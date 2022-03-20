@@ -144,7 +144,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					// 2. Capabilities can change over time which means the message would be different then the one hardcoded, correct nonetheless.
 					// I'm keeping the helloMessageRemote to have a proof of working example that could also be used if needed.
 					Expect(response).ToNot(BeEmpty(), "response should not be empty")
-					Expect(len(response)).To(Equal(len(helloMessageRemote)))
+					Expect(response).To(HaveLen(len(helloMessageRemote)))
 				case err = <-k8ResChan:
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(45 * time.Second):

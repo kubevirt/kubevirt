@@ -121,7 +121,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			err = json.Unmarshal(body, reviewResponse)
 			Expect(err).To(BeNil())
 
-			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
 	})
@@ -521,7 +521,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Getting the pod backing the VirtualMachineInstance")
 			pods, err := virtClient.CoreV1().Pods(newVM.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(firstVMI))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(pods.Items)).To(Equal(1))
+			Expect(pods.Items).To(HaveLen(1))
 			firstPod := pods.Items[0]
 
 			// Delete the Pod
@@ -551,7 +551,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying a new pod backs the VMI")
 			pods, err = virtClient.CoreV1().Pods(newVM.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(curVMI))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(pods.Items)).To(Equal(1))
+			Expect(pods.Items).To(HaveLen(1))
 			pod := pods.Items[0]
 			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
@@ -1101,7 +1101,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
-					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
+					Expect(newVM.Status.StateChangeRequests).To(HaveLen(0))
 				})
 
 				It("[test_id:3164]should restart a running VM", func() {
@@ -1280,7 +1280,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
+					Expect(newVM.Status.StateChangeRequests).To(HaveLen(0))
 				})
 
 				It("[test_id:2187] should restart a running VM", func() {
@@ -1408,7 +1408,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
+					Expect(newVM.Status.StateChangeRequests).To(HaveLen(0))
 				})
 			})
 
@@ -1516,7 +1516,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
+					Expect(newVM.Status.StateChangeRequests).To(HaveLen(0))
 				})
 
 				It("[test_id:2189] should stop", func() {

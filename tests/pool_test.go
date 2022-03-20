@@ -316,7 +316,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(&v12.ListOptions{})
 
 		Expect(err).To(BeNil())
-		Expect(len(vms.Items)).To(Equal(1))
+		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
 		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(name, &metav1.GetOptions{})
@@ -369,7 +369,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", func() {
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(&v12.ListOptions{})
 
 		Expect(err).To(BeNil())
-		Expect(len(vms.Items)).To(Equal(1))
+		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
 		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(name, &metav1.GetOptions{})

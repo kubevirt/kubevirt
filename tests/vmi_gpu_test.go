@@ -128,7 +128,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			Expect(err).ToNot(HaveOccurred())
 			addrList := parseDeviceAddress(gpuOutput)
 
-			Expect(len(addrList)).To(Equal(len(domSpec.Devices.HostDevices)))
+			Expect(addrList).To(HaveLen(len(domSpec.Devices.HostDevices)))
 			for n, addr := range addrList {
 				Expect(domSpec.Devices.HostDevices[n].Type).To(Equal("pci"))
 				Expect(domSpec.Devices.HostDevices[n].Managed).To(Equal("yes"))

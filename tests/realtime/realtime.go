@@ -93,7 +93,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
-		Expect(len(slice)).To(Equal(2))
+		Expect(slice).To(HaveLen(2))
 		for _, l := range slice {
 			Expect(parsePriority(l)).To(BeEquivalentTo(1))
 		}
@@ -135,7 +135,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
-		Expect(len(slice)).To(Equal(1))
+		Expect(slice).To(HaveLen(1))
 		Expect(parsePriority(slice[0])).To(BeEquivalentTo(1))
 
 		By("Validating the VCPU mask matches the scheduler profile for all cores")
@@ -147,7 +147,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice = strings.Split(strings.TrimSpace(psOutput), "\n")
-		Expect(len(slice)).To(Equal(2))
+		Expect(slice).To(HaveLen(2))
 		Expect(slice[0]).To(Equal("FF 0/KVM"))
 		Expect(slice[1]).To(Equal("TS 1/KVM"))
 
@@ -162,7 +162,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 
 func parsePriority(psLine string) int64 {
 	s := strings.Split(psLine, " ")
-	Expect(len(s)).To(Equal(1))
+	Expect(s).To(HaveLen(1))
 	prio, err := strconv.ParseInt(s[0], 10, 8)
 	Expect(err).NotTo(HaveOccurred())
 	return prio

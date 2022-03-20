@@ -2848,8 +2848,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot", func() {
 			vmi := prepareVMIWithAllVolumeSources()
 
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(6))
-			Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(6))
+			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 
 			vmi = runVMIAndExpectLaunch(vmi, 180)
 
