@@ -27,7 +27,7 @@ go_test(
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/google/uuid:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

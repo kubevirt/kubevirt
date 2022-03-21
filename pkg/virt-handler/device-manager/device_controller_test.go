@@ -11,7 +11,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -94,8 +94,6 @@ var _ = Describe("Device Controller", func() {
 
 	AfterEach(func() {
 		defer os.RemoveAll(workDir)
-
-		ctrl.Finish()
 	})
 
 	Context("Basic Tests", func() {

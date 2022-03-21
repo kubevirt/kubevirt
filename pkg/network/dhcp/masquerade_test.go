@@ -25,7 +25,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -42,10 +42,6 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockHandler = netdriver.NewMockNetworkHandler(ctrl)
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Context("Generate", func() {

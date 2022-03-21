@@ -39,8 +39,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	"github.com/emicklei/go-restful"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
@@ -242,7 +241,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	}
 
 	Context("Subresource api", func() {
-		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
+		It("should find matching pod for running VirtualMachineInstance", func() {
 			vmi := api.NewMinimalVMI(testVMIName)
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
@@ -254,10 +253,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).ToNot(HaveOccurred())
 			ip, _, _ := result.ConnectionDetails()
 			Expect(ip).To(Equal(backendIP))
-			close(done)
-		}, 5)
+		})
 
-		It("should fail if VirtualMachineInstance is not in running state", func(done Done) {
+		It("should fail if VirtualMachineInstance is not in running state", func() {
 			vmi := api.NewMinimalVMI(testVMIName)
 			vmi.Status.Phase = v1.Succeeded
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
@@ -265,10 +263,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			_, err := app.getVirtHandlerConnForVMI(vmi)
 
 			Expect(err).To(HaveOccurred())
-			close(done)
-		}, 5)
+		})
 
-		It("should fail no matching pod is found", func(done Done) {
+		It("should fail no matching pod is found", func() {
 			vmi := api.NewMinimalVMI(testVMIName)
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
@@ -284,20 +281,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, _, err = conn.ConnectionDetails()
 			Expect(err).To(HaveOccurred())
-			close(done)
-		}, 5)
+		})
 
 		Context("VNC", func() {
-			It("should fail with no 'name' path param", func(done Done) {
+			It("should fail with no 'name' path param", func() {
 
 				vmiClient.EXPECT().Get("", &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with no 'namespace' path param", func(done Done) {
+			It("should fail with no 'namespace' path param", func() {
 
 				request.PathParameters()["name"] = testVMIName
 
@@ -305,10 +300,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail if vmi is not found", func(done Done) {
+			It("should fail if vmi is not found", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -317,10 +311,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with internal at fetching vmi errors", func(done Done) {
+			It("should fail with internal at fetching vmi errors", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -329,10 +322,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with no graphics device at VNC connections", func(done Done) {
+			It("should fail with no graphics device at VNC connections", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -347,22 +339,20 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-				close(done)
-			}, 5)
+			})
 
 		})
 
 		Context("PortForward", func() {
-			It("should fail with no 'name' path param", func(done Done) {
+			It("should fail with no 'name' path param", func() {
 
 				vmiClient.EXPECT().Get("", &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with no 'namespace' path param", func(done Done) {
+			It("should fail with no 'namespace' path param", func() {
 
 				request.PathParameters()["name"] = testVMIName
 
@@ -370,10 +360,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail if vmi is not found", func(done Done) {
+			It("should fail if vmi is not found", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -382,10 +371,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail with internal at fetching vmi errors", func(done Done) {
+			It("should fail with internal at fetching vmi errors", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -394,13 +382,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-				close(done)
-			}, 5)
+			})
 
 		})
 
 		Context("console", func() {
-			It("should fail with no serial console at console connections", func(done Done) {
+			It("should fail with no serial console at console connections", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -415,10 +402,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail to connect to the serial console if the VMI is Failed", func(done Done) {
+			It("should fail to connect to the serial console if the VMI is Failed", func() {
 
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -427,13 +413,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-				close(done)
-			}, 5)
+			})
 
 		})
 
 		Context("restart", func() {
-			It("should fail if VirtualMachine not exists", func(done Done) {
+			It("should fail if VirtualMachine not exists", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -442,10 +427,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.RestartVMRequestHandler(request, response)
 
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				close(done)
-			}, 5)
+			})
 
-			It("should fail if VirtualMachine is not in running state", func(done Done) {
+			It("should fail if VirtualMachine is not in running state", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -462,10 +446,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 				// check the msg string that would be presented to virtctl output
 				Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
-				close(done)
 			})
 
-			table.DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
+			DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -515,11 +498,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				table.Entry("with default", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero}),
-				table.Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: getDryRunOption()}),
+				Entry("with default", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero}),
+				Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 
-			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func(done Done) {
+			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -549,10 +532,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
 			})
 
-			It("should restart VirtualMachine", func(done Done) {
+			It("should restart VirtualMachine", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -571,10 +553,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
 			})
 
-			It("should start VirtualMachine if VMI doesn't exist", func(done Done) {
+			It("should start VirtualMachine if VMI doesn't exist", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -588,12 +569,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.RestartVMRequestHandler(request, response)
 				Expect(response.Error()).NotTo(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-				close(done)
 			})
 		})
 
 		Context("stop", func() {
-			table.DescribeTable("should ForceStop VirtualMachine according to options", func(statusPhase v1.VirtualMachineInstancePhase, stopOptions *v1.StopOptions) {
+			DescribeTable("should ForceStop VirtualMachine according to options", func(statusPhase v1.VirtualMachineInstancePhase, stopOptions *v1.StopOptions) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 				var terminationGracePeriodSeconds int64 = 1800
@@ -624,7 +604,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return &vmi, nil
-					})
+					}).AnyTimes()
 				vmClient.EXPECT().Patch(vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
@@ -636,10 +616,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				table.Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
-				table.Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
-				table.Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
-				table.Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
+				Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
+				Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
+				Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
+				Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 		})
 	})
@@ -662,7 +642,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
 		})
 
-		table.DescribeTable("should not fail with VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
+		DescribeTable("should not fail with VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 			vmi := newVirtualMachineInstanceInPhase(v1.Failed)
 
@@ -674,19 +654,19 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
-			table.Entry("Always", v1.RunStrategyAlways),
-			table.Entry("Manual", v1.RunStrategyManual),
-			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
+			Entry("Always", v1.RunStrategyAlways),
+			Entry("Manual", v1.RunStrategyManual),
+			Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
 		)
 
-		table.DescribeTable("should fail anytime without VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, restartOptions *v1.RestartOptions) {
+		DescribeTable("should fail anytime without VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, restartOptions *v1.RestartOptions) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 
 			bytesRepresentation, _ := json.Marshal(restartOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name))
+			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name)).AnyTimes()
 
 			app.RestartVMRequestHandler(request, response)
 
@@ -694,17 +674,17 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			// check the msg string that would be presented to virtctl output
 			Expect(status.Error()).To(ContainSubstring(msg))
 		},
-			table.Entry("Always", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{}),
-			table.Entry("Manual", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{}),
-			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{}),
-			table.Entry("Once", v1.RunStrategyOnce, "Once does not support manual restart requests", &v1.RestartOptions{}),
-			table.Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{}),
+			Entry("Always", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{}),
+			Entry("Manual", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{}),
+			Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{}),
+			Entry("Once", v1.RunStrategyOnce, "Once does not support manual restart requests", &v1.RestartOptions{}),
+			Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{}),
 
-			table.Entry("Always with dry-run option", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
-			table.Entry("Manual with dry-run option", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
-			table.Entry("RerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
-			table.Entry("Once with dry-run option", v1.RunStrategyOnce, "Once does not support manual restart requests", &v1.RestartOptions{DryRun: getDryRunOption()}),
-			table.Entry("Halted with dry-run option", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			Entry("Always with dry-run option", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			Entry("Manual with dry-run option", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			Entry("RerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			Entry("Once with dry-run option", v1.RunStrategyOnce, "Once does not support manual restart requests", &v1.RestartOptions{DryRun: getDryRunOption()}),
+			Entry("Halted with dry-run option", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{DryRun: getDryRunOption()}),
 		)
 	})
 
@@ -724,7 +704,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 		})
 
-		table.DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
+		DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
 
 			if enableGate {
 				enableFeatureGate(virtconfig.HotplugVolumesGate)
@@ -742,7 +722,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				patchedVM := vm.DeepCopy()
 				patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
 
-				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
+				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).AnyTimes()
 
 				if addOpts != nil {
 					vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -750,7 +730,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 							return patchedVM, nil
-						})
+						}).AnyTimes()
 					app.VMAddVolumeRequestHandler(request, response)
 				} else {
 					vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -777,7 +757,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					},
 				})
 
-				vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 
 				if addOpts != nil {
 					vmiClient.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -785,7 +765,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 							return vmi, nil
-						})
+						}).AnyTimes()
 					app.VMIAddVolumeRequestHandler(request, response)
 				} else {
 					vmiClient.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -793,93 +773,93 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 							return vmi, nil
-						})
+						}).AnyTimes()
 					app.VMIRemoveVolumeRequestHandler(request, response)
 				}
 			}
 
 			Expect(response.StatusCode()).To(Equal(code))
 		},
-			table.Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
+			Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, true, http.StatusAccepted, true),
-			table.Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
+			Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, false, http.StatusAccepted, true),
-			table.Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
+			Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
 				VolumeSource: &v1.HotplugVolumeSource{},
 				Disk:         &v1.Disk{},
 			}, nil, false, http.StatusBadRequest, true),
-			table.Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
+			Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, false, http.StatusBadRequest, true),
-			table.Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
+			Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
 				Name: "vol1",
 				Disk: &v1.Disk{},
 			}, nil, false, http.StatusBadRequest, true),
-			table.Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+			Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
 				Name: "vol1",
 			}, true, http.StatusAccepted, true),
-			table.Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+			Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
 				Name: "existingvol",
 			}, false, http.StatusAccepted, true),
-			table.Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
-			table.Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
+			Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
+			Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
 				Name: "existingvol",
 			}, false, http.StatusBadRequest, false),
-			table.Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
+			Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, true, http.StatusBadRequest, false),
-			table.Entry("VM with a valid add volume request with DryRun", &v1.AddVolumeOptions{
+			Entry("VM with a valid add volume request with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       getDryRunOption(),
 			}, nil, true, http.StatusAccepted, true),
-			table.Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
+			Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       getDryRunOption(),
 			}, nil, false, http.StatusAccepted, true),
-			table.Entry("VMI with an invalid add volume request that's missing a name with DryRun", &v1.AddVolumeOptions{
+			Entry("VMI with an invalid add volume request that's missing a name with DryRun", &v1.AddVolumeOptions{
 				VolumeSource: &v1.HotplugVolumeSource{},
 				Disk:         &v1.Disk{},
 				DryRun:       getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
-			table.Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
+			Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
-			table.Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
+			Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
 				Name:   "vol1",
 				Disk:   &v1.Disk{},
 				DryRun: getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
-			table.Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
+			Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "vol1",
 				DryRun: getDryRunOption(),
 			}, true, http.StatusAccepted, true),
-			table.Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
+			Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "existingvol",
 				DryRun: getDryRunOption(),
 			}, false, http.StatusAccepted, true),
-			table.Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
+			Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
 				DryRun: getDryRunOption(),
 			}, false, http.StatusBadRequest, true),
-			table.Entry("VMI with a valid remove volume request but no feature gate with DryRun", nil, &v1.RemoveVolumeOptions{
+			Entry("VMI with a valid remove volume request but no feature gate with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "existingvol",
 				DryRun: getDryRunOption(),
 			}, false, http.StatusBadRequest, false),
-			table.Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
+			Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
@@ -887,7 +867,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}, nil, true, http.StatusBadRequest, false),
 		)
 
-		table.DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
+		DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
 
 			vmi := api.NewMinimalVMI(request.PathParameter("name"))
 			vmi.Namespace = k8smetav1.NamespaceDefault
@@ -913,7 +893,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(patch).To(Equal(expectedPatch))
 		},
-			table.Entry("add volume request",
+			Entry("add volume request",
 				&v1.VirtualMachineVolumeRequest{
 					AddVolumeOptions: &v1.AddVolumeOptions{
 						Name:         "vol1",
@@ -923,7 +903,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}},{\"name\":\"vol1\"}]}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"},{\"name\":\"vol1\"}]}]",
 				false),
-			table.Entry("remove volume request",
+			Entry("remove volume request",
 				&v1.VirtualMachineVolumeRequest{
 					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 						Name: "existingvol",
@@ -931,7 +911,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": []}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": []}]",
 				false),
-			table.Entry("remove volume that doesn't exist",
+			Entry("remove volume that doesn't exist",
 				&v1.VirtualMachineVolumeRequest{
 					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 						Name: "non-existent",
@@ -939,7 +919,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"",
 				true),
-			table.Entry("add a volume that already exists",
+			Entry("add a volume that already exists",
 				&v1.VirtualMachineVolumeRequest{
 					AddVolumeOptions: &v1.AddVolumeOptions{
 						Name:         "existingvol",
@@ -950,7 +930,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				"",
 				true),
 		)
-		table.DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
+		DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
 
 			vm := newMinimalVM(request.PathParameter("name"))
 			vm.Namespace = k8smetav1.NamespaceDefault
@@ -968,7 +948,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(patch).To(Equal(expectedPatch))
 		},
-			table.Entry("add volume request with no existing volumes",
+			Entry("add volume request with no existing volumes",
 				&v1.VirtualMachineVolumeRequest{
 					AddVolumeOptions: &v1.AddVolumeOptions{
 						Name:         "vol1",
@@ -979,7 +959,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				nil,
 				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol1\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}]",
 				false),
-			table.Entry("add volume request that already exists should fail",
+			Entry("add volume request that already exists should fail",
 				&v1.VirtualMachineVolumeRequest{
 					AddVolumeOptions: &v1.AddVolumeOptions{
 						Name:         "vol1",
@@ -998,7 +978,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"",
 				true),
-			table.Entry("add volume request when volume requests alread exist",
+			Entry("add volume request when volume requests alread exist",
 				&v1.VirtualMachineVolumeRequest{
 					AddVolumeOptions: &v1.AddVolumeOptions{
 						Name:         "vol1",
@@ -1017,7 +997,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}, { \"op\": \"replace\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}},{\"addVolumeOptions\":{\"name\":\"vol1\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}]",
 				false),
-			table.Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
+			Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 					Name: "vol1",
 				},
@@ -1025,7 +1005,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				nil,
 				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/volumeRequests\", \"value\": [{\"removeVolumeOptions\":{\"name\":\"vol1\"}}]}]",
 				false),
-			table.Entry("remove volume request should replace add volume request",
+			Entry("remove volume request should replace add volume request",
 				&v1.VirtualMachineVolumeRequest{
 					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 						Name: "vol2",
@@ -1042,7 +1022,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}, { \"op\": \"replace\", \"path\": \"/status/volumeRequests\", \"value\": [{\"removeVolumeOptions\":{\"name\":\"vol2\"}}]}]",
 				false),
-			table.Entry("remove volume request that already exists should fail",
+			Entry("remove volume request that already exists should fail",
 				&v1.VirtualMachineVolumeRequest{
 					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 						Name: "vol2",
@@ -1066,7 +1046,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 		})
 
-		table.DescribeTable("should fail on VM with RunStrategy",
+		DescribeTable("should fail on VM with RunStrategy",
 			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int, msg string, startOptions *v1.StartOptions) {
 				vm := newVirtualMachineWithRunStrategy(runStrategy)
 				var vmi *v1.VirtualMachineInstance
@@ -1091,18 +1071,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				// check the msg string that would be presented to virtctl output
 				Expect(statusErr.Error()).To(ContainSubstring(msg))
 			},
-			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{}),
-			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{}),
-			table.Entry("Once", v1.RunStrategyOnce, v1.VmPhaseUnset, http.StatusNotFound, "Once does not support manual start requests", &v1.StartOptions{}),
-			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{}),
+			Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{}),
+			Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{}),
+			Entry("Once", v1.RunStrategyOnce, v1.VmPhaseUnset, http.StatusNotFound, "Once does not support manual start requests", &v1.StartOptions{}),
+			Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{}),
 
-			table.Entry("Always without VMI and with dry-run option", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{DryRun: getDryRunOption()}),
-			table.Entry("Always with VMI in phase Running and with dry-run option", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{DryRun: getDryRunOption()}),
-			table.Entry("Once with dry-run option", v1.RunStrategyOnce, v1.VmPhaseUnset, http.StatusNotFound, "Once does not support manual start requests", &v1.StartOptions{DryRun: getDryRunOption()}),
-			table.Entry("RerunOnFailure with VMI in phase Failed and with dry-run option", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{DryRun: getDryRunOption()}),
+			Entry("Always without VMI and with dry-run option", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{DryRun: getDryRunOption()}),
+			Entry("Always with VMI in phase Running and with dry-run option", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{DryRun: getDryRunOption()}),
+			Entry("Once with dry-run option", v1.RunStrategyOnce, v1.VmPhaseUnset, http.StatusNotFound, "Once does not support manual start requests", &v1.StartOptions{DryRun: getDryRunOption()}),
+			Entry("RerunOnFailure with VMI in phase Failed and with dry-run option", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("should not fail on VM with RunStrategy ",
+		DescribeTable("should not fail on VM with RunStrategy ",
 			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int) {
 				vm := newVirtualMachineWithRunStrategy(runStrategy)
 				var vmi *v1.VirtualMachineInstance
@@ -1122,9 +1102,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-			table.Entry("RerunOnFailure with VMI in state Succeeded", v1.RunStrategyRerunOnFailure, v1.Succeeded, http.StatusOK),
-			table.Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
-			table.Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
+			Entry("RerunOnFailure with VMI in state Succeeded", v1.RunStrategyRerunOnFailure, v1.Succeeded, http.StatusOK),
+			Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
+			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
 	})
 
@@ -1134,7 +1114,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 		})
 
-		table.DescribeTable("should handle VMI does not exist per run strategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, expectError bool, stopOptions *v1.StopOptions) {
+		DescribeTable("should handle VMI does not exist per run strategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, expectError bool, stopOptions *v1.StopOptions) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 
 			bytesRepresentation, _ := json.Marshal(stopOptions)
@@ -1163,17 +1143,17 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}
 
 		},
-			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false, &v1.StopOptions{}),
-			table.Entry("RunStrategyOnce", v1.RunStrategyOnce, "", false, &v1.StopOptions{}),
-			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{}),
-			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{}),
-			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{}),
+			Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false, &v1.StopOptions{}),
+			Entry("RunStrategyOnce", v1.RunStrategyOnce, "", false, &v1.StopOptions{}),
+			Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{}),
+			Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{}),
+			Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{}),
 
-			table.Entry("RunStrategyAlways with dry-run option", v1.RunStrategyAlways, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
-			table.Entry("RunStrategyOnce with dry-run option", v1.RunStrategyOnce, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
-			table.Entry("RunStrategyRerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
-			table.Entry("RunStrategyManual with dry-run option", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{DryRun: getDryRunOption()}),
-			table.Entry("RunStrategyHalted with dry-run option", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{DryRun: getDryRunOption()}),
+			Entry("RunStrategyAlways with dry-run option", v1.RunStrategyAlways, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
+			Entry("RunStrategyOnce with dry-run option", v1.RunStrategyOnce, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
+			Entry("RunStrategyRerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{DryRun: getDryRunOption()}),
+			Entry("RunStrategyManual with dry-run option", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{DryRun: getDryRunOption()}),
+			Entry("RunStrategyHalted with dry-run option", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{DryRun: getDryRunOption()}),
 		)
 
 		It("should fail on VM with VMI in Unknown Phase", func() {
@@ -1204,7 +1184,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
 		})
 
-		table.DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
+		DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 			vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
@@ -1221,15 +1201,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
-			table.Entry("Always", v1.RunStrategyAlways),
-			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
-			table.Entry("Once", v1.RunStrategyOnce),
-			table.Entry("Manual", v1.RunStrategyManual),
+			Entry("Always", v1.RunStrategyAlways),
+			Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
+			Entry("Once", v1.RunStrategyOnce),
+			Entry("Manual", v1.RunStrategyManual),
 		)
 	})
 
 	Context("Subresource api - MigrateVMRequestHandler", func() {
-		table.DescribeTable("should fail if VirtualMachine not exists according to options", func(migrateOptions *v1.MigrateOptions) {
+		DescribeTable("should fail if VirtualMachine not exists according to options", func(migrateOptions *v1.MigrateOptions) {
 
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
@@ -1242,11 +1222,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 		},
-			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.MigrateOptions{}),
+			Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("should fail if VirtualMachine is not running according to options", func(migrateOptions *v1.MigrateOptions) {
+		DescribeTable("should fail if VirtualMachine is not running according to options", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1264,11 +1244,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			Expect(status.Error()).To(ContainSubstring("VM is not running"))
 		},
-			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.MigrateOptions{}),
+			Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("should fail if migration is not posted according to options", func(migrateOptions *v1.MigrateOptions) {
+		DescribeTable("should fail if migration is not posted according to options", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1290,11 +1270,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 		},
-			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.MigrateOptions{}),
+			Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("should migrate VirtualMachine according to options", func(migrateOptions *v1.MigrateOptions) {
+		DescribeTable("should migrate VirtualMachine according to options", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1322,15 +1302,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
-			table.Entry("with default", &v1.MigrateOptions{}),
-			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.MigrateOptions{}),
+			Entry("with dry-run option", &v1.MigrateOptions{DryRun: getDryRunOption()}),
 		)
 	})
 
 	Context("Subresource api - Guest OS Info", func() {
 		type subRes func(request *restful.Request, response *restful.Response)
 
-		table.DescribeTable("should fail when the VMI does not exist", func(fn subRes) {
+		DescribeTable("should fail when the VMI does not exist", func(fn subRes) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1342,12 +1322,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
 
 		},
-			table.Entry("for GuestOSInfo", app.GuestOSInfo),
-			table.Entry("for UserList", app.UserList),
-			table.Entry("for Filesystem", app.FilesystemList),
+			Entry("for GuestOSInfo", app.GuestOSInfo),
+			Entry("for UserList", app.UserList),
+			Entry("for Filesystem", app.FilesystemList),
 		)
 
-		table.DescribeTable("should fail when the VMI is not running", func(fn subRes) {
+		DescribeTable("should fail when the VMI is not running", func(fn subRes) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1361,12 +1341,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
 			Expect(response.Error().Error()).To(ContainSubstring("VMI is not running"))
 		},
-			table.Entry("for GuestOSInfo", app.GuestOSInfo),
-			table.Entry("for UserList", app.UserList),
-			table.Entry("for FilesystemList", app.FilesystemList),
+			Entry("for GuestOSInfo", app.GuestOSInfo),
+			Entry("for UserList", app.UserList),
+			Entry("for FilesystemList", app.FilesystemList),
 		)
 
-		table.DescribeTable("should fail when VMI does not have agent connected", func(fn subRes) {
+		DescribeTable("should fail when VMI does not have agent connected", func(fn subRes) {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -1385,9 +1365,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
 			Expect(response.Error().Error()).To(ContainSubstring("VMI does not have guest agent connected"))
 		},
-			table.Entry("for GuestOSInfo", app.GuestOSInfo),
-			table.Entry("for UserList", app.UserList),
-			table.Entry("for FilesystemList", app.FilesystemList),
+			Entry("for GuestOSInfo", app.GuestOSInfo),
+			Entry("for UserList", app.UserList),
+			Entry("for FilesystemList", app.FilesystemList),
 		)
 	})
 
@@ -1636,7 +1616,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Pausing", func() {
-		table.DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions) {
+		DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1654,11 +1634,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
 
 		},
-			table.Entry("with default", &v1.PauseOptions{}),
-			table.Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.PauseOptions{}),
+			Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("Should fail pausing", func(running bool, paused bool, pauseOptions *v1.PauseOptions) {
+		DescribeTable("Should fail pausing", func(running bool, paused bool, pauseOptions *v1.PauseOptions) {
 
 			expectVMI(running, paused)
 
@@ -1669,14 +1649,14 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		},
-			table.Entry("a not running VMI", NotRunning, UnPaused, &v1.PauseOptions{}),
-			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("a not running VMI", NotRunning, UnPaused, &v1.PauseOptions{}),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: getDryRunOption()}),
 
-			table.Entry("a running but paused VMI", Running, Paused, &v1.PauseOptions{}),
-			table.Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("a running but paused VMI", Running, Paused, &v1.PauseOptions{}),
+			Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
+		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
 
 			expectVMI(running, paused)
 
@@ -1687,14 +1667,14 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		},
-			table.Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}),
-			table.Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}),
+			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 
-			table.Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}),
-			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
+		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1712,8 +1692,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
 
 		},
-			table.Entry("with default", &v1.UnpauseOptions{}),
-			table.Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.UnpauseOptions{}),
+			Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 		)
 	})
 
@@ -1722,7 +1702,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 		})
-		table.DescribeTable("should patch status on start according to options", func(startOptions *v1.StartOptions) {
+		DescribeTable("should patch status on start according to options", func(startOptions *v1.StartOptions) {
 
 			bytesRepresentation, _ := json.Marshal(startOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
@@ -1756,11 +1736,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
-			table.Entry("with default", &v1.StartOptions{Paused: Paused}),
-			table.Entry("with dry-run option", &v1.StartOptions{Paused: Paused, DryRun: getDryRunOption()}),
+			Entry("with default", &v1.StartOptions{Paused: Paused}),
+			Entry("with dry-run option", &v1.StartOptions{Paused: Paused, DryRun: getDryRunOption()}),
 		)
 
-		table.DescribeTable("should patch status on start for VM with RunStrategy",
+		DescribeTable("should patch status on start for VM with RunStrategy",
 			func(runStrategy v1.VirtualMachineRunStrategy) {
 				vm := newVirtualMachineWithRunStrategy(runStrategy)
 				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
@@ -1780,8 +1760,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-			table.Entry("Manual RunStrategy", v1.RunStrategyManual),
-			table.Entry("RerunOnFailure RunStrategy", v1.RunStrategyRerunOnFailure),
+			Entry("Manual RunStrategy", v1.RunStrategyManual),
+			Entry("RerunOnFailure RunStrategy", v1.RunStrategyRerunOnFailure),
 		)
 	})
 

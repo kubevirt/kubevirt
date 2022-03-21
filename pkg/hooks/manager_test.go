@@ -30,7 +30,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"

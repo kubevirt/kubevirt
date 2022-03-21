@@ -24,7 +24,7 @@ import (
 	"net"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/api"
@@ -65,10 +65,6 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		handler = netdriver.NewMockNetworkHandler(ctrl)
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	const (

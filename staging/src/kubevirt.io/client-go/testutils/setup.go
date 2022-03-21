@@ -8,13 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/log"
+	v1reporter "kubevirt.io/client-go/reporter"
 )
+
+var afterSuiteReporters = []reporters.DeprecatedReporter{}
 
 // KubeVirtTestSuiteSetup is the default setup function for kubevirts unittests.
 // If tests are executed through bazel, the provided description is ignored. Instead
@@ -26,34 +28,31 @@ func KubeVirtTestSuiteSetup(t *testing.T) {
 	description = strings.TrimPrefix(description, projectRoot)
 	// Redirect writes to ginkgo writer to keep tests quiet when
 	// they succeed
-	log.Log.SetIOWriter(ginkgo.GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 	// setup the connection between ginkgo and gomega
-	gomega.RegisterFailHandler(ginkgo.Fail)
+	gomega.RegisterFailHandler(Fail)
 
 	// See https://github.com/bazelbuild/rules_go/blob/197699822e081dad064835a09825448a3e4cc2a2/go/core.rst#go_test
 	// for context.
 	testsWrapped := os.Getenv("GO_TEST_WRAP")
 	outputFile := os.Getenv("XML_OUTPUT_FILE")
 
+	suiteConfig, _ := GinkgoConfiguration()
+
 	// if run on bazel (XML_OUTPUT_FILE is not empty)
 	// and rules_go is configured to not produce the junit xml
 	// produce it here. Otherwise just run the default RunSpec
 	if testsWrapped == "0" && outputFile != "" {
 		testTarget := os.Getenv("TEST_TARGET")
-		if config.GinkgoConfig.ParallelTotal > 1 {
-			outputFile = fmt.Sprintf("%s-%d", outputFile, config.GinkgoConfig.ParallelNode)
+		if suiteConfig.ParallelTotal > 1 {
+			outputFile = fmt.Sprintf("%s-%d", outputFile, GinkgoParallelProcess())
 		}
 
-		ginkgo.RunSpecsWithDefaultAndCustomReporters(
-			t,
-			testTarget,
-			[]ginkgo.Reporter{
-				reporters.NewJUnitReporter(outputFile),
-			},
-		)
+		afterSuiteReporters = append(afterSuiteReporters, v1reporter.NewV1JUnitReporter(outputFile))
+
+		RunSpecs(t, testTarget)
 	} else {
-		// Use the current filename as description for ginkgo
-		ginkgo.RunSpecs(t, description)
+		RunSpecs(t, description)
 	}
 }
 
@@ -73,3 +72,9 @@ func findRoot() string {
 		}
 	}
 }
+
+var _ = ReportAfterSuite("KubeVirtTest", func(report Report) {
+	for _, reporter := range afterSuiteReporters {
+		reporters.ReportViaDeprecatedReporter(reporter, report)
+	}
+})

@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"

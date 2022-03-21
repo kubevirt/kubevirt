@@ -5,8 +5,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	secv1 "github.com/openshift/api/security/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,10 +81,9 @@ var _ = Describe("Apply Security Context Constraints", func() {
 
 		AfterEach(func() {
 			close(stop)
-			ctrl.Finish()
 		})
 
-		table.DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
+		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
@@ -101,8 +99,8 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			}
 			executeTest(scc, expectedJsonPatch)
 		},
-			table.Entry("Without custom users", []string{}),
-			table.Entry("With custom users", []string{"someuser"}),
+			Entry("Without custom users", []string{}),
+			Entry("With custom users", []string{"someuser"}),
 		)
 	})
 

@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"runtime"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/golang/mock/gomock"
@@ -61,7 +60,6 @@ var _ = Describe("podNIC", func() {
 	})
 	AfterEach(func() {
 		baseCacheCreator.New("").Delete()
-		ctrl.Finish()
 	})
 	When("reading networking configuration succeed", func() {
 		var (

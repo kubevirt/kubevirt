@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -76,7 +76,6 @@ var _ = Describe("Virt remote commands", func() {
 		if stopped == false {
 			close(stop)
 		}
-		ctrl.Finish()
 		client.Close()
 		os.RemoveAll(shareDir)
 	})
@@ -389,10 +388,6 @@ var _ = Describe("Virt remote commands", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			infoClient = info.NewMockCmdInfoClient(ctrl)
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
 		})
 
 		It("Should report error when server version mismatches", func() {

@@ -29,7 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -363,6 +363,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			}, time.Minute*10, time.Second*60).ShouldNot(HaveOccurred())
 			By("Checking that the Windows VirtualMachineInstance has expected UUID")
 			Expect(output).Should(ContainSubstring("works"))
-		}, 720)
+		})
 	})
 })

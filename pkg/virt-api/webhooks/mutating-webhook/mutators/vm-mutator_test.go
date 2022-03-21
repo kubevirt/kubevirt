@@ -21,7 +21,7 @@ package mutators
 import (
 	"encoding/json"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

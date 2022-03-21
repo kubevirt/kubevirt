@@ -27,7 +27,7 @@ import (
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -440,7 +440,6 @@ var _ = Describe("Workload Updater", func() {
 		close(stop)
 
 		Expect(recorder.Events).To(BeEmpty())
-		ctrl.Finish()
 	})
 })
 

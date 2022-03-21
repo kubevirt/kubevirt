@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -337,9 +337,9 @@ func createTestVMSnapshotAdmitter(config *virtconfig.ClusterConfig, vm *v1.Virtu
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 	if vm == nil {
 		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachines"}, "foo")
-		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, err)
+		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, err).AnyTimes()
 	} else {
-		vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, nil)
+		vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 	}
 	return &VMSnapshotAdmitter{Config: config, Client: virtClient}
 }

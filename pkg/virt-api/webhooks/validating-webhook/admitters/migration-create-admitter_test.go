@@ -23,8 +23,7 @@ import (
 	"encoding/json"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -79,7 +78,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient).AnyTimes()
 		migrationCreateAdmitter = &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient}
 	})
 
@@ -124,7 +123,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	Context("with no conflicting migration", func() {
 
 		BeforeEach(func() {
-			migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).Times(1)
+			migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
 
 		})
 
@@ -193,7 +192,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		It("should reject valid Migration spec on create when feature gate isn't enabled", func() {
 			vmi := api.NewMinimalVMI("testvmimigrate1")
 
-			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil)
+			mockVMIClient.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil).MaxTimes(1)
 
 			migration := v1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -330,7 +329,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 		})
 
-		table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
+		DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 			input := map[string]interface{}{}
 			json.Unmarshal([]byte(data), &input)
 
@@ -346,13 +345,13 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(validationResult))
 		},
-			table.Entry("Migration creation ",
+			Entry("Migration creation ",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
 				migrationCreateAdmitter.Admit,
 			),
-			table.Entry("Migration update",
+			Entry("Migration update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,

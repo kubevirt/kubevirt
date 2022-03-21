@@ -2,7 +2,7 @@ package softreboot_test
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -41,9 +41,5 @@ var _ = Describe("Soft rebooting", func() {
 
 		cmd := tests.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmiName)
 		Expect(cmd.Execute()).To(BeNil())
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 })

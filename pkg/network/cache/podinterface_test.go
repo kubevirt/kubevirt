@@ -25,7 +25,7 @@ import (
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"

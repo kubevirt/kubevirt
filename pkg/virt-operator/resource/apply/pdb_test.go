@@ -5,7 +5,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -91,10 +91,6 @@ var _ = Describe("Apply PDBs", func() {
 		requiredPDB.SetGeneration(mockGeneration)
 		SetGeneration(&kv.Status.Generations, requiredPDB)
 
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Context("Reconciliation", func() {

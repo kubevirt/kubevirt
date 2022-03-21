@@ -8,9 +8,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/types"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/config"
+	"github.com/onsi/ginkgo/v2/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -31,9 +31,9 @@ type capturedOutputEnricher struct {
 	additionalOutput interface{}
 }
 
-func (j *capturedOutputEnricher) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
+func (j *capturedOutputEnricher) SuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
 	for _, report := range j.reporters {
-		report.SpecSuiteWillBegin(config, summary)
+		report.SuiteWillBegin(config, summary)
 	}
 }
 
@@ -51,7 +51,7 @@ func (j *capturedOutputEnricher) SpecWillRun(specSummary *types.SpecSummary) {
 }
 
 func (j *capturedOutputEnricher) SpecDidComplete(specSummary *types.SpecSummary) {
-	if specSummary.State.IsFailure() {
+	if specSummary.HasFailureState() {
 		if j.additionalOutput != "" {
 			specSummary.CapturedOutput = fmt.Sprintf("%s\n%s", specSummary.CapturedOutput, j.additionalOutput)
 		}
@@ -61,9 +61,9 @@ func (j *capturedOutputEnricher) SpecDidComplete(specSummary *types.SpecSummary)
 	}
 }
 
-func (j *capturedOutputEnricher) JustAfterEach(specSummary ginkgo.GinkgoTestDescription) {
-	if specSummary.Failed {
-		j.additionalOutput = j.collect(specSummary.Duration)
+func (j *capturedOutputEnricher) JustAfterEach(specReport types.SpecReport) {
+	if specReport.Failed() {
+		j.additionalOutput = j.collect(specReport.RunTime)
 	}
 }
 
@@ -73,9 +73,9 @@ func (j *capturedOutputEnricher) AfterSuiteDidRun(setupSummary *types.SetupSumma
 	}
 }
 
-func (j *capturedOutputEnricher) SpecSuiteDidEnd(summary *types.SuiteSummary) {
+func (j *capturedOutputEnricher) SuiteDidEnd(summary *types.SuiteSummary) {
 	for _, report := range j.reporters {
-		report.SpecSuiteDidEnd(summary)
+		report.SuiteDidEnd(summary)
 	}
 }
 func (j *capturedOutputEnricher) collect(duration time.Duration) string {

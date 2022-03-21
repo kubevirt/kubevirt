@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -33,10 +33,6 @@ var _ = Describe("SELinux context executor", func() {
 			EXPECT().
 			Run(gomock.Any()).
 			Return(nil)
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Context("with SELinux disabled", func() {

@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
@@ -356,10 +355,6 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			currentTime = timeFunc
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
 		})
 
 		addVirtualMachineSnapshot := func(s *snapshotv1.VirtualMachineSnapshot) {

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,10 +71,6 @@ pciHostDevices:
 		Expect(fakePermittedHostDevices.PciHostDevices).To(HaveLen(1))
 		Expect(fakePermittedHostDevices.PciHostDevices[0].PCIVendorSelector).To(Equal(fakeID))
 		Expect(fakePermittedHostDevices.PciHostDevices[0].ResourceName).To(Equal(fakeName))
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	It("Should parse the permitted devices and find 1 matching PCI device", func() {

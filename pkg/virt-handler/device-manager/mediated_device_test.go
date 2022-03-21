@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -88,7 +87,7 @@ var _ = Describe("Mediated Device", func() {
 		os.RemoveAll(mdevBasePath)
 		os.RemoveAll(fakeSupportedTypesPath)
 	})
-	table.DescribeTable("should get correct file type name", func(namePathExist bool) {
+	DescribeTable("should get correct file type name", func(namePathExist bool) {
 		if namePathExist {
 			mdevName, err := getMdevTypeName(fakeMdevUUID)
 			Expect(err).ToNot(HaveOccurred())
@@ -99,8 +98,8 @@ var _ = Describe("Mediated Device", func() {
 			Expect(mdevName).To(Equal(resourceNameToTypeName(fakeIntelMdevNameSelector)))
 		}
 	},
-		table.Entry("Nvidia name file exist", true),
-		table.Entry("Intel name file doesn't exist", false),
+		Entry("Nvidia name file exist", true),
+		Entry("Intel name file doesn't exist", false),
 	)
 	Context("discover devices", func() {
 		BeforeEach(func() {
@@ -125,9 +124,7 @@ var _ = Describe("Mediated Device", func() {
 			Expect(fakePermittedHostDevices.MediatedDevices[0].MDEVNameSelector).To(Equal(fakeMdevNameSelector))
 			Expect(fakePermittedHostDevices.MediatedDevices[0].ResourceName).To(Equal(fakeMdevResourceName))
 		})
-		AfterEach(func() {
-			ctrl.Finish()
-		})
+
 		It("Should parse the permitted devices and find 1 matching mediated device", func() {
 			supportedMdevsMap := make(map[string]string)
 			for _, supportedMdev := range fakePermittedHostDevices.MediatedDevices {

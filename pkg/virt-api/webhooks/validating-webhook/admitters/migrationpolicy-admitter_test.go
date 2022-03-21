@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 
-	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
@@ -31,7 +30,7 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +52,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		policyName = "test-policy"
 	})
 
-	table.DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
 		By("Setting up a new policy")
 		policy := kubecli.NewMinimalMigrationPolicy(policyName)
 		policy.Spec = policySpec
@@ -61,16 +60,16 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		By("Expecting admitter would not allow it")
 		admitter.admitAndExpect(policy, false)
 	},
-		table.Entry("negative BandwidthPerMigration",
+		Entry("negative BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
 		),
 
-		table.Entry("negative CompletionTimeoutPerGiB",
+		Entry("negative CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(-1)},
 		),
 	)
 
-	table.DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
 		By("Setting up a new policy")
 		policy := kubecli.NewMinimalMigrationPolicy(policyName)
 		policy.Spec = policySpec
@@ -78,23 +77,23 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		By("Expecting admitter would allow it")
 		admitter.admitAndExpect(policy, true)
 	},
-		table.Entry("greater than zero BandwidthPerMigration",
+		Entry("greater than zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)},
 		),
 
-		table.Entry("greater than zero CompletionTimeoutPerGiB",
+		Entry("greater than zero CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(1)},
 		),
 
-		table.Entry("zero CompletionTimeoutPerGiB",
+		Entry("zero CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(0)},
 		),
 
-		table.Entry("zero BandwidthPerMigration",
+		Entry("zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
 		),
 
-		table.Entry("empty spec",
+		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
 		),
 	)

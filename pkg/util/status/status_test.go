@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -299,9 +299,5 @@ var _ = Describe("Status", func() {
 			migrationInterface.EXPECT().Update(migration).Return(migration, nil).Times(1)
 			Expect(migrationUpdater.UpdateStatus(migration)).To(Succeed())
 		})
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 })

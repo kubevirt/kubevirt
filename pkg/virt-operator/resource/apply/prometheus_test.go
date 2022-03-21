@@ -10,7 +10,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -59,10 +59,6 @@ var _ = Describe("Apply Prometheus", func() {
 		clientset.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
 
 		kv = &v1.KubeVirt{}
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	It("should not patch ServiceMonitor on sync when they are equal", func() {

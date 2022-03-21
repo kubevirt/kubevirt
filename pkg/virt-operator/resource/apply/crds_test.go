@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -52,10 +52,6 @@ var _ = Describe("Apply CRDs", func() {
 		clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 		clientset.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
 		kv = &v1.KubeVirt{}
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	It("should not roll out subresources on existing CRDs before control-plane rollover", func() {

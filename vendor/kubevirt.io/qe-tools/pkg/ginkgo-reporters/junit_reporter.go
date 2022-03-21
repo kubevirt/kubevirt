@@ -22,7 +22,7 @@ package ginkgo_reporters
 import (
 	"flag"
 
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/reporters"
 )
 
 var JunitOutput = ""

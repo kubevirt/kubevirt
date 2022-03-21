@@ -4,7 +4,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/vishvananda/netlink"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -35,7 +35,6 @@ var _ = Describe("Bridge DHCP configurator", func() {
 
 	AfterEach(func() {
 		cacheCreator.New("").Delete()
-		ctrl.Finish()
 	})
 
 	Context("Generate", func() {

@@ -27,8 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirt"
 
@@ -91,11 +90,10 @@ var _ = Describe("Notify", func() {
 			}
 			client.Close()
 			os.RemoveAll(shareDir)
-			ctrl.Finish()
 		})
 
 		Context("server", func() {
-			table.DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
+			DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
 				domain := api.NewMinimalDomain("test")
 				x, err := xml.Marshal(domain.Spec)
 				Expect(err).ToNot(HaveOccurred())
@@ -123,11 +121,11 @@ var _ = Describe("Notify", func() {
 				}
 				Expect(timedOut).To(BeFalse(), "should not time out")
 			},
-				table.Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
-				table.Entry("modified for stopped VMIs with shutoff reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
-				table.Entry("modified for stopped VMIs with stopped reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_STOPPED, api.Shutoff, watch.Modified),
-				table.Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
-				table.Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
+				Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
+				Entry("modified for stopped VMIs with shutoff reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
+				Entry("modified for stopped VMIs with stopped reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_STOPPED, api.Shutoff, watch.Modified),
+				Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
+				Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
 			)
 		})
 
@@ -302,7 +300,7 @@ var _ = Describe("Notify", func() {
 			os.RemoveAll(shareDir)
 		})
 
-		It("Should send a k8s event", func(done Done) {
+		It("Should send a k8s event", func() {
 
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
@@ -317,10 +315,9 @@ var _ = Describe("Notify", func() {
 
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
-			close(done)
-		}, 5)
+		})
 
-		It("Should generate a k8s event on IO errors", func(done Done) {
+		It("Should generate a k8s event on IO errors", func() {
 			faultDisk := []libvirt.DomainDiskError{
 				{
 					Disk:  "vda",
@@ -352,9 +349,7 @@ var _ = Describe("Notify", func() {
 			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil)
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
-			close(done)
-
-		}, 20)
+		})
 
 	})
 
@@ -369,9 +364,6 @@ var _ = Describe("Notify", func() {
 			infoClient = info.NewMockNotifyInfoClient(ctrl)
 		})
 
-		AfterEach(func() {
-			ctrl.Finish()
-		})
 		It("Should report error when server version mismatches", func() {
 
 			fakeResponse := info.NotifyInfoResponse{

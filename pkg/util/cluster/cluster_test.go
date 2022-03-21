@@ -4,8 +4,7 @@ import (
 	"strconv"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	secv1 "github.com/openshift/api/security/v1"
@@ -59,7 +58,7 @@ var _ = Describe("OpenShift Test", func() {
 		return list
 	}
 
-	table.DescribeTable("Testing for OpenShift", func(onOpenShift bool) {
+	DescribeTable("Testing for OpenShift", func(onOpenShift bool) {
 
 		discoveryClient.Fake.Resources = getServerResources(onOpenShift)
 		isOnOpenShift, err := IsOnOpenShift(virtClient)
@@ -67,8 +66,8 @@ var _ = Describe("OpenShift Test", func() {
 		Expect(isOnOpenShift).To(Equal(onOpenShift), "should return "+strconv.FormatBool(onOpenShift))
 
 	},
-		table.Entry("on Kubernetes", false),
-		table.Entry("on OpenShift", true),
+		Entry("on Kubernetes", false),
+		Entry("on OpenShift", true),
 	)
 
 })
