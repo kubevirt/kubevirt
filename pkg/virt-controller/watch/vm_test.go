@@ -320,7 +320,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change
-				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -364,12 +364,12 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes)).To(Equal(0))
+				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
 			}).Return(nil, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change occured
-				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -414,7 +414,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -446,7 +446,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
 			controller.Execute()
