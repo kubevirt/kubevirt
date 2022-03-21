@@ -22,6 +22,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	expect "github.com/google/goexpect"
 
@@ -72,7 +73,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				// Start a VirtualMachineInstance with bridged networking
 				nodeName := tests.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
 
-				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
+				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
 				By("restarting kubelet")
 				pod := renderPkillAllPod("kubelet")
@@ -108,7 +109,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				// Start a VirtualMachineInstance with bridged networking
 				By("Waiting the VirtualMachineInstance start")
 				bridgeVMI = tests.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
-				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
+				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
 				vmIP := libnet.GetVmiPrimaryIpByFamily(bridgeVMI, k8sv1.IPv4Protocol)
 				dadCommand := fmt.Sprintf("sudo /usr/sbin/arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
@@ -127,4 +128,12 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
 	return tests.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
+}
+
+func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
+	output := tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
+	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
+
+	output = tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
+	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 }

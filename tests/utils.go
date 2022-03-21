@@ -1605,16 +1605,6 @@ func DeletePV(os string) {
 	}
 }
 
-func VerifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
-	output := RunCommandOnVmiPod(vmi, []string{BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
-	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
-
-	output = RunCommandOnVmiPod(vmi, []string{BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
-	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
-
-	return
-}
-
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	By(StartingVMInstance)
 	virtCli, err := kubecli.GetKubevirtClient()
