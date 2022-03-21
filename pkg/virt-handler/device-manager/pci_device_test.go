@@ -68,7 +68,7 @@ pciHostDevices:
 `
 		err = yaml.NewYAMLOrJSONDecoder(strings.NewReader(fakePermittedHostDevicesConfig), 1024).Decode(&fakePermittedHostDevices)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(fakePermittedHostDevices.PciHostDevices)).To(Equal(1))
+		Expect(fakePermittedHostDevices.PciHostDevices).To(HaveLen(1))
 		Expect(fakePermittedHostDevices.PciHostDevices[0].PCIVendorSelector).To(Equal(fakeID))
 		Expect(fakePermittedHostDevices.PciHostDevices[0].ResourceName).To(Equal(fakeName))
 	})
@@ -88,8 +88,8 @@ pciHostDevices:
 		// discoverPermittedHostPCIDevices() will walk real PCI devices wherever the tests are running
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		devices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-		Expect(len(devices)).To(Equal(1))
-		Expect(len(devices[fakeName])).To(Equal(1))
+		Expect(devices).To(HaveLen(1), "only one PCI device is expected to be found")
+		Expect(devices[fakeName]).To(HaveLen(1), "only one PCI device is expected to be found")
 		Expect(devices[fakeName][0].pciID).To(Equal(fakeID))
 		Expect(devices[fakeName][0].driver).To(Equal(fakeDriver))
 		Expect(devices[fakeName][0].pciAddress).To(Equal(fakeAddress))
@@ -156,7 +156,7 @@ pciHostDevices:
 			deviceController.updatePermittedHostDevicePlugins(),
 		)
 		Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
-		Expect(len(disabledDevicePlugins)).To(Equal(0))
+		Expect(disabledDevicePlugins).To(BeEmpty(), "no disabled device plugins are expected")
 		Ω(enabledDevicePlugins).Should(HaveKey(fakeName))
 		// Manually adding the enabled plugin, since the device controller is not actually running
 		deviceController.startedPlugins[fakeName] = controlledDevice{devicePlugin: enabledDevicePlugins[fakeName]}
@@ -172,7 +172,7 @@ pciHostDevices:
 		enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
 			deviceController.updatePermittedHostDevicePlugins(),
 		)
-		Expect(len(enabledDevicePlugins)).To(Equal(0))
+		Expect(enabledDevicePlugins).To(BeEmpty(), "no enabled device plugins should be found")
 		Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
 	})
