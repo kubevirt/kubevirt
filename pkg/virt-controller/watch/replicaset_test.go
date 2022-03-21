@@ -686,7 +686,7 @@ var _ = Describe("Replicaset", func() {
 			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
-				Expect(objRS.Status.Conditions).To(HaveLen(0))
+				Expect(objRS.Status.Conditions).To(BeEmpty())
 			})
 
 			controller.Execute()

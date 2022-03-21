@@ -262,7 +262,7 @@ var _ = Describe("Flavor", func() {
 				vm.Spec.Flavor.Kind = ""
 
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -277,7 +277,7 @@ var _ = Describe("Flavor", func() {
 				vm.Spec.Flavor.Kind = "VirtualMachineClusterFlavor"
 
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -302,7 +302,7 @@ var _ = Describe("Flavor", func() {
 				profile.CPU = nil
 
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vmiCpuCount))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -316,7 +316,7 @@ var _ = Describe("Flavor", func() {
 				vmi.Spec.Domain.CPU = nil
 
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.CPU).To(Equal(profile.CPU))
 				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))

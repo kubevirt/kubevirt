@@ -124,7 +124,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					rootPortController = append(rootPortController, c)
 				}
 			}
-			Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
+			Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 		})
 	})
 
