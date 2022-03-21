@@ -137,7 +137,7 @@ var _ = Describe("ContainerDisk", func() {
 			// verify we can read a result
 			record, err = m.getMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(record.MountTargetEntries)).To(Equal(1))
+			Expect(record.MountTargetEntries).To(HaveLen(1))
 			Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
 			Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
 
@@ -146,7 +146,7 @@ var _ = Describe("ContainerDisk", func() {
 			delete(m.mountRecords, vmi.UID)
 			record, err = m.getMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(record.MountTargetEntries)).To(Equal(1))
+			Expect(record.MountTargetEntries).To(HaveLen(1))
 			Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
 			Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
 
