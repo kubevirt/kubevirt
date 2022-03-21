@@ -124,7 +124,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
 
@@ -724,7 +724,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		testutils.AddDataVolumeAPI(crdInformer)
 		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 	})
 
@@ -748,7 +748,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 				testutils.AddDataVolumeAPI(crdInformer)
 				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-				Expect(len(causes)).To(Equal(0))
+				Expect(causes).To(BeEmpty())
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}),
 			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
@@ -771,7 +771,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			testutils.RemoveDataVolumeAPI(crdInformer)
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject DataVolume when DataVolume name is not set", func() {
@@ -784,7 +784,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			testutils.AddDataVolumeAPI(crdInformer)
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueRequired"))
 			Expect(causes[0].Field).To(Equal("fake[0].name"))
 			Expect(causes[0].Message).To(Equal("DataVolume 'name' must be set"))
@@ -797,7 +797,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volume with multiple volume sources set", func() {
@@ -812,7 +812,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volumes with duplicate names", func() {
@@ -832,7 +832,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 		It("should reject volume count > arrayLenMax", func() {
@@ -849,7 +849,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			}
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake"))
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake list exceeds the %d element limit in length", arrayLenMax)))
@@ -873,7 +873,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			}
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(expectedErrors))
+			Expect(causes).To(HaveLen(expectedErrors))
 			for _, cause := range causes {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
 			}
@@ -905,7 +905,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			}
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(expectedErrors))
+			Expect(causes).To(HaveLen(expectedErrors))
 			for _, cause := range causes {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
 			}
@@ -930,7 +930,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.userDataBase64"))
 		})
 
@@ -947,7 +947,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.networkDataBase64"))
 		})
 
@@ -966,7 +966,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud"))
 		})
 
@@ -986,7 +986,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud"))
 		})
 
@@ -999,7 +999,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(2))
+			Expect(causes).To(HaveLen(2))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
 			Expect(causes[1].Field).To(Equal("fake[0].hostDisk.type"))
 		})
@@ -1015,7 +1015,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
 		})
 
@@ -1031,7 +1031,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.type"))
 		})
 
@@ -1048,7 +1048,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.capacity"))
 		})
 
@@ -1062,7 +1062,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].configMap.name"))
 		})
 
@@ -1076,7 +1076,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].secret.secretName"))
 		})
 
@@ -1090,7 +1090,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].serviceAccount.serviceAccountName"))
 		})
 
@@ -1111,7 +1111,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake"))
 		})
 
@@ -1340,7 +1340,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(Equal(allow))
 
 		if !allow {
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		}
 	},
@@ -1397,7 +1397,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(Equal(allow))
 
 		if !allow {
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		}
 	},
