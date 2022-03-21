@@ -66,6 +66,8 @@ const (
 	// Istio uses certain ports for it's own purposes, this port server to verify that traffic is not routed
 	// into the VMI for these ports. https://istio.io/latest/docs/ops/deployment/requirements/
 	istioRestrictedPort = istio.EnvoyTunnelPort
+
+	istioInjectNamespaceLabel = "istio-injection"
 )
 
 const (
@@ -133,9 +135,9 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		})
 		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
-			Expect(libnet.AddLabelToNamespace(virtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
+			Expect(libnet.AddLabelToNamespace(virtClient, util.NamespaceTestDefault, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
-				Expect(libnet.RemoveLabelFromNamespace(virtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
+				Expect(libnet.RemoveLabelFromNamespace(virtClient, util.NamespaceTestDefault, istioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
 			}()
 
 			By("Creating VMI")

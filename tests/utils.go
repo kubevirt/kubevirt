@@ -218,10 +218,6 @@ const (
 )
 
 const (
-	IstioInjectNamespaceLabel = "istio-injection"
-)
-
-const (
 	tmpPath = "/var/provision/kubevirt.io/tests"
 )
 
