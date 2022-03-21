@@ -121,7 +121,7 @@ var _ = Describe("Mediated Device", func() {
     `
 			err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(fakePermittedHostDevicesConfig), 1024).Decode(&fakePermittedHostDevices)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(fakePermittedHostDevices.MediatedDevices)).To(Equal(1))
+			Expect(fakePermittedHostDevices.MediatedDevices).To(HaveLen(1))
 			Expect(fakePermittedHostDevices.MediatedDevices[0].MDEVNameSelector).To(Equal(fakeMdevNameSelector))
 			Expect(fakePermittedHostDevices.MediatedDevices[0].ResourceName).To(Equal(fakeMdevResourceName))
 		})
@@ -139,9 +139,9 @@ var _ = Describe("Mediated Device", func() {
 			}
 			// discoverPermittedHostMediatedDevices() will walk real mdev devices wherever the tests are running
 			devices := discoverPermittedHostMediatedDevices(supportedMdevsMap)
-			Expect(len(devices)).To(Equal(1))
+			Expect(devices).To(HaveLen(1))
 			selector := removeSelectorSpaces(fakeMdevNameSelector)
-			Expect(len(devices[selector])).To(Equal(1))
+			Expect(devices[selector]).To(HaveLen(1))
 			Expect(devices[selector][0].UUID).To(Equal(fakeMdevUUID))
 			Expect(devices[selector][0].typeName).To(Equal(selector))
 			Expect(devices[selector][0].parentPciAddress).To(Equal(fakeAddress))
@@ -210,7 +210,7 @@ var _ = Describe("Mediated Device", func() {
 				deviceController.updatePermittedHostDevicePlugins(),
 			)
 			Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
-			Expect(len(disabledDevicePlugins)).To(Equal(0))
+			Expect(disabledDevicePlugins).To(BeEmpty())
 			Ω(enabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 			// Manually adding the enabled plugin, since the device controller is not actually running
 			deviceController.startedPlugins[fakeMdevResourceName] = controlledDevice{
@@ -228,7 +228,7 @@ var _ = Describe("Mediated Device", func() {
 			enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
 				deviceController.updatePermittedHostDevicePlugins(),
 			)
-			Expect(len(enabledDevicePlugins)).To(Equal(0))
+			Expect(enabledDevicePlugins).To(BeEmpty())
 			Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
 			Ω(disabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 		})
