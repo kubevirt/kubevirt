@@ -508,6 +508,7 @@ The `workloadUpdateStrategy` fields are:
   An empty list defaults to no automated workload updating.
 
   The default values is `LiveMigrate`; `Evict` is not enabled by default being potentially disruptive for the existing workloads.
+* `LiveMigrate` is ignored on SNO clusters where LiveMigrate is not supported.
 
 ### workloadUpdateStrategy example
 ```yaml

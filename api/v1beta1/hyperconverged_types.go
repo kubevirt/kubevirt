@@ -357,6 +357,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	// precedence over more disruptive methods. For example if both LiveMigrate and Evict
 	// methods are listed, only VMs which are not live migratable will be restarted/shutdown.
 	// An empty list defaults to no automated workload updating.
+	// LiveMigrate is ignored on SNO clusters.
 	//
 	// +listType=atomic
 	// +kubebuilder:default={"LiveMigrate"}

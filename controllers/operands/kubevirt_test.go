@@ -2062,6 +2062,17 @@ Version: 1.2.3`)
 
 		Context("Workload Update Strategy", func() {
 			defaultBatchEvictionSize := 10
+			getClusterInfo := hcoutil.GetClusterInfo
+
+			BeforeEach(func() {
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return &commonTestUtils.ClusterInfoMock{}
+				}
+			})
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
 
 			It("should add Workload Update Strategy if missing in KV", func() {
 				existingResource, err := NewKubeVirt(hco)
@@ -2220,6 +2231,67 @@ Version: 1.2.3`)
 				Expect(*foundUpdateStrategy.BatchEvictionSize).Should(Equal(hcoModifiedBatchEvictionSize))
 				Expect(foundUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("5m0s"))
 			})
+
+			DescribeTable("Should ignore LiveMigrate Workload Update Strategy on SNO",
+				func(hcoWorkloadUpdateMethods []string, expectedKVWorkloadUpdateMethods []kubevirtcorev1.WorkloadUpdateMethod) {
+
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commonTestUtils.ClusterInfoSNOMock{}
+					}
+
+					existingKv, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					hcoModifiedBatchEvictionSize := 5
+					hco.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = hcoWorkloadUpdateMethods
+					hco.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: time.Minute * 5}
+					hco.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &hcoModifiedBatchEvictionSize
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingKv})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Err).To(BeNil())
+
+					foundKv := &kubevirtcorev1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingKv.Name, Namespace: existingKv.Namespace},
+							foundKv),
+					).To(BeNil())
+
+					Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(len(expectedKVWorkloadUpdateMethods)))
+					for _, expected := range expectedKVWorkloadUpdateMethods {
+						Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(expected))
+					}
+					Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).ShouldNot(ContainElements(kubevirtcorev1.WorkloadUpdateMethod("LiveMigrate")))
+				},
+				Entry("LiveMigrate and others, LiveMigrate first",
+					[]string{"LiveMigrate", "test1", "test2"},
+					[]kubevirtcorev1.WorkloadUpdateMethod{"test1", "test2"},
+				),
+				Entry("LiveMigrate and others, LiveMigrate in the middle",
+					[]string{"test1", "LiveMigrate", "test2"},
+					[]kubevirtcorev1.WorkloadUpdateMethod{"test1", "test2"},
+				),
+				Entry("LiveMigrate and others, LiveMigrate last",
+					[]string{"test1", "test2", "LiveMigrate"},
+					[]kubevirtcorev1.WorkloadUpdateMethod{"test1", "test2"},
+				),
+				Entry("LiveMigrate only",
+					[]string{"LiveMigrate"},
+					[]kubevirtcorev1.WorkloadUpdateMethod{},
+				),
+				Entry("empty",
+					[]string{},
+					[]kubevirtcorev1.WorkloadUpdateMethod{},
+				),
+				Entry("LiveMigrate and Evict",
+					[]string{"LiveMigrate", "Evict"},
+					[]kubevirtcorev1.WorkloadUpdateMethod{"Evict"},
+				))
+
 		})
 
 		Context("SNO replicas", func() {

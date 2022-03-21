@@ -280,15 +280,33 @@ func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpd
 			*kvObject.BatchEvictionSize = *hcObject.BatchEvictionSize
 		}
 
-		if size := len(hcObject.WorkloadUpdateMethods); size > 0 {
+		filteredWUMethods := filterWorkloadupdatemethods(hcObject.WorkloadUpdateMethods)
+
+		if size := len(filteredWUMethods); size > 0 {
 			kvObject.WorkloadUpdateMethods = make([]kubevirtcorev1.WorkloadUpdateMethod, size)
-			for i, updateMethod := range hcObject.WorkloadUpdateMethods {
+			for i, updateMethod := range filteredWUMethods {
 				kvObject.WorkloadUpdateMethods[i] = kubevirtcorev1.WorkloadUpdateMethod(updateMethod)
 			}
 		}
 	}
 
 	return kvObject
+}
+
+func filterWorkloadupdatemethods(workloadUpdateMethods []string) []string {
+	var filteredWUMethods []string
+
+	if hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() {
+		return workloadUpdateMethods
+	} else {
+		for _, method := range workloadUpdateMethods {
+			if method != string(kubevirtcorev1.WorkloadUpdateMethodLiveMigrate) {
+				filteredWUMethods = append(filteredWUMethods, method)
+			}
+		}
+	}
+
+	return filteredWUMethods
 }
 
 func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfiguration, error) {
