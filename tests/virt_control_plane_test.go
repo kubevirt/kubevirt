@@ -25,21 +25,21 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k6sv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -297,6 +297,16 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 				By("ensuring we now have a ready virt-handler daemonset")
 				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically("==", desiredDeamonsSetCount))
+
+				By("changing a setting and ensuring that the config update watcher eventually resumes and picks it up")
+				migrationBandwidth := resource.MustParse("1Mi")
+				kv := util.GetCurrentKv(virtCli)
+				kv.Spec.Configuration.MigrationConfiguration = &k6sv1.MigrationConfiguration{
+					BandwidthPerMigration: &migrationBandwidth,
+				}
+				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				kv = util.GetCurrentKv(virtCli)
+				tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", kv.ResourceVersion, tests.ExpectResourceVersionToBeLessThanConfigVersion, 80*time.Second)
 			})
 		})
 
