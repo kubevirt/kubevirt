@@ -30,6 +30,7 @@ go_test(
         ":go_default_library",
         "//pkg/network/sriov:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
