@@ -125,10 +125,6 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		}
 	}
 
-	if _, err := b.handler.SetRandomMac(b.podNicLink.Attrs().Name); err != nil {
-		return err
-	}
-
 	if err := b.createBridge(); err != nil {
 		return err
 	}
@@ -194,6 +190,17 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	err := b.handler.LinkAdd(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create a bridge")
+		return err
+	}
+
+	brLink, err := b.handler.LinkByName(b.bridgeInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to fetch bridge %s link", bridge.Name)
+		return err
+	}
+
+	if err := b.handler.LinkSetHardwareAddr(b.podNicLink, brLink.Attrs().HardwareAddr); err != nil {
+		log.Log.Reason(err).Errorf("failed to set on pod interface (%s) the mac (%s)", b.podNicLink.Attrs().Name, brLink.Attrs().HardwareAddr.String())
 		return err
 	}
 
