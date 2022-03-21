@@ -8,7 +8,6 @@ go_library(
         "job.go",
         "migration.go",
         "pod_servers.go",
-        "test.go",
         "utils.go",
         "vmi_servers.go",
     ],
