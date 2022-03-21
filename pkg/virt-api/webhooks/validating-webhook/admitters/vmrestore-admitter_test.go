@@ -149,7 +149,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			ar := createRestoreAdmissionReview(restore)
 			resp := createTestVMRestoreAdmitter(config, nil, snapshot).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
 		})
 
@@ -172,7 +172,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			ar := createRestoreAdmissionReview(restore)
 			resp := createTestVMRestoreAdmitter(config, nil, snapshot).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 		})
 
@@ -195,7 +195,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			ar := createRestoreAdmissionReview(restore)
 			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(2))
+			Expect(resp.Result.Details.Causes).To(HaveLen(2))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 			Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.virtualMachineSnapshotName"))
 		})
@@ -234,7 +234,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
 			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
 		})
 
@@ -306,7 +306,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 			})
 
@@ -331,7 +331,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted)))
 			})
@@ -357,7 +357,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
 			})
 
@@ -384,7 +384,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %q has failed and is invalid to use", vmSnapshotName)))
 			})
 
@@ -411,7 +411,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
 			})
 
@@ -436,7 +436,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.kind"))
 			})
 
@@ -462,7 +462,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
 			})
 
@@ -487,7 +487,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
 			})
 
@@ -528,7 +528,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot, restoreInProcess).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
 			})
 
