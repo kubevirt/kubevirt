@@ -54,6 +54,8 @@ elif [[ $TARGET =~ sig-compute-realtime ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
   export KUBEVIRT_HUGEPAGES_2M=512
   export KUBEVIRT_REALTIME_SCHEDULER=true
+elif [[ $TARGET =~ sig-compute-migrations ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
@@ -346,7 +348,8 @@ spec:
 EOF
 fi
 
-# Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not already set
+# Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not
+# already set.
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   if [[ $TARGET =~ windows_sysprep.* ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[Sysprep\\]"
@@ -359,13 +362,18 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[storage-req\\]"
+    export KUBEVIRT_E2E_SKIP="Migration"
   elif [[ $TARGET =~ vgpu.* ]]; then
     export KUBEVIRT_E2E_FOCUS=MediatedDevices
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute-realtime\\]"
+  elif [[ $TARGET =~ sig-compute-migrations ]]; then
+    export KUBEVIRT_E2E_FOCUS="Migration"
+    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+    export KUBEVIRT_STORAGE="rook-ceph"
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices|Migration"
   elif [[ $TARGET =~ sig-monitoring ]]; then
       export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
