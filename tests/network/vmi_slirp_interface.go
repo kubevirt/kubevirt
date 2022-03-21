@@ -119,7 +119,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 				}
 			}
 			Expect(container.Name).ToNot(Equal(""))
-			Expect(container.Ports).ToNot(Equal(nil))
+			Expect(container.Ports).ToNot(BeNil())
 			Expect(container.Ports[0].Name).To(Equal("http"))
 			Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))
 			Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
