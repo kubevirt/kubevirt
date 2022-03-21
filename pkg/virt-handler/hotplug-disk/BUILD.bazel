@@ -36,6 +36,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",

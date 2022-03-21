@@ -47,6 +47,7 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -74,6 +75,7 @@ var _ = Describe("HotplugVolume", func() {
 		ctrl               *gomock.Controller
 		expectedCgroupRule *devices.Rule
 		cgroupManagerMock  *cgroup.MockManager
+		ownershipManager   *diskutils.MockOwnershipManagerInterface
 	)
 
 	expectCgroupRule := func(t devices.Type, major, minor int64, allow bool) {
@@ -126,6 +128,7 @@ var _ = Describe("HotplugVolume", func() {
 		cgroupManagerMock = cgroup.NewMockManager(ctrl)
 		cgroupManagerMock.EXPECT().GetCgroupVersion().AnyTimes()
 		expectedCgroupRule = nil
+		ownershipManager = diskutils.NewMockOwnershipManagerInterface(ctrl)
 	})
 
 	AfterEach(func() {
@@ -260,6 +263,7 @@ var _ = Describe("HotplugVolume", func() {
 				mountStateDir:      tempDir,
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+				ownershipManager:   ownershipManager,
 			}
 
 			deviceBasePath = func(sourceUID types.UID) string {
@@ -336,6 +340,9 @@ var _ = Describe("HotplugVolume", func() {
 			err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
+			targetDevicePath := filepath.Join(targetPodPath, "testvolume")
+			ownershipManager.EXPECT().SetFileOwnership(targetDevicePath)
+
 			By("Mounting and validating expected rule is set")
 			setExpectedCgroupRuns(2)
 			expectCgroupRule(devices.BlockDevice, 6, 6, true)
@@ -344,7 +351,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			By("Unmounting, we verify the reverse process happens")
 			expectCgroupRule(devices.BlockDevice, 6, 6, false)
-			err = m.unmountBlockHotplugVolumes(filepath.Join(targetPodPath, "testvolume"), vmi)
+			err = m.unmountBlockHotplugVolumes(targetDevicePath, vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -547,6 +554,7 @@ var _ = Describe("HotplugVolume", func() {
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 				mountStateDir:      tempDir,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+				ownershipManager:   ownershipManager,
 			}
 
 			deviceBasePath = func(sourceUID types.UID) string {
@@ -672,6 +680,7 @@ var _ = Describe("HotplugVolume", func() {
 				Expect(targetPath).To(Equal(targetFilePath))
 				return []byte("Success"), nil
 			}
+			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
 
 			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record)
 			Expect(err).ToNot(HaveOccurred())
@@ -759,6 +768,7 @@ var _ = Describe("HotplugVolume", func() {
 				mountStateDir:      tempDir,
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+				ownershipManager:   ownershipManager,
 			}
 
 			deviceBasePath = func(sourceUID types.UID) string {
@@ -858,6 +868,15 @@ var _ = Describe("HotplugVolume", func() {
 				Expect(targetPath).To(Equal(targetFilePath))
 				return []byte("Success"), nil
 			}
+
+			expectedPaths := []string{targetFilePath, blockVolume}
+			capturedPaths := []string{}
+
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(2).DoAndReturn(func(path string) error {
+				capturedPaths = append(capturedPaths, path)
+				return nil
+			})
+
 			err = m.Mount(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying there are 2 records in tempDir/1234")
@@ -880,6 +899,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.Stat(blockVolume)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(capturedPaths).To(ContainElements(expectedPaths))
 
 			volumeStatuses = make([]v1.VolumeStatus, 0)
 			volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
@@ -971,8 +991,17 @@ var _ = Describe("HotplugVolume", func() {
 				Expect(targetPath).To(Equal(targetFilePath))
 				return []byte("Success"), nil
 			}
+
+			expectedPaths := []string{blockVolume, targetFilePath}
+			capturedPaths := []string{}
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(2).DoAndReturn(func(path string) error {
+				capturedPaths = append(capturedPaths, path)
+				return nil
+			})
+
 			err = m.Mount(vmi)
 			Expect(err).ToNot(HaveOccurred())
+
 			By("Verifying there are 2 records in tempDir/1234")
 			record := &vmiMountTargetRecord{
 				MountTargetEntries: []vmiMountTargetEntry{
@@ -991,6 +1020,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(bytes).To(Equal(expectedBytes))
 			_, err = os.Stat(targetFilePath)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(capturedPaths).To(ContainElements(expectedPaths))
 
 			err = m.UnmountAll(vmi)
 			Expect(err).ToNot(HaveOccurred())
