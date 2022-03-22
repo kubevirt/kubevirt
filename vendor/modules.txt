@@ -411,9 +411,6 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/subgraph/libmacouflage v0.0.1
-## explicit
-github.com/subgraph/libmacouflage
 # github.com/u-root/u-root v7.0.0+incompatible
 ## explicit
 github.com/u-root/u-root/pkg/cmdline
