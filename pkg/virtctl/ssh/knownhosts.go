@@ -32,7 +32,7 @@ func InteractiveHostKeyCallback(knownHostsFilePath string) (ssh.HostKeyCallback,
 			if err != nil || !shouldAdd {
 				return err
 			}
-			if err := addHostKey(knownHostsFilePath, hostname, remote, key); err != nil {
+			if err := addHostKey(knownHostsFilePath, hostname, key); err != nil {
 				return err
 			}
 			return nil
@@ -67,7 +67,7 @@ Are you sure you want to continue connecting (yes/no)? `,
 	return askToAddHostKey(hostname, remote, key)
 }
 
-func addHostKey(knownHostsFilePath string, hostname string, remote net.Addr, key ssh.PublicKey) error {
+func addHostKey(knownHostsFilePath string, hostname string, key ssh.PublicKey) error {
 	f, err := os.OpenFile(knownHostsFilePath, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
@@ -75,6 +75,6 @@ func addHostKey(knownHostsFilePath string, hostname string, remote net.Addr, key
 	defer f.Close()
 
 	addresses := []string{hostname}
-	_, err = f.WriteString(knownhosts.Line(addresses, key))
+	_, err = fmt.Fprintln(f, knownhosts.Line(addresses, key))
 	return err
 }
