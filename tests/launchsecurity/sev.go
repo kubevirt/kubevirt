@@ -20,7 +20,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", func(
 	})
 
 	It("should start a SEV VM", func() {
-		vmi := libvmi.NewSEVFedora()
+		const secureBoot = false
+		vmi := libvmi.NewFedora(libvmi.WithUefi(secureBoot), libvmi.WithSEV())
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 		By("Expecting the VirtualMachineInstance console")

@@ -31,19 +31,6 @@ const (
 	DefaultVmiName               = "testvmi"
 )
 
-// NewSEVFedora instantiates a new Fedora based VMI configuration,
-// building its extra properties based on the specified With* options, the
-// image used is configured for UEFI boot and it supports AMD SEV.
-func NewSEVFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	const secureBoot = false
-	sevOptions := []Option{
-		WithUefi(secureBoot),
-		WithSEV(),
-	}
-	opts = append(sevOptions, opts...)
-	return NewFedora(opts...)
-}
-
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, SR-IOV and more.
