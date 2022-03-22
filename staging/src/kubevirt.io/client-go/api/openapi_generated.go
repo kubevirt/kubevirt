@@ -14823,7 +14823,7 @@ func schema_kubevirtio_api_core_v1_ComponentConfig(ref common.ReferenceCallback)
 					},
 					"replicas": {
 						SchemaProps: spec.SchemaProps{
-							Description: "replicas indicates how many replicas should be created for each KubeVirt infrastructure component (like virt-api or virt-controller). Defaults to 2.",
+							Description: "replicas indicates how many replicas should be created for each KubeVirt infrastructure component (like virt-api or virt-controller). Defaults to 2. WARNING: this is an advanced feature that prevents auto-scaling for core kubevirt components. Please use with caution!",
 							Type:        []string{"integer"},
 							Format:      "byte",
 						},

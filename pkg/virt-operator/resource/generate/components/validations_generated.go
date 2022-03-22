@@ -1898,9 +1898,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
               type: object
             replicas:
-              description: replicas indicates how many replicas should be created
+              description: 'replicas indicates how many replicas should be created
                 for each KubeVirt infrastructure component (like virt-api or virt-controller).
-                Defaults to 2.
+                Defaults to 2. WARNING: this is an advanced feature that prevents
+                auto-scaling for core kubevirt components. Please use with caution!'
               type: integer
           type: object
         monitorAccount:
@@ -2858,9 +2859,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
               type: object
             replicas:
-              description: replicas indicates how many replicas should be created
+              description: 'replicas indicates how many replicas should be created
                 for each KubeVirt infrastructure component (like virt-api or virt-controller).
-                Defaults to 2.
+                Defaults to 2. WARNING: this is an advanced feature that prevents
+                auto-scaling for core kubevirt components. Please use with caution!'
               type: integer
           type: object
       type: object
