@@ -23,7 +23,7 @@ methodology in [1] and [2], and about an actual implementation in [3].
 
 ## Goal
 
-The purpose of appplying the methodology described in this document is increasing
+The purpose of applying the methodology described in this document is increasing
 the stability of the CI suite. We consider the CI stable if the whole test suite
 has a failure rate below 10%.
 
