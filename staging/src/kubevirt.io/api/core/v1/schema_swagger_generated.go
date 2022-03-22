@@ -641,23 +641,33 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 }
 
 func (InterfaceBridge) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceBridge connects to a given network via a linux bridge.",
+	}
 }
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
+	}
 }
 
 func (InterfaceMasquerade) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+	}
 }
 
 func (InterfaceSRIOV) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
+	}
 }
 
 func (InterfaceMacvtap) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
+	}
 }
 
 func (Port) SwaggerDoc() map[string]string {

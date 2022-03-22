@@ -13658,18 +13658,23 @@
     }
    },
    "v1.InterfaceBridge": {
+    "description": "InterfaceBridge connects to a given network via a linux bridge.",
     "type": "object"
    },
    "v1.InterfaceMacvtap": {
+    "description": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
     "type": "object"
    },
    "v1.InterfaceMasquerade": {
+    "description": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
     "type": "object"
    },
    "v1.InterfaceSRIOV": {
+    "description": "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
     "type": "object"
    },
    "v1.InterfaceSlirp": {
+    "description": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
     "type": "object"
    },
    "v1.KVMTimer": {
