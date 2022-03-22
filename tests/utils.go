@@ -2454,7 +2454,7 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	Expect(err).NotTo(HaveOccurred())
 
-	return libvmi.NewTestToolingFedora(
+	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
@@ -2465,7 +2465,7 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	Expect(err).NotTo(HaveOccurred())
 
-	return libvmi.NewTestToolingFedora(
+	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands), false),

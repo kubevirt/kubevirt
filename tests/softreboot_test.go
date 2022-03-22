@@ -80,7 +80,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi with agent connected via API", func() {
 			It("should succeed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewTestToolingFedora(withoutACPI()), vmiLaunchTimeout)
+				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 				tests.WaitAgentConnected(virtClient, vmi)
 
@@ -107,7 +107,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi with agent connected via virtctl", func() {
 			It("should succeed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewTestToolingFedora(withoutACPI()), vmiLaunchTimeout)
+				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 				tests.WaitAgentConnected(virtClient, vmi)
 
@@ -148,7 +148,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi after paused and unpaused via virtctl", func() {
 			It("should failed to soft reboot a paused vmi", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewTestToolingFedora(), vmiLaunchTimeout)
+				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewFedora(), vmiLaunchTimeout)
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				command := tests.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)

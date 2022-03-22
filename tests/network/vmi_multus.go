@@ -430,7 +430,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			customMacAddress := "50:00:00:00:90:0d"
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
-				vmiTwo := libvmi.NewTestToolingFedora(
+				vmiTwo := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
@@ -441,7 +441,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
 				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
-				vmiOne := libvmi.NewTestToolingFedora(
+				vmiOne := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
@@ -611,14 +611,14 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
 				libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
 
-				vmiUnderTest := libvmi.NewTestToolingFedora(
+				vmiUnderTest := libvmi.NewFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask), false))
 				vmiUnderTest = tests.CreateVmiOnNode(vmiUnderTest, nodes.Items[0].Name)
 
 				By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
-				targetVmi := libvmi.NewTestToolingFedora(
+				targetVmi := libvmi.NewFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask), false))
@@ -670,7 +670,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
                     ip addr add %s dev ep1
                     ip addr add %s dev ep2
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
-				agentVMI := libvmi.NewTestToolingFedora(libvmi.WithCloudInitNoCloudUserData(userdata, false))
+				agentVMI := libvmi.NewFedora(libvmi.WithCloudInitNoCloudUserData(userdata, false))
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
@@ -769,7 +769,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 				)
 			}
-			return libvmi.NewSriovFedora(withVmiOptions...)
+			return libvmi.NewFedora(withVmiOptions...)
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
@@ -1318,7 +1318,7 @@ var _ = SIGDescribe("Macvtap", func() {
 	}
 
 	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewTestToolingFedora(
+		return libvmi.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithInterface(
 				*libvmi.InterfaceWithMac(

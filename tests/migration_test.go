@@ -233,7 +233,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		secretName := createSecret()
 		configMapName := createConfigMap()
 
-		return libvmi.NewTestToolingFedora(
+		return libvmi.NewFedora(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			withLabels(map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}),
@@ -772,7 +772,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[test_id:6971]should migrate with a downwardMetrics disk", func() {
-				vmi := libvmi.NewTestToolingFedora(
+				vmi := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
