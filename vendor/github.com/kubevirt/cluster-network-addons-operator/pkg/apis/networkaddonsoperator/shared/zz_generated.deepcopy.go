@@ -22,6 +22,7 @@ limitations under the License.
 package shared
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"k8s.io/api/core/v1"
 )
@@ -176,6 +177,11 @@ func (in *NetworkAddonsConfigSpec) DeepCopyInto(out *NetworkAddonsConfigSpec) {
 	if in.PlacementConfiguration != nil {
 		in, out := &in.PlacementConfiguration, &out.PlacementConfiguration
 		*out = new(PlacementConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.TLSSecurityProfile != nil {
+		in, out := &in.TLSSecurityProfile, &out.TLSSecurityProfile
+		*out = new(configv1.TLSSecurityProfile)
 		(*in).DeepCopyInto(*out)
 	}
 }

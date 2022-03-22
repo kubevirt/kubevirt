@@ -1,6 +1,7 @@
 package shared
 
 import (
+	ocpv1 "github.com/openshift/api/config/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -8,15 +9,16 @@ import (
 
 // NetworkAddonsConfigSpec defines the desired state of NetworkAddonsConfig
 type NetworkAddonsConfigSpec struct {
-	Multus                 *Multus                 `json:"multus,omitempty"`
-	LinuxBridge            *LinuxBridge            `json:"linuxBridge,omitempty"`
-	Ovs                    *Ovs                    `json:"ovs,omitempty"`
-	KubeMacPool            *KubeMacPool            `json:"kubeMacPool,omitempty"`
-	ImagePullPolicy        corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
-	NMState                *NMState                `json:"nmstate,omitempty"`
-	MacvtapCni             *MacvtapCni             `json:"macvtap,omitempty"`
-	SelfSignConfiguration  *SelfSignConfiguration  `json:"selfSignConfiguration,omitempty"`
-	PlacementConfiguration *PlacementConfiguration `json:"placementConfiguration,omitempty"`
+	Multus                 *Multus                   `json:"multus,omitempty"`
+	LinuxBridge            *LinuxBridge              `json:"linuxBridge,omitempty"`
+	Ovs                    *Ovs                      `json:"ovs,omitempty"`
+	KubeMacPool            *KubeMacPool              `json:"kubeMacPool,omitempty"`
+	ImagePullPolicy        corev1.PullPolicy         `json:"imagePullPolicy,omitempty"`
+	NMState                *NMState                  `json:"nmstate,omitempty"`
+	MacvtapCni             *MacvtapCni               `json:"macvtap,omitempty"`
+	SelfSignConfiguration  *SelfSignConfiguration    `json:"selfSignConfiguration,omitempty"`
+	PlacementConfiguration *PlacementConfiguration   `json:"placementConfiguration,omitempty"`
+	TLSSecurityProfile     *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 // SelfSignConfiguration defines self sign configuration

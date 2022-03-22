@@ -58,7 +58,7 @@ spec:
         - name: CDI_VERSION
           value: v1.46.0
         - name: NETWORK_ADDONS_VERSION
-          value: v0.70.0
+          value: v0.72.0
         - name: SSP_VERSION
           value: v0.13.2
         - name: NMO_VERSION
@@ -251,17 +251,17 @@ spec:
         - name: OVS_MARKER_IMAGE
           value: quay.io/kubevirt/ovs-cni-marker@sha256:c09f882c64ee6449e13ff8b0a249d1dc4653d7d94a97f5ebee61de2d3ce9d5e8
         - name: KUBEMACPOOL_IMAGE
-          value: quay.io/kubevirt/kubemacpool@sha256:f940cd3203d2508167401cca6040b075952faa158a09e9b454f1df5ec6b485e1
+          value: quay.io/kubevirt/kubemacpool@sha256:09ded8c63c9c72f6f495fbae0c805be657cfa59b31796deeb54f958e7917a6ce
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:bfaf7b1c4840e27cce20887ba3e8c24f94ff1c36f09acaa8fa195ea431b9bfd1
         - name: KUBE_RBAC_PROXY_IMAGE
           value: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:567d06472cf60aa1fe89a474c0ecc89afc07d423d350db0c574cc1b20581bb94
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:626c46ecd096b7b7b11ea7327c1dda3f510310a074693c9763754fafcbdeecde
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.70.0
+          value: v0.72.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -279,7 +279,7 @@ spec:
           value: openshift-monitoring
         - name: MONITORING_SERVICE_ACCOUNT
           value: prometheus-k8s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:567d06472cf60aa1fe89a474c0ecc89afc07d423d350db0c574cc1b20581bb94
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:626c46ecd096b7b7b11ea7327c1dda3f510310a074693c9763754fafcbdeecde
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources:
