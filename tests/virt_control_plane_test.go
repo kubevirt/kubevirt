@@ -304,9 +304,8 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				kv.Spec.Configuration.MigrationConfiguration = &k6sv1.MigrationConfiguration{
 					BandwidthPerMigration: &migrationBandwidth,
 				}
-				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-				kv = util.GetCurrentKv(virtCli)
-				tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", kv.ResourceVersion, tests.ExpectResourceVersionToBeLessThanConfigVersion, 80*time.Second)
+				kv = tests.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
+				tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", kv.ResourceVersion, tests.ExpectResourceVersionToBeLessEqualThanConfigVersion, 60*time.Second)
 			})
 		})
 
