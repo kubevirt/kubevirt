@@ -1,4 +1,4 @@
-// +build arm64
+//go:build arm64
 
 /*
  * This file is part of the KubeVirt project
