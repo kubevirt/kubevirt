@@ -73,15 +73,15 @@ var _ = SIGDescribe("Macvtap", func() {
 			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
 
-	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
-		return libvmi.NewCirros(
+	newAlpineVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
+		return libvmi.NewAlpine(
 			libvmi.WithInterface(
 				*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
-	newCirrosVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewCirros(
+	newAlpineVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
+		return libvmi.NewAlpine(
 			libvmi.WithInterface(
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
@@ -98,27 +98,27 @@ var _ = SIGDescribe("Macvtap", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
 	}
 
-	createCirrosVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
+	createAlpineVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
 		var vmi *v1.VirtualMachineInstance
 		if mac != nil {
-			vmi = newCirrosVMIWithExplicitMac(networkName, *mac)
+			vmi = newAlpineVMIWithExplicitMac(networkName, *mac)
 		} else {
-			vmi = newCirrosVMIWithMacvtapNetwork(networkName)
+			vmi = newAlpineVMIWithMacvtapNetwork(networkName)
 		}
 		vmi = tests.WaitUntilVMIReady(
 			tests.CreateVmiOnNode(vmi, nodeName),
-			console.LoginToCirros)
+			console.LoginToAlpine)
 		// configure the client VMI
-		Expect(configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)).To(Succeed())
+		Expect(configInterface(vmi, ifaceName, ipCIDR)).To(Succeed())
 		return vmi
 	}
 
-	createCirrosVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+	createAlpineVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
 		runningVMI := tests.RunVMIAndExpectLaunch(
-			newCirrosVMIWithExplicitMac(networkName, mac),
+			newAlpineVMIWithExplicitMac(networkName, mac),
 			180,
 		)
-		err := console.LoginToCirros(runningVMI)
+		err := libnet.WithIPv6(console.LoginToAlpine)(runningVMI)
 		return runningVMI, err
 	}
 
@@ -150,7 +150,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			serverIP, err = libnet.CidrToIP(serverCIDR)
 			Expect(err).ToNot(HaveOccurred())
 
-			serverVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
+			serverVMI = createAlpineVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
 		})
 
 		It("should have the specified MAC address reported back via the API", func() {
@@ -161,7 +161,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		Context("and another virtual machine connected to the same network", func() {
 			var clientVMI *v1.VirtualMachineInstance
 			BeforeEach(func() {
-				clientVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
+				clientVMI = createAlpineVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
 			})
 			It("can communicate with the virtual machine in the same network", func() {
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
@@ -180,7 +180,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			macAddressHW, err := tests.GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			macAddress := macAddressHW.String()
-			clientVMI, err = createCirrosVMIRandomNode(macvtapNetworkName, macAddress)
+			clientVMI, err = createAlpineVMIRandomNode(macvtapNetworkName, macAddress)
 			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
 		})
 
@@ -269,7 +269,3 @@ var _ = SIGDescribe("Macvtap", func() {
 		})
 	})
 })
-
-func configVMIInterfaceWithSudo(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string) error {
-	return configInterface(vmi, interfaceName, interfaceAddress, "sudo ")
-}

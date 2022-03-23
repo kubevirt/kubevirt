@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", func() {
@@ -506,7 +505,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
-			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("checking uptime difference between guest and host")
 			uptimeDiffBeforePausing = hostUptime() - grepGuestUptime(vmi)

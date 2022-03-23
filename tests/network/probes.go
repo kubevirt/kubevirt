@@ -81,10 +81,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
 
 				By(specifyingVMReadinessProbe)
-				vmi = createReadyCirrosVMIWithReadinessProbe(readinessProbe)
+				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 			} else if !isExecProbe {
 				By(specifyingVMReadinessProbe)
-				vmi = createReadyCirrosVMIWithReadinessProbe(readinessProbe)
+				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
 				Expect(getVMIConditions(virtClient, vmi)).NotTo(ContainElement(v1.VirtualMachineInstanceReady))
 
@@ -143,8 +143,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return getVMIConditions(virtClient, vmi)
 			}).ShouldNot(ContainElement(v1.VirtualMachineInstanceReady))
 		},
-			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
-			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
+			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewAlpine),
+			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewAlpine),
 			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
 			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmi.NewFedora),
 		)
@@ -176,10 +176,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
 
 				By(specifyingVMLivenessProbe)
-				vmi = createReadyCirrosVMIWithLivenessProbe(livenessProbe)
+				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 			} else if !isExecProbe {
 				By(specifyingVMLivenessProbe)
-				vmi = createReadyCirrosVMIWithLivenessProbe(livenessProbe)
+				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, livenessProbe, 1500)
@@ -227,15 +227,15 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	})
 })
 
-func createReadyCirrosVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewCirros()
+func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
+	vmi := libvmi.NewAlpine()
 	vmi.Spec.ReadinessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
-func createReadyCirrosVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewCirros()
+func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
+	vmi := libvmi.NewAlpine()
 	vmi.Spec.LivenessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -293,9 +293,9 @@ func isHTTPProbe(probe v1.Probe) bool {
 
 func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
 	if isHTTPProbe(*probe) {
-		tests.StartHTTPServer(vmi, port)
+		tests.StartHTTPServer(vmi, port, libnet.WithIPv6(console.LoginToAlpine))
 	} else {
-		tests.StartTCPServer(vmi, port)
+		tests.StartTCPServer(vmi, port, libnet.WithIPv6(console.LoginToAlpine))
 	}
 }
 

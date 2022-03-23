@@ -189,7 +189,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := libvmi.NewCirros()
+				detachedVMI := libvmi.NewAlpine()
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -199,7 +199,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToAlpine))
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -207,7 +207,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
 				checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := libvmi.NewCirros()
+				detachedVMI := libvmi.NewAlpine()
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -217,7 +217,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToAlpine))
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -261,7 +261,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
-				detachedVMI := libvmi.NewCirros()
+				detachedVMI := libvmi.NewAlpine()
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -273,7 +273,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToAlpine))
 
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
@@ -318,6 +318,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				By("Creating a VM with custom MAC address on its ptp interface.")
 				interfaces[0].MacAddress = customMacAddress
+
 				vmiOne := createVMIOnNode(interfaces, networks)
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
@@ -384,7 +385,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
 				Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
-
 				ipAddr := ""
 				if staticIPVm2 != "" {
 					ipAddr, err = libnet.CidrToIP(staticIPVm2)

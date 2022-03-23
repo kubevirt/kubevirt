@@ -72,7 +72,7 @@ var _ = SIGDescribe("Port-forward", func() {
 			}
 
 			vmi := createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
-			tests.StartHTTPServerWithSourceIp(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily))
+			tests.StartHTTPServerWithSourceIp(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily), console.LoginToCirros)
 
 			localPort = 1500 + GinkgoParallelProcess()
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)

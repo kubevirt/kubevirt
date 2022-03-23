@@ -71,11 +71,11 @@ var _ = SIGDescribe("Services", func() {
 		return vmi
 	}
 
-	readyVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+	readyVMI := func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
 		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		return tests.WaitUntilVMIReady(createdVMI, libnet.WithIPv6(console.LoginToCirros))
+		return tests.WaitUntilVMIReady(createdVMI, loginTo)
 	}
 
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
@@ -144,7 +144,8 @@ var _ = SIGDescribe("Services", func() {
 		createReadyVMIWithBridgeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
 			return readyVMI(
 				exposeExistingVMISpec(
-					createVMISpecWithBridgeInterface(), subdomain, hostname, selectorLabelKey, selectorLabelValue))
+					createVMISpecWithBridgeInterface(), subdomain, hostname, selectorLabelKey, selectorLabelValue),
+				console.LoginToCirros)
 		}
 
 		BeforeEach(func() {
@@ -153,7 +154,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithBridgeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort)
+			tests.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
 		})
 
 		AfterEach(func() {
@@ -236,11 +237,12 @@ var _ = SIGDescribe("Services", func() {
 		)
 
 		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			vmi := libvmi.NewCirros(
+			vmi := libvmi.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()))
 			return readyVMI(
-				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue))
+				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue),
+				libnet.WithIPv6(console.LoginToAlpine))
 		}
 
 		BeforeEach(func() {
@@ -248,7 +250,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort)
+			tests.StartTCPServer(inboundVMI, servicePort, libnet.WithIPv6(console.LoginToAlpine))
 		})
 
 		AfterEach(func() {

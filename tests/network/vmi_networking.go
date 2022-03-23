@@ -230,7 +230,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				tests.StartTCPServer(inboundVMI, testPort)
+				tests.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
 			})
 
 			DescribeTable("should be able to reach", func(op v12.NodeSelectorOperator, hostNetwork bool) {
@@ -274,16 +274,16 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		Context("VirtualMachineInstance with default interface model", func() {
 			BeforeEach(func() {
-				inboundVMI = libvmi.NewCirros()
-				outboundVMI = libvmi.NewCirros()
+				inboundVMI = libvmi.NewAlpine()
+				outboundVMI = libvmi.NewAlpine()
 
 				inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 				outboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(outboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 
-				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, libnet.WithIPv6(console.LoginToCirros))
-				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, libnet.WithIPv6(console.LoginToCirros))
+				inboundVMI = tests.WaitUntilVMIReady(inboundVMI, console.LoginToAlpine)
+				outboundVMI = tests.WaitUntilVMIReady(outboundVMI, console.LoginToAlpine)
 			})
 
 			// Unless an explicit interface model is specified, the default interface model is virtio.
@@ -407,7 +407,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1774]should not configure any external interfaces", func() {
 			By("checking loopback is the only guest interface")
 			autoAttach := false
-			detachedVMI := libvmi.NewCirros()
+			detachedVMI := libvmi.NewAlpine()
 			// Remove the masquerade interface to use the default bridge one
 			detachedVMI.Spec.Domain.Devices.Interfaces = nil
 			detachedVMI.Spec.Networks = nil
@@ -415,7 +415,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
+			tests.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 			err := console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -480,13 +480,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		It("[test_id:1776]should configure custom Pci address", func() {
 			By("checking eth0 Pci address")
-			testVMI := libvmi.NewCirros()
+			testVMI := libvmi.NewAlpine()
 			tests.AddExplicitPodNetworkInterface(testVMI)
 			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:00.1"
 			testVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(testVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(testVMI, libnet.WithIPv6(console.LoginToCirros))
+			tests.WaitUntilVMIReady(testVMI, console.LoginToAlpine)
 			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress)
 		})
 	})
@@ -563,7 +563,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
 				Searches:    []string{"example.com"},
 			}
-			dnsVMI = tests.WaitUntilVMIReady(tests.RunVMI(dnsVMI, 40), libnet.WithIPv6(console.LoginToCirros))
+			dnsVMI = tests.WaitUntilVMIReady(tests.RunVMI(dnsVMI, 40), console.LoginToCirros)
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -700,7 +700,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 				By("starting a tcp server")
-				tests.StartTCPServer(serverVMI, tcpPort)
+				tests.StartTCPServer(serverVMI, tcpPort, console.LoginToCirros)
 
 				if networkCIDR == "" {
 					networkCIDR = api.DefaultVMCIDR
@@ -949,12 +949,15 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create another VMI")
-				anotherVmi = masqueradeVMI([]v1.Port{}, "")
+				anotherVmi = libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 				anotherVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(anotherVmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, libnet.WithIPv6(console.LoginToCirros))
+				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, libnet.WithIPv6(console.LoginToAlpine))
 
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})

@@ -46,7 +46,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 		serverVMILabels = map[string]string{"type": "test"}
 	})
 
-	Context("when three cirros VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
+	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -403,7 +403,7 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := libvmi.NewCirros(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+	clientVMI := libvmi.NewAlpine(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 	var err error
 	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(clientVMI)
@@ -411,12 +411,12 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 		return nil, err
 	}
 
-	clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
+	clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToAlpine))
 	return clientVMI, nil
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
-	serverVMI := libvmi.NewCirros(
+	serverVMI := libvmi.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(
 			v1.Port{
 				Name:     "http80",
@@ -436,7 +436,7 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 	if err != nil {
 		return nil, err
 	}
-	serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
+	serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToAlpine))
 
 	By("Start HTTP server at serverVMI on ports 80 and 81")
 	tests.HTTPServer.Start(serverVMI, 80)

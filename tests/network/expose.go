@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/console"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
 
@@ -46,7 +48,7 @@ func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 		{Name: "test-port-tcp", Port: 1500, Protocol: "TCP"},
 		{Name: "udp", Port: 82, Protocol: "UDP"},
 		{Name: "test-port-udp", Port: 1500, Protocol: "UDP"}}
-	vmi = libvmi.NewCirros(
+	vmi = libvmi.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 	vmi.Labels = map[string]string{"expose": label}
@@ -167,7 +169,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			tcpVM = newLabeledVMI("vm")
 			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
-			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp")
+			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", libnet.WithIPv6(console.LoginToAlpine), false)
 		})
 
 		Context("Expose ClusterIP service", func() {
@@ -433,7 +435,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			udpVM = newLabeledVMI("udp-vm")
 			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
-			tests.GenerateHelloWorldServer(udpVM, testPort, "udp")
+			tests.GenerateHelloWorldServer(udpVM, testPort, "udp", libnet.WithIPv6(console.LoginToAlpine), false)
 		})
 
 		Context("Expose ClusterIP UDP service", func() {
@@ -580,7 +582,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
-					tests.GenerateHelloWorldServer(&vm, testPort, "tcp")
+					tests.GenerateHelloWorldServer(&vm, testPort, "tcp", libnet.WithIPv6(console.LoginToAlpine), false)
 				}
 			}
 		})
@@ -669,7 +671,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			if vmi == nil {
 				return nil
 			}
-			tests.GenerateHelloWorldServer(vmi, port, protocol)
+			tests.GenerateHelloWorldServer(vmi, port, protocol, libnet.WithIPv6(console.LoginToAlpine), false)
 			return vmi
 		}
 
@@ -760,7 +762,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Creating a TCP server on the VM.")
-				tests.GenerateHelloWorldServer(vmi, testPort, "tcp")
+				tests.GenerateHelloWorldServer(vmi, testPort, "tcp", libnet.WithIPv6(console.LoginToAlpine), false)
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 				By(iteratingClusterIPs)
