@@ -102,6 +102,32 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 	return changed, nil
 }
 
+// +k8s:openapi-gen=false
+type migrationPolicyMatchScore struct {
+	matchingVMILabels int
+	matchingNSLabels  int
+}
+
+func (score migrationPolicyMatchScore) equals(otherScore migrationPolicyMatchScore) bool {
+	return score.matchingVMILabels == otherScore.matchingVMILabels &&
+		score.matchingNSLabels == otherScore.matchingNSLabels
+}
+
+func (score migrationPolicyMatchScore) greaterThan(otherScore migrationPolicyMatchScore) bool {
+	thisTotalScore := score.matchingNSLabels + score.matchingVMILabels
+	otherTotalScore := otherScore.matchingNSLabels + otherScore.matchingVMILabels
+
+	if thisTotalScore == otherTotalScore {
+		return score.matchingVMILabels > otherScore.matchingVMILabels
+	}
+
+	return thisTotalScore > otherTotalScore
+}
+
+func (score migrationPolicyMatchScore) lessThan(otherScore migrationPolicyMatchScore) bool {
+	return !score.equals(otherScore) && !score.greaterThan(otherScore)
+}
+
 // MatchPolicy returns the policy that is matched to the vmi, or nil of no policy is matched.
 //
 // Since every policy can specify VMI and Namespace labels to match to, matching is done by returning the most
@@ -113,17 +139,17 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 // deterministic way of matching policies.
 func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, vmiNamespace *k8sv1.Namespace) *MigrationPolicy {
 	var mathingPolicies []MigrationPolicy
-	mostMatchingLabels := 0
+	bestScore := migrationPolicyMatchScore{}
 
 	for _, policy := range list.Items {
-		doesMatch, curMatchingLabels := countMatchingLabels(&policy, vmi.Labels, vmiNamespace.Labels)
+		doesMatch, curScore := countMatchingLabels(&policy, vmi.Labels, vmiNamespace.Labels)
 
-		if !doesMatch || curMatchingLabels < mostMatchingLabels {
+		if !doesMatch || curScore.lessThan(bestScore) {
 			continue
-		} else if curMatchingLabels > mostMatchingLabels {
-			mostMatchingLabels = curMatchingLabels
+		} else if curScore.greaterThan(bestScore) {
+			bestScore = curScore
 			mathingPolicies = []MigrationPolicy{policy}
-		} else if curMatchingLabels == mostMatchingLabels {
+		} else {
 			mathingPolicies = append(mathingPolicies, policy)
 		}
 	}
@@ -151,14 +177,15 @@ func (list *MigrationPolicyList) MatchPolicy(vmi *k6tv1.VirtualMachineInstance, 
 
 // countMatchingLabels checks if a policy matches to a VMI and the number of matching labels.
 // In the case that doesMatch is false, matchingLabels needs to be dismissed and not counted on.
-func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map[string]string) (doesMatch bool, matchingLabels int) {
+func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map[string]string) (doesMatch bool, score migrationPolicyMatchScore) {
+	var matchingVMILabels, matchingNSLabels int
 	doesMatch = true
 
 	if policy.Spec.Selectors == nil {
-		return false, 0
+		return false, score
 	}
 
-	countLabelsHelper := func(policyLabels, labelsToMatch map[string]string) {
+	countLabelsHelper := func(policyLabels, labelsToMatch map[string]string) (matchingLabels int) {
 		for policyKey, policyValue := range policyLabels {
 			value, exists := labelsToMatch[policyKey]
 			if exists && value == policyValue {
@@ -168,6 +195,7 @@ func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map
 				return
 			}
 		}
+		return matchingLabels
 	}
 
 	areSelectorsAndLabelsNotNil := func(selector *metav1.LabelSelector, labels map[string]string) bool {
@@ -175,16 +203,16 @@ func countMatchingLabels(policy *MigrationPolicy, vmiLabels, namespaceLabels map
 	}
 
 	if areSelectorsAndLabelsNotNil(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmiLabels) {
-		countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmiLabels)
+		matchingVMILabels = countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmiLabels)
 	}
 
-	if !doesMatch {
-		return
+	if doesMatch && areSelectorsAndLabelsNotNil(policy.Spec.Selectors.NamespaceSelector, vmiLabels) {
+		matchingNSLabels = countLabelsHelper(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespaceLabels)
 	}
 
-	if areSelectorsAndLabelsNotNil(policy.Spec.Selectors.NamespaceSelector, vmiLabels) {
-		countLabelsHelper(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespaceLabels)
+	if doesMatch {
+		score = migrationPolicyMatchScore{matchingVMILabels: matchingVMILabels, matchingNSLabels: matchingNSLabels}
 	}
 
-	return
+	return doesMatch, score
 }
