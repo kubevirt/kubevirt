@@ -86,7 +86,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		WithResourceMemory("128Mi"),
+		WithResourceMemory("256Mi"),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
