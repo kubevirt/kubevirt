@@ -591,8 +591,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
 			pvcName = dataVolumeName
 
-			workDir := GinkgoT().TempDir()
-			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			vmJson, err = tests.GenerateVMJson(vm, GinkgoT().TempDir())
 			Expect(err).ToNot(HaveOccurred())
 		})
 

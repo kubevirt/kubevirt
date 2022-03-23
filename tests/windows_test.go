@@ -311,8 +311,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		var yamlFile string
 		BeforeEach(func() {
 			tests.SkipIfNoCmd("kubectl")
-			workDir := GinkgoT().TempDir()
-			yamlFile, err = tests.GenerateVMIJson(windowsVMI, workDir)
+			yamlFile, err = tests.GenerateVMIJson(windowsVMI, GinkgoT().TempDir())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
