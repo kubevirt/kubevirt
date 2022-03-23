@@ -1245,7 +1245,7 @@ spec:
 
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
 				}),
-			Entry("[test_id:6308] daemonsets",
+			Entry("[test_id:6308][QUARANTINE] daemonsets",
 				func() {
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
