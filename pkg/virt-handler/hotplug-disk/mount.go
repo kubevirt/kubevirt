@@ -92,6 +92,7 @@ type volumeMounter struct {
 	mountRecordsLock   sync.Mutex
 	skipSafetyCheck    bool
 	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
+	ownershipManager   diskutils.OwnershipManagerInterface
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -121,6 +122,7 @@ func NewVolumeMounter(mountStateDir string) VolumeMounter {
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 		mountStateDir:      mountStateDir,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(),
+		ownershipManager:   diskutils.DefaultOwnershipManager,
 	}
 }
 
@@ -350,7 +352,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 			return err
 		}
 	}
-	return nil
+	return m.ownershipManager.SetFileOwnership(deviceName)
 }
 
 func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMachineInstance) bool {
@@ -532,10 +534,8 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if out, err := mountCommand(filepath.Join(sourcePath, "disk.img"), targetDisk); err != nil {
 			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
 		}
-	} else {
-		return nil
 	}
-	return nil
+	return m.ownershipManager.SetFileOwnership(targetDisk)
 }
 
 func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid types.UID) {
