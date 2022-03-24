@@ -96,9 +96,9 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 			&expect.BExp{R: console.RetValue("[0-9]+")},
 		}, int(5+cyclicTestDurationInSeconds))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(res)).To(Equal(1))
+		Expect(res).To(HaveLen(1))
 		sout := strings.Split(res[0].Output, "\r\n")
-		Expect(len(sout)).To(Equal(3))
+		Expect(sout).To(HaveLen(3))
 		max, err := strconv.ParseInt(sout[1], 10, 64)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(max).NotTo(BeNumerically(">", realtimeThreshold), fmt.Sprintf("Maximum CPU latency of %d is greater than threshold %d", max, realtimeThreshold))

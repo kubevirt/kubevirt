@@ -209,7 +209,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		err = json.Unmarshal(body, reviewResponse)
 		Expect(err).To(BeNil())
 
-		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+		Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 	})
 	It("[test_id:1413]should update readyReplicas once VMIs are up", func() {
@@ -382,7 +382,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi := vmis.Items[0]
 		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(&vmi))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(pods.Items)).To(Equal(1))
+		Expect(pods.Items).To(HaveLen(1))
 		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods")
@@ -429,7 +429,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi := &vmis.Items[0]
 		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(pods.Items)).To(Equal(1))
+		Expect(pods.Items).To(HaveLen(1))
 		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods, which will take some time to really stop the VMI")

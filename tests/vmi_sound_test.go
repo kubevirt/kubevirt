@@ -116,7 +116,7 @@ func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachine
 	Expect(err).ToNot(HaveOccurred())
 	domSpec := &api.DomainSpec{}
 	Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
-	Expect(len(domSpec.Devices.SoundCards)).To(Equal(1))
+	Expect(domSpec.Devices.SoundCards).To(HaveLen(1))
 	Expect(domSpec.Devices.SoundCards).To(ContainElement(api.SoundCard{
 		Alias: api.NewUserDefinedAlias("test-audio-device"),
 		Model: model,

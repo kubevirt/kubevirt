@@ -86,7 +86,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			expectedIOThreads := 1
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
 
-			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(1))
+			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(1))
 		})
 
 		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
@@ -123,7 +123,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
 
 			By("Ensuring there are the expected number of disks")
-			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(len(vmi.Spec.Domain.Devices.Disks)))
+			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(len(vmi.Spec.Domain.Devices.Disks)))
 
 			By("Verifying the ioThread mapping for disks")
 			disk0, err := getDiskByName(domSpec, "disk0")
@@ -183,7 +183,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
 
 			By("Ensuring there are the expected number of disks")
-			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(len(vmi.Spec.Domain.Devices.Disks)))
+			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(len(vmi.Spec.Domain.Devices.Disks)))
 
 			By("Verifying the ioThread mapping for disks")
 			disk0, err := getDiskByName(domSpec, "disk0")
@@ -267,7 +267,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
 
 			By("Ensuring there are the expected number of disks")
-			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(len(vmi.Spec.Domain.Devices.Disks)))
+			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(len(vmi.Spec.Domain.Devices.Disks)))
 
 			By("Verifying the ioThread mapping for disks")
 			disk0, err := getDiskByName(domSpec, "disk0")

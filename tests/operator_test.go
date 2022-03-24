@@ -522,8 +522,8 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			image = daemonSet.Spec.Template.Spec.Containers[0].Image
 			imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
 			matches := imageRegEx.FindAllStringSubmatch(image, 1)
-			Expect(len(matches)).To(Equal(1))
-			Expect(len(matches[0])).To(Equal(4))
+			Expect(matches).To(HaveLen(1))
+			Expect(matches[0]).To(HaveLen(4))
 			registry = matches[0][1]
 			imagePrefix = matches[0][2]
 			version = matches[0][3]
@@ -533,8 +533,8 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		parseImage = func(name, image string) (registry, imagePrefix, version string) {
 			imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
 			matches := imageRegEx.FindAllStringSubmatch(image, 1)
-			Expect(len(matches)).To(Equal(1))
-			Expect(len(matches[0])).To(Equal(4))
+			Expect(matches).To(HaveLen(1))
+			Expect(matches[0]).To(HaveLen(4))
 			registry = matches[0][1]
 			imagePrefix = matches[0][2]
 			version = matches[0][3]
@@ -689,7 +689,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		if tests.HasDataVolumeCRD() {
 			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(cdiList.Items)).To(Equal(1))
+			Expect(cdiList.Items).To(HaveLen(1))
 
 			originalCDI = &cdiList.Items[0]
 		}
@@ -1340,7 +1340,7 @@ spec:
 			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
-			Expect(len(pods.Items)).To(Equal(1))
+			Expect(pods.Items).To(HaveLen(1))
 			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
 
 		})
@@ -2192,7 +2192,7 @@ spec:
 				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 				pods, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
-				Expect(len(pods.Items)).To(Equal(1))
+				Expect(pods.Items).To(HaveLen(1))
 				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
 					Equal("kubevirt-controller"), "Should virt-launcher be assigned to kubevirt-controller SCC",
 				)

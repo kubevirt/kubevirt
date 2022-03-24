@@ -1008,7 +1008,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				// https://github.com/kubernetes/kubernetes/issues/64691
 				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(pods.Items)).To(Equal(1))
+				Expect(pods.Items).To(HaveLen(1))
 
 				hugepagesSize := resource.MustParse(hugepagesVmi.Spec.Domain.Memory.Hugepages.PageSize)
 				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", hugepagesSize.Value()/int64(1024))
@@ -1954,7 +1954,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
 
 			cacheNone := string(v1.CacheNone)
 			cacheWritethrough := string(v1.CacheWriteThrough)
@@ -2011,7 +2011,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
 
 			ioNative := v1.IONative
 			ioThreads := v1.IOThreads
@@ -2074,7 +2074,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			By("checking if number of attached disks is equal to real disks number")
 			disks := runningVMISpec.Devices.Disks
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
 
 			By("checking if BlockIO is set to the custom block size")
 			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
@@ -2106,7 +2106,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			By("checking if number of attached disks is equal to real disks number")
 			disks := runningVMISpec.Devices.Disks
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
 
 			By("checking if BlockIO is set for the disk")
 			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
@@ -2154,7 +2154,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			By("checking if number of attached disks is equal to real disks number")
 			disks := runningVMISpec.Devices.Disks
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
 
 			By("checking if BlockIO is set for the disk")
 			Expect(disks[0].Alias.GetName()).To(Equal("host-disk"))
@@ -2353,7 +2353,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
+				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
@@ -2469,7 +2469,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// 1 additioan pcpus should be allocated on the pod for the emulation threads
-				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
+				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
