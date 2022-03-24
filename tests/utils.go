@@ -4265,9 +4265,8 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	}, 60)).To(Succeed())
 }
 
-// UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
-// and then waits  to allow the configuration events to be propagated to the consumers.
-func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+// UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
+func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
@@ -4296,6 +4295,14 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch, &metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
+	return kv
+}
+
+// UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
+// and then waits  to allow the configuration events to be propagated to the consumers.
+func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+	kv := UpdateKubeVirtConfigValue(kvConfig)
+
 	waitForConfigToBePropagated(kv.ResourceVersion)
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
 
@@ -4318,7 +4325,7 @@ func resetToDefaultConfig() {
 
 type compare func(string, string) bool
 
-func ExpectResourceVersionToBeLessThanConfigVersion(resourceVersion, configVersion string) bool {
+func ExpectResourceVersionToBeLessEqualThanConfigVersion(resourceVersion, configVersion string) bool {
 	rv, err := strconv.ParseInt(resourceVersion, 10, 32)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Resource version is unable to be parsed")
@@ -4340,12 +4347,12 @@ func ExpectResourceVersionToBeLessThanConfigVersion(resourceVersion, configVersi
 }
 
 func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessThanConfigVersion)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessThanConfigVersion)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessThanConfigVersion)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
 }
 
-func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare) {
+func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
@@ -4380,7 +4387,7 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 			}
 		}
 		return nil
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
