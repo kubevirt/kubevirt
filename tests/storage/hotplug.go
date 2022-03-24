@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -946,17 +947,17 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 				// Ensure the virt-launcher pod is scheduled on the chosen source node and then
 				// migrated to the proper target.
-				tests.AddLabelToNode(sourceNode, hotplugLabelKey, hotplugLabelValue)
+				libnode.AddLabelToNode(sourceNode, hotplugLabelKey, hotplugLabelValue)
 				vmi, _ = newVirtualMachineInstanceWithContainerDisk()
 				vmi.Spec.NodeSelector = map[string]string{hotplugLabelKey: hotplugLabelValue}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-				tests.AddLabelToNode(targetNode, hotplugLabelKey, hotplugLabelValue)
+				libnode.AddLabelToNode(targetNode, hotplugLabelKey, hotplugLabelValue)
 			})
 
 			AfterEach(func() {
 				// Cleanup node labels
-				tests.RemoveLabelFromNode(sourceNode, hotplugLabelKey)
-				tests.RemoveLabelFromNode(targetNode, hotplugLabelKey)
+				libnode.RemoveLabelFromNode(sourceNode, hotplugLabelKey)
+				libnode.RemoveLabelFromNode(targetNode, hotplugLabelKey)
 			})
 
 			It("should allow live migration with attached hotplug volumes", func() {

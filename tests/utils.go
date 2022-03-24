@@ -110,6 +110,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/Masterminds/semver"
@@ -477,7 +478,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
-	CleanNodes()
+	libnode.CleanNodes()
 }
 
 func AfterTestSuitCleanup() {
@@ -493,7 +494,7 @@ func AfterTestSuitCleanup() {
 
 func BeforeTestCleanup() {
 	cleanNamespaces()
-	CleanNodes()
+	libnode.CleanNodes()
 	resetToDefaultConfig()
 	ensureKubevirtInfra()
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
@@ -4135,7 +4136,7 @@ func IsRunningOnKindInfra() bool {
 }
 
 func IsUsingBuiltinNodeDrainKey() bool {
-	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
+	return libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
 
 func RandTmpDir() string {

@@ -42,6 +42,7 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
@@ -3051,7 +3052,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				AfterEach(func() {
-					tests.CleanNodes()
+					libnode.CleanNodes()
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
@@ -3126,7 +3127,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Taint Node.
 					By("Tainting node with node drain key")
 					node := vmi.Status.NodeName
-					tests.Taint(node, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+					libnode.Taint(node, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 					drainNode(node)
 
@@ -3169,7 +3170,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Taint Node.
 					By("Tainting node with kubevirt.io/alt-drain=NoSchedule")
 					node := vmi.Status.NodeName
-					tests.Taint(node, "kubevirt.io/alt-drain", k8sv1.TaintEffectNoSchedule)
+					libnode.Taint(node, "kubevirt.io/alt-drain", k8sv1.TaintEffectNoSchedule)
 
 					drainNode(node)
 
@@ -3262,7 +3263,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Taint Node.
 					By("Tainting node with the node drain key")
 					node := vmi_evict1.Status.NodeName
-					tests.Taint(node, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+					libnode.Taint(node, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 					// Drain Node using cli client
 					By("Draining using kubectl drain")
@@ -3316,7 +3317,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("selecting a node as the source")
 				sourceNode := util.GetAllSchedulableNodes(virtClient).Items[0]
-				tests.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
+				libnode.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("starting four VMIs on that node")
 				for _, vmi := range vmis {
@@ -3331,10 +3332,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("selecting a node as the target")
 				targetNode := util.GetAllSchedulableNodes(virtClient).Items[1]
-				tests.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
+				libnode.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("tainting the source node as non-schedulabele")
-				tests.Taint(sourceNode.Name, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+				libnode.Taint(sourceNode.Name, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 				By("waiting until migration kicks in")
 				Eventually(func() int {
@@ -3761,9 +3762,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		AfterEach(func() {
-			tests.RemoveLabelFromNode(nodes[0].Name, testLabel1)
-			tests.RemoveLabelFromNode(nodes[1].Name, testLabel2)
-			tests.RemoveLabelFromNode(nodes[1].Name, testLabel1)
+			libnode.RemoveLabelFromNode(nodes[0].Name, testLabel1)
+			libnode.RemoveLabelFromNode(nodes[1].Name, testLabel2)
+			libnode.RemoveLabelFromNode(nodes[1].Name, testLabel1)
 		})
 
 		It("should successfully update a VMI's CPU set on migration", func() {
@@ -3771,7 +3772,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
 			By("starting a VMI on the first node of the list")
-			tests.AddLabelToNode(nodes[0].Name, testLabel1, "true")
+			libnode.AddLabelToNode(nodes[0].Name, testLabel1, "true")
 			vmi := tests.CreateVmiOnNodeLabeled(migratableVMI, testLabel1, "true")
 
 			By("waiting until the VirtualMachineInstance starts")
@@ -3788,7 +3789,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("reserving the cores used by the VMI on the second node with a paused pod")
 			var pods []*k8sv1.Pod
 			var pausedPod *k8sv1.Pod
-			tests.AddLabelToNode(nodes[1].Name, testLabel2, "true")
+			libnode.AddLabelToNode(nodes[1].Name, testLabel2, "true")
 			for pausedPod = tests.RunPod(pausePod); !hasCommonCores(vmi, pausedPod); pausedPod = tests.RunPod(pausePod) {
 				pods = append(pods, pausedPod)
 				By("creating another paused pod since last didn't have common cores with the VMI")
@@ -3801,7 +3802,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			By("migrating the VMI from first node to second node")
-			tests.AddLabelToNode(nodes[1].Name, testLabel1, "true")
+			libnode.AddLabelToNode(nodes[1].Name, testLabel1, "true")
 			cpuSetSource := getVirtLauncherCPUSet(vmi)
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
