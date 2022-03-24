@@ -37,7 +37,7 @@ const (
 	portFlag, portFlagShort                         = "port", "p"
 	wrapLocalSSHFlag                                = "local-ssh"
 	usernameFlag, usernameFlagShort                 = "username", "l"
-	identityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
+	IdentityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
 	knownHostsFilePathFlag                          = "known-hosts"
 )
 
@@ -69,8 +69,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringVarP(&opts.SshUsername, usernameFlag, usernameFlagShort, opts.SshUsername,
 		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SshUsername))
-	flagset.StringVarP(&opts.IdentityFilePath, identityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", identityFilePathFlag))
+	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SshPort, portFlag, portFlagShort, opts.SshPort,
@@ -134,7 +134,7 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 }
 
 func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
-	opts.IdentityFilePathProvided = cmd.Flags().Changed(identityFilePathFlag)
+	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	var targetUsername string
 	kind, namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
 	if err != nil {
@@ -166,8 +166,8 @@ func usage() string {
  
   # Connect to 'testvmi' using the local ssh binary found in $PATH:
   {{ProgramName}} ssh --%s=true jdoe@testvmi`,
-		identityFilePathFlag,
-		identityFilePathFlag,
+		IdentityFilePathFlag,
+		IdentityFilePathFlag,
 		usernameFlag,
 		wrapLocalSSHFlag,
 	)
