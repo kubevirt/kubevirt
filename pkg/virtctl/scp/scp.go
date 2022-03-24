@@ -45,7 +45,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
-
+	cmd.Flags().BoolVarP(&c.recursive, "recursive", "r", false, "Recursively copy entire directories")
 	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -54,6 +54,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 type SCP struct {
 	clientConfig clientcmd.ClientConfig
 	options      ssh.SSHOptions
+	recursive    bool
 }
 
 func (o *SCP) Run(cmd *cobra.Command, args []string) error {
@@ -75,14 +76,28 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if toRemote {
-		err = scpClient.CopyFileToRemote(local.Path, remote.Path, &scp.FileTransferOption{})
-		if err != nil {
-			return err
+		if o.recursive {
+			err = scpClient.CopyDirToRemote(local.Path, remote.Path, &scp.DirTransferOption{})
+			if err != nil {
+				return err
+			}
+		} else {
+			err = scpClient.CopyFileToRemote(local.Path, remote.Path, &scp.FileTransferOption{})
+			if err != nil {
+				return err
+			}
 		}
 	} else {
-		err = scpClient.CopyFileFromRemote(remote.Path, local.Path, &scp.FileTransferOption{})
-		if err != nil {
-			return err
+		if o.recursive {
+			err = scpClient.CopyDirFromRemote(remote.Path, local.Path, &scp.DirTransferOption{})
+			if err != nil {
+				return err
+			}
+		} else {
+			err = scpClient.CopyFileFromRemote(remote.Path, local.Path, &scp.FileTransferOption{})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -92,6 +107,9 @@ func usage() string {
 	return `  # Copy a file to the remote home folder of user jdoe
   {{ProgramName}} scp myfile.bin jdoe@testvmi:myfile.bin
 
+  # Copy a directory to the remote home folder of user jdoe
+  {{ProgramName}} scp --recursive ~/mydir/ jdoe@testvmi:./mydir
+
   # Copy a file to the remote home folder of user jdoe without specifying a file name on the target
   {{ProgramName}} scp myfile.bin jdoe@testvmi:.
 
@@ -99,7 +117,7 @@ func usage() string {
   {{ProgramName}} scp myfile.bin jdoe@testvmi.mynamespace:myfile.bin
 
   # Copy a file from the remote location to a local folder
-  {{ProgramName}} scp jdoe@testvmi:myfile.bin myfile.bin `
+  {{ProgramName}} scp jdoe@testvmi:myfile.bin ~/myfile.bin`
 }
 
 func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *ssh.SSHOptions, args []string) (local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool, err error) {
