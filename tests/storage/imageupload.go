@@ -150,7 +150,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
 				namespace, util.NamespaceTestDefault,
 				"--image-path", imagePath,
@@ -215,7 +215,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
 				namespace, util.NamespaceTestDefault,
 				"--image-path", imagePath,
@@ -270,7 +270,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload archive content")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
 				namespace, util.NamespaceTestDefault,
 				"--archive-path", archivePath,

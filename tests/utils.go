@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"encoding/xml"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -55,7 +54,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1beta1"
@@ -106,7 +104,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -128,7 +125,6 @@ const (
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
 	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
-	ServerName                   = "--server"
 	CouldNotFindComputeContainer = "could not find compute container for pod"
 	EchoLastReturnValue          = "echo $?\n"
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
@@ -3149,28 +3145,6 @@ func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, ar
 			Privileged: NewBool(true),
 			RunAsUser:  new(int64),
 		},
-	}
-}
-
-func NewVirtctlCommand(args ...string) *cobra.Command {
-	commandline := []string{}
-	master := flag.Lookup("master").Value
-	if master != nil && master.String() != "" {
-		commandline = append(commandline, ServerName, master.String())
-	}
-	kubeconfig := flag.Lookup("kubeconfig").Value
-	if kubeconfig != nil && kubeconfig.String() != "" {
-		commandline = append(commandline, "--kubeconfig", kubeconfig.String())
-	}
-	cmd, _ := virtctl.NewVirtctlCommand()
-	cmd.SetArgs(append(commandline, args...))
-	return cmd
-}
-
-func NewRepeatableVirtctlCommand(args ...string) func() error {
-	return func() error {
-		cmd := NewVirtctlCommand(args...)
-		return cmd.Execute()
 	}
 }
 

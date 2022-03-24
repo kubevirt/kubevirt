@@ -13,7 +13,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
-	"kubevirt.io/kubevirt/tests"
+
+	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 var _ = Describe("Pausing", func() {
@@ -33,12 +34,12 @@ var _ = Describe("Pausing", func() {
 
 	Context("With missing input parameters", func() {
 		It("should fail a pause", func() {
-			cmd := tests.NewRepeatableVirtctlCommand(pause.COMMAND_PAUSE)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(pause.COMMAND_PAUSE)
 			err := cmd()
 			Expect(err).NotTo(BeNil())
 		})
 		It("should fail an unpause", func() {
-			cmd := tests.NewRepeatableVirtctlCommand(pause.COMMAND_UNPAUSE)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(pause.COMMAND_UNPAUSE)
 			err := cmd()
 			Expect(err).NotTo(BeNil())
 		})
@@ -53,9 +54,9 @@ var _ = Describe("Pausing", func() {
 
 		var command *cobra.Command
 		if len(pauseOptions.DryRun) == 0 {
-			command = tests.NewVirtctlCommand(pause.COMMAND_PAUSE, "vmi", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_PAUSE, "vmi", vmName)
 		} else {
-			command = tests.NewVirtctlCommand(pause.COMMAND_PAUSE, "--dry-run", "vmi", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_PAUSE, "--dry-run", "vmi", vmName)
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
@@ -72,9 +73,9 @@ var _ = Describe("Pausing", func() {
 
 		var command *cobra.Command
 		if len(unpauseOptions.DryRun) == 0 {
-			command = tests.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "vmi", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "vmi", vmName)
 		} else {
-			command = tests.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "--dry-run", "vmi", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "--dry-run", "vmi", vmName)
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
@@ -98,9 +99,9 @@ var _ = Describe("Pausing", func() {
 
 		var command *cobra.Command
 		if len(pauseOptions.DryRun) == 0 {
-			command = tests.NewVirtctlCommand(pause.COMMAND_PAUSE, "vm", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_PAUSE, "vm", vmName)
 		} else {
-			command = tests.NewVirtctlCommand(pause.COMMAND_PAUSE, "--dry-run", "vm", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_PAUSE, "--dry-run", "vm", vmName)
 		}
 		Expect(command.Execute()).To(BeNil())
 	},
@@ -123,9 +124,9 @@ var _ = Describe("Pausing", func() {
 		vmiInterface.EXPECT().Unpause(vm.Name, unpauseOptions).Return(nil).Times(1)
 		var command *cobra.Command
 		if len(unpauseOptions.DryRun) == 0 {
-			command = tests.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "vm", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "vm", vmName)
 		} else {
-			command = tests.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "--dry-run", "vm", vmName)
+			command = clientcmd.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "--dry-run", "vm", vmName)
 		}
 		Expect(command.Execute()).To(BeNil())
 	},

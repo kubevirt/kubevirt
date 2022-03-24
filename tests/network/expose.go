@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -136,7 +137,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	}
 
 	executeVirtctlExposeCommand := func(ExposeArgs []string) error {
-		virtctl := tests.NewRepeatableVirtctlCommand(ExposeArgs...)
+		virtctl := clientcmd.NewRepeatableVirtctlCommand(ExposeArgs...)
 		return virtctl()
 	}
 
@@ -632,7 +633,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		startVMIFromVMTemplate := func(virtClient kubecli.KubevirtClient, name string, namespace string) *v1.VirtualMachineInstance {
 			By("Calling the start command")
-			virtctl := tests.NewRepeatableVirtctlCommand("start", "--namespace", namespace, name)
+			virtctl := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", namespace, name)
 			Expect(virtctl()).To(Succeed(), "should succeed starting a VMI via `virtctl start ...`")
 
 			By("Getting the status of the VMI")
@@ -742,7 +743,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
 				By("Restarting the running VM.")
-				virtctl := tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
+				virtctl := clientcmd.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
