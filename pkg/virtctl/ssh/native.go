@@ -17,8 +17,8 @@ import (
 )
 
 type NativeSSHConnection struct {
-	clientConfig clientcmd.ClientConfig
-	options      SSHOptions
+	ClientConfig clientcmd.ClientConfig
+	Options      SSHOptions
 }
 
 func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
@@ -28,12 +28,12 @@ func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*s
 	}
 
 	conn := streamer.AsConn()
-	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, o.options.SshPort)
+	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, o.Options.SshPort)
 	authMethods := o.getAuthMethods(kind, namespace, name)
 
 	hostKeyCallback := ssh.InsecureIgnoreHostKey()
-	if len(o.options.KnownHostsFilePath) > 0 {
-		hostKeyCallback, err = InteractiveHostKeyCallback(o.options.KnownHostsFilePath)
+	if len(o.Options.KnownHostsFilePath) > 0 {
+		hostKeyCallback, err = InteractiveHostKeyCallback(o.Options.KnownHostsFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,7 @@ func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*s
 		&ssh.ClientConfig{
 			HostKeyCallback: hostKeyCallback,
 			Auth:            authMethods,
-			User:            o.options.SshUsername,
+			User:            o.Options.SshUsername,
 		},
 	)
 	if err != nil {
@@ -63,7 +63,7 @@ func (o *NativeSSHConnection) getAuthMethods(kind, namespace, name string) []ssh
 	methods = o.tryPrivateKey(methods)
 
 	methods = append(methods, ssh.PasswordCallback(func() (secret string, err error) {
-		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", o.options.SshUsername, kind, name, namespace))
+		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", o.Options.SshUsername, kind, name, namespace))
 		fmt.Println()
 		return string(password), err
 	}))
@@ -90,15 +90,15 @@ func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.Auth
 
 	// If the identity file at the default does not exist but was
 	// not explicitly provided, don't add the authentication mechanism.
-	if !o.options.IdentityFilePathProvided {
-		if _, err := os.Stat(o.options.IdentityFilePath); os.IsNotExist(err) {
-			glog.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.options.IdentityFilePath)
+	if !o.Options.IdentityFilePathProvided {
+		if _, err := os.Stat(o.Options.IdentityFilePath); os.IsNotExist(err) {
+			glog.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.Options.IdentityFilePath)
 			return methods
 		}
 	}
 
 	callback := ssh.PublicKeysCallback(func() (signers []ssh.Signer, err error) {
-		key, err := ioutil.ReadFile(o.options.IdentityFilePath)
+		key, err := ioutil.ReadFile(o.Options.IdentityFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +118,7 @@ func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.Auth
 }
 
 func (o *NativeSSHConnection) parsePrivateKeyWithPassphrase(key []byte) (ssh.Signer, error) {
-	password, err := readPassword(fmt.Sprintf("Key %s requires a password: ", o.options.IdentityFilePath))
+	password, err := readPassword(fmt.Sprintf("Key %s requires a password: ", o.Options.IdentityFilePath))
 	fmt.Println()
 	if err != nil {
 		return nil, err
@@ -191,19 +191,19 @@ func requestPty(session *ssh.Session) error {
 }
 
 func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kubecli.StreamInterface, error) {
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
+	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.ClientConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	var stream kubecli.StreamInterface
 	if kind == "vmi" {
-		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.options.SshPort, "tcp")
+		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.Options.SshPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
 		}
 	} else if kind == "vm" {
-		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.options.SshPort, "tcp")
+		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.Options.SshPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
 		}
