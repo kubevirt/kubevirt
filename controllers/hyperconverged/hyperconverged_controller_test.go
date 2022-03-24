@@ -1866,6 +1866,183 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(apierrors.IsNotFound(err)).To(BeTrue())
 				})
 			})
+
+			Context("remove leftovers on upgrades", func() {
+
+				It("should remove ConfigMap v2v-vmware upgrading from <= 1.6.0", func() {
+
+					cmToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "v2v-vmware",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					cmToBeRemoved2 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "vm-import-controller-config",
+							Namespace: namespace,
+						},
+					}
+					cmNotToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "v2v-vmware",
+							Namespace: "different" + namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					cmNotToBeRemoved2 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "other",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					toBeRemovedRelatedObjects := []corev1.ObjectReference{
+						{
+							APIVersion:      "v1",
+							Kind:            "ConfigMap",
+							Name:            cmToBeRemoved1.Name,
+							Namespace:       cmToBeRemoved1.Namespace,
+							ResourceVersion: "999",
+						},
+					}
+					otherRelatedObjects := []corev1.ObjectReference{
+						{
+							APIVersion:      "v1",
+							Kind:            "ConfigMap",
+							Name:            cmNotToBeRemoved1.Name,
+							Namespace:       cmNotToBeRemoved1.Namespace,
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "v1",
+							Kind:            "ConfigMap",
+							Name:            cmNotToBeRemoved2.Name,
+							Namespace:       cmNotToBeRemoved2.Namespace,
+							ResourceVersion: "999",
+						},
+					}
+
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
+
+					for _, objRef := range toBeRemovedRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+
+					resources := append(expected.toArray(), cmToBeRemoved1, cmToBeRemoved2, cmNotToBeRemoved1, cmNotToBeRemoved2)
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundCM := &corev1.ConfigMap{}
+
+					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
+					Expect(err).To(HaveOccurred())
+					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved2), foundCM)
+					Expect(err).To(HaveOccurred())
+					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, objRef := range toBeRemovedRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).ToNot(ContainElement(objRef))
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).To(ContainElement(objRef))
+					}
+
+				})
+
+				It("should not remove ConfigMap v2v-vmware upgrading from >= 1.6.1", func() {
+
+					cmToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "v2v-vmware",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					cmToBeRemoved2 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "vm-import-controller-config",
+							Namespace: namespace,
+						},
+					}
+					cmNotToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "v2v-vmware",
+							Namespace: "different" + namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					cmNotToBeRemoved2 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "other",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.6.1")
+
+					resources := append(expected.toArray(), cmToBeRemoved1, cmToBeRemoved2, cmNotToBeRemoved1, cmNotToBeRemoved2)
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundCM := &corev1.ConfigMap{}
+
+					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved2), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+				})
+
+			})
+
 		})
 
 		Context("Aggregate Negative Conditions", func() {

@@ -7,6 +7,8 @@ import (
 	"os"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/blang/semver/v4"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
@@ -264,6 +266,11 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 
 	if r.firstLoop {
 		r.firstLoopInitialization(hcoRequest)
+		if err := validateUpgradePatches(hcoRequest); err != nil {
+			logger.Error(err, "Failed validating upgrade patches file")
+			r.eventEmitter.EmitEvent(hcoRequest.Instance, corev1.EventTypeWarning, "Failed validating upgrade patches file", err.Error())
+			os.Exit(1)
+		}
 	}
 
 	result, err := r.doReconcile(hcoRequest)
@@ -355,7 +362,6 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 		// get into upgrade mode
 
 		r.upgradeMode = true
-
 		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "UpgradeHCO", "Upgrading the HyperConverged to version "+r.ownVersion)
 		req.Logger.Info(fmt.Sprintf("Start upgrading from version %s to version %s", knownHcoVersion, r.ownVersion))
 	}
@@ -372,10 +378,6 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 }
 
 func (r *ReconcileHyperConverged) handleUpgrade(req *common.HcoRequest, init bool) (*reconcile.Result, error) {
-	err := validateUpgradePatches(req)
-	if err != nil {
-		return &reconcile.Result{Requeue: true}, err
-	}
 
 	crdStatusUpdated, err := r.updateCrdStoredVersions(req)
 	if err != nil {
@@ -1080,6 +1082,13 @@ func (r ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (bo
 		}
 	}
 
+	for _, p := range hcoUpgradeChanges.ObjectsToBeRemoved {
+		removed, err := r.removeLeftover(req, knownHcoSV, p)
+		if err != nil {
+			return removed, err
+		}
+	}
+
 	tmpInstance := &hcov1beta1.HyperConverged{}
 	err = json.Unmarshal(hcoJson, tmpInstance)
 	if err != nil {
@@ -1113,6 +1122,31 @@ func (r ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJs
 		return patchedBytes, nil
 	}
 	return hcoJson, nil
+}
+
+func (r ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHcoSV semver.Version, p objectToBeRemoved) (bool, error) {
+
+	affectedRange, err := semver.ParseRange(p.SemverRange)
+	if err != nil {
+		return false, err
+	}
+	if affectedRange(knownHcoSV) {
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(p.GroupVersionKind)
+		gerr := r.client.Get(req.Ctx, p.ObjectKey, u)
+		if gerr != nil {
+			if apierrors.IsNotFound(gerr) {
+				return false, nil
+			} else {
+				req.Logger.Error(gerr, "failed looking for leftovers", "objectToBeRemoved", p)
+				return false, gerr
+			}
+		}
+		removeRelatedObject(req, p.GroupVersionKind, p.ObjectKey)
+		return r.deleteObj(req, u, false)
+
+	}
+	return false, nil
 }
 
 var (
@@ -1151,7 +1185,7 @@ func (r ReconcileHyperConverged) removeOldMetricsObjs(req *common.HcoRequest) er
 	initOldMetricsObjects(req)
 
 	for name, object := range oldMetricsObjects {
-		removed, err := r.deleteObj(req, object)
+		removed, err := r.deleteObj(req, object, true)
 
 		if err != nil {
 			return err
@@ -1165,8 +1199,8 @@ func (r ReconcileHyperConverged) removeOldMetricsObjs(req *common.HcoRequest) er
 	return nil
 }
 
-func (r *ReconcileHyperConverged) deleteObj(req *common.HcoRequest, obj client.Object) (bool, error) {
-	removed, err := hcoutil.EnsureDeleted(req.Ctx, r.client, obj, req.Instance.Name, req.Logger, false, false)
+func (r *ReconcileHyperConverged) deleteObj(req *common.HcoRequest, obj client.Object, protectNonHCOObjects bool) (bool, error) {
+	removed, err := hcoutil.EnsureDeleted(req.Ctx, r.client, obj, req.Instance.Name, req.Logger, false, false, protectNonHCOObjects)
 
 	if err != nil {
 		req.Logger.Error(
@@ -1206,7 +1240,7 @@ func removeOldQuickStartGuides(req *common.HcoRequest, cl client.Client, require
 		for name, existQs := range existingQSNames {
 			if !hcoutil.ContainsString(requiredQSList, name) {
 				req.Logger.Info("deleting ConsoleQuickStart", "name", name)
-				if _, err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false); err != nil {
+				if _, err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false, true); err != nil {
 					req.Logger.Error(err, "failed to delete ConsoleQuickStart", "name", name)
 				}
 			}
@@ -1232,6 +1266,25 @@ func removeRelatedQSObjects(req *common.HcoRequest, requiredNames []string) {
 	}
 
 	if foundOldQs {
+		req.Instance.Status.RelatedObjects = refs
+		req.StatusDirty = true
+	}
+
+}
+
+func removeRelatedObject(req *common.HcoRequest, gvk schema.GroupVersionKind, objectKey types.NamespacedName) {
+	refs := make([]corev1.ObjectReference, 0, len(req.Instance.Status.RelatedObjects))
+	foundRO := false
+
+	for _, obj := range req.Instance.Status.RelatedObjects {
+		if obj.GroupVersionKind() == gvk && obj.Namespace == objectKey.Namespace && obj.Name == objectKey.Name {
+			foundRO = true
+			continue
+		}
+		refs = append(refs, obj)
+	}
+
+	if foundRO {
 		req.Instance.Status.RelatedObjects = refs
 		req.StatusDirty = true
 	}

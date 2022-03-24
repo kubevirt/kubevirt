@@ -1,0 +1,15 @@
+{
+  "objectsToBeRemoved": [
+    {
+      "semverRange": "<=1.6.0",
+      "groupVersionKind": {
+        "group": "",
+        "kind": "ConfigMap"
+      },
+      "objectKey": {
+        "name": "v2v-vmware",
+        "namespace": "kubevirt-hyperconverged"
+      }
+    }
+  ]
+}

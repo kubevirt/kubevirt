@@ -68,41 +68,100 @@ var _ = Describe("upgradePatches", func() {
 			Expect(err.Error()).Should(HavePrefix("invalid character"))
 		})
 
-		It("should fail validating upgradePatches with bad semver ranges", func() {
-			err := copyTestFile("badSemverRange.json")
-			Expect(err).ToNot(HaveOccurred())
+		Context("hcoCRPatchList", func() {
 
-			err = validateUpgradePatches(req)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(HavePrefix("Could not get version from string:"))
-		})
-
-		DescribeTable(
-			"should fail validating upgradePatches with bad patches",
-			func(filename, message string) {
-				err := copyTestFile(filename)
+			It("should fail validating upgradePatches with bad semver ranges", func() {
+				err := copyTestFile("badSemverRange.json")
 				Expect(err).ToNot(HaveOccurred())
 
 				err = validateUpgradePatches(req)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(HavePrefix(message))
-			},
-			Entry(
-				"bad operation kind",
-				"badPatches1.json",
-				"Unexpected kind:",
-			),
-			Entry(
-				"not on spec",
-				"badPatches2.json",
-				"can only modify spec fields",
-			),
-			Entry(
-				"unexisting path",
-				"badPatches3.json",
-				"replace operation does not apply: doc is missing path:",
-			),
-		)
+				Expect(err.Error()).Should(HavePrefix("Could not get version from string:"))
+			})
+
+			DescribeTable(
+				"should fail validating upgradePatches with bad patches",
+				func(filename, message string) {
+					err := copyTestFile(filename)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = validateUpgradePatches(req)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).Should(HavePrefix(message))
+				},
+				Entry(
+					"bad operation kind",
+					"badPatches1.json",
+					"Unexpected kind:",
+				),
+				Entry(
+					"not on spec",
+					"badPatches2.json",
+					"can only modify spec fields",
+				),
+				Entry(
+					"unexisting path",
+					"badPatches3.json",
+					"replace operation does not apply: doc is missing path:",
+				),
+			)
+
+		})
+
+		Context("objectsToBeRemoved", func() {
+
+			It("should fail validating upgradePatches with bad semver ranges", func() {
+				err := copyTestFile("badSemverRangeOR.json")
+				Expect(err).ToNot(HaveOccurred())
+
+				err = validateUpgradePatches(req)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(HavePrefix("Could not get version from string:"))
+			})
+
+			DescribeTable(
+				"should fail validating upgradePatches with bad patches",
+				func(filename, message string) {
+					err := copyTestFile(filename)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = validateUpgradePatches(req)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).Should(HavePrefix(message))
+				},
+				Entry(
+					"empty object kind",
+					"badObject1.json",
+					"missing object kind",
+				),
+				Entry(
+					"missing object kind",
+					"badObject1m.json",
+					"missing object kind",
+				),
+				Entry(
+					"empty object API version",
+					"badObject2.json",
+					"missing object API version",
+				),
+				Entry(
+					"missing object API version",
+					"badObject2m.json",
+					"missing object API version",
+				),
+				Entry(
+					"empty object name",
+					"badObject3.json",
+					"missing object name",
+				),
+				Entry(
+					"missing object name",
+					"badObject3m.json",
+					"missing object name",
+				),
+			)
+
+		})
 
 	})
 

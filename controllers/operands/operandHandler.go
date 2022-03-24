@@ -200,7 +200,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	for _, res := range resources {
 		go func(o client.Object, wgr *sync.WaitGroup) {
 			defer wgr.Done()
-			deleted, err := hcoutil.EnsureDeleted(tCtx, h.client, o, req.Instance.Name, req.Logger, false, true)
+			deleted, err := hcoutil.EnsureDeleted(tCtx, h.client, o, req.Instance.Name, req.Logger, false, true, true)
 			if err != nil {
 				req.Logger.Error(err, "Failed to manually delete objects")
 				errT := ErrHCOUninstall

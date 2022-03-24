@@ -213,7 +213,7 @@ func (wh WebhookHandler) ValidateDelete(hc *v1beta1.HyperConverged) error {
 		kv,
 		cdi,
 	} {
-		_, err := hcoutil.EnsureDeleted(ctx, wh.cli, obj, hc.Name, wh.logger, true, false)
+		_, err := hcoutil.EnsureDeleted(ctx, wh.cli, obj, hc.Name, wh.logger, true, false, true)
 		if err != nil {
 			wh.logger.Error(err, "Delete validation failed", "GVK", obj.GetObjectKind().GroupVersionKind())
 			return err

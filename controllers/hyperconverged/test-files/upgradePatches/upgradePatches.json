@@ -38,5 +38,31 @@
         }
       ]
     }
+  ],
+  "objectsToBeRemoved": [
+    {
+      "semverRange": "<=1.6.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
+      },
+      "objectKey": {
+        "name": "v2v-vmware",
+        "namespace": "kubevirt-hyperconverged"
+      }
+    },
+    {
+      "semverRange": "<=1.6.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
+      },
+      "objectKey": {
+        "name": "vm-import-controller-config",
+        "namespace": "kubevirt-hyperconverged"
+      }
+    }
   ]
 }

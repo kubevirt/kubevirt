@@ -102,7 +102,7 @@ var _ = Describe("Test general utilities", func() {
 				WithRuntimeObjects(pod).
 				Build()
 
-			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true)
+			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true, true)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(deleted).To(BeTrue())
 
@@ -116,7 +116,7 @@ var _ = Describe("Test general utilities", func() {
 				WithScheme(testScheme).
 				Build()
 
-			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true)
+			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true, true)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(deleted).To(BeFalse())
 

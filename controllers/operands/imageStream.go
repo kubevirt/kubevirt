@@ -49,7 +49,7 @@ func (iso imageStreamOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	cr := iso.operand.hooks.getEmptyCr()
 	res := NewEnsureResult(cr)
 	res.SetName(cr.GetName())
-	deleted, err := util.EnsureDeleted(req.Ctx, iso.operand.Client, cr, req.Instance.Name, req.Logger, false, false)
+	deleted, err := util.EnsureDeleted(req.Ctx, iso.operand.Client, cr, req.Instance.Name, req.Logger, false, false, true)
 	if err != nil {
 		return res.Error(err)
 	}

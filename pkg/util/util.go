@@ -210,7 +210,7 @@ func GetRuntimeObject(ctx context.Context, c client.Client, obj client.Object, l
 
 // ComponentResourceRemoval removes the resource `obj` if it exists and belongs to the HCO
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
-func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool) (bool, error) {
+func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool, protectNonHCOObjects bool) (bool, error) {
 	resource, err := ToUnstructured(obj)
 	if err != nil {
 		logger.Error(err, "Failed to convert object to Unstructured")
@@ -224,7 +224,7 @@ func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interfac
 		return false, err
 	}
 
-	if !shouldDeleteResource(resource, hcoName, logger) {
+	if protectNonHCOObjects && !shouldDeleteResource(resource, hcoName, logger) {
 		return false, nil
 	}
 
@@ -307,7 +307,7 @@ func validateDeletion(ctx context.Context, c client.Client, resource *unstructur
 
 // EnsureDeleted calls ComponentResourceRemoval if the runtime object exists
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
-func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool) (bool, error) {
+func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool, protectNonHCOObjects bool) (bool, error) {
 	err := GetRuntimeObject(ctx, c, obj, logger)
 
 	if err != nil {
@@ -320,7 +320,7 @@ func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoN
 		return false, err
 	}
 
-	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun, wait)
+	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun, wait, protectNonHCOObjects)
 }
 
 func ContainsString(s []string, word string) bool {
