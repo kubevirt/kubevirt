@@ -142,4 +142,7 @@ echo "----- Image"
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
+echo "----- Generate components graphs"
+KUBECONFIG=${KUBECONFIG-} ARTIFACTS=${ARTIFACTS-} ./tools/k8s-label-visualizer/run.sh
+
 echo "kubevirt-nightly-test completed successfully."

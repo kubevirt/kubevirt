@@ -1,0 +1,109 @@
+{
+  "namespaced": [
+    {
+      "group": "hco.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "hyperconvergeds"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "kubevirts"
+    },
+    {
+      "group": "cdi.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "datavolumes"
+    },
+    {
+      "group": "ssp.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "ssps"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "virtualmachineinstancemigrations"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "virtualmachineinstancepresets"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "virtualmachineinstancereplicasets"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "virtualmachineinstances"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "virtualmachines"
+    },
+    {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "virtualmachines"
+    },
+    {
+      "group": "snapshot.kubevirt.io",
+      "version": "v1alpha1",
+      "kind": "virtualmachinerestores"
+    },
+    {
+      "group": "snapshot.kubevirt.io",
+      "version": "v1alpha1",
+      "kind": "virtualmachinesnapshotcontents"
+    },
+    {
+      "group": "snapshot.kubevirt.io",
+      "version": "v1alpha1",
+      "kind": "virtualmachinesnapshots"
+    }
+  ],
+  "cluster": [
+    {
+      "group": "cdi.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "cdis"
+    },
+    {
+      "group": "cdi.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "cdiconfigs"
+    },
+    {
+      "group": "nodemaintenance.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "nodemaintenances"
+    },
+    {
+      "group": "networkaddonsoperator.network.kubevirt.io",
+      "version": "v1alpha1",
+      "kind": "networkaddonsconfigs"
+    },
+    {
+      "group": "hostpathprovisioner.kubevirt.io",
+      "version": "v1beta1",
+      "kind": "hostpathprovisioners"
+    }
+  ],
+  "alias": {
+    "hco-operator": "deployment/hco-operator",
+    "kubevirt-operator": "deployment/virt-operator",
+    "ssp-operator": "deployment/ssp-operator",
+    "virt-operator": "deployment/virt-operator",
+    "cdi-operator": "deployment/cdi-operator",
+    "cnao-operator": "deployment/cluster-network-addons-operator",
+    "hostpath-provisioner-operator": "deployment/hostpath-provisioner-operator",
+    "cdi-controller": "deployment/cdi-deployment"
+  },
+  "component_alias": {
+    "kubevirt": "compute"
+  }
+}

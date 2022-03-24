@@ -18,10 +18,11 @@ RUN curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-r
     chmod a+x /usr/local/bin/kubectl && \
     curl -Lo /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
     chmod a+x /usr/local/bin/jq && \
-    microdnf install tar
+    microdnf install tar python3 graphviz
 
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests/_out/func-tests.test  ${TEST_OUT_PATH}/
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/hack  ${TEST_OUT_PATH}/hack
+COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/tools  ${TEST_OUT_PATH}/tools
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/deploy  ${TEST_OUT_PATH}/deploy
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/cluster ${TEST_OUT_PATH}/cluster
 
