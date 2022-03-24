@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -66,7 +67,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		if config.Status.UploadProxyURL == nil {
 			By("Setting up port forwarding")
 			portMapping := fmt.Sprintf("%d:%d", localUploadProxyPort, uploadProxyPort)
-			_, kubectlCmd, err = tests.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
+			_, kubectlCmd, err = clientcmd.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = kubectlCmd.Start()

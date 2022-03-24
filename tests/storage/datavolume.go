@@ -43,6 +43,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -580,7 +581,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		var dataVolumeName string
 		var pvcName string
 
-		k8sClient := tests.GetK8sCmdClient()
+		k8sClient := clientcmd.GetK8sCmdClient()
 
 		BeforeEach(func() {
 			running := true
@@ -597,7 +598,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
 			By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By(verifyingDataVolumeSuccess)
@@ -612,7 +613,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
 			By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By(verifyingDataVolumeSuccess)
@@ -625,7 +626,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=true")
-			_, _, err = tests.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=true")
+			_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=true")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to be deleted")
@@ -643,7 +644,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
 			By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By(verifyingDataVolumeSuccess)
@@ -656,7 +657,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=false")
-			_, _, err = tests.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=false")
+			_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=false")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to be deleted")

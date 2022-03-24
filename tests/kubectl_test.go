@@ -6,6 +6,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
@@ -27,16 +28,16 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 	)
 	BeforeEach(func() {
 
-		k8sClient = tests.GetK8sCmdClient()
-		tests.SkipIfNoCmd(k8sClient)
+		k8sClient = clientcmd.GetK8sCmdClient()
+		clientcmd.SkipIfNoCmd(k8sClient)
 		tests.BeforeTestCleanup()
 	})
 
 	DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
-		output, stderr, err := tests.RunCommand(k8sClient, "explain", resource)
+		output, stderr, err := clientcmd.RunCommand(k8sClient, "explain", resource)
 		// kubectl will not find resource for the first time this command is issued
 		if err != nil {
-			output, _, err = tests.RunCommand(k8sClient, "explain", resource)
+			output, _, err = clientcmd.RunCommand(k8sClient, "explain", resource)
 		}
 		Expect(err).NotTo(HaveOccurred(), stderr)
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -54,9 +55,9 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 	)
 
 	It("[test_id:5182]vmipreset have validation", func() {
-		output, _, err := tests.RunCommand(k8sClient, "explain", "vmipreset")
+		output, _, err := clientcmd.RunCommand(k8sClient, "explain", "vmipreset")
 		if err != nil {
-			output, _, err = tests.RunCommand(k8sClient, "explain", "vmipreset")
+			output, _, err = clientcmd.RunCommand(k8sClient, "explain", "vmipreset")
 		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -66,9 +67,9 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 	})
 
 	It("[test_id:5183]vmirs have validation", func() {
-		output, _, err := tests.RunCommand(k8sClient, "explain", "vmirs")
+		output, _, err := clientcmd.RunCommand(k8sClient, "explain", "vmirs")
 		if err != nil {
-			output, _, err = tests.RunCommand(k8sClient, "explain", "vmirs")
+			output, _, err = clientcmd.RunCommand(k8sClient, "explain", "vmirs")
 		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -98,10 +99,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 		})
 
 		DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
-			result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name)
+			result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 			if err != nil {
-				result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name)
+				result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name)
 			}
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(result)).ToNot(Equal(0))
@@ -120,10 +121,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 
 		DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
 
-			result, _, err := tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
+			result, _, err := clientcmd.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 			if err != nil {
-				result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
+				result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 			}
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(result)).ToNot(Equal(0))
@@ -177,11 +178,11 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 
 				tests.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
 
-				k8sClient := tests.GetK8sCmdClient()
-				result, _, err := tests.RunCommand(k8sClient, "get", "vmim", migration.Name)
+				k8sClient := clientcmd.GetK8sCmdClient()
+				result, _, err := clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)
 				// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 				if err != nil {
-					result, _, err = tests.RunCommand(k8sClient, "get", "vmim", migration.Name)
+					result, _, err = clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)
 				}
 
 				expectedHeader := []string{"NAME", "PHASE", "VMI"}
@@ -215,9 +216,9 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			vm = libvmi.NewCirros()
 			vm = tests.RunVMIAndExpectLaunch(vm, 30)
 
-			k8sClient := tests.GetK8sCmdClient()
+			k8sClient := clientcmd.GetK8sCmdClient()
 
-			output, _, err := tests.RunCommand(k8sClient, "logs", tests.GetPodByVirtualMachineInstance(vm).Name)
+			output, _, err := clientcmd.RunCommand(k8sClient, "logs", tests.GetPodByVirtualMachineInstance(vm).Name)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(output).To(ContainSubstring("component"))

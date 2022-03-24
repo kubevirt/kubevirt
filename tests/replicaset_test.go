@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -460,13 +461,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", func() {
-		k8sClient := tests.GetK8sCmdClient()
-		tests.SkipIfNoCmd(k8sClient)
+		k8sClient := clientcmd.GetK8sCmdClient()
+		clientcmd.SkipIfNoCmd(k8sClient)
 
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
-		result, _, _ := tests.RunCommand(k8sClient, "get", "virtualmachineinstancereplicaset")
+		result, _, _ := clientcmd.RunCommand(k8sClient, "get", "virtualmachineinstancereplicaset")
 		Expect(result).ToNot(BeNil())
 		resultFields := strings.Fields(result)
 		expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}

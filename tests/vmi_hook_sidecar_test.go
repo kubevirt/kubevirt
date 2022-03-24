@@ -36,6 +36,7 @@ import (
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/util"
@@ -109,7 +110,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 
 			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
-				tests.SkipIfNoCmd("kubectl")
+				clientcmd.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)

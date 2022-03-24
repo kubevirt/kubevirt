@@ -40,6 +40,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -279,12 +280,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
 		// time that we call it.
 		vmiSelector := v1.AppLabel + "=virt-launcher"
-		k8sClient := tests.GetK8sCmdClient()
+		k8sClient := clientcmd.GetK8sCmdClient()
 		if k8sClient == "oc" {
-			tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		} else {
-			tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			clientcmd.RunCommandWithNS("", k8sClient, "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		}
 	}

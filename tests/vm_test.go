@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -1801,8 +1802,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vmRunningRe *regexp.Regexp
 
 		BeforeEach(func() {
-			k8sClient = tests.GetK8sCmdClient()
-			tests.SkipIfNoCmd(k8sClient)
+			k8sClient = clientcmd.GetK8sCmdClient()
+			clientcmd.SkipIfNoCmd(k8sClient)
 			workDir = GinkgoT().TempDir()
 
 			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
@@ -1817,7 +1818,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VM is created")
@@ -1826,7 +1827,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(newVM.Name).To(Equal(vm.Name), "New VM was not created")
 
 			By("Creating the VM again")
-			_, stdErr, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, stdErr, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).To(HaveOccurred())
 
 			Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
@@ -1842,14 +1843,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 			By("Creating VM using k8s client binary")
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
 			waitForVMIStart(virtClient, vmi)
 
 			By("Listing running pods")
-			stdout, _, err := tests.RunCommand(k8sClient, "get", "pods")
+			stdout, _, err := clientcmd.RunCommand(k8sClient, "get", "pods")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring pod is running")
@@ -1860,7 +1861,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(podRunningRe.FindString(stdout)).ToNot(Equal(""), "Pod is not Running")
 
 			By("Checking that VM is running")
-			stdout, _, err = tests.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
+			stdout, _, err = clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
@@ -1877,7 +1878,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
 
 			By("Creating VM using k8s client binary")
-			_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Invoking virtctl start")
@@ -1889,13 +1890,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			waitForVMIStart(virtClient, vmi)
 
 			By("Checking that VM is running")
-			stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+			stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 
 			By("Deleting VM using k8s client binary")
-			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the VM gets deleted")
@@ -1915,7 +1916,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
 
 				By("Creating VM using k8s client binary")
-				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Invoking virtctl start with dry-run option")
@@ -1936,7 +1937,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
 
 				By("Creating VM using k8s client binary")
-				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")
@@ -1960,7 +1961,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that VM is still running")
-				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 
@@ -1993,7 +1994,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
 
 				By("Creating VM using k8s client binary")
-				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")
@@ -2018,7 +2019,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
 
 				By("Checking that VM is running")
-				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 			})
@@ -2032,21 +2033,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
 
 			By("Creating VM using k8s client binary")
-			_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
 			waitForVMIStart(virtClient, vmi)
 
 			By("Deleting VM using k8s client binary")
-			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the VM gets deleted")
 			waitForResourceDeletion(k8sClient, "vms", thisVm.GetName())
 
 			By("Creating same VM using k8s client binary and same manifest")
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
@@ -2057,7 +2058,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
-			_, stdErr, err := tests.RunCommand(k8sClient, "delete", "vm", vmi.Name)
+			_, stdErr, err := clientcmd.RunCommand(k8sClient, "delete", "vm", vmi.Name)
 			Expect(err).To(HaveOccurred())
 			Expect(strings.HasPrefix(stdErr, "Error from server (NotFound): virtualmachines.kubevirt.io")).To(BeTrue(), "should fail when deleting non existent VM")
 		})
@@ -2072,22 +2073,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("should succeed with right rights", func() {
 				BeforeEach(func() {
 					// kubectl doesn't have "adm" subcommand -- only oc does
-					tests.SkipIfNoCmd("oc")
+					clientcmd.SkipIfNoCmd("oc")
 					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "create", "user", testUser)
+					stdOut, stdErr, err := clientcmd.RunCommand(k8sClient, "create", "user", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
 					By("Ensuring user has the admin rights for the test namespace project")
 					// This simulates the ordinary user as an admin in this project
-					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
+					stdOut, stdErr, err = clientcmd.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
+					stdOut, stdErr, err := clientcmd.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
-					stdOut, stdErr, err = tests.RunCommand(k8sClient, "delete", "user", testUser)
+					stdOut, stdErr, err = clientcmd.RunCommand(k8sClient, "delete", "user", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
@@ -2099,7 +2100,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 					By("Checking VM creation permission using k8s client binary")
-					stdOut, _, err := tests.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
+					stdOut, _, err := clientcmd.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(strings.TrimSpace(stdOut)).To(Equal("yes"))
 				})
@@ -2108,12 +2109,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("should fail without right rights", func() {
 				BeforeEach(func() {
 					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := tests.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
+					stdOut, stdErr, err := clientcmd.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := tests.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "delete", "serviceaccount", testUser)
+					stdOut, stdErr, err := clientcmd.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "delete", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
@@ -2125,7 +2126,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 					By("Checking VM creation permission using k8s client binary")
-					stdOut, _, err := tests.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
+					stdOut, _, err := clientcmd.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
 					// non-zero exit code
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("exit status 1"))
@@ -2293,7 +2294,7 @@ func waitForNewVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInst
 
 func waitForResourceDeletion(k8sClient string, resourceType string, resourceName string) {
 	Eventually(func() bool {
-		stdout, _, err := tests.RunCommand(k8sClient, "get", resourceType)
+		stdout, _, err := clientcmd.RunCommand(k8sClient, "get", resourceType)
 		Expect(err).ToNot(HaveOccurred())
 		return strings.Contains(stdout, resourceName)
 	}, 120*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
