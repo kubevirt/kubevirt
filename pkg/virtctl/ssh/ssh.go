@@ -28,7 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -116,11 +115,15 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return o.runLocalCommandClient(kind, namespace, name)
 	}
 
-	client, err := o.prepareSSHClient(kind, namespace, name)
+	ssh := NativeSSHConnection{
+		clientConfig: o.clientConfig,
+		options:      o.options,
+	}
+	client, err := ssh.PrepareSSHClient(kind, namespace, name)
 	if err != nil {
 		return err
 	}
-	return o.startSession(client)
+	return ssh.StartSession(client)
 }
 
 func (o *SSH) prepareCommand(args []string) (kind, namespace, name string, err error) {
@@ -142,28 +145,6 @@ func (o *SSH) prepareCommand(args []string) (kind, namespace, name string, err e
 	}
 
 	return
-}
-
-func (o *SSH) prepareSSHTunnel(kind, namespace, name string) (kubecli.StreamInterface, error) {
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	var stream kubecli.StreamInterface
-	if kind == "vmi" {
-		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.options.SshPort, "tcp")
-		if err != nil {
-			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
-		}
-	} else if kind == "vm" {
-		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.options.SshPort, "tcp")
-		if err != nil {
-			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
-		}
-	}
-
-	return stream, nil
 }
 
 func usage() string {

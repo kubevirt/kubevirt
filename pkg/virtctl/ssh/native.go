@@ -6,13 +6,22 @@ import (
 	"net"
 	"os"
 
+	"k8s.io/client-go/tools/clientcmd"
+
+	"kubevirt.io/client-go/kubecli"
+
 	"github.com/golang/glog"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
 )
 
-func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
+type NativeSSHConnection struct {
+	clientConfig clientcmd.ClientConfig
+	options      SSHOptions
+}
+
+func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
 	streamer, err := o.prepareSSHTunnel(kind, namespace, name)
 	if err != nil {
 		return nil, err
@@ -47,7 +56,7 @@ func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error
 	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
-func (o *SSH) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
+func (o *NativeSSHConnection) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
 
 	methods = o.trySSHAgent(methods)
@@ -62,7 +71,7 @@ func (o *SSH) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
 	return methods
 }
 
-func (o *SSH) trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
+func (o *NativeSSHConnection) trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	socket := os.Getenv("SSH_AUTH_SOCK")
 	if len(socket) < 1 {
 		return methods
@@ -77,7 +86,7 @@ func (o *SSH) trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	return append(methods, ssh.PublicKeysCallback(agentClient.Signers))
 }
 
-func (o *SSH) tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
+func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
 
 	// If the identity file at the default does not exist but was
 	// not explicitly provided, don't add the authentication mechanism.
@@ -108,7 +117,7 @@ func (o *SSH) tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	return append(methods, callback)
 }
 
-func (o *SSH) parsePrivateKeyWithPassphrase(key []byte) (ssh.Signer, error) {
+func (o *NativeSSHConnection) parsePrivateKeyWithPassphrase(key []byte) (ssh.Signer, error) {
 	password, err := readPassword(fmt.Sprintf("Key %s requires a password: ", o.options.IdentityFilePath))
 	fmt.Println()
 	if err != nil {
@@ -123,7 +132,7 @@ func readPassword(reason string) ([]byte, error) {
 	return term.ReadPassword(int(os.Stdin.Fd()))
 }
 
-func (o *SSH) startSession(client *ssh.Client) error {
+func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
 	session, err := client.NewSession()
 	if err != nil {
 		return err
@@ -179,4 +188,26 @@ func requestPty(session *ssh.Session) error {
 	go resizeSessionOnWindowChange(session, os.Stdin.Fd())
 
 	return nil
+}
+
+func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kubecli.StreamInterface, error) {
+	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	var stream kubecli.StreamInterface
+	if kind == "vmi" {
+		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.options.SshPort, "tcp")
+		if err != nil {
+			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
+		}
+	} else if kind == "vm" {
+		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.options.SshPort, "tcp")
+		if err != nil {
+			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
+		}
+	}
+
+	return stream, nil
 }
