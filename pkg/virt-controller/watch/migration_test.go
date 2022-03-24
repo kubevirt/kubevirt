@@ -349,6 +349,24 @@ var _ = Describe("Migration watcher", func() {
 		}
 	}
 
+	getMigrationConfigPatch := func(customConfigs ...*virtv1.MigrationConfiguration) string {
+		Expect(customConfigs).To(Or(BeEmpty(), HaveLen(1)))
+
+		var migrationConfiguration *virtv1.MigrationConfiguration
+
+		if len(customConfigs) > 0 && customConfigs[0] != nil {
+			migrationConfiguration = customConfigs[0]
+		} else {
+			migrationConfiguration = controller.clusterConfig.GetMigrationConfiguration()
+			Expect(migrationConfiguration).ToNot(BeNil())
+		}
+
+		marshalledConfigs, err := json.Marshal(migrationConfiguration)
+		Expect(err).ToNot(HaveOccurred())
+
+		return fmt.Sprintf(`"migrationConfiguration":%s`, string(marshalledConfigs))
+	}
+
 	Context("Migration with hotplug volumes", func() {
 		var (
 			vmi           *virtv1.VirtualMachineInstance
@@ -398,7 +416,7 @@ var _ = Describe("Migration watcher", func() {
 			podFeeder.Add(targetPod)
 			podFeeder.Add(attachmentPod)
 
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","targetAttachmentPodUID":"%s","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, targetPod.Name, attachmentPod.UID)
+			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","targetAttachmentPodUID":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, targetPod.Name, attachmentPod.UID, getMigrationConfigPatch())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -914,7 +932,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name)
+			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -970,7 +988,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name)
+			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
@@ -994,7 +1012,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"1111-2222-3333-4444"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name)
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"1111-2222-3333-4444"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -1341,18 +1359,16 @@ var _ = Describe("Migration watcher", func() {
 		var pod *k8sv1.Pod
 
 		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
-			var migrationPolicyPatch string
-			if expectConfigUpdate {
-				marshalledConfigs, err := json.Marshal(*expectedConfigs)
-				Expect(err).ShouldNot(HaveOccurred())
+			var migrationPolicyNamePatch string
 
-				migrationPolicyPatch = fmt.Sprintf(`,"migrationPolicyName":"%s","migrationConfiguration":%s`, migrationPolicy.Name, string(marshalledConfigs))
+			if expectConfigUpdate {
+				migrationPolicyNamePatch = fmt.Sprintf(`,"migrationPolicyName":"%s"`, migrationPolicy.Name)
 			}
 
 			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s} }, `+
+				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s,%s} }, `+
 				`{ "op": "test", "path": "/metadata/labels", "value": {"mp-key-0":"mp-value-0"} }, `+
-				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01","mp-key-0":"mp-value-0"} }]`, pod.Name, migrationPolicyPatch)
+				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01","mp-key-0":"mp-value-0"} }]`, pod.Name, migrationPolicyNamePatch, getMigrationConfigPatch(expectedConfigs))
 
 			return patch
 		}

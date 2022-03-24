@@ -2347,6 +2347,13 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		}
 
+		marshalledOptions, err := json.Marshal(options)
+		if err != nil {
+			log.Log.Object(vmi).Warning("failed to marshall matched migration options")
+		} else {
+			log.Log.Object(vmi).Infof("migration options matched for vmi %s: %s", vmi.Name, string(marshalledOptions))
+		}
+
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
 			return err
