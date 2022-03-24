@@ -1172,8 +1172,8 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
-	all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespaces()[0], config.GetMonitorServiceAccount())...)
-	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespaces()[0], true))
+	all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], config.GetMonitorServiceAccountName())...)
+	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], true))
 
 	// ca certificate
 	caSecret := components.NewCACertSecret(NAMESPACE)

@@ -433,7 +433,11 @@ func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
 	}
 }
 
-func (c *KubeVirtDeploymentConfig) GetMonitorNamespaces() []string {
+/*
+if the monitoring namespace field is defiend in kubevirtCR than return it
+otherwise we return common monitoring namespaces.
+*/
+func (c *KubeVirtDeploymentConfig) GetPotentialMonitorNamespaces() []string {
 	p := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
 	if p == "" {
 		return DefaultMonitorNamespaces
@@ -446,7 +450,7 @@ func (c *KubeVirtDeploymentConfig) GetServiceMonitorNamespace() string {
 	return svcMonitorNs
 }
 
-func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {
+func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccountName() string {
 	p := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
 	if p == "" {
 		return DefaultMonitorAccount
