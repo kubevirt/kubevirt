@@ -63,7 +63,7 @@ const (
 	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
-	DefaultCPUAllocationRatio                       = 10
+	DefaultCPUAllocationRatio                       = 1
 	DefaultDiskVerificationMemoryLimitMBytes        = 1500
 	DefaultVirtAPILogVerbosity                      = 2
 	DefaultVirtControllerLogVerbosity               = 2

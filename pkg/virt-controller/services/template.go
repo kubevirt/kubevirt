@@ -878,23 +878,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	resources.Requests = make(k8sv1.ResourceList)
 	resources.Limits = make(k8sv1.ResourceList)
 
-	// Set Default CPUs request
-	if !vmi.IsCPUDedicated() {
-		vcpus := int64(1)
-		if vmi.Spec.Domain.CPU != nil {
-			vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-		}
-		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
-		if vcpus != 0 && cpuAllocationRatio > 0 {
-			val := float64(vcpus) / float64(cpuAllocationRatio)
-			vcpusStr := fmt.Sprintf("%g", val)
-			if val < 1 {
-				val *= 1000
-				vcpusStr = fmt.Sprintf("%gm", val)
-			}
-			resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
-		}
-	}
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
 		resources.Requests[key] = value
@@ -903,6 +886,25 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Copy vmi resources limits to a container
 	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
+	}
+
+	// Set Default CPUs request
+	if !vmi.IsCPUDedicated() {
+		vcpus := int64(1)
+		if vmi.Spec.Domain.CPU != nil {
+			vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		}
+		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
+		if vcpus != 0 && cpuAllocationRatio > 1 {
+			val := float64(vcpus) / float64(cpuAllocationRatio)
+			vcpusStr := fmt.Sprintf("%g", val)
+			if val < 1 {
+				val *= 1000
+				vcpusStr = fmt.Sprintf("%gm", val)
+			}
+			resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
+		}
 	}
 
 	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
