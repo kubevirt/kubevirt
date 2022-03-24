@@ -34,6 +34,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	c := &SCP{
 		clientConfig: clientConfig,
 		options:      ssh.DefaultSSHOptions(),
+		recursive:    false,
+		preserve:     false,
 	}
 
 	cmd := &cobra.Command{
@@ -45,7 +47,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
-	cmd.Flags().BoolVarP(&c.recursive, "recursive", "r", false, "Recursively copy entire directories")
+	cmd.Flags().BoolVarP(&c.recursive, "recursive", "r", c.recursive, "Recursively copy entire directories")
+	cmd.Flags().BoolVar(&c.preserve, "preserve", c.preserve, "Preserves modification times, access times, and modes from the original file.")
 	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -55,6 +58,7 @@ type SCP struct {
 	clientConfig clientcmd.ClientConfig
 	options      ssh.SSHOptions
 	recursive    bool
+	preserve     bool
 }
 
 func (o *SCP) Run(cmd *cobra.Command, args []string) error {
@@ -77,24 +81,24 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	}
 	if toRemote {
 		if o.recursive {
-			err = scpClient.CopyDirToRemote(local.Path, remote.Path, &scp.DirTransferOption{})
+			err = scpClient.CopyDirToRemote(local.Path, remote.Path, &scp.DirTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
 			}
 		} else {
-			err = scpClient.CopyFileToRemote(local.Path, remote.Path, &scp.FileTransferOption{})
+			err = scpClient.CopyFileToRemote(local.Path, remote.Path, &scp.FileTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		if o.recursive {
-			err = scpClient.CopyDirFromRemote(remote.Path, local.Path, &scp.DirTransferOption{})
+			err = scpClient.CopyDirFromRemote(remote.Path, local.Path, &scp.DirTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
 			}
 		} else {
-			err = scpClient.CopyFileFromRemote(remote.Path, local.Path, &scp.FileTransferOption{})
+			err = scpClient.CopyFileFromRemote(remote.Path, local.Path, &scp.FileTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
 			}
