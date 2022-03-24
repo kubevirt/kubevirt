@@ -7,6 +7,7 @@ go_library(
         "io_utils.go",
         "job.go",
         "migration.go",
+        "node.go",
         "pod_servers.go",
         "serviceaccount.go",
         "utils.go",
