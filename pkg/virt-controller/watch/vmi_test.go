@@ -1176,7 +1176,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduling))
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
 						Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
-					Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).To(HaveLen(0))
+					Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).To(BeEmpty())
 				}).Return(vmi, nil)
 			}
 

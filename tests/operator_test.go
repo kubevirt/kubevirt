@@ -2068,7 +2068,7 @@ spec:
 		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
 			crd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
+			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
 		It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", func() {
@@ -2110,7 +2110,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 				return crd.OwnerReferences
 			}, 20*time.Second, 1*time.Second).Should(BeEmpty())
-			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
+			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
 		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {

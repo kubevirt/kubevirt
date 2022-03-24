@@ -1052,7 +1052,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 						rootPortController = append(rootPortController, c)
 					}
 				}
-				Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
+				Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 			})
 
 			It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {

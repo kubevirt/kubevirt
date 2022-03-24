@@ -243,8 +243,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
-				Expect(restore.Status.Restores).To(HaveLen(0))
-				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+				Expect(restore.Status.Restores).To(BeEmpty())
+				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 			})
 		})
 
@@ -298,8 +298,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
-				Expect(restore.Status.Restores).To(HaveLen(0))
-				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+				Expect(restore.Status.Restores).To(BeEmpty())
+				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(vm.Spec).To(Equal(*origSpec))

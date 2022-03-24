@@ -883,7 +883,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						rootPortController = append(rootPortController, c)
 					}
 				}
-				Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
+				Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -2935,7 +2935,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						pdbs, err := virtClient.PolicyV1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
-					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(0))
+					}, 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 					Eventually(func() bool {
 						_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						return errors.IsNotFound(err)
