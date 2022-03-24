@@ -212,7 +212,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				}
 
 				By("check pod disruption budgets exist")
-				podDisruptionBudgetList, err := virtCli.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+				podDisruptionBudgetList, err := virtCli.PolicyV1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, controlPlaneDeploymentName := range controlPlaneDeploymentNames {
 					pdbName := controlPlaneDeploymentName + "-pdb"

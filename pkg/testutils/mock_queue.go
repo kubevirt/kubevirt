@@ -6,7 +6,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -176,19 +176,19 @@ type PodDisruptionBudgetFeeder struct {
 	Source    *framework.FakeControllerSource
 }
 
-func (v *PodDisruptionBudgetFeeder) Add(pdb *v1beta1.PodDisruptionBudget) {
+func (v *PodDisruptionBudgetFeeder) Add(pdb *policyv1.PodDisruptionBudget) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Add(pdb)
 	v.MockQueue.Wait()
 }
 
-func (v *PodDisruptionBudgetFeeder) Modify(pdb *v1beta1.PodDisruptionBudget) {
+func (v *PodDisruptionBudgetFeeder) Modify(pdb *policyv1.PodDisruptionBudget) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Modify(pdb)
 	v.MockQueue.Wait()
 }
 
-func (v *PodDisruptionBudgetFeeder) Delete(pdb *v1beta1.PodDisruptionBudget) {
+func (v *PodDisruptionBudgetFeeder) Delete(pdb *policyv1.PodDisruptionBudget) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Delete(pdb)
 	v.MockQueue.Wait()

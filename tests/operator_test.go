@@ -1199,7 +1199,7 @@ spec:
 				}),
 			table.Entry("[test_id:6256] poddisruptionbudgets",
 				func() {
-					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					pdb.Spec.Selector.MatchLabels = map[string]string{
@@ -1207,7 +1207,7 @@ spec:
 					}
 
 					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						pdb, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
+						pdb, err = virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
 						return err
 					})
 					Expect(err).ToNot(HaveOccurred())
@@ -1215,13 +1215,13 @@ spec:
 				},
 
 				func() runtime.Object {
-					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pdb
 				},
 
 				func() bool {
-					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
@@ -2511,7 +2511,7 @@ spec:
 					By(fmt.Sprintf("Expecting PDBs to disppear"))
 					Eventually(func() bool {
 						for _, name := range []string{"virt-api", "virt-controller"} {
-							_, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
+							_, err := virtClient.PolicyV1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
 							if err == nil {
 								return false
 							}
@@ -2522,7 +2522,7 @@ spec:
 					By(fmt.Sprintf("Expecting minAvailable to become %d on the PDBs", replicas-1))
 					Eventually(func() bool {
 						for _, name := range []string{"virt-api", "virt-controller"} {
-							pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
+							pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							if pdb.Spec.MinAvailable.IntValue() != int(replicas-1) {
 								return false
