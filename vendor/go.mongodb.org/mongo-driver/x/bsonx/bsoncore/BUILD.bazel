@@ -3,6 +3,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "array.go",
+        "bson_arraybuilder.go",
+        "bson_documentbuilder.go",
         "bsoncore.go",
         "document.go",
         "document_sequence.go",
