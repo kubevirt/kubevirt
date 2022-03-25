@@ -16859,7 +16859,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBridge(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "InterfaceBridge connects to a given network via a linux bridge.",
+				Type:        []string{"object"},
 			},
 		},
 	}
@@ -16869,7 +16870,8 @@ func schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
+				Type:        []string{"object"},
 			},
 		},
 	}
@@ -16879,7 +16881,8 @@ func schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref common.ReferenceCallb
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+				Type:        []string{"object"},
 			},
 		},
 	}
@@ -16889,7 +16892,8 @@ func schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
+				Type:        []string{"object"},
 			},
 		},
 	}
@@ -16899,7 +16903,8 @@ func schema_kubevirtio_api_core_v1_InterfaceSlirp(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "InterfaceSlirp connects to a given network using QEMU user networking mode.",
+				Type:        []string{"object"},
 			},
 		},
 	}

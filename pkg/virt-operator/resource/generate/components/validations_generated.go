@@ -5138,6 +5138,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   without a boot order are not tried.
                                 type: integer
                               bridge:
+                                description: InterfaceBridge connects to a given network
+                                  via a linux bridge.
                                 type: object
                               dhcpOptions:
                                 description: If specified the network interface will
@@ -5183,8 +5185,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
                               macvtap:
+                                description: InterfaceMacvtap connects to a given
+                                  network by extending the Kubernetes node's L2 networks
+                                  via a macvtap interface.
                                 type: object
                               masquerade:
+                                description: InterfaceMasquerade connects to a given
+                                  network using netfilter rules to nat the traffic.
                                 type: object
                               model:
                                 description: 'Interface model. One of: e1000, e1000e,
@@ -5231,8 +5238,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 type: array
                               slirp:
+                                description: InterfaceSlirp connects to a given network
+                                  using QEMU user networking mode.
                                 type: object
                               sriov:
+                                description: InterfaceSRIOV connects to a given network
+                                  by passing-through an SR-IOV PCI device via vfio.
                                 type: object
                               tag:
                                 description: If specified, the virtual network interface
@@ -8369,6 +8380,8 @@ var CRDsValidation map[string]string = map[string]string{
                           unique value. Interfaces without a boot order are not tried.
                         type: integer
                       bridge:
+                        description: InterfaceBridge connects to a given network via
+                          a linux bridge.
                         type: object
                       dhcpOptions:
                         description: If specified the network interface will pass
@@ -8414,8 +8427,13 @@ var CRDsValidation map[string]string = map[string]string{
                           or DE-AD-00-00-BE-AF.'
                         type: string
                       macvtap:
+                        description: InterfaceMacvtap connects to a given network
+                          by extending the Kubernetes node's L2 networks via a macvtap
+                          interface.
                         type: object
                       masquerade:
+                        description: InterfaceMasquerade connects to a given network
+                          using netfilter rules to nat the traffic.
                         type: object
                       model:
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
@@ -8459,8 +8477,12 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         type: array
                       slirp:
+                        description: InterfaceSlirp connects to a given network using
+                          QEMU user networking mode.
                         type: object
                       sriov:
+                        description: InterfaceSRIOV connects to a given network by
+                          passing-through an SR-IOV PCI device via vfio.
                         type: object
                       tag:
                         description: If specified, the virtual network interface address
@@ -10479,6 +10501,8 @@ var CRDsValidation map[string]string = map[string]string{
                           unique value. Interfaces without a boot order are not tried.
                         type: integer
                       bridge:
+                        description: InterfaceBridge connects to a given network via
+                          a linux bridge.
                         type: object
                       dhcpOptions:
                         description: If specified the network interface will pass
@@ -10524,8 +10548,13 @@ var CRDsValidation map[string]string = map[string]string{
                           or DE-AD-00-00-BE-AF.'
                         type: string
                       macvtap:
+                        description: InterfaceMacvtap connects to a given network
+                          by extending the Kubernetes node's L2 networks via a macvtap
+                          interface.
                         type: object
                       masquerade:
+                        description: InterfaceMasquerade connects to a given network
+                          using netfilter rules to nat the traffic.
                         type: object
                       model:
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
@@ -10569,8 +10598,12 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         type: array
                       slirp:
+                        description: InterfaceSlirp connects to a given network using
+                          QEMU user networking mode.
                         type: object
                       sriov:
+                        description: InterfaceSRIOV connects to a given network by
+                          passing-through an SR-IOV PCI device via vfio.
                         type: object
                       tag:
                         description: If specified, the virtual network interface address
@@ -12546,6 +12579,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   without a boot order are not tried.
                                 type: integer
                               bridge:
+                                description: InterfaceBridge connects to a given network
+                                  via a linux bridge.
                                 type: object
                               dhcpOptions:
                                 description: If specified the network interface will
@@ -12591,8 +12626,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
                               macvtap:
+                                description: InterfaceMacvtap connects to a given
+                                  network by extending the Kubernetes node's L2 networks
+                                  via a macvtap interface.
                                 type: object
                               masquerade:
+                                description: InterfaceMasquerade connects to a given
+                                  network using netfilter rules to nat the traffic.
                                 type: object
                               model:
                                 description: 'Interface model. One of: e1000, e1000e,
@@ -12639,8 +12679,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 type: array
                               slirp:
+                                description: InterfaceSlirp connects to a given network
+                                  using QEMU user networking mode.
                                 type: object
                               sriov:
+                                description: InterfaceSRIOV connects to a given network
+                                  by passing-through an SR-IOV PCI device via vfio.
                                 type: object
                               tag:
                                 description: If specified, the virtual network interface
@@ -16151,6 +16195,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           a boot order are not tried.
                                         type: integer
                                       bridge:
+                                        description: InterfaceBridge connects to a
+                                          given network via a linux bridge.
                                         type: object
                                       dhcpOptions:
                                         description: If specified the network interface
@@ -16199,8 +16245,14 @@ var CRDsValidation map[string]string = map[string]string{
                                           de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                         type: string
                                       macvtap:
+                                        description: InterfaceMacvtap connects to
+                                          a given network by extending the Kubernetes
+                                          node's L2 networks via a macvtap interface.
                                         type: object
                                       masquerade:
+                                        description: InterfaceMasquerade connects
+                                          to a given network using netfilter rules
+                                          to nat the traffic.
                                         type: object
                                       model:
                                         description: 'Interface model. One of: e1000,
@@ -16251,8 +16303,14 @@ var CRDsValidation map[string]string = map[string]string{
                                           type: object
                                         type: array
                                       slirp:
+                                        description: InterfaceSlirp connects to a
+                                          given network using QEMU user networking
+                                          mode.
                                         type: object
                                       sriov:
+                                        description: InterfaceSRIOV connects to a
+                                          given network by passing-through an SR-IOV
+                                          PCI device via vfio.
                                         type: object
                                       tag:
                                         description: If specified, the virtual network
@@ -20130,6 +20188,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               without a boot order are not tried.
                                             type: integer
                                           bridge:
+                                            description: InterfaceBridge connects
+                                              to a given network via a linux bridge.
                                             type: object
                                           dhcpOptions:
                                             description: If specified the network
@@ -20179,8 +20239,15 @@ var CRDsValidation map[string]string = map[string]string{
                                               example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                             type: string
                                           macvtap:
+                                            description: InterfaceMacvtap connects
+                                              to a given network by extending the
+                                              Kubernetes node's L2 networks via a
+                                              macvtap interface.
                                             type: object
                                           masquerade:
+                                            description: InterfaceMasquerade connects
+                                              to a given network using netfilter rules
+                                              to nat the traffic.
                                             type: object
                                           model:
                                             description: 'Interface model. One of:
@@ -20234,8 +20301,14 @@ var CRDsValidation map[string]string = map[string]string{
                                               type: object
                                             type: array
                                           slirp:
+                                            description: InterfaceSlirp connects to
+                                              a given network using QEMU user networking
+                                              mode.
                                             type: object
                                           sriov:
+                                            description: InterfaceSRIOV connects to
+                                              a given network by passing-through an
+                                              SR-IOV PCI device via vfio.
                                             type: object
                                           tag:
                                             description: If specified, the virtual

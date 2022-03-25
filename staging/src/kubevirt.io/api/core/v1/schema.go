@@ -1185,14 +1185,19 @@ type InterfaceBindingMethod struct {
 	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
 }
 
+// InterfaceBridge connects to a given network via a linux bridge.
 type InterfaceBridge struct{}
 
+// InterfaceSlirp connects to a given network using QEMU user networking mode.
 type InterfaceSlirp struct{}
 
+// InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.
 type InterfaceMasquerade struct{}
 
+// InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.
 type InterfaceSRIOV struct{}
 
+// InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
 type InterfaceMacvtap struct{}
 
 // Port represents a port to expose from the virtual machine.
