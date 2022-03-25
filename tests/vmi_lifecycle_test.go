@@ -58,7 +58,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
-	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
@@ -464,7 +463,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
 				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 
-				pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range pods.Items {
@@ -488,7 +487,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "linux"}
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
-				pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range pods.Items {
