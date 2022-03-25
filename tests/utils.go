@@ -60,7 +60,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1beta1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -153,13 +152,6 @@ const (
 )
 
 const defaultTestGracePeriod int64 = 0
-
-const (
-	SubresourceServiceAccountName = "kubevirt-subresource-test-sa"
-	AdminServiceAccountName       = "kubevirt-admin-test-sa"
-	EditServiceAccountName        = "kubevirt-edit-test-sa"
-	ViewServiceAccountName        = "kubevirt-view-test-sa"
-)
 
 const SubresourceTestLabel = "subresource-access-test-pod"
 
@@ -1399,168 +1391,6 @@ func DeployTestingInfrastructure() {
 
 func WipeTestingInfrastructure() {
 	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
-}
-
-func cleanupSubresourceServiceAccount() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	err = virtCli.CoreV1().ServiceAccounts(util2.NamespaceTestDefault).Delete(context.Background(), SubresourceServiceAccountName, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-
-	err = virtCli.RbacV1().Roles(util2.NamespaceTestDefault).Delete(context.Background(), SubresourceServiceAccountName, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-
-	err = virtCli.RbacV1().RoleBindings(util2.NamespaceTestDefault).Delete(context.Background(), SubresourceServiceAccountName, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func createServiceAccount(saName string, clusterRole string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	sa := k8sv1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      saName,
-			Namespace: util2.NamespaceTestDefault,
-			Labels: map[string]string{
-				KubevirtIoTest: saName,
-			},
-		},
-	}
-
-	_, err = virtCli.CoreV1().ServiceAccounts(util2.NamespaceTestDefault).Create(context.Background(), &sa, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-
-	roleBinding := rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      saName,
-			Namespace: util2.NamespaceTestDefault,
-			Labels: map[string]string{
-				KubevirtIoTest: saName,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			Name:     clusterRole,
-			APIGroup: "rbac.authorization.k8s.io",
-		},
-	}
-	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
-		Kind:      "ServiceAccount",
-		Name:      saName,
-		Namespace: util2.NamespaceTestDefault,
-	})
-
-	_, err = virtCli.RbacV1().RoleBindings(util2.NamespaceTestDefault).Create(context.Background(), &roleBinding, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func cleanupServiceAccount(saName string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	err = virtCli.RbacV1().RoleBindings(util2.NamespaceTestDefault).Delete(context.Background(), saName, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-
-	err = virtCli.CoreV1().ServiceAccounts(util2.NamespaceTestDefault).Delete(context.Background(), saName, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func createSubresourceServiceAccount() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	sa := k8sv1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SubresourceServiceAccountName,
-			Namespace: util2.NamespaceTestDefault,
-			Labels: map[string]string{
-				KubevirtIoTest: "sa",
-			},
-		},
-	}
-
-	_, err = virtCli.CoreV1().ServiceAccounts(util2.NamespaceTestDefault).Create(context.Background(), &sa, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-
-	role := rbacv1.Role{
-
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SubresourceServiceAccountName,
-			Namespace: util2.NamespaceTestDefault,
-			Labels: map[string]string{
-				KubevirtIoTest: "sa",
-			},
-		},
-	}
-	role.Rules = append(role.Rules, rbacv1.PolicyRule{
-		APIGroups: []string{"subresources.kubevirt.io"},
-		Resources: []string{"virtualmachines/start"},
-		Verbs:     []string{"update"},
-	})
-
-	_, err = virtCli.RbacV1().Roles(util2.NamespaceTestDefault).Create(context.Background(), &role, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-
-	roleBinding := rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SubresourceServiceAccountName,
-			Namespace: util2.NamespaceTestDefault,
-			Labels: map[string]string{
-				KubevirtIoTest: "sa",
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "Role",
-			Name:     SubresourceServiceAccountName,
-			APIGroup: "rbac.authorization.k8s.io",
-		},
-	}
-	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
-		Kind:      "ServiceAccount",
-		Name:      SubresourceServiceAccountName,
-		Namespace: util2.NamespaceTestDefault,
-	})
-
-	_, err = virtCli.RbacV1().RoleBindings(util2.NamespaceTestDefault).Create(context.Background(), &roleBinding, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func createServiceAccounts() {
-	createSubresourceServiceAccount()
-
-	createServiceAccount(AdminServiceAccountName, "kubevirt.io:admin")
-	createServiceAccount(ViewServiceAccountName, "kubevirt.io:view")
-	createServiceAccount(EditServiceAccountName, "kubevirt.io:edit")
-}
-
-func cleanupServiceAccounts() {
-	cleanupSubresourceServiceAccount()
-
-	cleanupServiceAccount(AdminServiceAccountName)
-	cleanupServiceAccount(ViewServiceAccountName)
-	cleanupServiceAccount(EditServiceAccountName)
 }
 
 func DeleteConfigMap(name string) {
