@@ -19,5 +19,5 @@ rsa==4.7
 six==1.15.0
 typing-extensions==3.7.4.3
 typing-inspect==0.6.0
-urllib3==1.26.3
+urllib3==1.26.5
 websocket-client==0.57.0
