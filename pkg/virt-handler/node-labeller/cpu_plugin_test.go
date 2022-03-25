@@ -110,9 +110,9 @@ var _ = Describe("Node-labeller config", func() {
 		cpuModels := nlController.getSupportedCpuModels()
 		cpuFeatures := nlController.getSupportedCpuFeatures()
 
-		Expect(len(cpuModels)).To(Equal(3), "number of models must match")
+		Expect(cpuModels).To(HaveLen(3), "number of models must match")
 
-		Expect(len(cpuFeatures)).To(Equal(2), "number of features must match")
+		Expect(cpuFeatures).To(HaveLen(2), "number of features must match")
 		counter, err := nlController.capabilities.GetTSCCounter()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(counter).ToNot(BeNil())
@@ -131,9 +131,9 @@ var _ = Describe("Node-labeller config", func() {
 		cpuModels := nlController.getSupportedCpuModels()
 		cpuFeatures := nlController.getSupportedCpuFeatures()
 
-		Expect(len(cpuModels)).To(Equal(0), "number of models doesn't match")
+		Expect(cpuModels).To(BeEmpty(), "number of models doesn't match")
 
-		Expect(len(cpuFeatures)).To(Equal(2), "number of features doesn't match")
+		Expect(cpuFeatures).To(HaveLen(2), "number of features doesn't match")
 	})
 
 	Context("should return correct host cpu", func() {

@@ -679,7 +679,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(record.MountTargetEntries)).To(Equal(1))
+			Expect(record.MountTargetEntries).To(HaveLen(1))
 			Expect(record.MountTargetEntries[0].TargetFile).To(Equal(targetFilePath))
 
 			unmountCommand = func(diskPath string) ([]byte, error) {
