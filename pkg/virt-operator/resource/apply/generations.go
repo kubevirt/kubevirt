@@ -12,7 +12,7 @@ import (
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,7 +30,7 @@ func getGroupResource(required runtime.Object) (group string, resource string, e
 	case *admissionregistrationv1.ValidatingWebhookConfiguration:
 		group = "admissionregistration.k8s.io"
 		resource = "validatingwebhookconfigurations"
-	case *v1beta1.PodDisruptionBudget:
+	case *policyv1.PodDisruptionBudget:
 		group = "apps"
 		resource = "poddisruptionbudgets"
 	case *appsv1.Deployment:

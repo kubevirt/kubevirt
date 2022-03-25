@@ -45,7 +45,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -212,7 +212,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.InfrastructurePod, k.infrastructurePodSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 	k.stores.InfrastructurePodCache = k.informers.InfrastructurePod.GetStore()
 
-	k.informers.PodDisruptionBudget, k.podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1beta1.PodDisruptionBudget{})
+	k.informers.PodDisruptionBudget, k.podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 	k.stores.PodDisruptionBudgetCache = k.informers.PodDisruptionBudget.GetStore()
 
 	k.informers.Namespace, k.namespaceSource = testutils.NewFakeInformerWithIndexersFor(
@@ -266,7 +266,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.virtClient.EXPECT().AppsV1().Return(k.kubeClient.AppsV1()).AnyTimes()
 	k.virtClient.EXPECT().SecClient().Return(k.secClient).AnyTimes()
 	k.virtClient.EXPECT().ExtensionsClient().Return(k.extClient).AnyTimes()
-	k.virtClient.EXPECT().PolicyV1beta1().Return(k.kubeClient.PolicyV1beta1()).AnyTimes()
+	k.virtClient.EXPECT().PolicyV1().Return(k.kubeClient.PolicyV1()).AnyTimes()
 	k.virtClient.EXPECT().PrometheusClient().Return(k.promClient).AnyTimes()
 
 	// Make sure that all unexpected calls to kubeClient will fail
@@ -765,7 +765,7 @@ func (k *KubeVirtTestData) podDisruptionBudgetPatchFunc() func(action testing.Ac
 	return func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		k.genericPatchFunc()(action)
 
-		return true, &policyv1beta1.PodDisruptionBudget{}, nil
+		return true, &policyv1.PodDisruptionBudget{}, nil
 	}
 }
 
@@ -860,8 +860,8 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 	case *k8sv1.Pod:
 		injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 		k.addPod(resource)
-	case *policyv1beta1.PodDisruptionBudget:
-		injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
+	case *policyv1.PodDisruptionBudget:
+		injectMetadata(&obj.(*policyv1.PodDisruptionBudget).ObjectMeta, config)
 		k.addPodDisruptionBudget(resource, kv)
 	case *k8sv1.Secret:
 		injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config)
@@ -979,7 +979,7 @@ func (k *KubeVirtTestData) addPod(pod *k8sv1.Pod) {
 	k.mockQueue.Wait()
 }
 
-func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1beta1.PodDisruptionBudget, kv *v1.KubeVirt) {
+func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1.PodDisruptionBudget, kv *v1.KubeVirt) {
 	k.mockQueue.ExpectAdds(1)
 	if kv != nil {
 		apply.SetGeneration(&kv.Status.Generations, podDisruptionBudget)
@@ -1416,26 +1416,26 @@ func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentCon
 
 func (k *KubeVirtTestData) addPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment, kv *v1.KubeVirt) {
 	minAvailable := intstr.FromInt(1)
-	apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
+	apiPodDisruptionBudget := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: apiDeployment.Namespace,
 			Name:      apiDeployment.Name + "-pdb",
 			Labels:    apiDeployment.Labels,
 		},
-		Spec: policyv1beta1.PodDisruptionBudgetSpec{
+		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector:     apiDeployment.Spec.Selector,
 		},
 	}
 	injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config)
 	k.addPodDisruptionBudget(apiPodDisruptionBudget, kv)
-	controllerPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
+	controllerPodDisruptionBudget := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: controller.Namespace,
 			Name:      controller.Name + "-pdb",
 			Labels:    controller.Labels,
 		},
-		Spec: policyv1beta1.PodDisruptionBudgetSpec{
+		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector:     controller.Spec.Selector,
 		},
