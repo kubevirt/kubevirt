@@ -154,6 +154,7 @@ require (
 require (
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect; indirect github.com/gophercloud/gophercloud v0.4.0 // indirect
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
+	golang.org/x/mod v0.5.1 // indirect
 )
 
 replace (
