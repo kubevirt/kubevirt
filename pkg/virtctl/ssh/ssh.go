@@ -61,7 +61,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 
 	if len(homeDir) > 0 {
-		c.options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "known_hosts")
+		c.options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "kubevirt_known_hosts")
 	}
 
 	cmd := &cobra.Command{
@@ -81,7 +81,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVarP(&c.options.IdentityFilePath, identityFilePathFlag, identityFilePathFlagShort, c.options.IdentityFilePath,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", identityFilePathFlag))
 	cmd.Flags().StringVar(&c.options.KnownHostsFilePath, knownHostsFilePathFlag, c.options.KnownHostsFilePathDefault,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/known_hosts: Set the path to the known_hosts file; If not provided, the client will skip host checks", knownHostsFilePathFlag))
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	cmd.Flags().IntVarP(&c.options.SshPort, portFlag, portFlagShort, c.options.SshPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
 	cmd.Flags().BoolVar(&c.options.WrapLocalSSH, wrapLocalSSHFlag, c.options.WrapLocalSSH,
