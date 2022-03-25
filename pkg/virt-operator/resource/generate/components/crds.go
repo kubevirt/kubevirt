@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
 	"kubevirt.io/api/flavor"
 
 	"kubevirt.io/api/migrations"
@@ -41,9 +43,10 @@ import (
 )
 
 const (
-	creationTimestampJSONPath = ".metadata.creationTimestamp"
-	errorMessageJSONPath      = ".status.error.message"
-	phaseJSONPath             = ".status.phase"
+	creationTimestampJSONPath  = ".metadata.creationTimestamp"
+	errorMessageJSONPath       = ".status.error.message"
+	phaseJSONPath              = ".status.phase"
+	preserveUnknownFieldsFalse = false
 )
 
 var (
@@ -57,7 +60,6 @@ var (
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
-	PreserveUnknownFieldsFalse       = false
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -88,7 +90,7 @@ func addFieldsToAllVersions(crd *extv1.CustomResourceDefinition, fields ...inter
 func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomResourceDefinitionVersion) error {
 	name := crd.Spec.Names.Singular
 
-	crd.Spec.PreserveUnknownFields = PreserveUnknownFieldsFalse
+	crd.Spec.PreserveUnknownFields = preserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
 	if !ok {
 		return nil
@@ -612,7 +614,7 @@ func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 }
 
 // Used by manifest generation
-func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string) *virtv1.KubeVirt {
+func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string, infraReplicas uint8) *virtv1.KubeVirt {
 	cr := &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.GroupVersion.String(),
@@ -632,6 +634,12 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates 
 			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
 				FeatureGates: strings.Split(featureGates, ","),
 			},
+		}
+	}
+
+	if infraReplicas != util.DefaultInfraReplicas {
+		cr.Spec.Infra = &virtv1.ComponentConfig{
+			Replicas: &infraReplicas,
 		}
 	}
 
