@@ -34,7 +34,7 @@ var _ = Describe("Hardware utils test", func() {
 			cpusetLine := "0-2,7,12-14"
 			lst, err := ParseCPUSetLine(cpusetLine, 100)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(lst)).To(Equal(7))
+			Expect(lst).To(HaveLen(7))
 			Expect(lst).To(Equal(expectedList))
 		})
 

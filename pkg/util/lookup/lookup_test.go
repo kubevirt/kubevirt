@@ -48,7 +48,7 @@ var _ = Describe("Lookup", func() {
 
 		returnedVMIs, err := VirtualMachinesOnNode(virtClient, "node01")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(returnedVMIs)).To(Equal(2))
+		Expect(returnedVMIs).To(HaveLen(2))
 	})
 
 	It("should return active vmis on a node", func() {
@@ -62,7 +62,7 @@ var _ = Describe("Lookup", func() {
 
 		returnedVMIs, err := ActiveVirtualMachinesOnNode(virtClient, "node01")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(returnedVMIs)).To(Equal(1))
+		Expect(returnedVMIs).To(HaveLen(1))
 		Expect(returnedVMIs[0].Status.Phase).To(Equal(virtv1.Running))
 	})
 
