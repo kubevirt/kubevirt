@@ -691,7 +691,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(obj interface{}) (*v1.VirtualMachineInstance, error) {
 				vmi := obj.(*v1.VirtualMachineInstance)
-				Expect(len(vmi.Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
+				Expect(vmi.Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 				updatedVMI.Status.PhaseTransitionTimestamps = vmi.Status.PhaseTransitionTimestamps
 
 				Expect(vmi).To(Equal(updatedVMI))
@@ -1464,11 +1464,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 				testStatusMap["test"] = vmi.Status.VolumeStatus[0]
 				testStatusMap["test2"] = vmi.Status.VolumeStatus[0]
 				testStatusMap["test3"] = vmi.Status.VolumeStatus[0]
-				Expect(len(testStatusMap)).To(Equal(3))
+				Expect(testStatusMap).To(HaveLen(3))
 				controller.generateEventsForVolumeStatusChange(vmi, testStatusMap)
 				testutils.ExpectEvent(recorder, "message")
 				testutils.ExpectEvent(recorder, "message")
-				Expect(len(testStatusMap)).To(Equal(3))
+				Expect(testStatusMap).To(HaveLen(3))
 			})
 		})
 
@@ -2663,7 +2663,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachineInstance).Status.VolumeStatus)).To(Equal(2))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.VolumeStatus).To(HaveLen(2))
 				for _, status := range arg.(*v1.VirtualMachineInstance).Status.VolumeStatus {
 					if status.Name == "hpvolume" {
 						Expect(status.Target).To(Equal("sda"))

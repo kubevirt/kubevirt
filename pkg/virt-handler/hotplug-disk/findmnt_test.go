@@ -81,11 +81,11 @@ var _ = Describe("findmnt", func() {
 	DescribeTable("Should return a list of values, with valid input", func(findMntFunc func() ([]FindmntInfo, error)) {
 		res, err := findMntFunc()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(res)).To(Equal(1))
+		Expect(res).To(HaveLen(1))
 		Expect(res[0].GetSourcePath()).To(Equal("/test/path"))
 		Expect(res[0].Target).To(Equal("/testvolume"))
 		Expect(res[0].Fstype).To(Equal("xfs"))
-		Expect(len(res[0].GetOptions())).To(Equal(8))
+		Expect(res[0].GetOptions()).To(HaveLen(8))
 		Expect(res[0].GetOptions()[0]).To(Equal("rw"))
 		Expect(res[0].GetOptions()[1]).To(Equal("relatime"))
 		Expect(res[0].GetOptions()[2]).To(Equal("seclabel"))
@@ -156,7 +156,7 @@ var _ = Describe("findmnt", func() {
 		test := FindmntInfo{
 			Options: "aa,bb,cc,dd",
 		}
-		Expect(len(test.GetOptions())).To(Equal(4))
+		Expect(test.GetOptions()).To(HaveLen(4))
 		Expect(test.GetOptions()[0]).To(Equal("aa"))
 		Expect(test.GetOptions()[1]).To(Equal("bb"))
 		Expect(test.GetOptions()[2]).To(Equal("cc"))
