@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -71,16 +70,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		SetDefaultEventuallyTimeout(120 * time.Second)
 		SetDefaultEventuallyPollingInterval(2 * time.Second)
 
-		workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if workDir != "" {
-			err := os.RemoveAll(workDir)
-			Expect(err).ToNot(HaveOccurred())
-			workDir = ""
-		}
+		workDir = GinkgoT().TempDir()
 	})
 
 	Describe("Creating VM from Template", func() {

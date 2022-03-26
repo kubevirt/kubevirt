@@ -22,9 +22,7 @@ package storage
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math"
-	"os"
 	"strings"
 	"time"
 
@@ -578,7 +576,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:896][crit:high][vendor:cnv-qe@redhat.com][level:system] with oc/kubectl", func() {
 		var vm *v1.VirtualMachine
 		var err error
-		var workDir string
 		var vmJson string
 		var dataVolumeName string
 		var pvcName string
@@ -594,18 +591,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
 			pvcName = dataVolumeName
 
-			workDir, err := ioutil.TempDir("", tests.TempDirPrefix+"-")
+			vmJson, err = tests.GenerateVMJson(vm, GinkgoT().TempDir())
 			Expect(err).ToNot(HaveOccurred())
-			vmJson, err = tests.GenerateVMJson(vm, workDir)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			if workDir != "" {
-				err = os.RemoveAll(workDir)
-				Expect(err).ToNot(HaveOccurred())
-				workDir = ""
-			}
 		})
 
 		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {

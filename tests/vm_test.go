@@ -22,9 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1805,19 +1803,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		BeforeEach(func() {
 			k8sClient = tests.GetK8sCmdClient()
 			tests.SkipIfNoCmd(k8sClient)
-			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
-			Expect(err).ToNot(HaveOccurred())
+			workDir = GinkgoT().TempDir()
 
 			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
 			vmRunningRe = regexp.MustCompile("Phase.*Running")
-		})
-
-		AfterEach(func() {
-			if workDir != "" {
-				err = os.RemoveAll(workDir)
-				Expect(err).ToNot(HaveOccurred())
-				workDir = ""
-			}
 		})
 
 		It("[test_id:243][posneg:negative]should create VM only once", func() {
