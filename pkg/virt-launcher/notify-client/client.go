@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -60,6 +61,13 @@ type libvirtEvent struct {
 	Domain     string
 	Event      *libvirt.DomainEventLifecycle
 	AgentEvent *libvirt.DomainEventAgentLifecycle
+}
+
+type guestUpdateEvent struct {
+	interfaceStatuses    []api.InterfaceStatus
+	guestOsInfo          *api.GuestOSInfo
+	fsFreezeStatus       *api.FSFreeze
+	domainMemoryDumpInfo *api.DomainMemoryDumpInfo
 }
 
 func NewNotifier(virtShareDir string) *Notifier {
@@ -236,7 +244,7 @@ func newWatchEventError(err error) watch.Event {
 }
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
-	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze) {
+	guestEvent guestUpdateEvent, vmi *v1.VirtualMachineInstance) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -332,15 +340,18 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				updateEvents(event, domain, events)
 			}
 		}
-		if interfaceStatus != nil {
-			domain.Status.Interfaces = interfaceStatus
+		if guestEvent.interfaceStatuses != nil {
+			domain.Status.Interfaces = guestEvent.interfaceStatuses
 		}
-		if osInfo != nil {
-			domain.Status.OSInfo = *osInfo
+		if guestEvent.guestOsInfo != nil {
+			domain.Status.OSInfo = *guestEvent.guestOsInfo
 		}
 
-		if fsFreezeStatus != nil {
-			domain.Status.FSFreezeStatus = *fsFreezeStatus
+		if guestEvent.fsFreezeStatus != nil {
+			domain.Status.FSFreezeStatus = *guestEvent.fsFreezeStatus
+		}
+		if guestEvent.domainMemoryDumpInfo != nil {
+			domain.Status.MemoryDumpInfo = *guestEvent.domainMemoryDumpInfo
 		}
 
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
@@ -373,6 +384,7 @@ func (n *Notifier) StartDomainNotifier(
 	vmi *v1.VirtualMachineInstance,
 	domainName string,
 	agentStore *agentpoller.AsyncAgentStore,
+	domainManager virtwrap.DomainManager,
 	qemuAgentSysInterval time.Duration,
 	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
@@ -383,6 +395,8 @@ func (n *Notifier) StartDomainNotifier(
 	eventChan := make(chan libvirtEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
+
+	domainUpdateChan := domainManager.GetDomainUpdateChan()
 
 	var domainCache *api.Domain
 
@@ -402,14 +416,12 @@ func (n *Notifier) StartDomainNotifier(
 
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
-		var interfaceStatuses []api.InterfaceStatus
-		var guestOsInfo *api.GuestOSInfo
-		var fsFreezeStatus *api.FSFreeze
+		guestEvent := guestUpdateEvent{}
 		for {
 			select {
 			case event := <-eventChan:
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus)
+				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, guestEvent, vmi)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -419,12 +431,15 @@ func (n *Notifier) StartDomainNotifier(
 					}
 				}
 			case agentUpdate := <-agentStore.AgentUpdated:
-				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
-				guestOsInfo = agentUpdate.DomainInfo.OSInfo
-				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
+				guestEvent.interfaceStatuses = agentUpdate.DomainInfo.Interfaces
+				guestEvent.guestOsInfo = agentUpdate.DomainInfo.OSInfo
+				guestEvent.fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
-				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus)
+				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent, guestEvent, vmi)
+			case domainUpdate := <-domainUpdateChan:
+				guestEvent.domainMemoryDumpInfo = domainUpdate.MemoryDumpInfo
+				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent, guestEvent, vmi)
+
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 			}

@@ -9902,6 +9902,19 @@ var CRDsValidation map[string]string = map[string]string{
                       the volume to the node.
                     type: string
                 type: object
+              memoryDumpVolume:
+                description: If the volume is memorydump volume, this will contain
+                  the memorydump info.
+                properties:
+                  dumpTimestamp:
+                    description: DumpTimestamp is the time when the memory dump occured
+                    format: date-time
+                    type: string
+                  volumeName:
+                    description: VolumeName is the name of the volume the memory was
+                      dumped to
+                    type: string
+                type: object
               message:
                 description: Message is a detailed message about the current hotplug
                   volume phase

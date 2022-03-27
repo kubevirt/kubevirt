@@ -2585,6 +2585,42 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIStarted)
 		})
+		It("should update Guest MemoryDumpInfo in VMI status", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "memoryDumpVolume",
+					Phase: v1.VolumeReady,
+					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
+						VolumeName: "memoryDumpVolume",
+					},
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			now := metav1.Now()
+			domain.Status.MemoryDumpInfo = api.DomainMemoryDumpInfo{
+				DumpTimestamp: &now,
+				VolumeName:    "memoryDumpVolume",
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			controller.updateVolumeStatusesFromDomain(vmi, domain)
+			Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpCompleted))
+			Expect(vmi.Status.VolumeStatus[0].MemoryDumpVolume.DumpTimestamp.Format("20060102-150405")).To(Equal(domain.Status.MemoryDumpInfo.DumpTimestamp.Format("20060102-150405")))
+			testutils.ExpectEvent(recorder, "Memory dump to Volume memoryDumpVolume has completed successfully")
+			By("Calling it again with updated status, no new events are generated")
+			controller.updateVolumeStatusesFromDomain(vmi, domain)
+		})
+
 	})
 
 	Context("VirtualMachineInstance controller gets informed about disk information", func() {

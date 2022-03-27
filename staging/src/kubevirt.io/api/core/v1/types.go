@@ -303,6 +303,16 @@ type VolumeStatus struct {
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
 	// Represents the size of the volume
 	Size int64 `json:"size,omitempty"`
+	// If the volume is memorydump volume, this will contain the memorydump info.
+	MemoryDumpVolume *DomainMemoryDumpInfo `json:"memoryDumpVolume,omitempty"`
+}
+
+// DomainMemoryDumpInfo represents the memory dump information
+type DomainMemoryDumpInfo struct {
+	// DumpTimestamp is the time when the memory dump occured
+	DumpTimestamp *metav1.Time `json:"dumpTimestamp,omitempty"`
+	// VolumeName is the name of the volume the memory was dumped to
+	VolumeName string `json:"volumeName,omitempty"`
 }
 
 // HotplugVolumeStatus represents the hotplug status of the volume
@@ -331,6 +341,8 @@ const (
 	HotplugVolumeDetaching VolumePhase = "Detaching"
 	// HotplugVolumeUnMounted means the volume has been unmounted from the virt-launcer pod.
 	HotplugVolumeUnMounted VolumePhase = "UnMountedFromPod"
+	// MemoryDumpCompleted means that the requested memory dump was completed and the dump is ready in the volume
+	MemoryDumpCompleted VolumePhase = "MemoryDumpCompleted"
 )
 
 func (v *VirtualMachineInstance) IsScheduling() bool {

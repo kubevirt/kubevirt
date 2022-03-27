@@ -34,6 +34,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -105,7 +106,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().IsPersistent().Return(true, nil)
 				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, guestUpdateEvent{}, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -136,7 +137,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, guestUpdateEvent{}, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -178,7 +179,10 @@ var _ = Describe("Notify", func() {
 					},
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil)
+				guestEvent := guestUpdateEvent{
+					interfaceStatuses: interfaceStatus,
+				}
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, guestEvent, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -211,7 +215,10 @@ var _ = Describe("Notify", func() {
 					Name: guestOsName,
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil)
+				guestEvent := guestUpdateEvent{
+					guestOsInfo: &osInfoStatus,
+				}
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, guestEvent, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -242,8 +249,11 @@ var _ = Describe("Notify", func() {
 				fsFreezeStatus := api.FSFreeze{
 					Status: fsFrozenStatus,
 				}
+				guestEvent := guestUpdateEvent{
+					fsFreezeStatus: &fsFreezeStatus,
+				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, guestEvent, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -254,6 +264,43 @@ var _ = Describe("Notify", func() {
 					newDomain, _ := event.Object.(*api.Domain)
 					newFSFreezeStatus := newDomain.Status.FSFreezeStatus
 					Expect(equality.Semantic.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
+				}
+				Expect(timedOut).To(BeFalse())
+			})
+
+		It("should update memory dump info",
+			func() {
+				domain := api.NewMinimalDomain("test")
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+				mockDomain.EXPECT().Free()
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockDomain.EXPECT().IsPersistent().Return(true, nil)
+				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
+
+				now := metav1.Now()
+				memoryDumpInfo := api.DomainMemoryDumpInfo{
+					DumpTimestamp: &now,
+					VolumeName:    "memVol",
+				}
+				guestEvent := guestUpdateEvent{
+					domainMemoryDumpInfo: &memoryDumpInfo,
+				}
+
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, guestEvent, nil)
+
+				timedOut := false
+				timeout := time.After(2 * time.Second)
+				select {
+				case <-timeout:
+					timedOut = true
+				case event := <-eventChan:
+					newDomain, _ := event.Object.(*api.Domain)
+					updatedMemoryDumpInfo := newDomain.Status.MemoryDumpInfo
+					Expect(updatedMemoryDumpInfo.DumpTimestamp.Format("20060102-150405")).To(Equal(memoryDumpInfo.DumpTimestamp.Format("20060102-150405")))
+					Expect(updatedMemoryDumpInfo.VolumeName).To(Equal(memoryDumpInfo.VolumeName))
 				}
 				Expect(timedOut).To(BeFalse())
 			})
@@ -346,7 +393,7 @@ var _ = Describe("Notify", func() {
 			eventType := "Warning"
 			eventReason := "IOerror"
 			eventMessage := "VM Paused due to not enough space on volume: "
-			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil)
+			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, guestUpdateEvent{}, vmi)
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})

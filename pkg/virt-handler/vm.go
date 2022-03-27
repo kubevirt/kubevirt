@@ -809,12 +809,18 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		newStatuses := make([]v1.VolumeStatus, 0)
 		needsRefresh := false
 		for _, volumeStatus := range vmi.Status.VolumeStatus {
+			tmpNeedsRefresh := false
 			if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
 				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 			}
 			if volumeStatus.HotplugVolume != nil {
 				hasHotplug = true
-				volumeStatus, needsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+				volumeStatus, tmpNeedsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+				needsRefresh = needsRefresh || tmpNeedsRefresh
+			}
+			if volumeStatus.MemoryDumpVolume != nil {
+				volumeStatus, tmpNeedsRefresh = d.updateMemoryDumpInfo(volumeStatus, domain)
+				needsRefresh = needsRefresh || tmpNeedsRefresh
 			}
 			newStatuses = append(newStatuses, volumeStatus)
 			newStatusMap[volumeStatus.Name] = volumeStatus
@@ -994,6 +1000,27 @@ func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
 	}
+}
+
+func (d *VirtualMachineController) updateMemoryDumpInfo(volumeStatus v1.VolumeStatus, domain *api.Domain) (v1.VolumeStatus, bool) {
+	needsRefresh := false
+
+	if domain == nil || domain.Status.MemoryDumpInfo.DumpTimestamp == nil {
+		return volumeStatus, needsRefresh
+	}
+
+	if volumeStatus.Phase != v1.MemoryDumpCompleted {
+		needsRefresh = true
+		log.Log.Object(domain).Infof("Marking memory dump to volume %s has completed", volumeStatus.Name)
+		volumeStatus.Phase = v1.MemoryDumpCompleted
+		volumeStatus.Message = fmt.Sprintf("Memory dump to Volume %s has completed successfully", volumeStatus.Name)
+		volumeStatus.Reason = VolumeReadyReason
+		volumeStatus.MemoryDumpVolume = &v1.DomainMemoryDumpInfo{
+			DumpTimestamp: domain.Status.MemoryDumpInfo.DumpTimestamp,
+			VolumeName:    volumeStatus.Name,
+		}
+	}
+	return volumeStatus, needsRefresh
 }
 
 func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

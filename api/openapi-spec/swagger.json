@@ -13029,6 +13029,20 @@
      }
     }
    },
+   "v1.DomainMemoryDumpInfo": {
+    "description": "DomainMemoryDumpInfo represents the memory dump information",
+    "type": "object",
+    "properties": {
+     "dumpTimestamp": {
+      "description": "DumpTimestamp is the time when the memory dump occured",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "volumeName": {
+      "description": "VolumeName is the name of the volume the memory was dumped to",
+      "type": "string"
+     }
+    }
+   },
    "v1.DomainSpec": {
     "type": "object",
     "required": [
@@ -16349,6 +16363,10 @@
      "hotplugVolume": {
       "description": "If the volume is hotplug, this will contain the hotplug status.",
       "$ref": "#/definitions/v1.HotplugVolumeStatus"
+     },
+     "memoryDumpVolume": {
+      "description": "If the volume is memorydump volume, this will contain the memorydump info.",
+      "$ref": "#/definitions/v1.DomainMemoryDumpInfo"
      },
      "message": {
       "description": "Message is a detailed message about the current hotplug volume phase",
