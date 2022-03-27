@@ -408,7 +408,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				response.WriteHeader(http.StatusAccepted)
 				return
 			}
-			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
+			// set terminationGracePeriod and delete the VMI pod to trigger a forced restart
 			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
 			if err != nil {
 				if !errors.IsNotFound(err) {
@@ -570,7 +570,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 }
 
 func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, response *restful.Response) {
-	// RunStrategyHalted         -> doesn't make sense
+	// RunStrategyHalted         -> force stop if graceperiod=0, otherwise doesn't make sense
 	// RunStrategyManual         -> send stop request
 	// RunStrategyAlways         -> spec.running = false
 	// RunStrategyRerunOnFailure -> spec.running = false
@@ -615,6 +615,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	patchType := types.MergePatchType
 	var patchErr error
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
+
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
 		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
 		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
@@ -630,8 +631,24 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
 			return
 		}
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted)), response)
-		return
+		if vmi.Spec.TerminationGracePeriodSeconds == nil {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v only supports manual stop requests with graceperiod=0", v1.RunStrategyHalted)), response)
+			return
+		}
+		if *vmi.Spec.TerminationGracePeriodSeconds != 0 {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v only supports manual stop requests with graceperiod=0", v1.RunStrategyHalted)), response)
+			return
+		}
+		// same behavior as RunStrategyManual
+		patchType = types.JSONPatchType
+		bodyString, err := getChangeRequestJson(vm,
+			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
+		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyManual:
 		if !hasVMI || vmi.IsFinal() {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
