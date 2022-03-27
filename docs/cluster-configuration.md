@@ -542,9 +542,51 @@ spec:
       - "private-registry-example-2:5000"
       ...
 ```
+## Modify common golden images
+Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it is possible to modify them, if needed.
+
+The list of all the golden images is available at the `status` field, under `dataImportCronTemplates` list. The common images are not part of list in the `spec` field. The list in the status is a reference for modifications. Add the image that requires modification to the list in the spec, and edit it. 
+
+The supported modifications are: disabling a specific image, and changing the `storage` field. Editing other fields will be ignored by HCO.
+
+### Disabling a common golden image
+To disable a golden image, add it to the  dataImportCronTemplates` field in the spec object, with the `dataimportcrontemplate.kubevirt.io/enable` annotation, with the value of `false`; for example, disabling the fedora golden image:
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  dataImportCronTemplates:
+  - metadata:
+      name: fedora-image-cron
+      annotations:
+        dataimportcrontemplate.kubevirt.io/enable: 'false'
+```
+
+There is no need to copy the whole object, but only the relevant fields; i.e. the `metadat.name` field.
+
+### Modifying the storage field
+It is possible to checge the storage configuration of a common golden image by adding the common image to the `dataImportCronTemplates` list in the `spec` field. HCO will replace the existing storage object if it exists, or add it if it is missing; for example, change the storage class for centos8 golden image:
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  dataImportCronTemplates:
+  - metadata:
+      name: centos-stream8-image-cron
+    spec:
+      template:
+        spec:
+          storage:
+            storageClassName: "some-name"
+```
 
 ## Configure custom golden images
-Golden images are root disk images for commonly used operating systems. HCO provides several hard coded images, but it 
+Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it 
 is also possible to add custom golden images. For more details, see [the golden image documentation](https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md).
 
 To add a custom image, add a `DataImportCronTemplate` object to the `dataImportCronTemplates` under
@@ -567,18 +609,22 @@ spec:
       name: custom-image1
     spec:
       schedule: "0 */12 * * *"
-      source:
-        registry:
-          url: docker://myprivateregistry/custom1
+      template:
+        spec:
+          source:
+            registry:
+              url: docker://myprivateregistry/custom1
       managedDataSource: custom1
       retentionPolicy: "All" # created DataVolumes and DataSources are retained when their DataImportCron is deleted (default behavior)
   - metadata:
       name: custom-image2
     spec:
       schedule: "1 */12 * * *"
-      source:
-        registry:
-          url: docker://myprivateregistry/custom2
+      template:
+        spec:
+          source:
+            registry:
+              url: docker://myprivateregistry/custom2
       managedDataSource: custom2
       retentionPolicy: "None" # created DataVolumes and DataSources are deleted when their DataImportCron is deleted
 ```

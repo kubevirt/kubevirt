@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"sort"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,13 +32,14 @@ const (
 	defaultCommonTemplatesNamespace = hcoutil.OpenshiftNamespace
 
 	dataImportCronTemplatesFileLocation = "./dataImportCronTemplates"
+
+	dataImportCronEnabledAnnotation = "dataimportcrontemplate.kubevirt.io/enable"
 )
 
 var (
-	// dataImportCronTemplateHardCodedList are set of data import cron template configurations. The handler reads a list
+	// dataImportCronTemplateHardCodedMap are set of data import cron template configurations. The handler reads a list
 	// of data import cron templates from a local file and updates SSP with the up-to-date list
-	dataImportCronTemplateHardCodedList  []sspv1beta1.DataImportCronTemplate
-	dataImportCronTemplateHardCodedNames map[string]struct{}
+	dataImportCronTemplateHardCodedMap map[string]sspv1beta1.DataImportCronTemplate
 )
 
 func init() {
@@ -63,16 +66,18 @@ func newSspHandler(Client client.Client, Scheme *runtime.Scheme) *sspHandler {
 }
 
 type sspHooks struct {
-	cache *sspv1beta1.SSP
+	cache        *sspv1beta1.SSP
+	dictStatuses []hcov1beta1.DataImportCronTemplateStatus
 }
 
 func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	if h.cache == nil {
-		ssp, err := NewSSP(hc)
+		ssp, dictStatus, err := NewSSP(hc)
 		if err != nil {
 			return nil, err
 		}
 		h.cache = ssp
+		h.dictStatuses = dictStatus
 	}
 	return h.cache, nil
 }
@@ -90,6 +95,7 @@ func (h sspHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 }
 func (h *sspHooks) reset() {
 	h.cache = nil
+	h.dictStatuses = nil
 }
 
 func (h *sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
@@ -116,7 +122,14 @@ func (h *sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists
 	return false, false, nil
 }
 
-func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, error) {
+func (h sspHooks) justBeforeComplete(req *common.HcoRequest) {
+	if !reflect.DeepEqual(h.dictStatuses, req.Instance.Status.DataImportCronTemplates) {
+		req.Instance.Status.DataImportCronTemplates = h.dictStatuses
+		req.StatusDirty = true
+	}
+}
+
+func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov1beta1.DataImportCronTemplateStatus, error) {
 	replicas := int32(defaultTemplateValidatorReplicas)
 	templatesNamespace := defaultCommonTemplatesNamespace
 
@@ -126,9 +139,14 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, err
 
 	applyDataImportSchedule(hc)
 
-	dataImportCronTemplates, err := getDataImportCronTemplates(hc)
+	dataImportCronStatuses, err := getDataImportCronTemplates(hc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	var dataImportCronTemplates []sspv1beta1.DataImportCronTemplate
+	for _, dictStatus := range dataImportCronStatuses {
+		dataImportCronTemplates = append(dataImportCronTemplates, dictStatus.DataImportCronTemplate)
 	}
 
 	spec := sspv1beta1.SSPSpec{
@@ -156,7 +174,7 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, err
 	ssp := NewSSPWithNameOnly(hc)
 	ssp.Spec = spec
 
-	return ssp, nil
+	return ssp, dataImportCronStatuses, nil
 }
 
 func NewSSPWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *sspv1beta1.SSP {
@@ -174,8 +192,7 @@ var getDataImportCronTemplatesFileLocation = func() string {
 }
 
 func readDataImportCronTemplatesFromFile() error {
-	dataImportCronTemplateHardCodedList = make([]sspv1beta1.DataImportCronTemplate, 0)
-	dataImportCronTemplateHardCodedNames = make(map[string]struct{})
+	dataImportCronTemplateHardCodedMap = make(map[string]sspv1beta1.DataImportCronTemplate)
 
 	fileLocation := getDataImportCronTemplatesFileLocation()
 
@@ -202,10 +219,8 @@ func readDataImportCronTemplatesFromFile() error {
 				return internalErr
 			}
 
-			dataImportCronTemplateHardCodedList = append(dataImportCronTemplateHardCodedList, dataImportCronTemplateFromFile...)
-
 			for _, dict := range dataImportCronTemplateFromFile {
-				dataImportCronTemplateHardCodedNames[dict.Name] = struct{}{}
+				dataImportCronTemplateHardCodedMap[dict.Name] = dict
 			}
 		}
 
@@ -213,32 +228,79 @@ func readDataImportCronTemplatesFromFile() error {
 	})
 }
 
-func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) ([]sspv1beta1.DataImportCronTemplate, error) {
-	if err := validateDataImportCronTemplates(hc); err != nil {
+func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) ([]hcov1beta1.DataImportCronTemplateStatus, error) {
+	crDicts, err := getDicMapFromCr(hc)
+	if err != nil {
 		return nil, err
 	}
 
-	var dataImportCronTemplateList []sspv1beta1.DataImportCronTemplate = nil
-
+	var dictList []hcov1beta1.DataImportCronTemplateStatus
 	if hc.Spec.FeatureGates.EnableCommonBootImageImport {
-		dataImportCronTemplateList = append(dataImportCronTemplateList, dataImportCronTemplateHardCodedList...)
+		dictList = getCommonDicts(dictList, crDicts)
 	}
-	dataImportCronTemplateList = append(dataImportCronTemplateList, hc.Spec.DataImportCronTemplates...)
+	dictList = getCustomDicts(dictList, crDicts)
 
-	return dataImportCronTemplateList, nil
+	sort.Sort(dataImportTemplateSlice(dictList))
+
+	return dictList, nil
 }
 
-func validateDataImportCronTemplates(hc *hcov1beta1.HyperConverged) error {
-	dictNames := make(map[string]struct{})
-	for _, dict := range hc.Spec.DataImportCronTemplates {
-		_, foundCommon := dataImportCronTemplateHardCodedNames[dict.Name]
-		_, foundCustom := dictNames[dict.Name]
-		if foundCustom || foundCommon {
-			return fmt.Errorf("%s DataImportCronTable is already defined", dict.Name)
+func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]sspv1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
+	for dictName, commonDict := range dataImportCronTemplateHardCodedMap {
+		targetDict := hcov1beta1.DataImportCronTemplateStatus{
+			DataImportCronTemplate: *commonDict.DeepCopy(),
+			Status: hcov1beta1.DataImportCronStatus{
+				CommonTemplate: true,
+			},
 		}
-		dictNames[dict.Name] = struct{}{}
+
+		if crDict, found := crDicts[dictName]; found {
+			if !isDataImportCronTemplateEnabled(crDict) {
+				continue
+			}
+
+			if crDict.Spec.Template.Spec.Storage != nil {
+				targetDict.Spec.Template.Spec.Storage = crDict.Spec.Template.Spec.Storage.DeepCopy()
+
+				targetDict.Status.Modified = true
+			}
+		}
+		list = append(list, targetDict)
 	}
-	return nil
+
+	return list
+}
+
+func isDataImportCronTemplateEnabled(dict sspv1beta1.DataImportCronTemplate) bool {
+	annotationVal, found := dict.Annotations[dataImportCronEnabledAnnotation]
+	return !found || strings.ToLower(annotationVal) == "true"
+}
+
+func getCustomDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]sspv1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
+	for dictName, crDict := range crDicts {
+		if _, isCommon := dataImportCronTemplateHardCodedMap[dictName]; !isCommon {
+			list = append(list, hcov1beta1.DataImportCronTemplateStatus{
+				DataImportCronTemplate: *crDict.DeepCopy(),
+				Status: hcov1beta1.DataImportCronStatus{
+					CommonTemplate: false,
+				},
+			})
+		}
+	}
+
+	return list
+}
+
+func getDicMapFromCr(hc *hcov1beta1.HyperConverged) (map[string]sspv1beta1.DataImportCronTemplate, error) {
+	dictMap := make(map[string]sspv1beta1.DataImportCronTemplate)
+	for _, dict := range hc.Spec.DataImportCronTemplates {
+		_, foundCustom := dictMap[dict.Name]
+		if foundCustom {
+			return nil, fmt.Errorf("%s DataImportCronTable is already defined", dict.Name)
+		}
+		dictMap[dict.Name] = dict
+	}
+	return dictMap, nil
 }
 
 func applyDataImportSchedule(hc *hcov1beta1.HyperConverged) {
@@ -248,7 +310,16 @@ func applyDataImportSchedule(hc *hcov1beta1.HyperConverged) {
 }
 
 func overrideDataImportSchedule(schedule string) {
-	for i := 0; i < len(dataImportCronTemplateHardCodedList); i++ {
-		dataImportCronTemplateHardCodedList[i].Spec.Schedule = schedule
+	for dictName := range dataImportCronTemplateHardCodedMap {
+		dict := dataImportCronTemplateHardCodedMap[dictName]
+		dict.Spec.Schedule = schedule
+		dataImportCronTemplateHardCodedMap[dictName] = dict
 	}
 }
+
+// implement sort.Interface
+type dataImportTemplateSlice []hcov1beta1.DataImportCronTemplateStatus
+
+func (d dataImportTemplateSlice) Len() int           { return len(d) }
+func (d dataImportTemplateSlice) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
+func (d dataImportTemplateSlice) Less(i, j int) bool { return d[i].Name < d[j].Name }

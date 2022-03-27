@@ -8,6 +8,8 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 ## Table of Contents
 * [CertRotateConfigCA](#certrotateconfigca)
 * [CertRotateConfigServer](#certrotateconfigserver)
+* [DataImportCronStatus](#dataimportcronstatus)
+* [DataImportCronTemplateStatus](#dataimportcrontemplatestatus)
 * [HyperConverged](#hyperconverged)
 * [HyperConvergedCertConfig](#hyperconvergedcertconfig)
 * [HyperConvergedConfig](#hyperconvergedconfig)
@@ -47,6 +49,27 @@ CertRotateConfigServer contains the tunables for TLS certificates.
 | ----- | ----------- | ------ | -------- |-------- |
 | duration | The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration) | metav1.Duration | "24h0m0s" | false |
 | renewBefore | The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration) | metav1.Duration | "12h0m0s" | false |
+
+[Back to TOC](#table-of-contents)
+
+## DataImportCronStatus
+
+DataImportCronStatus is the status field of the DIC template
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| commonTemplate | CommonTemplate indicates whether this is a common template (true), or a custom one (false) | bool |  | false |
+| modified | Modified indicates if a common template was customized. Always false for custom templates. | bool |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## DataImportCronTemplateStatus
+
+DataImportCronTemplateStatus is a copy of a dataImportCronTemplate as defined in the spec, or in the HCO image.
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| status |  | [DataImportCronStatus](#dataimportcronstatus) |  | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -155,6 +178,7 @@ HyperConvergedStatus defines the observed state of HyperConverged
 | versions | Versions is a list of HCO component versions, as name/version pairs. The version with a name of \"operator\" is the HCO version itself, as described here: https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version | [][Version](#version) |  | false |
 | observedGeneration | ObservedGeneration reflects the HyperConverged resource generation. If the ObservedGeneration is less than the resource generation in metadata, the status is out of date | int64 |  | false |
 | dataImportSchedule | DataImportSchedule is the cron expression that is used in for the hard-coded data import cron templates. HCO generates the value of this field once and stored in the status field, so will survive restart. | string |  | false |
+| dataImportCronTemplates | DataImportCronTemplates is a list of the actual DataImportCronTemplates as HCO update in the SSP CR. The list contains both the common and the custom templates, including any modification done by HCO. | [][DataImportCronTemplateStatus](#dataimportcrontemplatestatus) |  | false |
 
 [Back to TOC](#table-of-contents)
 

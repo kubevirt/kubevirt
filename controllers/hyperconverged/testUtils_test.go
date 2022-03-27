@@ -244,7 +244,7 @@ func getBasicDeployment() *BasicExpected {
 	expectedCNA.Status.Conditions = getGenericCompletedConditions()
 	res.cna = expectedCNA
 
-	expectedSSP, err := operands.NewSSP(hco)
+	expectedSSP, _, err := operands.NewSSP(hco)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedSSP.Namespace, expectedSSP.Name)
 	expectedSSP.Status.Conditions = getGenericCompletedConditions()

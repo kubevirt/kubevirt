@@ -60,6 +60,8 @@ type hcoResourceHooks interface {
 	updateCr(*common.HcoRequest, client.Client, runtime.Object, runtime.Object) (bool, bool, error)
 	// cast he specific resource to *metav1.ObjectMeta
 	getObjectMeta(runtime.Object) *metav1.ObjectMeta
+	// last hook before completing the operand handling
+	justBeforeComplete(req *common.HcoRequest)
 }
 
 // Set of operand handler hooks, to be implement in each handler
@@ -95,19 +97,24 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	found := h.hooks.getEmptyCr()
 	err = h.Client.Get(req.Ctx, key, found)
 	if err != nil {
-		result := h.createNewCr(req, err, cr, res)
+		res = h.createNewCr(req, err, cr, res)
 
-		if apierrors.IsAlreadyExists(result.Err) {
+		if apierrors.IsAlreadyExists(res.Err) {
 			// we failed trying to create it due to a caching error
 			// or we neither tried because we know that the object is already there for sure,
 			// but we cannot get it due to a bad cache hit.
 			// Let's try updating it bypassing the client cache mechanism
 			return h.handleExistingCrSkipCache(req, key, found, cr, res)
 		}
-		return result
+	} else {
+		res = h.handleExistingCr(req, key, found, cr, res)
 	}
 
-	return h.handleExistingCr(req, key, found, cr, res)
+	if res.Err == nil {
+		h.hooks.justBeforeComplete(req)
+	}
+
+	return res
 }
 
 func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.ObjectKey, found client.Object, cr client.Object, res *EnsureResult) *EnsureResult {

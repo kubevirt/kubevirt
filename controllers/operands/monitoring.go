@@ -92,6 +92,8 @@ func (h *metricsServiceHooks) updateCr(req *common.HcoRequest, Client client.Cli
 	return false, false, nil
 }
 
+func (h metricsServiceHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+
 // NewMetricsService creates service for prometheus metrics
 func NewMetricsService(hc *hcov1beta1.HyperConverged, namespace string) *corev1.Service {
 	// Add to the below struct any other metrics ports you want to expose.
@@ -170,6 +172,8 @@ func (h *metricsServiceMonitorHooks) updateCr(req *common.HcoRequest, Client cli
 	return false, false, nil
 }
 
+func (h metricsServiceMonitorHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+
 // NewServiceMonitor creates ServiceMonitor resource to expose metrics endpoint
 func NewServiceMonitor(hc *hcov1beta1.HyperConverged, namespace string) *monitoringv1.ServiceMonitor {
 	labels := getLabels(hc, hcoutil.AppComponentMonitoring)
@@ -237,6 +241,8 @@ func (h *prometheusRuleHooks) updateCr(req *common.HcoRequest, Client client.Cli
 	}
 	return false, false, nil
 }
+
+func (h prometheusRuleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 // NewPrometheusRule creates PrometheusRule resource to define alert rules
 func NewPrometheusRule(hc *hcov1beta1.HyperConverged, namespace string) *monitoringv1.PrometheusRule {

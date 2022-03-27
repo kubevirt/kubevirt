@@ -33,28 +33,28 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.CertRotateConfigCA":                   schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.CertRotateConfigServer":               schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConverged":                       schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedCertConfig":             schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedFeatureGates":           schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedObsoleteCPUs":           schema_pkg_apis_hco_v1beta1_HyperConvergedObsoleteCPUs(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedSpec":                   schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedStatus":                 schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedWorkloadUpdateStrategy": schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LiveMigrationConfigurations":          schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LogVerbosityConfiguration":            schema_pkg_apis_hco_v1beta1_LogVerbosityConfiguration(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedDevicesConfiguration":         schema_pkg_apis_hco_v1beta1_MediatedDevicesConfiguration(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedHostDevice":                   schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.NodeMediatedDeviceTypesConfig":        schema_pkg_apis_hco_v1beta1_NodeMediatedDeviceTypesConfig(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.OperandResourceRequirements":          schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PciHostDevice":                        schema_pkg_apis_hco_v1beta1_PciHostDevice(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PermittedHostDevices":                 schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.StorageImportConfig":                  schema_pkg_apis_hco_v1beta1_StorageImportConfig(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.CertRotateConfigCA":                   schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfigCA(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.CertRotateConfigServer":               schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfigServer(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConverged":                       schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConverged(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedCertConfig":             schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedCertConfig(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedFeatureGates":           schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedFeatureGates(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedObsoleteCPUs":           schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedObsoleteCPUs(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedSpec":                   schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedSpec(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedStatus":                 schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedStatus(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedWorkloadUpdateStrategy": schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LiveMigrationConfigurations":          schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationConfigurations(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LogVerbosityConfiguration":            schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LogVerbosityConfiguration(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedDevicesConfiguration":         schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevicesConfiguration(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedHostDevice":                   schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedHostDevice(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.NodeMediatedDeviceTypesConfig":        schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_NodeMediatedDeviceTypesConfig(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.OperandResourceRequirements":          schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_OperandResourceRequirements(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PciHostDevice":                        schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PciHostDevice(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PermittedHostDevices":                 schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PermittedHostDevices(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.StorageImportConfig":                  schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_StorageImportConfig(ref),
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfigCA(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -64,14 +64,12 @@ func schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref common.ReferenceCallback
 					"duration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"renewBefore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -83,7 +81,7 @@ func schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref common.ReferenceCallback
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfigServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -93,14 +91,12 @@ func schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref common.ReferenceCall
 					"duration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"renewBefore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -112,7 +108,7 @@ func schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConverged(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConverged(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -159,7 +155,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConverged(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedCertConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -188,7 +184,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedFeatureGates(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -205,7 +201,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 					},
 					"sriovLiveMigration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allow migrating a virtual machine with SRIOV interfaces.",
+							Description: "Allow migrating a virtual machine with SRIOV interfaces. Ignored on single node clusters.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -225,7 +221,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConvergedObsoleteCPUs(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedObsoleteCPUs(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -265,7 +261,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedObsoleteCPUs(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -411,7 +407,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -421,6 +417,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 					"conditions": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
+								"x-kubernetes-list-type":       "atomic",
 								"x-kubernetes-patch-merge-key": "type",
 								"x-kubernetes-patch-strategy":  "merge",
 							},
@@ -439,6 +436,11 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 						},
 					},
 					"relatedObjects": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "RelatedObjects is a list of objects created and maintained by this operator. Object references will be added to this list after they have been created AND found in the cluster.",
 							Type:        []string{"array"},
@@ -453,6 +455,11 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 						},
 					},
 					"versions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Versions is a list of HCO component versions, as name/version pairs. The version with a name of \"operator\" is the HCO version itself, as described here: https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version",
 							Type:        []string{"array"},
@@ -480,15 +487,29 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"dataImportCronTemplates": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataImportCronTemplates is a list of the actual DataImportCronTemplates as HCO update in the SSP CR. The list contains both the common and the custom templates, including any modification done by HCO.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.DataImportCronTemplateStatus"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.Version", "k8s.io/api/core/v1.ObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.DataImportCronTemplateStatus", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.Version", "k8s.io/api/core/v1.ObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -502,7 +523,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref common
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating.",
+							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating. LiveMigrate is ignored on SNO clusters.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -536,7 +557,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref common
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -591,7 +612,7 @@ func schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref common.Referenc
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_LogVerbosityConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LogVerbosityConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -611,7 +632,7 @@ func schema_pkg_apis_hco_v1beta1_LogVerbosityConfiguration(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_MediatedDevicesConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevicesConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -663,7 +684,7 @@ func schema_pkg_apis_hco_v1beta1_MediatedDevicesConfiguration(ref common.Referen
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -707,7 +728,7 @@ func schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref common.ReferenceCallback
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_NodeMediatedDeviceTypesConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_NodeMediatedDeviceTypesConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -756,7 +777,7 @@ func schema_pkg_apis_hco_v1beta1_NodeMediatedDeviceTypesConfig(ref common.Refere
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_OperandResourceRequirements(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -777,7 +798,7 @@ func schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref common.Referenc
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_PciHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PciHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -821,7 +842,7 @@ func schema_pkg_apis_hco_v1beta1_PciHostDevice(ref common.ReferenceCallback) com
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PermittedHostDevices(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -878,7 +899,7 @@ func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_StorageImportConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_StorageImportConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

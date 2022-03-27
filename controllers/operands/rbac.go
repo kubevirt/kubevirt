@@ -72,6 +72,8 @@ func (h *roleHooks) updateCr(req *common.HcoRequest, Client client.Client, exist
 	return false, false, nil
 }
 
+func (h roleHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+
 // ********* Role Binding Handler *****************************
 
 func newRoleBindingHandler(Client client.Client, Scheme *runtime.Scheme, required *rbacv1.RoleBinding) Operand {
@@ -128,3 +130,5 @@ func (h *roleBindingHooks) updateCr(req *common.HcoRequest, Client client.Client
 
 	return false, false, nil
 }
+
+func (h roleBindingHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }

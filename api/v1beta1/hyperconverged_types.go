@@ -5,9 +5,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -412,6 +412,10 @@ type HyperConvergedStatus struct {
 	// generates the value of this field once and stored in the status field, so will survive restart.
 	// +optional
 	DataImportSchedule string `json:"dataImportSchedule,omitempty"`
+
+	// DataImportCronTemplates is a list of the actual DataImportCronTemplates as HCO update in the SSP CR. The list
+	// contains both the common and the custom templates, including any modification done by HCO.
+	DataImportCronTemplates []DataImportCronTemplateStatus `json:"dataImportCronTemplates,omitempty"`
 }
 
 type Version struct {
@@ -424,6 +428,22 @@ type Version struct {
 type LogVerbosityConfiguration struct {
 	// +optional
 	Kubevirt *v1.LogVerbosity `json:"kubevirt,omitempty"`
+}
+
+// DataImportCronStatus is the status field of the DIC template
+type DataImportCronStatus struct {
+	// CommonTemplate indicates whether this is a common template (true), or a custom one (false)
+	CommonTemplate bool `json:"commonTemplate,omitempty"`
+
+	// Modified indicates if a common template was customized. Always false for custom templates.
+	Modified bool `json:"modified,omitempty"`
+}
+
+// DataImportCronTemplateStatus is a copy of a dataImportCronTemplate as defined in the spec, or in the HCO image.
+type DataImportCronTemplateStatus struct {
+	sspv1beta1.DataImportCronTemplate `json:",inline"`
+
+	Status DataImportCronStatus `json:"status,omitempty"`
 }
 
 const (

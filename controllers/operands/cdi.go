@@ -98,6 +98,8 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 	return false, false, nil
 }
 
+func (h cdiHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+
 func getDefaultFeatureGates() []string {
 	return []string{HonorWaitForFirstConsumerGate}
 }
@@ -229,6 +231,8 @@ func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Clie
 
 	return false, false, nil
 }
+
+func (h storageConfigHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	localSC := "local-sc"

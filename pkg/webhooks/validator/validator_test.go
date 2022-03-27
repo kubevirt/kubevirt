@@ -967,7 +967,7 @@ func getFakeClient(hco *v1beta1.HyperConverged) *commonTestUtils.HcoTestClient {
 	cna, err := operands.NewNetworkAddons(hco)
 	Expect(err).ToNot(HaveOccurred())
 
-	ssp, err := operands.NewSSP(hco)
+	ssp, _, err := operands.NewSSP(hco)
 	Expect(err).ToNot(HaveOccurred())
 
 	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, ssp})

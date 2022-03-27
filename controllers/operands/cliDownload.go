@@ -78,6 +78,8 @@ func (h *cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client
 	return false, false, nil
 }
 
+func (h cliDownloadHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+
 func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLIDownload {
 	baseUrl := "https://" + cliDownloadsServiceName + "-" + hc.Namespace + "." + hcoutil.GetClusterInfo().GetDomain()
 
@@ -159,6 +161,8 @@ func (h *cliDownloadsServiceHooks) updateCr(req *common.HcoRequest, Client clien
 	}
 	return false, false, nil
 }
+
+func (h cliDownloadsServiceHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewCliDownloadsService(hc *hcov1beta1.HyperConverged) *corev1.Service {
 
@@ -244,6 +248,8 @@ func (h *cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.
 	}
 	return false, false, nil
 }
+
+func (h cliDownloadsRouteHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
 	weight := int32(100)
