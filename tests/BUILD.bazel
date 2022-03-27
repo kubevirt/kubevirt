@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "config.go",
         "io_utils.go",
         "job.go",
         "migration.go",
@@ -30,6 +29,7 @@ go_library(
         "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//tests/config:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",

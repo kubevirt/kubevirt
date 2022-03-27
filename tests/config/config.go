@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package config
 
 import (
 	"encoding/json"
@@ -51,7 +51,7 @@ type KubeVirtTestsConfiguration struct {
 	StorageSnapshot string `json:"storageSnapshot"`
 }
 
-func loadConfig() (*KubeVirtTestsConfiguration, error) {
+func LoadConfig() (*KubeVirtTestsConfiguration, error) {
 	// open configuration file
 	jsonFile, err := os.Open(flags.ConfigFile)
 	if err != nil {

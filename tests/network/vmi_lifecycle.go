@@ -37,6 +37,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/config"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -131,9 +132,9 @@ func renderPkillAllPod(processName string) *k8sv1.Pod {
 }
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
-	output := tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
+	output := tests.RunCommandOnVmiPod(vmi, []string{config.BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 
-	output = tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
+	output = tests.RunCommandOnVmiPod(vmi, []string{config.BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 }

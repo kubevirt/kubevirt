@@ -35,6 +35,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests:go_default_library",
         "//tests/assert:go_default_library",
+        "//tests/config:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",

@@ -14,7 +14,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/config"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -89,7 +91,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+			[]string{config.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -102,7 +104,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -u qemu -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
+			[]string{config.BinBash, "-c", "grep 'locked memory' /proc/$(ps -u qemu -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		limits := strings.Split(strings.TrimSpace(psOutput), " ")
@@ -131,7 +133,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+			[]string{config.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -143,7 +145,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "ps -cT -u qemu  |grep -i cpu |awk '{print $3\" \" $8}'"},
+			[]string{config.BinBash, "-c", "ps -cT -u qemu  |grep -i cpu |awk '{print $3\" \" $8}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice = strings.Split(strings.TrimSpace(psOutput), "\n")

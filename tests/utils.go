@@ -110,6 +110,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
+	"kubevirt.io/kubevirt/tests/config"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -133,7 +134,7 @@ const (
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
-var Config *KubeVirtTestsConfiguration
+var Config *config.KubeVirtTestsConfiguration
 var KubeVirtDefaultConfig v1.KubeVirtConfiguration
 var Arch string
 
@@ -706,7 +707,7 @@ func CalculateNamespaces() {
 
 func SynchronizedBeforeTestSetup() []byte {
 	var err error
-	Config, err = loadConfig()
+	Config, err = config.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
 
 	if flags.KubeVirtInstallNamespace == "" {
@@ -730,7 +731,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
-	Config, err = loadConfig()
+	Config, err = config.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
 	Arch = getArch()
 
@@ -865,7 +866,7 @@ func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				KubevirtIoTest: name,
+				config.KubevirtIoTest: name,
 			},
 		},
 		Provisioner:       "kubernetes.io/no-provisioner",
@@ -1073,7 +1074,7 @@ func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVol
 	name := fmt.Sprintf("disk-%s", os)
 
 	selector := map[string]string{
-		KubevirtIoTest: os,
+		config.KubevirtIoTest: os,
 	}
 
 	// If the PV is not recycled, it will have a namespace related test label which  we should match
@@ -1137,7 +1138,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
 			Labels: map[string]string{
-				KubevirtIoTest: osName,
+				config.KubevirtIoTest: osName,
 				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
 			},
 		},
@@ -1159,7 +1160,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      KubernetesIoHostName,
+									Key:      config.KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{nodeName},
 								},
@@ -1200,7 +1201,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
 			Labels: map[string]string{
-				KubevirtIoTest: osName,
+				config.KubevirtIoTest: osName,
 				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
 			},
 		},
@@ -1223,7 +1224,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      KubernetesIoHostName,
+									Key:      config.KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{schedulableNode},
 								},
@@ -1427,7 +1428,7 @@ func createServiceAccount(saName string, clusterRole string) {
 			Name:      saName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: saName,
+				config.KubevirtIoTest: saName,
 			},
 		},
 	}
@@ -1442,7 +1443,7 @@ func createServiceAccount(saName string, clusterRole string) {
 			Name:      saName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: saName,
+				config.KubevirtIoTest: saName,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -1487,7 +1488,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: "sa",
+				config.KubevirtIoTest: "sa",
 			},
 		},
 	}
@@ -1503,7 +1504,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: "sa",
+				config.KubevirtIoTest: "sa",
 			},
 		},
 	}
@@ -1523,7 +1524,7 @@ func createSubresourceServiceAccount() {
 			Name:      SubresourceServiceAccountName,
 			Namespace: util2.NamespaceTestDefault,
 			Labels: map[string]string{
-				KubevirtIoTest: "sa",
+				config.KubevirtIoTest: "sa",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -2705,7 +2706,7 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      KubernetesIoHostName,
+									Key:      config.KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{nodeName},
 								},
@@ -3114,7 +3115,7 @@ func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, HostPathAlpine)}
 
 	By("creating an image with without qemu permissions")
-	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{config.BinBash, "-c"}, args)
 
 	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
 	return
@@ -3124,7 +3125,7 @@ func DeleteAlpineWithNonQEMUPermissions() {
 	nonQemuAlpinePath := HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
 
-	pod := RenderHostPathPod("remove-tmp-image-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := RenderHostPathPod("remove-tmp-image-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{config.BinBash, "-c"}, args)
 
 	RunPodAndExpectCompletion(pod)
 }
@@ -3721,7 +3722,7 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				KubevirtIoTest:                           os,
+				config.KubevirtIoTest:                    os,
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
@@ -3765,7 +3766,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					KubevirtIoTest:                           os,
+					config.KubevirtIoTest:                    os,
 					cleanup.TestLabelForNamespace(namespace): "",
 				},
 			},
@@ -3785,7 +3786,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	}
 
 	args := []string{command}
-	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{config.BinBash, "-c"}, args)
 
 	return pod
 }
@@ -3848,7 +3849,7 @@ func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValu
 
 // CreateVmiOnNode creates a VMI on the specified node
 func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
-	return CreateVmiOnNodeLabeled(vmi, KubernetesIoHostName, nodeName)
+	return CreateVmiOnNodeLabeled(vmi, config.KubernetesIoHostName, nodeName)
 }
 
 // RunCommandOnVmiPod runs specified command on the virt-launcher pod
