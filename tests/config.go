@@ -27,6 +27,12 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
+const (
+	KubevirtIoTest       = "kubevirt.io/test"
+	KubernetesIoHostName = "kubernetes.io/hostname"
+	BinBash              = "/bin/bash"
+)
+
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
 type KubeVirtTestsConfiguration struct {
 	// StorageClass to use to create rhel PVCs

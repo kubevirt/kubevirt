@@ -122,9 +122,6 @@ import (
 )
 
 const (
-	KubevirtIoTest               = "kubevirt.io/test"
-	KubernetesIoHostName         = "kubernetes.io/hostname"
-	BinBash                      = "/bin/bash"
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
 	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
