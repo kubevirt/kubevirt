@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -855,7 +856,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
 			By("Verifying that required StorageClass is configured")
-			storageClassName := tests.Config.StorageRWOFileSystem
+			storageClassName := libstorage.Config.StorageRWOFileSystem
 
 			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {

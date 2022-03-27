@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "config.go",
         "io_utils.go",
         "job.go",
         "migration.go",
@@ -38,6 +37,7 @@ go_library(
         "//tests/framework/matcher:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libstorage:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/util:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
@@ -227,6 +227,7 @@ go_test(
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libreplicaset:go_default_library",
+        "//tests/libstorage:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/monitoring:go_default_library",
         "//tests/network:go_default_library",

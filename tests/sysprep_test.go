@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -296,7 +297,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindowsSysprep)
-		tests.CreatePVC(tests.OSWindowsSysprep, "35Gi", tests.Config.StorageClassWindows, true)
+		tests.CreatePVC(tests.OSWindowsSysprep, "35Gi", libstorage.Config.StorageClassWindows, true)
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		tests.CreateConfigMap("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		windowsVMI = tests.NewRandomVMI()

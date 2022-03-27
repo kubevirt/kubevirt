@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -129,7 +130,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
-		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows, true)
+		tests.CreatePVC(tests.OSWindows, "30Gi", libstorage.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)

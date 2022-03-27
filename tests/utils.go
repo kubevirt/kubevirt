@@ -111,6 +111,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/Masterminds/semver"
@@ -129,7 +130,6 @@ const (
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
-var Config *KubeVirtTestsConfiguration
 var KubeVirtDefaultConfig v1.KubeVirtConfiguration
 var Arch string
 
@@ -562,7 +562,7 @@ func CalculateNamespaces() {
 
 func SynchronizedBeforeTestSetup() []byte {
 	var err error
-	Config, err = loadConfig()
+	libstorage.Config, err = libstorage.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
 
 	if flags.KubeVirtInstallNamespace == "" {
@@ -586,7 +586,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
-	Config, err = loadConfig()
+	libstorage.Config, err = libstorage.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
 	Arch = getArch()
 
@@ -3594,27 +3594,27 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 }
 
 func GetSnapshotStorageClass() (string, bool) {
-	storageSnapshot := Config.StorageSnapshot
+	storageSnapshot := libstorage.Config.StorageSnapshot
 	return storageSnapshot, storageSnapshot != ""
 }
 
 func GetRWXFileSystemStorageClass() (string, bool) {
-	storageRWXFileSystem := Config.StorageRWXFileSystem
+	storageRWXFileSystem := libstorage.Config.StorageRWXFileSystem
 	return storageRWXFileSystem, storageRWXFileSystem != ""
 }
 
 func GetRWOFileSystemStorageClass() (string, bool) {
-	storageRWOFileSystem := Config.StorageRWOFileSystem
+	storageRWOFileSystem := libstorage.Config.StorageRWOFileSystem
 	return storageRWOFileSystem, storageRWOFileSystem != ""
 }
 
 func GetRWOBlockStorageClass() (string, bool) {
-	storageRWOBlock := Config.StorageRWOBlock
+	storageRWOBlock := libstorage.Config.StorageRWOBlock
 	return storageRWOBlock, storageRWOBlock != ""
 }
 
 func GetRWXBlockStorageClass() (string, bool) {
-	storageRWXBlock := Config.StorageRWXBlock
+	storageRWXBlock := libstorage.Config.StorageRWXBlock
 	return storageRWXBlock, storageRWXBlock != ""
 }
 
