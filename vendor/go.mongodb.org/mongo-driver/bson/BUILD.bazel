@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bson.go",
-        "bson_1_8.go",
         "decoder.go",
         "doc.go",
         "encoder.go",
