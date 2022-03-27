@@ -124,7 +124,6 @@ const (
 	DefaultPvcMountPath          = "/pvc"
 	StartingVMInstance           = "Starting a VirtualMachineInstance"
 	WaitingVMInstanceStart       = "Waiting until the VirtualMachineInstance will start"
-	KubevirtIoV1Alpha1           = "cdi.kubevirt.io/v1alpha1"
 	CouldNotFindComputeContainer = "could not find compute container for pod"
 	EchoLastReturnValue          = "echo $?\n"
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
@@ -1765,7 +1764,7 @@ func newDataVolume(namespace, storageClass string, size string, accessMode k8sv1
 	}
 
 	dataVolume.TypeMeta = metav1.TypeMeta{
-		APIVersion: KubevirtIoV1Alpha1,
+		APIVersion: "cdi.kubevirt.io/v1beta1",
 		Kind:       "DataVolume",
 	}
 
