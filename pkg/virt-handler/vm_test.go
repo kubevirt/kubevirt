@@ -60,7 +60,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 
@@ -209,6 +208,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockIsolationDetector,
 			migrationProxy,
 			nil,
+			"",
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
@@ -2192,23 +2192,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
-		DescribeTable("when host model labels", func(capabilities *nodelabellerapi.Capabilities) {
+		DescribeTable("with host model", func(hostCpuModel string) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
-			controller.capabilities = capabilities
+			controller.hostCpuModel = hostCpuModel
 
 			err := controller.isHostModelMigratable(vmi)
 
-			if capabilities != nil {
-				Expect(err).ShouldNot(HaveOccurred())
-			} else {
+			if hostCpuModel == "" {
 				Expect(err).Should(HaveOccurred())
+			} else {
+				Expect(err).ShouldNot(HaveOccurred())
 			}
 
 		},
-			Entry("exist migration should succeed", &nodelabellerapi.Capabilities{Host: nodelabellerapi.Host{UUID: "hostUUID"}}),
-			Entry("don't exist migration should fail", nil),
+			Entry("exist migration should succeed", "Westmere"),
+			Entry("don't exist migration should fail", ""),
 		)
 
 		It("should not be allowed to live-migrate if the VMI uses virtiofs ", func() {

@@ -162,7 +162,7 @@ func (n *NodeLabeller) loadAll() error {
 func (n *NodeLabeller) run() error {
 	cpuModels := n.getSupportedCpuModels()
 	cpuFeatures := n.getSupportedCpuFeatures()
-	hostCPUModel := n.getHostCpuModel()
+	hostCPUModel := n.GetHostCpuModel()
 
 	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
 	if err != nil {
@@ -266,7 +266,7 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 	}
 
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
-	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.name] = "true"
+	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.Name] = "true"
 
 	capable, err := isNodeRealtimeCapable()
 	if err != nil {

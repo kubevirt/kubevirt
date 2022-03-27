@@ -82,7 +82,6 @@ go_test(
         "//pkg/virt-handler/hotplug-disk:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
-        "//pkg/virt-handler/node-labeller/api:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

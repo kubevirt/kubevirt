@@ -177,6 +177,7 @@ func NewController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	capabilities *nodelabellerapi.Capabilities,
+	hostCpuModel string,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
@@ -201,6 +202,7 @@ func NewController(
 		clusterConfig:               clusterConfig,
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,
+		hostCpuModel:                hostCpuModel,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 	}
@@ -284,6 +286,7 @@ type VirtualMachineController struct {
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
 	capabilities                *nodelabellerapi.Capabilities
+	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 }
 
@@ -2803,8 +2806,7 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 
 func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineInstance) error {
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == v1.CPUModeHostModel {
-		// Host CPU model was successfully loaded by NodeLabeller if capabilities is set
-		if d.capabilities == nil {
+		if d.hostCpuModel == "" {
 			err := fmt.Errorf("the node \"%s\" does not allow migration with host-model", vmi.Status.NodeName)
 			log.Log.Object(vmi).Errorf(err.Error())
 			return err
