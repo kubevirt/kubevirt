@@ -1167,7 +1167,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
+			Expect(statusErr.Error()).To(ContainSubstring("Halted only supports manual stop requests with graceperiod=0"))
 		})
 
 		It("should fail on VM with RunStrategyHalted", func() {
@@ -1181,9 +1181,24 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
+			Expect(statusErr.Error()).To(ContainSubstring("Halted only supports manual stop requests with graceperiod=0"))
 		})
 
+		It("should not fail on VM with RunStrategyHalted and graceperiod=0", func() {
+			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
+			vmi := newVirtualMachineInstanceInPhase(v1.Running)
+			vmi.Spec.TerminationGracePeriodSeconds = &gracePeriodZero
+
+			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+
+			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
+
+			app.StopVMRequestHandler(request, response)
+
+			//Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+		})
 		DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 			vmi := newVirtualMachineInstanceInPhase(v1.Running)
