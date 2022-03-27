@@ -33,46 +33,13 @@ const (
 
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
+// This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	return NewTestToolingFedora(opts...)
-}
-
-// NewTestToolingFedora instantiates a new Fedora based VMI configuration,
-// building its extra properties based on the specified With* options.
-// This image has tooling for the guest agent, stress, and more
-func NewTestToolingFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
-}
-
-// NewSriovFedora instantiates a new Fedora based VMI configuration,
-// building its extra properties based on the specified With* options, the
-// image used include Guest Agent and some moduled needed by SRIOV.
-func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
-}
-
-// NewSEVFedora instantiates a new Fedora based VMI configuration,
-// building its extra properties based on the specified With* options, the
-// image used is configured for UEFI boot and it supports AMD SEV.
-func NewSEVFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	const secureBoot = false
-	sevOptions := []Option{
-		WithUefi(secureBoot),
-		WithSEV(),
-	}
-	opts = append(sevOptions, opts...)
-	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
-}
-
-// NewFedora instantiates a new Fedora based VMI configuration with specified
-// containerDisk, building its extra properties based on the specified With*
-// options.
-func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []Option{
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
-		WithContainerImage(cd.ContainerDiskFor(containerDisk)),
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
 	return New(RandName(DefaultVmiName), opts...)

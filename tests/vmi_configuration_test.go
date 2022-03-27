@@ -2592,9 +2592,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 
-				vmi = libvmi.NewTestToolingFedora()
+				vmi = libvmi.NewFedora()
 
-				cpuvmi = libvmi.NewTestToolingFedora()
+				cpuvmi = libvmi.NewFedora()
 				cpuvmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,

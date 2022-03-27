@@ -232,7 +232,7 @@ func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.Virtual
 		return nil, err
 	}
 
-	vmi := libvmi.NewTestToolingFedora(
+	vmi := libvmi.NewFedora(
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
