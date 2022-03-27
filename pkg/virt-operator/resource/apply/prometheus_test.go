@@ -188,7 +188,7 @@ var _ = Describe("Apply Prometheus", func() {
 			pr := &promv1.PrometheusRule{}
 			Expect(json.Unmarshal(obj, pr)).To(Succeed())
 			Expect(pr.Spec.Groups).To(Equal(updatedGroups))
-			Expect(len(pr.Spec.Groups)).To(Equal(1))
+			Expect(pr.Spec.Groups).To(HaveLen(1))
 
 			return true, pr, nil
 		})

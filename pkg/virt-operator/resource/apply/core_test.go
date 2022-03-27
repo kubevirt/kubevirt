@@ -400,7 +400,7 @@ var _ = Describe("Apply", func() {
 				}
 
 				if !expectSpecPatch && !expectLabelsAnnotationsPatch {
-					Expect(len(ops)).To(Equal(0))
+					Expect(ops).To(BeEmpty())
 				}
 			},
 			Entry("should do nothing if cached service has ClusterIP set and target does not (clusterIP is dynamically assigned when empty)",

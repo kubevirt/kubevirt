@@ -334,7 +334,7 @@ type finalizerPatch struct {
 func extractFinalizers(data []byte) []string {
 	patches := make([]finalizerPatch, 0)
 	err := json.Unmarshal(data, &patches)
-	Expect(len(patches)).To(Equal(1))
+	Expect(patches).To(HaveLen(1))
 	patch := patches[0]
 	Expect(err).ToNot(HaveOccurred())
 	Expect(patch.Op).To(Equal("replace"))
@@ -388,7 +388,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, co
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reason string) {
 	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
 	update.Do(func(kv *v1.KubeVirt) {
-		Expect(len(kv.Status.Conditions)).To(Equal(1))
+		Expect(kv.Status.Conditions).To(HaveLen(1))
 		Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
 		k.kvInformer.GetStore().Update(kv)
 		update.Return(kv, nil)
@@ -1617,7 +1617,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtFinalizersPatch(1)
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
-			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(0))
+			Expect(kv.ObjectMeta.Finalizers).To(BeEmpty())
 		})
 
 		It("should observe custom image tag in status during deploy", func() {
@@ -2134,8 +2134,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
-			Expect(len(kv.Status.Conditions)).To(Equal(3))
-			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(1))
+			Expect(kv.Status.Conditions).To(HaveLen(3))
+			Expect(kv.ObjectMeta.Finalizers).To(HaveLen(1))
 			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 
 			// 3 in total are yet missing at this point
@@ -2147,20 +2147,20 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 
-			Expect(len(kvTestData.controller.stores.ServiceAccountCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.ClusterRoleCache.List())).To(Equal(7))
-			Expect(len(kvTestData.controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
-			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.CrdCache.List())).To(Equal(12))
-			Expect(len(kvTestData.controller.stores.ServiceCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.DeploymentCache.List())).To(Equal(1))
-			Expect(len(kvTestData.controller.stores.DaemonSetCache.List())).To(Equal(0))
-			Expect(len(kvTestData.controller.stores.ValidationWebhookCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
-			Expect(len(kvTestData.controller.stores.SCCCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.ServiceMonitorCache.List())).To(Equal(1))
-			Expect(len(kvTestData.controller.stores.PrometheusRuleCache.List())).To(Equal(1))
+			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(7))
+			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(12))
+			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
+			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(HaveLen(0))
+			Expect(kvTestData.controller.stores.ValidationWebhookCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.PodDisruptionBudgetCache.List()).To(HaveLen(1))
+			Expect(kvTestData.controller.stores.SCCCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(HaveLen(1))
+			Expect(kvTestData.controller.stores.PrometheusRuleCache.List()).To(HaveLen(1))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
@@ -2609,7 +2609,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
-			Expect(len(kv.Status.Conditions)).To(Equal(3))
+			Expect(kv.Status.Conditions).To(HaveLen(3))
 			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
 		})
 
@@ -2746,9 +2746,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(2))
-			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(2))
-			Expect(len(kvTestData.controller.stores.ServiceMonitorCache.List())).To(Equal(0))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(2))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(2))
+			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(BeEmpty())
 		})
 	})
 
