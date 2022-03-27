@@ -61,18 +61,18 @@ var _ = Describe("Watchdog", func() {
 			now := time.Now()
 			domains, err := getExpiredDomains(1, tmpVirtShareDir, now)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domains)).To(Equal(0))
+			Expect(domains).To(BeEmpty())
 
 			now = now.Add(time.Second * 3)
 			domains, err = getExpiredDomains(1, tmpVirtShareDir, now)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domains)).To(Equal(1))
+			Expect(domains).To(HaveLen(1))
 
 			Expect(os.Create(fileName)).ToNot(BeNil())
 			now = time.Now()
 			domains, err = getExpiredDomains(1, tmpVirtShareDir, now)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domains)).To(Equal(0))
+			Expect(domains).To(BeEmpty())
 		})
 
 		It("should successfully remove watchdog file", func() {
@@ -86,7 +86,7 @@ var _ = Describe("Watchdog", func() {
 			Expect(os.Create(fileName)).ToNot(BeNil())
 			domains, err := getExpiredDomains(1, tmpVirtShareDir, now)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domains)).To(Equal(0))
+			Expect(domains).To(BeEmpty())
 
 			expired, err := watchdogFileIsExpired(1, tmpVirtShareDir, vmi, now)
 			Expect(err).ToNot(HaveOccurred())
@@ -95,7 +95,7 @@ var _ = Describe("Watchdog", func() {
 			now = now.Add(time.Second * 3)
 			domains, err = getExpiredDomains(1, tmpVirtShareDir, now)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domains)).To(Equal(1))
+			Expect(domains).To(HaveLen(1))
 
 			expired, err = watchdogFileIsExpired(1, tmpVirtShareDir, vmi, now)
 			Expect(err).ToNot(HaveOccurred())
@@ -110,7 +110,7 @@ var _ = Describe("Watchdog", func() {
 
 			domains, err = getExpiredDomains(1, tmpVirtShareDir, now)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domains)).To(Equal(0))
+			Expect(domains).To(BeEmpty())
 
 			exists, err = WatchdogFileExists(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("Watchdog", func() {
 				now = now.Add(time.Second * 1)
 				domains, err := getExpiredDomains(2, tmpVirtShareDir, now)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(domains)).To(Equal(0))
+				Expect(domains).To(BeEmpty())
 			}
 		})
 
