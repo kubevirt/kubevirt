@@ -126,6 +126,14 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should call memory dump", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			dumpPath := "path/to/dump/volMem"
+			domainManager.EXPECT().MemoryDump(vmi, dumpPath)
+			err := client.VirtualMachineMemoryDump(vmi, dumpPath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should pause a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().PauseVMI(vmi)

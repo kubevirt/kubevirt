@@ -62,6 +62,8 @@ import (
 var (
 	expectedThawedOutput = `{"return":"thawed"}`
 	expectedFrozenOutput = `{"return":"frozen"}`
+	testDumpPath         = "/test/dump/path/vol1"
+	testMemoryDumpVol    = "vol1"
 )
 
 var _ = BeforeSuite(func() {
@@ -342,6 +344,58 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			// wait for the unfreeze timeout
 			time.Sleep(unfreezeTimeout + 2*time.Second)
+		})
+		It("should recieve domain update event in memory dump completion", func() {
+			mockDomain.EXPECT().Free()
+			vmi := newVMI(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			targetFile := dumpPathTargetFile(testDomainName, testDumpPath)
+			mockDomain.EXPECT().CoreDumpWithFormat(targetFile, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).Return(nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			err := manager.MemoryDump(vmi, testDumpPath)
+			Expect(err).To(BeNil())
+			domainUpdateChan := manager.GetDomainUpdateChan()
+			timedOut := false
+			timeout := time.After(2 * time.Second)
+			select {
+			case <-timeout:
+				timedOut = true
+			case domainUpdate := <-domainUpdateChan:
+				Expect(domainUpdate.MemoryDumpInfo.DumpTimestamp).ToNot(BeNil())
+				Expect(domainUpdate.MemoryDumpInfo.VolumeName).To(Equal(testMemoryDumpVol))
+			}
+			Expect(timedOut).To(BeFalse())
+		})
+		It("should prevent trigger more then one memory dump", func() {
+			mockDomain.EXPECT().Free()
+			vmi := newVMI(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			targetFile := dumpPathTargetFile(testDomainName, testDumpPath)
+			mockDomain.EXPECT().CoreDumpWithFormat(targetFile, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).DoAndReturn(
+				func(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error {
+					time.Sleep(1 * time.Second)
+					return nil
+				})
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			err := manager.MemoryDump(vmi, testDumpPath)
+			Expect(err).To(BeNil())
+			errInProgress := manager.MemoryDump(vmi, testDumpPath)
+			Expect(errInProgress).To(HaveOccurred())
+			domainUpdateChan := manager.GetDomainUpdateChan()
+			timedOut := false
+			timeout := time.After(2 * time.Second)
+			select {
+			case <-timeout:
+				timedOut = true
+			case domainUpdate := <-domainUpdateChan:
+				Expect(domainUpdate.MemoryDumpInfo.DumpTimestamp).ToNot(BeNil())
+				Expect(domainUpdate.MemoryDumpInfo.VolumeName).To(Equal(testMemoryDumpVol))
+			}
+			Expect(timedOut).To(BeFalse())
 		})
 		It("should pause a VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use

@@ -280,3 +280,23 @@ func (_m *MockDomainManager) GuestPing(_param0 string) error {
 func (_mr *_MockDomainManagerRecorder) GuestPing(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", arg0)
 }
+
+func (_m *MockDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
+	ret := _m.ctrl.Call(_m, "MemoryDump", vmi, dumpPath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) MemoryDump(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryDump", arg0, arg1)
+}
+
+func (_m *MockDomainManager) GetDomainUpdateChan() chan DomainUpdateEvent {
+	ret := _m.ctrl.Call(_m, "GetDomainUpdateChan")
+	ret0, _ := ret[0].(chan DomainUpdateEvent)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) GetDomainUpdateChan() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainUpdateChan")
+}

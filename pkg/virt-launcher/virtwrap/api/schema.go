@@ -112,12 +112,18 @@ type DomainStatus struct {
 	Interfaces     []InterfaceStatus
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
+	MemoryDumpInfo DomainMemoryDumpInfo
 }
 
 type DomainSysInfo struct {
 	Hostname string
 	OSInfo   GuestOSInfo
 	Timezone Timezone
+}
+
+type DomainMemoryDumpInfo struct {
+	DumpTimestamp *metav1.Time `json:"dumpTimestamp,omitempty"`
+	VolumeName    string
 }
 
 type GuestOSInfo struct {

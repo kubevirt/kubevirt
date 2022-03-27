@@ -583,3 +583,13 @@ func (_m *MockVirDomain) Free() error {
 func (_mr *_MockVirDomainRecorder) Free() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Free")
 }
+
+func (_m *MockVirDomain) CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error {
+	ret := _m.ctrl.Call(_m, "CoreDumpWithFormat", to, format, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) CoreDumpWithFormat(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CoreDumpWithFormat", arg0, arg1, arg2)
+}

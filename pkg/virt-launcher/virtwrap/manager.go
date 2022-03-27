@@ -83,9 +83,10 @@ import (
 )
 
 const (
-	failedSyncGuestTime  = "failed to sync guest time"
-	failedGetDomain      = "Getting the domain failed."
-	failedGetDomainState = "Getting the domain state failed."
+	failedSyncGuestTime    = "failed to sync guest time"
+	failedGetDomain        = "Getting the domain failed."
+	failedGetDomainState   = "Getting the domain state failed."
+	failedDomainMemoryDump = "Domain memory dump failed"
 )
 
 const (
@@ -96,6 +97,7 @@ const (
 )
 
 const maxConcurrentHotplugHostDevices = 1
+const maxConcurrentMemoryDumps = 1
 
 var (
 	getEphemeralDiskBaseDir = func() string {
@@ -133,6 +135,12 @@ type DomainManager interface {
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
+	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	GetDomainUpdateChan() chan DomainUpdateEvent
+}
+
+type DomainUpdateEvent struct {
+	MemoryDumpInfo *api.DomainMemoryDumpInfo
 }
 
 type LibvirtDomainManager struct {
@@ -146,6 +154,7 @@ type LibvirtDomainManager struct {
 	credManager *accesscredentials.AccessCredentialManager
 
 	hotplugHostDevicesInProgress chan struct{}
+	memoryDumpInProgress         chan struct{}
 
 	virtShareDir             string
 	paused                   pausedVMIs
@@ -158,6 +167,7 @@ type LibvirtDomainManager struct {
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
+	DomainUpdateChan         chan DomainUpdateEvent
 }
 
 type pausedVMIs struct {
@@ -201,9 +211,11 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		directIOChecker:          directIOChecker,
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
+		DomainUpdateChan:         make(chan DomainUpdateEvent),
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
+	manager.memoryDumpInProgress = make(chan struct{}, maxConcurrentMemoryDumps)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
 	return &manager, nil
@@ -1121,6 +1133,75 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	}
 
 	return domainSpec, err
+}
+
+func (l *LibvirtDomainManager) GetDomainUpdateChan() chan DomainUpdateEvent {
+	return l.DomainUpdateChan
+}
+
+func dumpPathTargetFile(domName, dumpPath string) string {
+	fileName := fmt.Sprintf("%s-memory-dump-%s.memory.dump", domName, time.Now().Format("20060102-150405"))
+	targetFile := filepath.Join(dumpPath, fileName)
+	return targetFile
+}
+
+func (l *LibvirtDomainManager) completeMemoryDump(dumpPath string) {
+	defer func() { <-l.memoryDumpInProgress }()
+	now := metav1.NewTime(time.Now())
+	volName := filepath.Base(dumpPath)
+	memoryDumpInfo := &api.DomainMemoryDumpInfo{
+		DumpTimestamp: &now,
+		VolumeName:    volName,
+	}
+	l.DomainUpdateChan <- DomainUpdateEvent{
+		MemoryDumpInfo: memoryDumpInfo,
+	}
+}
+
+func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
+	select {
+	case l.memoryDumpInProgress <- struct{}{}:
+	default:
+		return fmt.Errorf("memory-dump is in progress")
+	}
+
+	go func() {
+		defer l.completeMemoryDump(dumpPath)
+
+		if err := l.memoryDump(vmi, dumpPath); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
+	}()
+	return nil
+}
+
+func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return fmt.Errorf("Domain not found.")
+		} else {
+			logger.Reason(err).Error("Getting the domain failed during get memory dump.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	targetFile := dumpPathTargetFile(domName, dumpPath)
+	err = dom.CoreDumpWithFormat(targetFile, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY)
+	if err != nil {
+		logger.Reason(err).Error(failedDomainMemoryDump)
+		return err
+	}
+
+	return nil
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
