@@ -69,8 +69,8 @@ var _ = Describe("PodSelectors", func() {
 			affinity := v1.UpdateAntiAffinityFromVMINode(pod, vmi)
 			newSelector := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 			Expect(newSelector).ToNot(BeNil())
-			Expect(len(newSelector.MatchExpressions)).To(Equal(1))
-			Expect(len(newSelector.MatchExpressions[0].Values)).To(Equal(1))
+			Expect(newSelector.MatchExpressions).To(HaveLen(1))
+			Expect(newSelector.MatchExpressions[0].Values).To(HaveLen(1))
 			Expect(newSelector.MatchExpressions[0].Values[0]).To(Equal("test-node"))
 		})
 
@@ -111,14 +111,14 @@ var _ = Describe("PodSelectors", func() {
 
 			selector := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 			Expect(selector).ToNot(BeNil())
-			Expect(len(selector.MatchExpressions)).To(Equal(1))
-			Expect(len(selector.MatchExpressions[0].Values)).To(Equal(1))
+			Expect(selector.MatchExpressions).To(HaveLen(1))
+			Expect(selector.MatchExpressions[0].Values).To(HaveLen(1))
 			Expect(selector.MatchExpressions[0].Values[0]).To(Equal("test-node"))
 
 			selector = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[1]
 			Expect(selector).ToNot(BeNil())
-			Expect(len(selector.MatchExpressions)).To(Equal(2))
-			Expect(len(selector.MatchExpressions[1].Values)).To(Equal(1))
+			Expect(selector.MatchExpressions).To(HaveLen(2))
+			Expect(selector.MatchExpressions[1].Values).To(HaveLen(1))
 			Expect(selector.MatchExpressions[1].Values[0]).To(Equal("test-node"))
 		})
 	})

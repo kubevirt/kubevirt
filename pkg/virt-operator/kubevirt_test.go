@@ -2155,7 +2155,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(12))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
-			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(HaveLen(0))
+			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())
 			Expect(kvTestData.controller.stores.ValidationWebhookCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.PodDisruptionBudgetCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.SCCCache.List()).To(HaveLen(3))

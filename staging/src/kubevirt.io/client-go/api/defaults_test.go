@@ -284,7 +284,7 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 	It("should append pod interface if interface is not defined", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+		Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
 		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
 		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
@@ -300,7 +300,7 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 
 		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+		Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("testnet"))
 		Expect(vmi.Spec.Networks[0].Name).To(Equal("testnet"))
 		Expect(vmi.Spec.Networks[0].Pod).To(BeNil())
@@ -312,8 +312,8 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 		vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
 
 		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(0))
-		Expect(len(vmi.Spec.Networks)).To(Equal(0))
+		Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+		Expect(vmi.Spec.Networks).To(BeEmpty())
 	})
 
 	It("should append pod interface if auto attach is true", func() {
@@ -321,7 +321,7 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
 		v1.SetDefaults_NetworkInterface(vmi)
-		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+		Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
 		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
 		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
