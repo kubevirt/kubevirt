@@ -18,7 +18,7 @@ var _ = Describe("Hostmetrics", func() {
 
 		metrics := hostmetrics.Collect()
 
-		Expect(len(metrics)).To(Equal(9))
+		Expect(metrics).To(HaveLen(9))
 		Expect(metrics[0].Name).To(Equal("NumberOfPhysicalCPUs"))
 		Expect(metrics[0].Unit).To(Equal(""))
 		Expect(metrics[0].Value).To(Equal("3"))
@@ -57,7 +57,7 @@ var _ = Describe("Hostmetrics", func() {
 		}
 
 		metrics := hostmetrics.Collect()
-		Expect(len(metrics)).To(Equal(count))
+		Expect(metrics).To(HaveLen(count))
 
 	},
 		Entry("cpuinfo", "nonexistent", "testdata/meminfo", "testdata/stat", "testdata/vmstat", 8),

@@ -107,12 +107,12 @@ var _ = Describe("Utility functions", func() {
 
 			countMap = makeVMICountMetricMap(nil)
 			Expect(countMap).NotTo(BeNil())
-			Expect(len(countMap)).To(Equal(0))
+			Expect(countMap).To(BeEmpty())
 
 			vmis := []*k6tv1.VirtualMachineInstance{}
 			countMap = makeVMICountMetricMap(vmis)
 			Expect(countMap).NotTo(BeNil())
-			Expect(len(countMap)).To(Equal(0))
+			Expect(countMap).To(BeEmpty())
 		})
 
 		It("should handle different VMI phases", func() {
@@ -188,7 +188,7 @@ var _ = Describe("Utility functions", func() {
 
 			countMap := makeVMICountMetricMap(vmis)
 			Expect(countMap).NotTo(BeNil())
-			Expect(len(countMap)).To(Equal(3))
+			Expect(countMap).To(HaveLen(3))
 
 			running := vmiCountMetric{
 				Phase:    "running",

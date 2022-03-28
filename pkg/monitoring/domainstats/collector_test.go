@@ -60,7 +60,7 @@ var _ = Describe("Collector", func() {
 
 			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 
-			Expect(len(skipped)).To(Equal(0))
+			Expect(skipped).To(BeEmpty())
 			Expect(completed).To(BeTrue())
 		})
 	})
@@ -73,7 +73,7 @@ var _ = Describe("Collector", func() {
 
 			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 
-			Expect(len(skipped)).To(Equal(0))
+			Expect(skipped).To(BeEmpty())
 			Expect(completed).To(BeFalse())
 		})
 
@@ -85,19 +85,19 @@ var _ = Describe("Collector", func() {
 			By("Doing a first collection")
 			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
-			Expect(len(skipped)).To(Equal(0))
+			Expect(skipped).To(BeEmpty())
 			Expect(completed).To(BeFalse())
 
 			By("Doing a second collection")
 			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			// second collection is not aware of the blocked source
-			Expect(len(skipped)).To(Equal(0))
+			Expect(skipped).To(BeEmpty())
 			Expect(completed).To(BeFalse())
 
 			By("Collecting again with a blocked source")
 			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			// second collection is aware of the blocked source
-			Expect(len(skipped)).To(Equal(1))
+			Expect(skipped).To(HaveLen(1))
 			Expect(skipped[0]).To(Equal("a"))
 			Expect(completed).To(BeTrue())
 
@@ -111,13 +111,13 @@ var _ = Describe("Collector", func() {
 			By("Doing a first collection")
 			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
-			Expect(len(skipped)).To(Equal(0))
+			Expect(skipped).To(BeEmpty())
 			Expect(completed).To(BeFalse())
 
 			By("Collecting again with a blocked source")
 			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			// second collection is aware of the blocked source
-			Expect(len(skipped)).To(Equal(1))
+			Expect(skipped).To(HaveLen(1))
 			Expect(skipped[0]).To(Equal("b"))
 			Expect(completed).To(BeTrue())
 
@@ -128,7 +128,7 @@ var _ = Describe("Collector", func() {
 
 			By("Restored a clean state")
 			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
-			Expect(len(skipped)).To(Equal(0))
+			Expect(skipped).To(BeEmpty())
 			Expect(completed).To(BeTrue())
 		})
 	})
