@@ -1389,14 +1389,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						// invalid request, retry
 						return false
 					}
-					if guestInfo.Hostname != "" &&
+
+					return guestInfo.Hostname != "" &&
 						guestInfo.Timezone != "" &&
 						guestInfo.GAVersion != "" &&
 						guestInfo.OS.Name != "" &&
-						len(guestInfo.FSInfo.Filesystems) > 0 {
-						return true
-					}
-					return false
+						len(guestInfo.FSInfo.Filesystems) > 0
+
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
 			})
 
@@ -1434,10 +1433,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						// invalid request, retry
 						return false
 					}
-					if len(userList.Items) > 0 && userList.Items[0].UserName == "fedora" {
-						return true
-					}
-					return false
+
+					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
+
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
 			})
 
@@ -1451,10 +1449,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						// invalid request, retry
 						return false
 					}
-					if len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" {
-						return true
-					}
-					return false
+
+					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != ""
+
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
 			})
 
