@@ -90,12 +90,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var sc string
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
-				sc, exists = tests.GetRWOBlockStorageClass()
+				sc, exists = libstorage.GetRWOBlockStorageClass()
 				if !exists {
 					Skip("Skip test when Block storage is not present")
 				}
 			} else {
-				sc, exists = tests.GetRWOFileSystemStorageClass()
+				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
@@ -290,7 +290,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("should accurately report DataVolume provisioning", func() {
-				sc, exists := tests.GetSnapshotStorageClass()
+				sc, exists := libstorage.GetSnapshotStorageClass()
 				if !exists {
 					Skip("no snapshot storage class configured")
 				}
@@ -741,7 +741,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			BeforeEach(func() {
 				var exists bool
-				storageClass, exists = tests.GetRWOFileSystemStorageClass()
+				storageClass, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
 					Skip("Skip test when RWOFileSystem storage class is not present")
 				}

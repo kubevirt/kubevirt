@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
 const (
@@ -143,7 +144,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	Context("[storage-req] Upload an image and start a VMI with PVC", func() {
 		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
-			sc, exists := tests.GetRWOBlockStorageClass()
+			sc, exists := libstorage.GetRWOBlockStorageClass()
 			if !exists {
 				Skip("Skip test when RWOBlock storage class is not present")
 			}
@@ -208,7 +209,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	Context("Create upload volume with force-bind flag", func() {
 		DescribeTable("Should succeed", func(resource, targetName string, validateFunc func(string), deleteFunc func(string)) {
-			storageClass, exists := tests.GetRWOFileSystemStorageClass()
+			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
 				Skip("Skip no wffc storage class available")
 			}

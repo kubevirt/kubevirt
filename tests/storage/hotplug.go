@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -536,7 +537,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			var exists bool
-			sc, exists = tests.GetRWOFileSystemStorageClass()
+			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				Skip("Skip no wffc storage class available")
 			}
@@ -609,7 +610,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			BeforeEach(func() {
 				exists := false
-				sc, exists = tests.GetRWXBlockStorageClass()
+				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
 					Skip("Skip test when RWXBlock storage class is not present")
 				}
@@ -917,7 +918,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			BeforeEach(func() {
 				exists := false
-				sc, exists = tests.GetRWXBlockStorageClass()
+				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
 					Skip("Skip test when RWXBlock storage class is not present")
 				}
@@ -1040,7 +1041,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		immediateBinding := storagev1.VolumeBindingImmediate
 
 		BeforeEach(func() {
-			tests.CreateStorageClass(storageClassHostPath, &immediateBinding)
+			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
 			pvNode := tests.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, hotplugPvPath, "1Gi", storageClassHostPath)
 			tests.CreatePVC(tests.CustomHostPath, "1Gi", storageClassHostPath, false)
 			template := libvmi.NewCirros()
@@ -1058,7 +1059,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		AfterEach(func() {
 			tests.DeletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
-			tests.DeleteStorageClass(storageClassHostPath)
+			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
 		It("should attach a hostpath based volume to running VM", func() {
@@ -1104,7 +1105,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		It("should allow adding and removing hotplugged volumes", func() {
-			sc, exists := tests.GetRWOFileSystemStorageClass()
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip no filesystem storage class available")
 			}
@@ -1190,7 +1191,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			var exists bool
-			sc, exists = tests.GetRWOFileSystemStorageClass()
+			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists || !tests.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				Skip("Skip no wffc storage class available")
 			}

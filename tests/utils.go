@@ -713,40 +713,6 @@ func RestoreKubeVirtResource() {
 	}
 }
 
-func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	sc := &storagev1.StorageClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				KubevirtIoTest: name,
-			},
-		},
-		Provisioner:       "kubernetes.io/no-provisioner",
-		VolumeBindingMode: bindingMode,
-	}
-	_, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), sc, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func DeleteStorageClass(name string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	_, err = virtClient.StorageV1().StorageClasses().Get(context.Background(), name, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return
-	}
-	util2.PanicOnError(err)
-
-	err = virtClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-	util2.PanicOnError(err)
-}
-
 func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	allowEmulation := false
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -946,11 +912,11 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 		}
 	}
 
-	DeleteStorageClass(StorageClassHostPathSeparateDevice)
+	libstorage.DeleteStorageClass(StorageClassHostPathSeparateDevice)
 }
 
 func CreateAllSeparateDeviceHostPathPvs(osName string) {
-	CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
+	libstorage.CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
@@ -1677,9 +1643,9 @@ func createNamespaces() {
 }
 
 func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	sc, exists := GetRWOBlockStorageClass()
+	sc, exists := libstorage.GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = GetRWXBlockStorageClass()
+		sc, exists = libstorage.GetRWXBlockStorageClass()
 	}
 	if !exists {
 		Skip("Skip test when Block storage is not present")
@@ -1688,9 +1654,9 @@ func NewRandomBlockDataVolumeWithRegistryImport(imageUrl, namespace string, acce
 }
 
 func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	sc, exists := GetRWOFileSystemStorageClass()
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
+		sc, exists = libstorage.GetRWXFileSystemStorageClass()
 	}
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
@@ -1713,9 +1679,9 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
-	sc, exists := GetRWOFileSystemStorageClass()
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
+		sc, exists = libstorage.GetRWXFileSystemStorageClass()
 	}
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
@@ -1728,9 +1694,9 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
-	sc, exists := GetRWOBlockStorageClass()
+	sc, exists := libstorage.GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = GetRWXBlockStorageClass()
+		sc, exists = libstorage.GetRWXBlockStorageClass()
 	}
 	if !exists {
 		Skip("Skip test when Block storage is not present")
@@ -1789,9 +1755,9 @@ func NewRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 }
 
 func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	sc, exists := GetRWOFileSystemStorageClass()
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = GetRWXFileSystemStorageClass()
+		sc, exists = libstorage.GetRWXFileSystemStorageClass()
 	}
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
@@ -3204,7 +3170,7 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
-	storageClass, exists := GetRWOFileSystemStorageClass()
+	storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
 	}
@@ -3241,7 +3207,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 
-	storageClass, exists := GetRWOFileSystemStorageClass()
+	storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
 	if !exists {
 		Skip("Skip test when Filesystem storage is not present")
 	}
@@ -3591,31 +3557,6 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	}
 	return storageClass.VolumeBindingMode != nil &&
 		*storageClass.VolumeBindingMode == wffc
-}
-
-func GetSnapshotStorageClass() (string, bool) {
-	storageSnapshot := libstorage.Config.StorageSnapshot
-	return storageSnapshot, storageSnapshot != ""
-}
-
-func GetRWXFileSystemStorageClass() (string, bool) {
-	storageRWXFileSystem := libstorage.Config.StorageRWXFileSystem
-	return storageRWXFileSystem, storageRWXFileSystem != ""
-}
-
-func GetRWOFileSystemStorageClass() (string, bool) {
-	storageRWOFileSystem := libstorage.Config.StorageRWOFileSystem
-	return storageRWOFileSystem, storageRWOFileSystem != ""
-}
-
-func GetRWOBlockStorageClass() (string, bool) {
-	storageRWOBlock := libstorage.Config.StorageRWOBlock
-	return storageRWOBlock, storageRWOBlock != ""
-}
-
-func GetRWXBlockStorageClass() (string, bool) {
-	storageRWXBlock := libstorage.Config.StorageRWXBlock
-	return storageRWXBlock, storageRWXBlock != ""
 }
 
 func HasExperimentalIgnitionSupport() bool {
@@ -4524,7 +4465,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 }
 
 func CreateBlockPVC(virtClient kubecli.KubevirtClient, name string, size resource.Quantity) *k8sv1.PersistentVolumeClaim {
-	sc, exists := GetRWOBlockStorageClass()
+	sc, exists := libstorage.GetRWOBlockStorageClass()
 	if !exists {
 		Skip("Skip test when RWOBlock storage class is not present")
 	}

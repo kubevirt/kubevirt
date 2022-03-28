@@ -45,6 +45,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageSnapshot string `json:"storageSnapshot"`
 }
 
+const kubevirtIoTest = "kubevirt.io/test"
+
 var Config *KubeVirtTestsConfiguration
 
 func LoadConfig() (*KubeVirtTestsConfiguration, error) {

@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -1147,7 +1148,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", nil
 	}
 
-	configuredStorageClass, exists := tests.GetSnapshotStorageClass()
+	configuredStorageClass, exists := libstorage.GetSnapshotStorageClass()
 	if exists {
 		return configuredStorageClass, nil
 	}
