@@ -1,9 +1,13 @@
 package operands
 
 import (
+	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
 
@@ -157,6 +161,90 @@ var _ = Describe("Test operator.go", func() {
 			Expect(hco.Status.RelatedObjects).ToNot(ContainElement(*oldRef))
 			Expect(req.StatusDirty).To(BeTrue())
 		})
+	})
+
+	Context("Test createNewCr", func() {
+
+		It("Should successfully create an object", func() {
+			hco := commonTestUtils.NewHco()
+			req := commonTestUtils.NewReq(hco)
+
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco})
+
+			res := NewEnsureResult(expectedResource)
+
+			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
+			outRes := operand.createNewCr(req, expectedResource, res)
+			Expect(outRes.Err).ToNot(HaveOccurred())
+			Expect(outRes.Created).To(Equal(true))
+			Expect(outRes.Deleted).To(Equal(false))
+			Expect(outRes.Updated).To(Equal(false))
+			Expect(outRes.Overwritten).To(Equal(false))
+			Expect(outRes.UpgradeDone).To(Equal(false))
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+		})
+
+		It("Should not fail due to existing resourceVersions", func() {
+			hco := commonTestUtils.NewHco()
+			req := commonTestUtils.NewReq(hco)
+
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
+			expectedResource.ResourceVersion = "1234"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco})
+
+			res := NewEnsureResult(expectedResource)
+
+			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
+			outRes := operand.createNewCr(req, expectedResource, res)
+			Expect(outRes.Err).ToNot(HaveOccurred())
+			Expect(outRes.Created).To(Equal(true))
+			Expect(outRes.Deleted).To(Equal(false))
+			Expect(outRes.Updated).To(Equal(false))
+			Expect(outRes.Overwritten).To(Equal(false))
+			Expect(outRes.UpgradeDone).To(Equal(false))
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+		})
+
+		It("Should fail if the object was already there", func() {
+			hco := commonTestUtils.NewHco()
+			req := commonTestUtils.NewReq(hco)
+
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+
+			res := NewEnsureResult(expectedResource)
+
+			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
+			outRes := operand.createNewCr(req, expectedResource, res)
+			Expect(outRes.Err).To(HaveOccurred())
+			Expect(apierrors.IsAlreadyExists(outRes.Err)).To(Equal(true))
+			Expect(outRes.Created).To(Equal(false))
+			Expect(outRes.Deleted).To(Equal(false))
+			Expect(outRes.Updated).To(Equal(false))
+			Expect(outRes.Overwritten).To(Equal(false))
+			Expect(outRes.UpgradeDone).To(Equal(false))
+
+		})
+
 	})
 
 })

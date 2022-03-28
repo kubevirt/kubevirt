@@ -97,14 +97,17 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	found := h.hooks.getEmptyCr()
 	err = h.Client.Get(req.Ctx, key, found)
 	if err != nil {
-		res = h.createNewCr(req, err, cr, res)
-
-		if apierrors.IsAlreadyExists(res.Err) {
-			// we failed trying to create it due to a caching error
-			// or we neither tried because we know that the object is already there for sure,
-			// but we cannot get it due to a bad cache hit.
-			// Let's try updating it bypassing the client cache mechanism
-			return h.handleExistingCrSkipCache(req, key, found, cr, res)
+		if apierrors.IsNotFound(err) {
+			res = h.createNewCr(req, cr, res)
+			if apierrors.IsAlreadyExists(res.Err) {
+				// we failed trying to create it due to a caching error
+				// or we neither tried because we know that the object is already there for sure,
+				// but we cannot get it due to a bad cache hit.
+				// Let's try updating it bypassing the client cache mechanism
+				return h.handleExistingCrSkipCache(req, key, found, cr, res)
+			}
+		} else {
+			return res.Error(err)
 		}
 	} else {
 		res = h.handleExistingCr(req, key, found, cr, res)
@@ -245,17 +248,17 @@ func (h *genericOperand) doRemoveExistingOwners(req *common.HcoRequest, found cl
 	}
 }
 
-func (h *genericOperand) createNewCr(req *common.HcoRequest, err error, cr client.Object, res *EnsureResult) *EnsureResult {
-	if apierrors.IsNotFound(err) {
-		req.Logger.Info("Creating " + h.crType)
-		err = h.Client.Create(req.Ctx, cr)
-		if err != nil {
-			req.Logger.Error(err, "Failed to create object for "+h.crType)
-			return res.Error(err)
-		}
-		return res.SetCreated()
+func (h *genericOperand) createNewCr(req *common.HcoRequest, cr client.Object, res *EnsureResult) *EnsureResult {
+	req.Logger.Info("Creating " + h.crType)
+	if cr.GetResourceVersion() != "" {
+		cr.SetResourceVersion("")
 	}
-	return res.Error(err)
+	err := h.Client.Create(req.Ctx, cr)
+	if err != nil {
+		req.Logger.Error(err, "Failed to create object for "+h.crType)
+		return res.Error(err)
+	}
+	return res.SetCreated()
 }
 
 func (h *genericOperand) reset() {
