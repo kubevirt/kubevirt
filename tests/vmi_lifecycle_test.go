@@ -285,7 +285,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			err = json.Unmarshal(body, reviewResponse)
 			Expect(err).To(BeNil(), "Result should be unmarshallable")
 
-			Expect(len(reviewResponse.Details.Causes)).To(Equal(2), "There should be 2 thing wrong in response")
+			Expect(reviewResponse.Details.Causes).To(HaveLen(2), "There should be 2 thing wrong in response")
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1].name"))
 			Expect(reviewResponse.Details.Causes[1].Field).To(Equal("spec.domain.devices.disks[2].name"))
 		})
@@ -1088,7 +1088,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
 				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
 				Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
-				Expect(len(vmi.Spec.Domain.CPU.Features)).To(Equal(1), "cpu topology has to contain 1 feature")
+				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
 				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
 
 			})
@@ -1498,7 +1498,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			By("Verifying VirtualMachineInstance's pod is active")
 			pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
-			Expect(len(pods.Items)).To(Equal(1), "There should be only one pod")
+			Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
 			pod := pods.Items[0]
 
 			// Delete the Pod
@@ -1533,7 +1533,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				By("Verifying VirtualMachineInstance's pod is active")
 				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
 				Expect(err).ToNot(HaveOccurred(), "Should list pods")
-				Expect(len(pods.Items)).To(Equal(1), "There should be only one pod")
+				Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")

@@ -71,7 +71,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
 
-				Expect(len(runningVMISpec.Devices.Graphics)).To(Equal(0), "should not have any graphics devices present")
+				Expect(runningVMISpec.Devices.Graphics).To(BeEmpty(), "should not have any graphics devices present")
 			})
 
 			It("[test_id:737][posneg:positive]should match memory with overcommit enabled", func() {
