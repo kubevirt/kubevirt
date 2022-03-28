@@ -1142,12 +1142,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(hugepagesVmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						if len(vmi.Status.Conditions) > 0 {
-							for _, cond := range vmi.Status.Conditions {
-								if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
-									vmiCondition = cond
-									return true
-								}
+						for _, cond := range vmi.Status.Conditions {
+							if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
+								vmiCondition = cond
+								return true
 							}
 						}
 						return false
@@ -2234,12 +2232,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if len(vmi.Status.Conditions) > 0 {
-					for _, cond := range vmi.Status.Conditions {
-						if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
-							vmiCondition = cond
-							return true
-						}
+				for _, cond := range vmi.Status.Conditions {
+					if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
+						vmiCondition = cond
+						return true
 					}
 				}
 				return false
