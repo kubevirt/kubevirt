@@ -42,6 +42,7 @@ type ComponentConfig struct {
 	NodePlacement *NodePlacement `json:"nodePlacement,omitempty"`
 	// replicas indicates how many replicas should be created for each KubeVirt infrastructure
 	// component (like virt-api or virt-controller). Defaults to 2.
+	// WARNING: this is an advanced feature that prevents auto-scaling for core kubevirt components. Please use with caution!
 	//+optional
 	Replicas *uint8 `json:"replicas,omitempty"`
 }
