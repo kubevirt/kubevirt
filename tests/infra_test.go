@@ -26,7 +26,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	neturl "net/url"
 	"reflect"
@@ -627,6 +626,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		var pod *k8sv1.Pod
 		var handlerMetricIPs []string
 		var controllerMetricIPs []string
+		var getKubevirtVMMetrics func(string) string
 
 		pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 			if vmi == nil {
@@ -637,22 +637,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			}
 			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = nodeName
 			return vmi
-		}
-
-		// returns metrics from the node the VMI(s) runs on
-		getKubevirtVMMetrics := func(ip string) string {
-			metricsURL := prepareMetricsURL(ip, 8443)
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-				pod,
-				"virt-handler",
-				[]string{
-					"curl",
-					"-L",
-					"-k",
-					metricsURL,
-				})
-			Expect(err).ToNot(HaveOccurred())
-			return stdout
 		}
 
 		// collect metrics whose key contains the given string, expects non-empty result
@@ -741,6 +725,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			for _, ip := range pod.Status.PodIPs {
 				handlerMetricIPs = append(handlerMetricIPs, ip.IP)
 			}
+
+			// returns metrics from the node the VMI(s) runs on
+			getKubevirtVMMetrics = tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 		})
 
 		PIt("[test_id:4136][flaky] should find one leading virt-controller and two ready", func() {
@@ -890,7 +877,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			errorsChan := make(chan error)
 			By("Scraping the Prometheus endpoint")
-			metricsURL := prepareMetricsURL(ip, 8443)
+			metricsURL := tests.PrepareMetricsURL(ip, 8443)
 			for ix := 0; ix < concurrency; ix++ {
 				go func(ix int) {
 					req, _ := http.NewRequest("GET", metricsURL, nil)
@@ -1663,10 +1650,6 @@ func getSupportedIP(ips []string, family k8sv1.IPFamily) string {
 	ExpectWithOffset(1, ip).NotTo(BeEmpty())
 
 	return ip
-}
-
-func prepareMetricsURL(ip string, port int) string {
-	return fmt.Sprintf("https://%s/metrics", net.JoinHostPort(ip, strconv.Itoa(port)))
 }
 
 func getMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) string {

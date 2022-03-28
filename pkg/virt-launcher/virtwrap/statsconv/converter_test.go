@@ -52,7 +52,7 @@ var _ = Describe("StatsConverter", func() {
 			in := &libvirt.DomainStats{}
 			inMem := []libvirt.DomainMemoryStat{}
 			devAliasMap := make(map[string]string)
-			inJobInfo := &stats.DomainJobInfo{}
+			inJobInfo := &stats.DomainJobInfo{MemDirtyRate: 123}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)

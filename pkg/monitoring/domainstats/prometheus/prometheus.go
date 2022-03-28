@@ -40,7 +40,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-const PrometheusCollectionTimeout = vms.CollectionTimeout
+const (
+	PrometheusCollectionTimeout         = vms.CollectionTimeout
+	MigrateVmiDataRemainingMetricName   = "kubevirt_migrate_vmi_data_remaining_bytes"
+	MigrateVmiDataProcessedMetricName   = "kubevirt_migrate_vmi_data_processed_bytes"
+	MigrateVmiDirtyMemoryRateMetricName = "kubevirt_migrate_vmi_dirty_memory_rate_bytes"
+)
 
 var (
 
@@ -70,28 +75,28 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 func (metrics *vmiMetrics) updateMigrateInfo(jobInfo *stats.DomainJobInfo) {
 	if jobInfo.DataRemainingSet {
 		metrics.pushCommonMetric(
-			"kubevirt_migrate_vmi_data_remaining_bytes",
+			MigrateVmiDataRemainingMetricName,
 			"The remaining VM data to be migrated.",
 			prometheus.GaugeValue,
-			float64(jobInfo.DataRemaining)*1024,
+			float64(jobInfo.DataRemaining),
 		)
 	}
 
 	if jobInfo.DataProcessedSet {
 		metrics.pushCommonMetric(
-			"kubevirt_migrate_vmi_data_processed_bytes",
+			MigrateVmiDataProcessedMetricName,
 			"The total VM data processed and migrated.",
 			prometheus.GaugeValue,
-			float64(jobInfo.DataProcessed)*1024,
+			float64(jobInfo.DataProcessed),
 		)
 	}
 
 	if jobInfo.MemDirtyRateSet {
 		metrics.pushCommonMetric(
-			"kubevirt_migrate_vmi_dirty_memory_rate_bytes",
+			MigrateVmiDirtyMemoryRateMetricName,
 			"The rate at which the memory is getting dirty in the VM being Migrated.",
 			prometheus.GaugeValue,
-			float64(jobInfo.MemDirtyRate)*1024,
+			float64(jobInfo.MemDirtyRate),
 		)
 	}
 

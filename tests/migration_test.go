@@ -475,6 +475,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		var metricsIPs []string
 		var family k8sv1.IPFamily = k8sv1.IPv4Protocol
 
+		if family == k8sv1.IPv6Protocol {
+			libnet.SkipWhenNotDualStackCluster(virtClient)
+		}
+
 		vmiNodeOrig := vmi.Status.NodeName
 		By("Finding the prometheus endpoint")
 		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmiNodeOrig).Pod()
@@ -485,14 +489,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		By("Starting a Migration")
 		Eventually(func() error {
-			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the Migration Completes")
-
-		if family == k8sv1.IPv6Protocol {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
-		}
 
 		ip := getSupportedIP(metricsIPs, family)
 
@@ -500,25 +500,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		var metrics map[string]float64
 		var lines []string
 
+		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 		Eventually(func() map[string]float64 {
-			metricsURL := prepareMetricsURL(ip, 8443)
-			out, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-				pod,
-				"virt-handler",
-				[]string{
-					"curl",
-					"-L",
-					"-k",
-					metricsURL,
-				})
-			Expect(err).ToNot(HaveOccurred())
+			out := getKubevirtVMMetricsFunc(ip)
 			lines = takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
 			metrics, err = parseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
 			return metrics
 		}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
 
-		Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
+		Expect(len(metrics)).To(BeNumerically(">=", 1.0))
 		Expect(metrics).To(HaveLen(len(lines)))
 
 		By("Checking the collected metrics")
@@ -2074,7 +2065,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
-			It("[test_id:] Migration Metrics exposed to prometheus during VM migration", func() {
+			It("[test_id:8482] Migration Metrics exposed to prometheus during VM migration", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -2087,7 +2078,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
+				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")

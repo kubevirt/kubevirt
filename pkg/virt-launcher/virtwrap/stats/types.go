@@ -60,7 +60,7 @@ type DomainStats struct {
 	Cpu *DomainStatsCPU
 	// new, see below
 	Memory *DomainStatsMemory
-	// new, see below
+	// omitted from libvirt-go: DomainJobInfo
 	MigrateDomainJobInfo *DomainJobInfo
 	// omitted from libvirt-go: Balloon
 	Vcpu  []DomainStatsVcpu

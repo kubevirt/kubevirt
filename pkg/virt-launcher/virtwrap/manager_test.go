@@ -1001,7 +1001,6 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			//mockDomain.EXPECT().GetJobStats(gomock.Eq(libvirt.DomainGetJobStatsFlags(0))).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
 			mockDomain.EXPECT().
@@ -1047,7 +1046,6 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			// mockDomain.EXPECT().GetJobStats(gomock.Eq(libvirt.DomainGetJobStatsFlags(0))).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
 			mockDomain.EXPECT().
@@ -1783,7 +1781,7 @@ var _ = Describe("Manager", func() {
 		It("should return content", func() {
 			fake_jobinfo := stats.DomainJobInfo{}
 			mockConn.EXPECT().GetDomainStats(
-				gomock.Eq(libvirt.DOMAIN_STATS_BALLOON|libvirt.DOMAIN_STATS_CPU_TOTAL|libvirt.DOMAIN_STATS_VCPU|libvirt.DOMAIN_STATS_INTERFACE|libvirt.DOMAIN_STATS_BLOCK),
+				gomock.Eq(libvirt.DOMAIN_STATS_BALLOON|libvirt.DOMAIN_STATS_CPU_TOTAL|libvirt.DOMAIN_STATS_VCPU|libvirt.DOMAIN_STATS_INTERFACE|libvirt.DOMAIN_STATS_BLOCK|libvirt.DOMAIN_STATS_DIRTYRATE),
 				&fake_jobinfo,
 				gomock.Eq(libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING),
 			).Return([]*stats.DomainStats{

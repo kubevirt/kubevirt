@@ -159,11 +159,6 @@ type LibvirtDomainManager struct {
 	migrateInfoStats         *stats.DomainJobInfo
 }
 
-type hostDeviceTypePrefix struct {
-	Type   converter.HostDeviceType
-	Prefix string
-}
-
 type pausedVMIs struct {
 	paused map[types.UID]bool
 }
@@ -1530,7 +1525,7 @@ func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInst
 }
 
 func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
-	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK
+	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
 
 	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
