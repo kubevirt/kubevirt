@@ -74,6 +74,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
 type vmSnapshotDef struct {
@@ -686,7 +687,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			originalOperatorVersion = strings.TrimPrefix(version, ":")
 		}
 
-		if tests.HasDataVolumeCRD() {
+		if libstorage.HasDataVolumeCRD() {
 			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cdiList.Items).To(HaveLen(1))
@@ -2214,7 +2215,7 @@ spec:
 		})
 
 		It("[test_id:3153]Ensure infra can handle dynamically detecting DataVolume Support", func() {
-			if !tests.HasDataVolumeCRD() {
+			if !libstorage.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
 			checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
