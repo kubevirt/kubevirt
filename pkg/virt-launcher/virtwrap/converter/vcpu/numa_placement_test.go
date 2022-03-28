@@ -6,6 +6,9 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"

@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -65,11 +66,12 @@ func canSourceMigrateOverUnixURI(vmi *v1.VirtualMachineInstance) bool {
 func (l *LibvirtDomainManager) prepareMigrationTarget(
 	vmi *v1.VirtualMachineInstance,
 	allowEmulation bool,
+	pciPortNum int,
 	options *cmdv1.VirtualMachineOptions,
 ) error {
 	logger := log.Log.Object(vmi)
 
-	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
+	c, err := l.generateConverterContext(vmi, allowEmulation, pciPortNum, options, true)
 	if err != nil {
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
 	}

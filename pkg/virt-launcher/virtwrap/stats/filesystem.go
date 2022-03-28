@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
 	"kubevirt.io/client-go/log"
 )
 
