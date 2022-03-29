@@ -200,7 +200,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
-	causes = append(causes, validatePermittedHostDevices(field, spec, config)...)
+
 	return causes
 }
 
@@ -756,38 +756,6 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 			Message: fmt.Sprintf("Host Devices feature gate is not enabled in kubevirt-config"),
 			Field:   field.Child("HostDevices").String(),
 		})
-	}
-	return causes
-}
-
-func validatePermittedHostDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
-		// build a map of all permitted host devices
-		supportedHostDevicesMap := make(map[string]bool)
-		for _, dev := range hostDevs.PciHostDevices {
-			supportedHostDevicesMap[dev.ResourceName] = true
-		}
-		for _, dev := range hostDevs.MediatedDevices {
-			supportedHostDevicesMap[dev.ResourceName] = true
-		}
-		for _, hostDev := range spec.Domain.Devices.GPUs {
-			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName),
-					Field:   field.Child("GPUs").String(),
-				})
-			}
-		}
-		for _, hostDev := range spec.Domain.Devices.HostDevices {
-			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName),
-					Field:   field.Child("HostDevices").String(),
-				})
-			}
-		}
 	}
 	return causes
 }
