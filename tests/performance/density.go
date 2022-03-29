@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
@@ -34,13 +33,9 @@ import (
 
 	kvv1 "kubevirt.io/api/core/v1"
 
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -158,7 +153,7 @@ func runAudit(startTime time.Time, endTime time.Time) {
 // between creations there is an interval for throughput control
 func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount int) {
 	for i := 1; i <= vmCount; i++ {
-		vmi := createVMISpecWithResources(virtClient)
+		vmi := createVMISpecWithResources()
 		By(fmt.Sprintf("Creating VMI %s", vmi.ObjectMeta.Name))
 		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
@@ -168,20 +163,17 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 	}
 }
 
-func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.VirtualMachineInstance {
-	vmImage := cd.ContainerDiskFor("cirros")
+func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 	cpuLimit := "100m"
 	memLimit := "90Mi"
-	cloudInitUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, cloudInitUserData)
-	vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse(memLimit),
-		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
-	}
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse(memLimit),
-		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
-	}
+	vmi := libvmi.NewCirros(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(kvv1.DefaultPodNetwork()),
+		libvmi.WithResourceMemory(memLimit),
+		libvmi.WithLimitMemory(memLimit),
+		libvmi.WithResourceCPU(cpuLimit),
+		libvmi.WithLimitCPU(cpuLimit),
+	)
 	return vmi
 }
 

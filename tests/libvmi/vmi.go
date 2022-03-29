@@ -95,6 +95,36 @@ func WithResourceMemory(value string) Option {
 	}
 }
 
+// WithResourceCPU specifies the vmi CPU resource.
+func WithResourceCPU(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(value)
+	}
+}
+
+// WithLimitMemory specifies the VMI memory limit.
+func WithLimitMemory(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithLimitCPU specifies the VMI CPU limit.
+func WithLimitCPU(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse(value)
+	}
+}
+
 // WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
 func WithNodeSelectorFor(node *k8sv1.Node) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
