@@ -125,6 +125,18 @@ func WithSEV() Option {
 	}
 }
 
+// WithSMM enables the SMM domain feature (needed by SecureBoot)
+func WithSMM() Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.SMM = &v1.FeatureState{
+			Enabled: pointer.Bool(true),
+		}
+	}
+}
+
 func baseVmi(name string) *kvirtv1.VirtualMachineInstance {
 	vmi := kvirtv1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = kvirtv1.VirtualMachineInstanceSpec{Domain: kvirtv1.DomainSpec{}}
