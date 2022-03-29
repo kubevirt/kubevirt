@@ -28,6 +28,10 @@
 
 set -ex
 
+# Override GOPROXY here since the value taken from
+# https://github.com/kubevirt/project-infra/blob/efd82844cad82370f2f10225eedf9890bc718a1a/github/ci/prow-deploy/kustom/base/configs/current/config/config.yaml#L577
+# is not go 1.13 compatible: pipe was introduced in go 1.15 https://go.dev/doc/go1.15#go-command
+export GOPROXY="https://proxy.golang.org,direct"
 export TIMESTAMP=${TIMESTAMP:-1}
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
