@@ -28,7 +28,18 @@ function isOperatorConditionSupported() {
 }
 
 function getOperatorConditionName() {
-  ${KUBECTL_BINARY} get -n "${INSTALLED_NAMESPACE}" OperatorCondition -o name | grep hyperconverged-operator | grep "$1"
+  installedCSV=$(${KUBECTL_BINARY} get subscription -n "${INSTALLED_NAMESPACE}" -o go-template="
+    {{- range \$item := .items -}}
+      {{- range \$key, \$value := \$item.metadata.labels -}}
+        {{- if or (eq \$key \"operators.coreos.com/kubevirt-hyperconverged.${INSTALLED_NAMESPACE}\") (eq \$key \"operators.coreos.com/community-kubevirt-hyperconverged.${INSTALLED_NAMESPACE}\") -}}
+          {{ \$item.status.installedCSV }}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  ")
+
+
+  ${KUBECTL_BINARY} get -n "${INSTALLED_NAMESPACE}" OperatorCondition -o name | grep "$installedCSV"
 }
 
 function getOperatorConditionUpgradeable() {
@@ -37,7 +48,7 @@ function getOperatorConditionUpgradeable() {
 
 function printOperatorCondition() {
   if isOperatorConditionSupported; then
-    name=$(getOperatorConditionName "$1")
+    name=$(getOperatorConditionName)
     echo "reading Operator Condition ${name}"
     getOperatorConditionUpgradeable "${name}"
   else

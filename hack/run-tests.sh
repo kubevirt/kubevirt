@@ -26,7 +26,7 @@ if [[ -n "${KUBECONFIG-}" ]]; then
 fi
 
 source ./hack/check_operator_condition.sh
-printOperatorCondition "${CSV_VERSION}"
+printOperatorCondition
 
 ${TEST_OUT_PATH}/func-tests.test -ginkgo.v -junit-output="${TEST_OUT_PATH}/output/junit.xml" -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" "$@" "${KUBECONFIG_FLAG}"
 
