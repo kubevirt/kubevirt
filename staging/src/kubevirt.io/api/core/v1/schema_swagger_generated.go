@@ -315,6 +315,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
+		"ioTune":            "If specified, will set the disk qos\n+optional",
 	}
 }
 
@@ -327,6 +328,18 @@ func (CustomBlockSize) SwaggerDoc() map[string]string {
 func (BlockSize) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "BlockSize provides the option to change the block size presented to the VM for a disk.\nOnly one of its members may be specified.",
+	}
+}
+
+func (IOTune) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "IOTune provides the option to add disk qos of a VM.\nTotalIopsSec cannot appear with read_iops_sec or write_iops_sec\nTotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.\nFor more document: https://libvirt.org/formatdomain.html#elementsDisks",
+		"totalIopsSec":  "TotalIopsSec\n+optional",
+		"readIopsSec":   "ReadIopsSec\n+optional",
+		"writeIopsSec":  "WriteIopsSec\n+optional",
+		"totalBytesSec": "TotalBytesSec\n+optional",
+		"readBytesSec":  "ReadBytesSec\n+optional",
+		"writeBytesSec": "WriteBytesSec\n+optional",
 	}
 }
 

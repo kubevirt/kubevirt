@@ -573,6 +573,9 @@ type Disk struct {
 	// If specified, the virtual disk will be presented with the given block sizes.
 	// +optional
 	BlockSize *BlockSize `json:"blockSize,omitempty"`
+	// If specified, will set the disk qos
+	// +optional
+	IOTune *IOTune `json:"ioTune,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
@@ -586,6 +589,31 @@ type CustomBlockSize struct {
 type BlockSize struct {
 	Custom      *CustomBlockSize `json:"custom,omitempty"`
 	MatchVolume *FeatureState    `json:"matchVolume,omitempty"`
+}
+
+// IOTune provides the option to add disk qos of a VM.
+// TotalIopsSec cannot appear with read_iops_sec or write_iops_sec
+// TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.
+// For more document: https://libvirt.org/formatdomain.html#elementsDisks
+type IOTune struct {
+	// TotalIopsSec
+	// +optional
+	TotalIopsSec uint64 `json:"totalIopsSec,omitempty"`
+	// ReadIopsSec
+	// +optional
+	ReadIopsSec uint64 `json:"readIopsSec,omitempty"`
+	// WriteIopsSec
+	// +optional
+	WriteIopsSec uint64 `json:"writeIopsSec,omitempty"`
+	// TotalBytesSec
+	// +optional
+	TotalBytesSec uint64 `json:"totalBytesSec,omitempty"`
+	// ReadBytesSec
+	// +optional
+	ReadBytesSec uint64 `json:"readBytesSec,omitempty"`
+	// WriteBytesSec
+	// +optional
+	WriteBytesSec uint64 `json:"writeBytesSec,omitempty"`
 }
 
 // Represents the target of a volume to mount.

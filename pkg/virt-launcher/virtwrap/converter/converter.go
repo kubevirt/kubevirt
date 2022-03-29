@@ -236,6 +236,25 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
+	if diskDevice.IOTune != nil {
+		ioTune := &api.IOTune{}
+		//  TotalIopsSec cannot appear with read_iops_sec or write_iops_sec
+		//  TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.
+		// https://libvirt.org/formatdomain.html#elementsDisks
+		if diskDevice.IOTune.TotalBytesSec != 0 {
+			ioTune.TotalBytesSec = diskDevice.IOTune.TotalBytesSec
+		} else {
+			ioTune.ReadBytesSec = diskDevice.IOTune.ReadBytesSec
+			ioTune.WriteBytesSec = diskDevice.IOTune.WriteBytesSec
+		}
+		if diskDevice.IOTune.TotalIopsSec != 0 {
+			ioTune.TotalIopsSec = diskDevice.IOTune.TotalIopsSec
+		} else {
+			ioTune.ReadIopsSec = diskDevice.IOTune.ReadBytesSec
+			ioTune.WriteIopsSec = diskDevice.IOTune.WriteIopsSec
+		}
+		disk.IOTune = ioTune
+	}
 	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
 		disk.Driver.IOMMU = "on"
 	}
@@ -1930,9 +1949,9 @@ func needsHotplugController(vmi *v1.VirtualMachineInstance) bool {
 		machine := vmi.Spec.Domain.Machine
 		if machine == nil {
 			return true
-		}else if machine != nil && strings.Contains(machine.Type, "q35") {
+		} else if machine != nil && strings.Contains(machine.Type, "q35") {
 			return true
-		}else {
+		} else {
 			return false
 		}
 	}

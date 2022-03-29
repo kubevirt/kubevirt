@@ -12970,6 +12970,10 @@
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
       "type": "string"
      },
+     "ioTune": {
+      "description": "If specified, will set the disk qos",
+      "$ref": "#/definitions/v1.IOTune"
+     },
      "lun": {
       "description": "Attach a volume as a LUN to the vmi.",
       "$ref": "#/definitions/v1.LunTarget"
@@ -13567,6 +13571,42 @@
      "action": {
       "description": "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
       "type": "string"
+     }
+    }
+   },
+   "v1.IOTune": {
+    "description": "IOTune provides the option to add disk qos of a VM. TotalIopsSec cannot appear with read_iops_sec or write_iops_sec TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec. For more document: https://libvirt.org/formatdomain.html#elementsDisks",
+    "type": "object",
+    "properties": {
+     "readBytesSec": {
+      "description": "ReadBytesSec",
+      "type": "integer",
+      "format": "int64"
+     },
+     "readIopsSec": {
+      "description": "ReadIopsSec",
+      "type": "integer",
+      "format": "int64"
+     },
+     "totalBytesSec": {
+      "description": "TotalBytesSec",
+      "type": "integer",
+      "format": "int64"
+     },
+     "totalIopsSec": {
+      "description": "TotalIopsSec",
+      "type": "integer",
+      "format": "int64"
+     },
+     "writeBytesSec": {
+      "description": "WriteBytesSec",
+      "type": "integer",
+      "format": "int64"
+     },
+     "writeIopsSec": {
+      "description": "WriteIopsSec",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },
@@ -15494,6 +15534,10 @@
    "v1.VirtualMachineInstanceMigrationSpec": {
     "type": "object",
     "properties": {
+     "targetNode": {
+      "description": "The target node that the VMI is moving to",
+      "type": "string"
+     },
      "vmiName": {
       "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
       "type": "string"
@@ -15809,14 +15853,6 @@
      "template"
     ],
     "properties": {
-     "targetNode": {
-      "description": "The target node that the VMI is moving to",
-      "type": "string"
-     },
-     "vmiName": {
-      "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
-      "type": "string"
-     },
      "paused": {
       "description": "Indicates that the replica set is paused.",
       "type": "boolean"
@@ -16674,28 +16710,7 @@
       "type": "boolean"
      },
      "name": {
-      "description": "Name is the name of the volume",
-      "type": "string"
-     },
-     "persistentVolumeClaimInfo": {
-      "description": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
-      "$ref": "#/definitions/v1.PersistentVolumeClaimInfo"
-     },
-     "phase": {
-      "description": "Phase is the phase",
-      "type": "string"
-     },
-     "reason": {
-      "description": "Reason is a brief description of why we are in the current hotplug volume phase",
-      "type": "string"
-     },
-     "size": {
-      "description": "Represents the size of the volume",
-      "type": "integer",
-      "format": "int64"
-     },
-     "target": {
-      "description": "Target is the target name used when adding the volume to the VM, eg: vda",
+      "description": "Name specifies the name of this custom profile.",
       "type": "string"
      }
     }

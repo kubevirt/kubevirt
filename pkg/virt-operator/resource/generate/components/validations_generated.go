@@ -4188,6 +4188,34 @@ var CRDsValidation map[string]string = map[string]string{
                                   should be used. Supported values are: native, default,
                                   threads.'
                                 type: string
+                              ioTune:
+                                description: If specified, will set the disk qos
+                                properties:
+                                  readBytesSec:
+                                    description: ReadBytesSec
+                                    format: int64
+                                    type: integer
+                                  readIopsSec:
+                                    description: ReadIopsSec
+                                    format: int64
+                                    type: integer
+                                  totalBytesSec:
+                                    description: TotalBytesSec
+                                    format: int64
+                                    type: integer
+                                  totalIopsSec:
+                                    description: TotalIopsSec
+                                    format: int64
+                                    type: integer
+                                  writeBytesSec:
+                                    description: WriteBytesSec
+                                    format: int64
+                                    type: integer
+                                  writeIopsSec:
+                                    description: WriteIopsSec
+                                    format: int64
+                                    type: integer
+                                type: object
                               lun:
                                 description: Attach a volume as a LUN to the vmi.
                                 properties:
@@ -5809,6 +5837,34 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
                         type: string
+                      ioTune:
+                        description: If specified, will set the disk qos
+                        properties:
+                          readBytesSec:
+                            description: ReadBytesSec
+                            format: int64
+                            type: integer
+                          readIopsSec:
+                            description: ReadIopsSec
+                            format: int64
+                            type: integer
+                          totalBytesSec:
+                            description: TotalBytesSec
+                            format: int64
+                            type: integer
+                          totalIopsSec:
+                            description: TotalIopsSec
+                            format: int64
+                            type: integer
+                          writeBytesSec:
+                            description: WriteBytesSec
+                            format: int64
+                            type: integer
+                          writeIopsSec:
+                            description: WriteIopsSec
+                            format: int64
+                            type: integer
+                        type: object
                       lun:
                         description: Attach a volume as a LUN to the vmi.
                         properties:
@@ -7251,6 +7307,34 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
                         type: string
+                      ioTune:
+                        description: If specified, will set the disk qos
+                        properties:
+                          readBytesSec:
+                            description: ReadBytesSec
+                            format: int64
+                            type: integer
+                          readIopsSec:
+                            description: ReadIopsSec
+                            format: int64
+                            type: integer
+                          totalBytesSec:
+                            description: TotalBytesSec
+                            format: int64
+                            type: integer
+                          totalIopsSec:
+                            description: TotalIopsSec
+                            format: int64
+                            type: integer
+                          writeBytesSec:
+                            description: WriteBytesSec
+                            format: int64
+                            type: integer
+                          writeIopsSec:
+                            description: WriteIopsSec
+                            format: int64
+                            type: integer
+                        type: object
                       lun:
                         description: Attach a volume as a LUN to the vmi.
                         properties:
@@ -9372,6 +9456,34 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
                         type: string
+                      ioTune:
+                        description: If specified, will set the disk qos
+                        properties:
+                          readBytesSec:
+                            description: ReadBytesSec
+                            format: int64
+                            type: integer
+                          readIopsSec:
+                            description: ReadIopsSec
+                            format: int64
+                            type: integer
+                          totalBytesSec:
+                            description: TotalBytesSec
+                            format: int64
+                            type: integer
+                          totalIopsSec:
+                            description: TotalIopsSec
+                            format: int64
+                            type: integer
+                          writeBytesSec:
+                            description: WriteBytesSec
+                            format: int64
+                            type: integer
+                          writeIopsSec:
+                            description: WriteIopsSec
+                            format: int64
+                            type: integer
+                        type: object
                       lun:
                         description: Attach a volume as a LUN to the vmi.
                         properties:
@@ -11209,6 +11321,34 @@ var CRDsValidation map[string]string = map[string]string{
                                   should be used. Supported values are: native, default,
                                   threads.'
                                 type: string
+                              ioTune:
+                                description: If specified, will set the disk qos
+                                properties:
+                                  readBytesSec:
+                                    description: ReadBytesSec
+                                    format: int64
+                                    type: integer
+                                  readIopsSec:
+                                    description: ReadIopsSec
+                                    format: int64
+                                    type: integer
+                                  totalBytesSec:
+                                    description: TotalBytesSec
+                                    format: int64
+                                    type: integer
+                                  totalIopsSec:
+                                    description: TotalIopsSec
+                                    format: int64
+                                    type: integer
+                                  writeBytesSec:
+                                    description: WriteBytesSec
+                                    format: int64
+                                    type: integer
+                                  writeIopsSec:
+                                    description: WriteIopsSec
+                                    format: int64
+                                    type: integer
+                                type: object
                               lun:
                                 description: Attach a volume as a LUN to the vmi.
                                 properties:
@@ -14494,6 +14634,35 @@ var CRDsValidation map[string]string = map[string]string{
                                           IO mode should be used. Supported values
                                           are: native, default, threads.'
                                         type: string
+                                      ioTune:
+                                        description: If specified, will set the disk
+                                          qos
+                                        properties:
+                                          readBytesSec:
+                                            description: ReadBytesSec
+                                            format: int64
+                                            type: integer
+                                          readIopsSec:
+                                            description: ReadIopsSec
+                                            format: int64
+                                            type: integer
+                                          totalBytesSec:
+                                            description: TotalBytesSec
+                                            format: int64
+                                            type: integer
+                                          totalIopsSec:
+                                            description: TotalIopsSec
+                                            format: int64
+                                            type: integer
+                                          writeBytesSec:
+                                            description: WriteBytesSec
+                                            format: int64
+                                            type: integer
+                                          writeIopsSec:
+                                            description: WriteIopsSec
+                                            format: int64
+                                            type: integer
+                                        type: object
                                       lun:
                                         description: Attach a volume as a LUN to the
                                           vmi.
@@ -18133,6 +18302,35 @@ var CRDsValidation map[string]string = map[string]string{
                                               disk IO mode should be used. Supported
                                               values are: native, default, threads.'
                                             type: string
+                                          ioTune:
+                                            description: If specified, will set the
+                                              disk qos
+                                            properties:
+                                              readBytesSec:
+                                                description: ReadBytesSec
+                                                format: int64
+                                                type: integer
+                                              readIopsSec:
+                                                description: ReadIopsSec
+                                                format: int64
+                                                type: integer
+                                              totalBytesSec:
+                                                description: TotalBytesSec
+                                                format: int64
+                                                type: integer
+                                              totalIopsSec:
+                                                description: TotalIopsSec
+                                                format: int64
+                                                type: integer
+                                              writeBytesSec:
+                                                description: WriteBytesSec
+                                                format: int64
+                                                type: integer
+                                              writeIopsSec:
+                                                description: WriteIopsSec
+                                                format: int64
+                                                type: integer
+                                            type: object
                                           lun:
                                             description: Attach a volume as a LUN
                                               to the vmi.
@@ -19907,6 +20105,34 @@ var CRDsValidation map[string]string = map[string]string{
                                       mode should be used. Supported values are: native,
                                       default, threads.'
                                     type: string
+                                  ioTune:
+                                    description: If specified, will set the disk qos
+                                    properties:
+                                      readBytesSec:
+                                        description: ReadBytesSec
+                                        format: int64
+                                        type: integer
+                                      readIopsSec:
+                                        description: ReadIopsSec
+                                        format: int64
+                                        type: integer
+                                      totalBytesSec:
+                                        description: TotalBytesSec
+                                        format: int64
+                                        type: integer
+                                      totalIopsSec:
+                                        description: TotalIopsSec
+                                        format: int64
+                                        type: integer
+                                      writeBytesSec:
+                                        description: WriteBytesSec
+                                        format: int64
+                                        type: integer
+                                      writeIopsSec:
+                                        description: WriteIopsSec
+                                        format: int64
+                                        type: integer
+                                    type: object
                                   lun:
                                     description: Attach a volume as a LUN to the vmi.
                                     properties:
