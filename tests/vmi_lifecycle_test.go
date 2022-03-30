@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -204,6 +205,39 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
+		})
+
+		It("Should prevent eviction when EvictionStratgy: External", func() {
+			strategy := v1.EvictionStrategyExternal
+			vmi.Spec.EvictionStrategy = &strategy
+
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil(), "Create VMI successfully")
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(pod).ToNot(BeNil())
+
+			By("calling evict on VMI's pod")
+			err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+			// The "too many requests" err is what get's returned when an
+			// eviction would invalidate a pdb. This is what we want to see here.
+			Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+
+			By("should have evacuation node name set on vmi status")
+			Consistently(func() error {
+
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(pod).ToNot(BeNil())
+				Expect(pod.DeletionTimestamp).To(BeNil())
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(vmi.Status.EvacuationNodeName).ToNot(Equal(""))
+				return nil
+			}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
 		})
 
 		It("[test_id:1622]should log libvirtd logs", func() {
