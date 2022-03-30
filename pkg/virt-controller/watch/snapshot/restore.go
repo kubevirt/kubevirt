@@ -510,7 +510,6 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	var newVM *kubevirtv1.VirtualMachine
 	if !t.doesTargetVMExist() {
 		newVM = &kubevirtv1.VirtualMachine{
-			TypeMeta: snapshotVM.TypeMeta,
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        t.vmRestore.Spec.Target.Name,
 				Namespace:   t.vmRestore.Namespace,

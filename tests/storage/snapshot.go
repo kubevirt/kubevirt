@@ -159,6 +159,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 		Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
 		Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
+		Expect(content.Spec.Source.VirtualMachine.UID).ToNot(BeEmpty())
 		if expectVolumeBackups {
 			Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 		} else {
@@ -216,6 +217,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 				Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
 				Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
+				Expect(content.Spec.Source.VirtualMachine.UID).ToNot(BeEmpty())
 				Expect(content.Spec.VolumeBackups).To(BeEmpty())
 			}
 		}

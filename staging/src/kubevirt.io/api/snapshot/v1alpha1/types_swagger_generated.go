@@ -69,6 +69,13 @@ func (VirtualMachineSnapshotContentSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachine) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"spec":   "VirtualMachineSpec contains the VirtualMachine specification.",
+		"status": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachineInstance",
+	}
+}
+
 func (SourceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "SourceSpec contains the appropriate spec for the resource being snapshotted",

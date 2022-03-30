@@ -464,7 +464,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		vb := snapshotv1.VolumeBackup{
 			VolumeName: volumeName,
 			PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
-				ObjectMeta: *pvc.ObjectMeta.DeepCopy(),
+				ObjectMeta: *getSimplifiedMetaObject(pvc.ObjectMeta),
 				Spec:       *pvc.Spec.DeepCopy(),
 			},
 			VolumeSnapshotName: &volumeSnapshotName,

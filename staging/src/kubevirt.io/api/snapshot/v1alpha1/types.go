@@ -198,10 +198,21 @@ type VirtualMachineSnapshotContentSpec struct {
 	VolumeBackups []VolumeBackup `json:"volumeBackups,omitempty"`
 }
 
+type VirtualMachine struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +nullable
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VirtualMachineSpec contains the VirtualMachine specification.
+	Spec v1.VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
+	// Status holds the current state of the controller and brief information
+	// about its associated VirtualMachineInstance
+	Status v1.VirtualMachineStatus `json:"status,omitempty"`
+}
+
 // SourceSpec contains the appropriate spec for the resource being snapshotted
 type SourceSpec struct {
 	// +optional
-	VirtualMachine *v1.VirtualMachine `json:"virtualMachine,omitempty"`
+	VirtualMachine *VirtualMachine `json:"virtualMachine,omitempty"`
 }
 
 type PersistentVolumeClaim struct {
