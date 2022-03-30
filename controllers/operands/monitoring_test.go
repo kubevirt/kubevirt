@@ -39,14 +39,14 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.Service{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -61,10 +61,10 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
@@ -83,23 +83,23 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.Service{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Ports[0].Name).To(BeIdenticalTo(operatorPortName))
 			Expect(foundResource.Spec.Ports[0].Port).To(BeIdenticalTo(hcoutil.MetricsPort))
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 
@@ -126,14 +126,14 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &monitoringv1.ServiceMonitor{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -148,10 +148,10 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
@@ -169,22 +169,22 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &monitoringv1.ServiceMonitor{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Endpoints[0].Port).To(BeIdenticalTo(operatorPortName))
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
@@ -210,14 +210,14 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &monitoringv1.PrometheusRule{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -232,10 +232,10 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
@@ -254,23 +254,23 @@ var _ = Describe("Monitoring Operand", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &monitoringv1.PrometheusRule{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Groups[0].Name).To(BeIdenticalTo(alertRuleGroup))
 			Expect(foundResource.Spec.Groups[0].Rules[0].Alert).To(BeIdenticalTo(outOfBandUpdateAlert))
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})

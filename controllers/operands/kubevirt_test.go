@@ -49,11 +49,11 @@ var _ = Describe("KubeVirt Operand", func() {
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &schedulingv1.PriorityClass{}
-			Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
+			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Value).To(Equal(expectedResource.Value))
 			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
@@ -65,10 +65,10 @@ var _ = Describe("KubeVirt Operand", func() {
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
@@ -77,7 +77,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			expectedResource := NewKubeVirtPriorityClass(hco)
 			key := client.ObjectKeyFromObject(expectedResource)
@@ -88,7 +88,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
 
 			newReference, err := reference.GetReference(cl.Scheme(), foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*newReference))
 		},
 			Entry("with modified value",
@@ -201,14 +201,14 @@ Version: 1.2.3`)
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -260,12 +260,12 @@ Version: 1.2.3`)
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
@@ -344,14 +344,14 @@ Version: 1.2.3`)
 
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 			Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift + 1))
 			Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(
@@ -425,14 +425,14 @@ Version: 1.2.3`)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.UninstallStrategy).To(Equal(expectedResource.Spec.UninstallStrategy))
 		})
 
@@ -446,14 +446,14 @@ Version: 1.2.3`)
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.UninstallStrategy).ToNot(BeNil())
 				Expect(foundResource.Spec.UninstallStrategy).To(Equal(kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
@@ -468,14 +468,14 @@ Version: 1.2.3`)
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.UninstallStrategy).ToNot(BeNil())
 				Expect(foundResource.Spec.UninstallStrategy).To(Equal(kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
@@ -490,14 +490,14 @@ Version: 1.2.3`)
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.UninstallStrategy).ToNot(BeNil())
 				Expect(foundResource.Spec.UninstallStrategy).To(Equal(kubevirtcorev1.KubeVirtUninstallStrategyRemoveWorkloads))
@@ -529,14 +529,14 @@ Version: 1.2.3`)
 
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			mc := foundResource.Spec.Configuration.MigrationConfiguration
 			Expect(mc).ToNot(BeNil())
@@ -550,9 +550,9 @@ Version: 1.2.3`)
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existKv)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 
@@ -573,14 +573,14 @@ Version: 1.2.3`)
 
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				mdevConf := foundResource.Spec.Configuration.MediatedDevicesConfiguration
 				Expect(mdevConf).ToNot(BeNil())
@@ -620,14 +620,14 @@ Version: 1.2.3`)
 
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				mdevConf := foundResource.Spec.Configuration.MediatedDevicesConfiguration
 				Expect(mdevConf).ToNot(BeNil())
@@ -674,14 +674,14 @@ Version: 1.2.3`)
 
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				By("Check after reconcile")
 				mdc := foundResource.Spec.Configuration.MediatedDevicesConfiguration
@@ -758,14 +758,14 @@ Version: 1.2.3`)
 
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				phd := foundResource.Spec.Configuration.PermittedHostDevices
 				Expect(phd).ToNot(BeNil())
@@ -977,14 +977,14 @@ Version: 1.2.3`)
 
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				By("Check after reconcile")
 				phd := foundResource.Spec.Configuration.PermittedHostDevices
@@ -1061,14 +1061,14 @@ Version: 1.2.3`)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra).To(BeNil())
 				Expect(existingResource.Spec.Workloads).To(BeNil())
@@ -1099,14 +1099,14 @@ Version: 1.2.3`)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra).ToNot(BeNil())
 				Expect(existingResource.Spec.Workloads).ToNot(BeNil())
@@ -1136,14 +1136,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra).ToNot(BeNil())
 				Expect(existingResource.Spec.Infra.NodePlacement).ToNot(BeNil())
@@ -1191,14 +1191,14 @@ Version: 1.2.3`)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
@@ -1365,14 +1365,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					By("KV CR should contain the HC enabled managed feature gates", func() {
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
@@ -1396,14 +1396,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					By("KV CR should contain the HC enabled managed feature gates", func() {
 						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
@@ -1427,14 +1427,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					By("KV CR should contain the HC enabled managed feature gates", func() {
 						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
@@ -1470,14 +1470,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeFalse())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
@@ -1511,14 +1511,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
@@ -1548,14 +1548,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(basicNumFgOnOpenshift + deltaFGNotSNO))
@@ -1585,14 +1585,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 							foundResource),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(hardCodeKvFgs) + deltaFGNotSNO))
@@ -1775,14 +1775,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundKV := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
 							foundKV),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					By("KV CR should contain the HC obsolete CPU models and minCPUModel", func() {
 						Expect(foundKV.Spec.Configuration.ObsoleteCPUModels).Should(HaveLen(3 + len(hardcodedObsoleteCPUModels)))
@@ -1819,14 +1819,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundKV := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
 							foundKV),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					By("KV CR should contain the HC obsolete CPU models and minCPUModel", func() {
 						Expect(foundKV.Spec.Configuration.ObsoleteCPUModels).Should(HaveLen(3 + len(hardcodedObsoleteCPUModels)))
@@ -1859,14 +1859,14 @@ Version: 1.2.3`)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
 					Expect(res.Overwritten).To(BeFalse())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundKV := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
 							foundKV),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					By("KV CR ObsoleteCPUModels field should contain only the hard-coded values", func() {
 						Expect(foundKV.Spec.Configuration.ObsoleteCPUModels).ShouldNot(BeEmpty())
@@ -1903,14 +1903,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
 				certificateRotationStrategy := foundResource.Spec.CertificateRotationStrategy
@@ -1930,14 +1930,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned).To(BeNil())
 
@@ -1977,14 +1977,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
 				existingCertificateRotationStrategy := existingResource.Spec.CertificateRotationStrategy
@@ -2033,14 +2033,14 @@ Version: 1.2.3`)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
 				existingCertificateRotationStrategy := existingResource.Spec.CertificateRotationStrategy
@@ -2089,14 +2089,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
 				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
@@ -2116,14 +2116,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
 				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
@@ -2154,14 +2154,14 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundKv := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingKv.Name, Namespace: existingKv.Namespace},
 						foundKv),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(3))
 				Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(
@@ -2204,14 +2204,14 @@ Version: 1.2.3`)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundKV := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
 						foundKV),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingKV.Spec.CertificateRotationStrategy).ToNot(BeNil())
 				existingUpdateStrategy := existingKV.Spec.WorkloadUpdateStrategy
@@ -2252,14 +2252,14 @@ Version: 1.2.3`)
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
 					Expect(res.Updated).To(BeTrue())
-					Expect(res.Err).To(BeNil())
+					Expect(res.Err).ToNot(HaveOccurred())
 
 					foundKv := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKv.Name, Namespace: existingKv.Namespace},
 							foundKv),
-					).To(BeNil())
+					).ToNot(HaveOccurred())
 
 					Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(len(expectedKVWorkloadUpdateMethods)))
 					for _, expected := range expectedKVWorkloadUpdateMethods {
@@ -2504,12 +2504,12 @@ Version: 1.2.3`)
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
@@ -2627,7 +2627,7 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.Created).To(BeTrue())
 				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				kv := &kubevirtcorev1.KubeVirt{}
 				Expect(

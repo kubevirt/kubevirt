@@ -36,7 +36,7 @@ var _ = Describe("QuickStart tests", func() {
 
 			err := checkCrdExists(context.TODO(), cli, logger)
 			Expect(err).Should(HaveOccurred())
-			Expect(errors.Unwrap(err)).To(BeNil())
+			Expect(errors.Unwrap(err)).ToNot(HaveOccurred())
 		})
 
 		It("should return true if CRD exists, with no error", func() {
@@ -197,9 +197,9 @@ var _ = Describe("QuickStart tests", func() {
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 				objectRefOutdated, err := reference.GetReference(schemeForTest, exists)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				objectRefFound, err := reference.GetReference(schemeForTest, &quickstartObjects.Items[0])
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 			})

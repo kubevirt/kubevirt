@@ -154,7 +154,7 @@ func GetScheme() *runtime.Scheme {
 		routev1.Install,
 		imagev1.Install,
 	} {
-		Expect(f(testScheme)).To(BeNil())
+		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}
 
 	return testScheme

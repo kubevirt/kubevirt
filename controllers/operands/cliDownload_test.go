@@ -37,11 +37,11 @@ var _ = Describe("CLI Download", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newCliDownloadHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &consolev1.ConsoleCLIDownload{}
-			Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
+			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Spec.Links).Should(HaveLen(3))
@@ -53,12 +53,12 @@ var _ = Describe("CLI Download", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCliDownloadHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
@@ -72,7 +72,7 @@ var _ = Describe("CLI Download", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
 			handler := (*genericOperand)(newCliDownloadHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &consolev1.ConsoleCLIDownload{}
@@ -82,9 +82,9 @@ var _ = Describe("CLI Download", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, modifiedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		},
@@ -121,11 +121,11 @@ var _ = Describe("Downloads Service", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newCliDownloadsServiceHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &corev1.Service{}
-			Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
+			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -136,12 +136,12 @@ var _ = Describe("Downloads Service", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCliDownloadsServiceHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
@@ -155,7 +155,7 @@ var _ = Describe("Downloads Service", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
 			handler := (*genericOperand)(newCliDownloadsServiceHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &corev1.Service{}
@@ -165,9 +165,9 @@ var _ = Describe("Downloads Service", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, modifiedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		},
@@ -201,11 +201,11 @@ var _ = Describe("Cli Downloads Route", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newCliDownloadsRouteHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &routev1.Route{}
-			Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
+			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -216,12 +216,12 @@ var _ = Describe("Cli Downloads Route", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCliDownloadsRouteHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
@@ -235,7 +235,7 @@ var _ = Describe("Cli Downloads Route", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
 			handler := (*genericOperand)(newCliDownloadsRouteHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &routev1.Route{}
@@ -245,9 +245,9 @@ var _ = Describe("Cli Downloads Route", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, modifiedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		},

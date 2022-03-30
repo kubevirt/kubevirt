@@ -41,7 +41,7 @@ var _ = Describe("VirtioWin", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler, err := newVirtioWinCmHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(handler).To(BeNil())
 		})
 
@@ -52,14 +52,14 @@ var _ = Describe("VirtioWin", func() {
 			handler, _ := newVirtioWinCmHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 			res := handler[0].ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -74,12 +74,12 @@ var _ = Describe("VirtioWin", func() {
 			handler, _ := newVirtioWinCmHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 			res := handler[0].ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(commonTestUtils.GetScheme(), expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
@@ -108,14 +108,14 @@ var _ = Describe("VirtioWin", func() {
 			res := handler[0].ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			for _, k := range updatableKeys {
 				Expect(foundResource.Data[k]).To(Not(Equal(outdatedResource.Data[k])))
@@ -127,9 +127,9 @@ var _ = Describe("VirtioWin", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(commonTestUtils.GetScheme(), outdatedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(commonTestUtils.GetScheme(), foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})

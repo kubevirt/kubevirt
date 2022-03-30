@@ -24,7 +24,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 		})
 
 		It("Should update Name", func() {
@@ -36,7 +36,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 		})
 
 		It("Should update UpgradeDone", func() {
@@ -48,7 +48,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 
 			er.SetUpgradeDone(false)
 
@@ -57,7 +57,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 		})
 
 		It("Should set created", func() {
@@ -69,7 +69,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeTrue())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 		})
 
 		It("Should set updated", func() {
@@ -80,7 +80,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeTrue())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 		})
 
 		It("Should set overwritten", func() {
@@ -91,7 +91,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeTrue())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).To(BeNil())
+			Expect(er.Err).ToNot(HaveOccurred())
 		})
 
 		It("Should set Error", func() {
@@ -103,7 +103,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeFalse())
 			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
-			Expect(er.Err).ToNot(BeNil())
+			Expect(er.Err).To(HaveOccurred())
 		})
 
 		It("Should use the builder pattern", func() {
@@ -120,7 +120,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Updated).To(BeTrue())
 			Expect(er.Overwritten).To(BeTrue())
 			Expect(er.Created).To(BeTrue())
-			Expect(er.Err).ToNot(BeNil())
+			Expect(er.Err).To(HaveOccurred())
 		})
 	})
 })

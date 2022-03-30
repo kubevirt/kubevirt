@@ -52,14 +52,14 @@ var _ = Describe("Namespace Operand", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.Namespace{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Annotations[hcoutil.OpenshiftNodeSelectorAnn]).To(Not(BeIdenticalTo(customValue)))
 			Expect(foundResource.Annotations[hcoutil.OpenshiftNodeSelectorAnn]).To(BeIdenticalTo(""))
 			Expect(foundResource.Annotations[customAnnotation]).To(BeIdenticalTo(customValue))
@@ -87,14 +87,14 @@ var _ = Describe("Namespace Operand", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.Namespace{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Annotations).To(HaveKey(hcoutil.OpenshiftNodeSelectorAnn))
 			Expect(foundResource.Annotations[hcoutil.OpenshiftNodeSelectorAnn]).To(BeIdenticalTo(""))
 

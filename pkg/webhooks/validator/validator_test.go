@@ -105,13 +105,13 @@ var _ = Describe("webhooks validator", func() {
 		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
 	} {
-		Expect(f(s)).To(BeNil())
+		Expect(f(s)).ToNot(HaveOccurred())
 	}
 
 	Context("Check create validation webhook", func() {
 		var cr *v1beta1.HyperConverged
 		BeforeEach(func() {
-			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).ToNot(HaveOccurred())
 			cr = commonTestUtils.NewHco()
 		})
 
@@ -256,7 +256,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err).Should(Equal(ErrFakeKvError))
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("webhooks validator", func() {
 			cli := getFakeClient(hco)
 			cdi, err := operands.NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cli.Delete(ctx, cdi)).To(BeNil())
+			Expect(cli.Delete(ctx, cdi)).ToNot(HaveOccurred())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
 
@@ -291,7 +291,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err).Should(Equal(ErrFakeCdiError))
 		})
 
@@ -307,7 +307,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should return error if NetworkAddons CR is missing", func() {
@@ -315,7 +315,7 @@ var _ = Describe("webhooks validator", func() {
 			cli := getFakeClient(hco)
 			cna, err := operands.NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cli.Delete(ctx, cna)).To(BeNil())
+			Expect(cli.Delete(ctx, cna)).ToNot(HaveOccurred())
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
 
 			newHco := &v1beta1.HyperConverged{}
@@ -324,7 +324,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
 
 			err = wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			Expect(err.Error()).Should(ContainSubstring("networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io"))
 		})
@@ -341,7 +341,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err).Should(Equal(ErrFakeNetworkError))
 		})
 
@@ -349,7 +349,7 @@ var _ = Describe("webhooks validator", func() {
 			ctx := context.TODO()
 			cli := getFakeClient(hco)
 
-			Expect(cli.Delete(ctx, operands.NewSSPWithNameOnly(hco))).To(BeNil())
+			Expect(cli.Delete(ctx, operands.NewSSPWithNameOnly(hco))).ToNot(HaveOccurred())
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
 
 			newHco := &v1beta1.HyperConverged{}
@@ -358,7 +358,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			Expect(err.Error()).Should(ContainSubstring("ssps.ssp.kubevirt.io"))
 		})
@@ -374,7 +374,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err).Should(Equal(ErrFakeSspError))
 
 		})
@@ -467,7 +467,7 @@ var _ = Describe("webhooks validator", func() {
 				cli := getFakeClient(hco)
 				kv, err := operands.NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cli.Delete(ctx, kv)).To(BeNil())
+				Expect(cli.Delete(ctx, kv)).ToNot(HaveOccurred())
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, false)
 
 				newHco := commonTestUtils.NewHco()
@@ -479,7 +479,7 @@ var _ = Describe("webhooks validator", func() {
 				}
 
 				err = wh.ValidateUpdate(newHco, hco)
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
@@ -820,7 +820,7 @@ var _ = Describe("webhooks validator", func() {
 			ctx := context.TODO()
 
 			kv := operands.NewKubeVirtWithNameOnly(hco)
-			Expect(cli.Delete(ctx, kv)).To(BeNil())
+			Expect(cli.Delete(ctx, kv)).ToNot(HaveOccurred())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
 
@@ -850,7 +850,7 @@ var _ = Describe("webhooks validator", func() {
 			ctx := context.TODO()
 
 			cdi := operands.NewCDIWithNameOnly(hco)
-			Expect(cli.Delete(ctx, cdi)).To(BeNil())
+			Expect(cli.Delete(ctx, cdi)).ToNot(HaveOccurred())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
 
@@ -879,7 +879,7 @@ var _ = Describe("webhooks validator", func() {
 	Context("unsupported annotation", func() {
 		var hco *v1beta1.HyperConverged
 		BeforeEach(func() {
-			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).ToNot(HaveOccurred())
 			hco = commonTestUtils.NewHco()
 		})
 

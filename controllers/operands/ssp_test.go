@@ -50,14 +50,14 @@ var _ = Describe("SSP Operands", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &sspv1beta1.SSP{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -74,12 +74,12 @@ var _ = Describe("SSP Operands", func() {
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
@@ -107,23 +107,23 @@ var _ = Describe("SSP Operands", func() {
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &sspv1beta1.SSP{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec).To(Equal(expectedResource.Spec))
 			Expect(foundResource.Spec.CommonTemplates.Namespace).To(Equal(cTNamespace), "common-templates namespace should equal")
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
@@ -144,14 +144,14 @@ var _ = Describe("SSP Operands", func() {
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
 				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &sspv1beta1.SSP{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.NodeLabeller.Placement).To(BeZero())
 				Expect(existingResource.Spec.TemplateValidator.Placement).To(BeZero())
@@ -175,14 +175,14 @@ var _ = Describe("SSP Operands", func() {
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
 				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &sspv1beta1.SSP{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.NodeLabeller.Placement).ToNot(BeZero())
 				Expect(existingResource.Spec.TemplateValidator.Placement).ToNot(BeZero())
@@ -218,14 +218,14 @@ var _ = Describe("SSP Operands", func() {
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
 				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &sspv1beta1.SSP{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.NodeLabeller.Placement.Affinity.NodeAffinity).ToNot(BeZero())
 				Expect(existingResource.Spec.NodeLabeller.Placement.Tolerations).To(HaveLen(2))
@@ -273,14 +273,14 @@ var _ = Describe("SSP Operands", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &sspv1beta1.SSP{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.NodeLabeller.Placement.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.NodeLabeller.Placement.NodeSelector["key1"]).Should(Equal("BADvalue1"))
@@ -957,14 +957,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
@@ -986,14 +986,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
@@ -1015,14 +1015,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
@@ -1053,14 +1053,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(3))
@@ -1097,14 +1097,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						for _, dict := range foundResource.Spec.CommonTemplates.DataImportCronTemplates {
@@ -1142,14 +1142,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
@@ -1174,14 +1174,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeTrue())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
@@ -1206,14 +1206,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeTrue())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
@@ -1246,14 +1246,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeTrue())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(3))
@@ -1288,14 +1288,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.Updated).To(BeTrue())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).To(BeNil())
+						Expect(res.Err).ToNot(HaveOccurred())
 
 						foundResource := &sspv1beta1.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
 								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 								foundResource),
-						).To(BeNil())
+						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						for _, dict := range foundResource.Spec.CommonTemplates.DataImportCronTemplates {

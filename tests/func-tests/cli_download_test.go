@@ -46,7 +46,7 @@ func skipIfConsoleCliDownloadsCrdDoesNotExist(cli kubecli.KubevirtClient) {
 	if err != nil && apierrors.IsNotFound(err) {
 		Skip("ConsoleCLIDownload CRD does not exist")
 	}
-	ExpectWithOffset(1, err).Should(BeNil())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 }
 
 func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {

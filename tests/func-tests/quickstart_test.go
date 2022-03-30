@@ -44,7 +44,7 @@ func skipIfQuickStartCrdDoesNotExist(cli kubecli.KubevirtClient) {
 	if err != nil && apierrors.IsNotFound(err) {
 		Skip("ConsoleQuickStarts CRD does not exist")
 	}
-	ExpectWithOffset(1, err).Should(BeNil())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 }
 
 func checkExpectedQuickStarts(client kubecli.KubevirtClient) {

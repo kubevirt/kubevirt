@@ -43,14 +43,14 @@ var _ = Describe("CNA Operand", func() {
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -67,12 +67,12 @@ var _ = Describe("CNA Operand", func() {
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
@@ -107,14 +107,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.ImagePullPolicy).To(BeEmpty())
 
 			Expect(req.Conditions).To(BeEmpty())
@@ -122,9 +122,9 @@ var _ = Describe("CNA Operand", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 
@@ -142,14 +142,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.PlacementConfiguration).To(BeNil())
 			Expect(foundResource.Spec.PlacementConfiguration).ToNot(BeNil())
@@ -177,14 +177,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(foundResource.Spec.PlacementConfiguration).To(BeNil())
@@ -212,14 +212,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(existingResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(2))
@@ -259,14 +259,14 @@ var _ = Describe("CNA Operand", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(3))
 			Expect(existingResource.Spec.PlacementConfiguration.Workloads.Tolerations).To(HaveLen(3))
@@ -301,14 +301,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			selfSignedConfig := foundResource.Spec.SelfSignConfiguration
@@ -328,14 +328,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.SelfSignConfiguration).To(BeNil())
 
@@ -375,14 +375,14 @@ var _ = Describe("CNA Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			existingSelfSignedConfig := existingResource.Spec.SelfSignConfiguration
@@ -431,14 +431,14 @@ var _ = Describe("CNA Operand", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			existingSelfSignedConfig := existingResource.Spec.SelfSignConfiguration
@@ -477,14 +477,14 @@ var _ = Describe("CNA Operand", func() {
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			if o.ovsDeployExpected {
 				Expect(existingResource.Spec.Ovs).ToNot(BeNil(), "Ovs spec should be added")
@@ -537,12 +537,12 @@ var _ = Describe("CNA Operand", func() {
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
@@ -627,7 +627,7 @@ var _ = Describe("CNA Operand", func() {
 				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				cna := &networkaddonsv1.NetworkAddonsConfig{}
 				Expect(

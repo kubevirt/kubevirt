@@ -293,14 +293,14 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged, old *Reconcil
 	}
 
 	res, err := r.Reconcile(context.TODO(), request)
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 
 	foundResource := &hcov1beta1.HyperConverged{}
 	Expect(
 		cl.Get(context.TODO(),
 			types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
 			foundResource),
-	).To(BeNil())
+	).ToNot(HaveOccurred())
 
 	return foundResource, r, res.Requeue
 }

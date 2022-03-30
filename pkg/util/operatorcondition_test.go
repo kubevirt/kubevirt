@@ -21,11 +21,11 @@ import (
 var _ = Describe("OperatorCondition", func() {
 	DescribeTable("should return no error when setting the condition, in not-supported environments", func(ci ClusterInfo) {
 		oc, err := NewOperatorCondition(ci, nil, operatorsapiv2.Upgradeable)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		ctx := context.Background()
 		err = oc.Set(ctx, metav1.ConditionTrue, "Reason", "message")
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	},
 		Entry("should no-op when not managed by OLM", &ClusterInfoImp{
 			managedByOLM:   false,

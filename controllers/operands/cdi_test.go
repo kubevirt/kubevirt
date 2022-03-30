@@ -44,14 +44,14 @@ var _ = Describe("CDI Operand", func() {
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -66,12 +66,12 @@ var _ = Describe("CDI Operand", func() {
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
@@ -110,14 +110,14 @@ var _ = Describe("CDI Operand", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
 		})
@@ -136,14 +136,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra.Affinity).To(BeNil())
 				Expect(existingResource.Spec.Infra.Tolerations).To(BeEmpty())
@@ -176,14 +176,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra.Affinity).ToNot(BeNil())
 				Expect(existingResource.Spec.Infra.Tolerations).ToNot(BeEmpty())
@@ -222,14 +222,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(2))
 				Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
@@ -267,14 +267,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeTrue())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.Tolerations).To(HaveLen(3))
@@ -314,14 +314,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.Config).ToNot(BeNil())
 				Expect(foundResource.Spec.Config.PodResourceRequirements).ToNot(BeNil())
@@ -363,14 +363,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.Config).ToNot(BeNil())
 				Expect(foundResource.Spec.Config.PodResourceRequirements).To(BeNil())
@@ -403,14 +403,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundResource := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundResource),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits).To(HaveLen(2))
 				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("1024m")))
@@ -437,14 +437,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCdi := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundCdi),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.Config).ToNot(BeNil())
 				Expect(foundCdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
@@ -468,14 +468,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCDI := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingCdi.Name, Namespace: existingCdi.Namespace},
 						foundCDI),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCDI.Spec.Config).ToNot(BeNil())
 				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).To(BeNil())
@@ -497,14 +497,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCDI := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingCDI.Name, Namespace: existingCDI.Namespace},
 						foundCDI),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
 				Expect(*foundCDI.Spec.Config.ScratchSpaceStorageClass).To(Equal(hcoScratchSpaceStorageClassValue))
@@ -526,14 +526,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCdi := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundCdi),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.Config).ToNot(BeNil())
 				Expect(foundCdi.Spec.Config.InsecureRegistries).ToNot(BeEmpty())
@@ -552,14 +552,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCDI := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingCdi.Name, Namespace: existingCdi.Namespace},
 						foundCDI),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCDI.Spec.Config).ToNot(BeNil())
 				Expect(foundCDI.Spec.Config.InsecureRegistries).To(BeNil())
@@ -580,14 +580,14 @@ var _ = Describe("CDI Operand", func() {
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCDI := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingCDI.Name, Namespace: existingCDI.Namespace},
 						foundCDI),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCDI.Spec.Config.InsecureRegistries).To(HaveLen(2))
 				Expect(foundCDI.Spec.Config.InsecureRegistries).To(ContainElements("other1:5000", "other2:5000"))
@@ -604,14 +604,14 @@ var _ = Describe("CDI Operand", func() {
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCdi := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundCdi),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.UninstallStrategy).ToNot(BeNil())
 				Expect(*foundCdi.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
@@ -626,14 +626,14 @@ var _ = Describe("CDI Operand", func() {
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCdi := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundCdi),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.UninstallStrategy).ToNot(BeNil())
 				Expect(*foundCdi.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
@@ -648,14 +648,14 @@ var _ = Describe("CDI Operand", func() {
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				foundCdi := &cdiv1beta1.CDI{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 						foundCdi),
-				).To(BeNil())
+				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.UninstallStrategy).ToNot(BeNil())
 				Expect(*foundCdi.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyRemoveWorkloads))
@@ -688,14 +688,14 @@ var _ = Describe("CDI Operand", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Config).ToNot(BeNil())
 			// contains all that was found
 			Expect(foundResource.Spec.Config.UploadProxyURLOverride).To(BeNil())
@@ -722,14 +722,14 @@ var _ = Describe("CDI Operand", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Config).ToNot(BeNil())
 			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
 			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
@@ -745,14 +745,14 @@ var _ = Describe("CDI Operand", func() {
 
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.CertConfig).To(BeNil())
 
@@ -773,14 +773,14 @@ var _ = Describe("CDI Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.CertConfig).To(BeNil())
 
@@ -815,14 +815,14 @@ var _ = Describe("CDI Operand", func() {
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.CertConfig).ToNot(BeNil())
 			Expect(existingResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
@@ -840,9 +840,9 @@ var _ = Describe("CDI Operand", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
@@ -875,12 +875,12 @@ var _ = Describe("CDI Operand", func() {
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
@@ -968,7 +968,7 @@ var _ = Describe("CDI Operand", func() {
 				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				cdi := &cdiv1beta1.CDI{}
 				Expect(
@@ -1144,7 +1144,7 @@ var _ = Describe("CDI Operand", func() {
 
 				handlers, err := NewConfigReaderRoleHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 				Expect(handlers).To(HaveLen(1))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				res := handlers[0].ensure(req)
 				Expect(res.Err).NotTo(HaveOccurred())
 
@@ -1168,7 +1168,7 @@ var _ = Describe("CDI Operand", func() {
 
 				handlers, err := NewConfigReaderRoleHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 				Expect(handlers).To(HaveLen(1))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				res := handlers[0].ensure(req)
 				Expect(res.Err).NotTo(HaveOccurred())
 
@@ -1191,7 +1191,7 @@ var _ = Describe("CDI Operand", func() {
 
 				handlers, err := newConfigReaderRoleBindingHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 				Expect(handlers).To(HaveLen(1))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				res := handlers[0].ensure(req)
 				Expect(res.Err).NotTo(HaveOccurred())
 
@@ -1214,7 +1214,7 @@ var _ = Describe("CDI Operand", func() {
 
 				handlers, err := newConfigReaderRoleBindingHandler(logger, cl, commonTestUtils.GetScheme(), hco)
 				Expect(handlers).To(HaveLen(1))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				res := handlers[0].ensure(req)
 				Expect(res.Err).NotTo(HaveOccurred())
 
@@ -1244,14 +1244,14 @@ var _ = Describe("CDI Operand", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newStorageConfigHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -1263,12 +1263,12 @@ var _ = Describe("CDI Operand", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newStorageConfigHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
@@ -1288,14 +1288,14 @@ var _ = Describe("CDI Operand", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
 			handler := (*genericOperand)(newStorageConfigHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
-			Expect(res.Err).To(BeNil())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
-			).To(BeNil())
+			).ToNot(HaveOccurred())
 
 			for _, k := range newKeys {
 				Expect(expectedResource.Data).To(HaveKey(k))
@@ -1307,9 +1307,9 @@ var _ = Describe("CDI Operand", func() {
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
 			objectRefOutdated, err := reference.GetReference(handler.Scheme, outdatedResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
