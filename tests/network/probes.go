@@ -228,14 +228,20 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 })
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpine()
+	vmi := libvmi.NewAlpine(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
 	vmi.Spec.ReadinessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpine()
+	vmi := libvmi.NewAlpine(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
 	vmi.Spec.LivenessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
