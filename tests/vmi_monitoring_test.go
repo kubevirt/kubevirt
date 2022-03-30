@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]Health Monitoring", func() {
+var _ = Describe("[sig-compute]Health Monitoring", Labels{"sig-compute"}, func() {
 
 	var virtClient kubecli.KubevirtClient
 
@@ -47,7 +47,7 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 	})
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
-		It("[test_id:4641]should be shut down when the watchdog expires", func() {
+		It("[test_id:4641]should be shut down when the watchdog expires", Labels{"test_id:4641"}, func() {
 			vmi := tests.NewRandomVMIWithWatchdog()
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())

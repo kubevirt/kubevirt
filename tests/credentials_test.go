@@ -41,7 +41,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[sig-compute]Guest Access Credentials", func() {
+var _ = Describe("[sig-compute]Guest Access Credentials", Labels{"sig-compute"}, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -66,7 +66,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 	}
 
 	Context("with qemu guest agent", func() {
-		It("[test_id:6220]should propagate public ssh keys", func() {
+		It("[test_id:6220]should propagate public ssh keys", Labels{"test_id:6220"}, func() {
 			secretID := "my-pub-key"
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 			vmi.Namespace = util.NamespaceTestDefault
@@ -146,7 +146,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			}, time.Second*180)
 		})
 
-		It("[test_id:6221]should propagate user password", func() {
+		It("[test_id:6221]should propagate user password", Labels{"test_id:6221"}, func() {
 			secretID := "my-user-pass"
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 			vmi.Namespace = util.NamespaceTestDefault
@@ -216,7 +216,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			}, time.Second*180)
 		})
 
-		It("[test_id:6222]should update guest agent for public ssh keys", func() {
+		It("[test_id:6222]should update guest agent for public ssh keys", Labels{"test_id:6222"}, func() {
 			secretID := "my-pub-key"
 			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec")
 			vmi.Namespace = util.NamespaceTestDefault
@@ -278,7 +278,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				"Should have unsupported agent connected condition")
 		})
 
-		It("[test_id:6223]should update guest agent for user password", func() {
+		It("[test_id:6223]should update guest agent for user password", Labels{"test_id:6223"}, func() {
 			secretID := "my-user-pass"
 			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-set-user-password")
 			vmi.Namespace = util.NamespaceTestDefault
@@ -341,7 +341,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		})
 	})
 	Context("with secret and configDrive propagation", func() {
-		It("[test_id:6224]should have ssh-key under authorized keys", func() {
+		It("[test_id:6224]should have ssh-key under authorized keys", Labels{"test_id:6224"}, func() {
 			secretID := "my-pub-key"
 			userData := fmt.Sprintf(
 				"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",

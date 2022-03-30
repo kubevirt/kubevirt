@@ -46,202 +46,208 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", func() {
+var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC",
+	Labels{"rfe_id:127", "crit:medium", "arm64", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
+		var err error
+		var virtClient kubecli.KubevirtClient
+		var vmi *v1.VirtualMachineInstance
 
-	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
+		Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance",
+			Labels{"rfe_id:127", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				BeforeEach(func() {
+					virtClient, err = kubecli.GetKubevirtClient()
+					util.PanicOnError(err)
 
-			tests.BeforeTestCleanup()
-			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
-			tests.WaitForSuccessfulVMIStart(vmi)
-		})
+					tests.BeforeTestCleanup()
+					vmi = tests.NewRandomVMI()
+					Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+					tests.WaitForSuccessfulVMIStart(vmi)
+				})
 
-		Context("with VNC connection", func() {
+				Context("with VNC connection", func() {
 
-			vncConnect := func() {
-				pipeInReader, _ := io.Pipe()
-				pipeOutReader, pipeOutWriter := io.Pipe()
-				defer pipeInReader.Close()
-				defer pipeOutReader.Close()
+					vncConnect := func() {
+						pipeInReader, _ := io.Pipe()
+						pipeOutReader, pipeOutWriter := io.Pipe()
+						defer pipeInReader.Close()
+						defer pipeOutReader.Close()
 
-				k8ResChan := make(chan error)
-				readStop := make(chan string)
+						k8ResChan := make(chan error)
+						readStop := make(chan string)
 
-				go func() {
-					defer GinkgoRecover()
-					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
-					if err != nil {
-						k8ResChan <- err
-						return
+						go func() {
+							defer GinkgoRecover()
+							vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+							if err != nil {
+								k8ResChan <- err
+								return
+							}
+
+							k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+								In:  pipeInReader,
+								Out: pipeOutWriter,
+							})
+						}()
+						// write to FD <- pipeOutReader
+						By("Reading from the VNC socket")
+						go func() {
+							defer GinkgoRecover()
+							buf := make([]byte, 1024, 1024)
+							// reading qemu vnc server
+							n, err := pipeOutReader.Read(buf)
+							if err != nil && err != io.EOF {
+								Expect(err).ToNot(HaveOccurred())
+								return
+							}
+							if n == 0 && err == io.EOF {
+								log.Log.Info("zero bytes read from vnc socket.")
+								return
+							}
+							readStop <- string(buf[0:n])
+						}()
+
+						select {
+						case response := <-readStop:
+							// This is the response capture by wireshark when the VNC server is contacted.
+							// This verifies that the test is able to establish a connection with VNC and
+							// communicate.
+							By("Checking the response from VNC server")
+							Expect(response).To(Equal("RFB 003.008\n"))
+						case err = <-k8ResChan:
+							Expect(err).ToNot(HaveOccurred())
+						case <-time.After(45 * time.Second):
+							Fail("Timout reached while waiting for valid VNC server response")
+						}
 					}
 
-					k8ResChan <- vnc.Stream(kubecli.StreamOptions{
-						In:  pipeInReader,
-						Out: pipeOutWriter,
+					It("[test_id:1611]should allow accessing the VNC device multiple times", Labels{"test_id:1611"}, func() {
+
+						for i := 0; i < 10; i++ {
+							vncConnect()
+						}
 					})
-				}()
-				// write to FD <- pipeOutReader
-				By("Reading from the VNC socket")
-				go func() {
-					defer GinkgoRecover()
-					buf := make([]byte, 1024, 1024)
-					// reading qemu vnc server
-					n, err := pipeOutReader.Read(buf)
-					if err != nil && err != io.EOF {
+				})
+
+				DescribeTable("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]should upgrade websocket connection which look like coming from a browser",
+					Labels{"rfe_id:127", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+					func(subresource string) {
+						config, err := kubecli.GetKubevirtClientConfig()
 						Expect(err).ToNot(HaveOccurred())
-						return
-					}
-					if n == 0 && err == io.EOF {
-						log.Log.Info("zero bytes read from vnc socket.")
-						return
-					}
-					readStop <- string(buf[0:n])
-				}()
+						// Browsers need a subprotocol, since they will have to use the subprotocol mechanism to forward the bearer token.
+						// As a consequence they need a subprotocol match.
+						rt, err := upgradeCheckRoundTripperFromConfig(config, []string{"fantasy.protocol", subresources.PlainStreamProtocolName})
+						Expect(err).ToNot(HaveOccurred())
+						wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
+						Expect(err).ToNot(HaveOccurred())
+						req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource)
+						Expect(err).ToNot(HaveOccurred())
 
-				select {
-				case response := <-readStop:
-					// This is the response capture by wireshark when the VNC server is contacted.
-					// This verifies that the test is able to establish a connection with VNC and
-					// communicate.
-					By("Checking the response from VNC server")
-					Expect(response).To(Equal("RFB 003.008\n"))
-				case err = <-k8ResChan:
+						// Add an Origin header to look more like an arbitrary browser
+						if req.Header == nil {
+							req.Header = http.Header{}
+						}
+						req.Header.Add("Origin", config.Host)
+						_, err = wrappedRoundTripper.RoundTrip(req)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
+					},
+					Entry("[test_id:1612]for vnc", Labels{"test_id:1612"}, "vnc"),
+					Entry("[test_id:1613]for serial console", Labels{"test_id:1613"}, "console"),
+				)
+
+				It("[test_id:1614]should upgrade websocket connections without a subprotocol given", Labels{"test_id:1614"}, func() {
+					config, err := kubecli.GetKubevirtClientConfig()
 					Expect(err).ToNot(HaveOccurred())
-				case <-time.After(45 * time.Second):
-					Fail("Timout reached while waiting for valid VNC server response")
-				}
-			}
+					// If no subprotocol is given, we still want to upgrade to be backward compatible
+					rt, err := upgradeCheckRoundTripperFromConfig(config, nil)
+					Expect(err).ToNot(HaveOccurred())
+					wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
+					Expect(err).ToNot(HaveOccurred())
+					req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc")
+					Expect(err).ToNot(HaveOccurred())
+					_, err = wrappedRoundTripper.RoundTrip(req)
+					Expect(err).ToNot(HaveOccurred())
+				})
 
-			It("[test_id:1611]should allow accessing the VNC device multiple times", func() {
+				It("[test_id:4272]should connect to vnc with --proxy-only flag", Labels{"test_id:4272"}, func() {
 
-				for i := 0; i < 10; i++ {
-					vncConnect()
-				}
-			})
-		})
-
-		DescribeTable("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]should upgrade websocket connection which look like coming from a browser", func(subresource string) {
-			config, err := kubecli.GetKubevirtClientConfig()
-			Expect(err).ToNot(HaveOccurred())
-			// Browsers need a subprotocol, since they will have to use the subprotocol mechanism to forward the bearer token.
-			// As a consequence they need a subprotocol match.
-			rt, err := upgradeCheckRoundTripperFromConfig(config, []string{"fantasy.protocol", subresources.PlainStreamProtocolName})
-			Expect(err).ToNot(HaveOccurred())
-			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
-			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Add an Origin header to look more like an arbitrary browser
-			if req.Header == nil {
-				req.Header = http.Header{}
-			}
-			req.Header.Add("Origin", config.Host)
-			_, err = wrappedRoundTripper.RoundTrip(req)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
-		},
-			Entry("[test_id:1612]for vnc", "vnc"),
-			Entry("[test_id:1613]for serial console", "console"),
-		)
-
-		It("[test_id:1614]should upgrade websocket connections without a subprotocol given", func() {
-			config, err := kubecli.GetKubevirtClientConfig()
-			Expect(err).ToNot(HaveOccurred())
-			// If no subprotocol is given, we still want to upgrade to be backward compatible
-			rt, err := upgradeCheckRoundTripperFromConfig(config, nil)
-			Expect(err).ToNot(HaveOccurred())
-			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
-			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc")
-			Expect(err).ToNot(HaveOccurred())
-			_, err = wrappedRoundTripper.RoundTrip(req)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:4272]should connect to vnc with --proxy-only flag", func() {
-
-			By("Invoking virtctl vnc with --proxy-only")
+					By("Invoking virtctl vnc with --proxy-only")
 			proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
 
-			r, w, _ := os.Pipe()
-			proxyOnlyCommand.SetOut(w)
+					r, w, _ := os.Pipe()
+					proxyOnlyCommand.SetOut(w)
 
-			// Run this as go routine to keep proxy open in the background
-			go func() {
-				defer GinkgoRecover()
-				Expect(proxyOnlyCommand.Execute()).ToNot(HaveOccurred())
-			}()
+					// Run this as go routine to keep proxy open in the background
+					go func() {
+						defer GinkgoRecover()
+						Expect(proxyOnlyCommand.Execute()).ToNot(HaveOccurred())
+					}()
 
-			var result map[string]interface{}
-			Eventually(func() error {
-				return json.NewDecoder(r).Decode(&result)
-			}, 60*time.Second).ShouldNot(HaveOccurred())
+					var result map[string]interface{}
+					Eventually(func() error {
+						return json.NewDecoder(r).Decode(&result)
+					}, 60*time.Second).ShouldNot(HaveOccurred())
 
-			port := result["port"]
-			addr := fmt.Sprintf("127.0.0.1:%v", port)
+					port := result["port"]
+					addr := fmt.Sprintf("127.0.0.1:%v", port)
 
-			nc, err := net.Dial("tcp", addr)
-			Expect(err).ToNot(HaveOccurred())
-			defer nc.Close()
+					nc, err := net.Dial("tcp", addr)
+					Expect(err).ToNot(HaveOccurred())
+					defer nc.Close()
 
-			ch := make(chan vnc.ServerMessage)
+					ch := make(chan vnc.ServerMessage)
 
-			c, err := vnc.Client(nc, &vnc.ClientConfig{
-				Exclusive:       false,
-				ServerMessageCh: ch,
-				ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer c.Close()
-			Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
-		})
+					c, err := vnc.Client(nc, &vnc.ClientConfig{
+						Exclusive:       false,
+						ServerMessageCh: ch,
+						ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
+					})
+					Expect(err).ToNot(HaveOccurred())
+					defer c.Close()
+					Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
+				})
 
-		It("[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", func() {
-			testPort := "33333"
+				It("[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", Labels{"test_id:5274"}, func() {
+					testPort := "33333"
 
-			By("Invoking virtctl vnc with --proxy-only")
+					By("Invoking virtctl vnc with --proxy-only")
 			proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--port", testPort, "--namespace", vmi.Namespace, vmi.Name)
 
-			// Run this as go routine to keep proxy open in the background
-			go func() {
-				defer GinkgoRecover()
-				Expect(proxyOnlyCommand.Execute()).ToNot(HaveOccurred())
-			}()
+					// Run this as go routine to keep proxy open in the background
+					go func() {
+						defer GinkgoRecover()
+						Expect(proxyOnlyCommand.Execute()).ToNot(HaveOccurred())
+					}()
 
-			addr := fmt.Sprintf("127.0.0.1:%s", testPort)
+					addr := fmt.Sprintf("127.0.0.1:%s", testPort)
 
-			// Run this under Eventually so we don't dial connection before proxy has started
-			Eventually(func() error {
-				nc, err := net.Dial("tcp", addr)
-				if err != nil {
-					return err
-				}
-				defer nc.Close()
+					// Run this under Eventually so we don't dial connection before proxy has started
+					Eventually(func() error {
+						nc, err := net.Dial("tcp", addr)
+						if err != nil {
+							return err
+						}
+						defer nc.Close()
 
-				ch := make(chan vnc.ServerMessage)
+						ch := make(chan vnc.ServerMessage)
 
-				c, err := vnc.Client(nc, &vnc.ClientConfig{
-					Exclusive:       false,
-					ServerMessageCh: ch,
-					ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
+						c, err := vnc.Client(nc, &vnc.ClientConfig{
+							Exclusive:       false,
+							ServerMessageCh: ch,
+							ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
+						})
+						Expect(err).ToNot(HaveOccurred())
+						defer c.Close()
+						Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
+
+						return nil
+					}, 60*time.Second).ShouldNot(HaveOccurred())
 				})
-				Expect(err).ToNot(HaveOccurred())
-				defer c.Close()
-				Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
-
-				return nil
-			}, 60*time.Second).ShouldNot(HaveOccurred())
-		})
+			})
 	})
-})
 
 // checkUpgradeRoundTripper checks if an upgrade confirmation is received from the server
 type checkUpgradeRoundTripper struct {

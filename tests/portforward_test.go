@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute]PortForward", func() {
+var _ = Describe("[sig-compute]PortForward", Labels{"sig-compute"}, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

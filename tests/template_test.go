@@ -52,7 +52,7 @@ const (
 	defaultMemory     = "2Gi"
 )
 
-var _ = Describe("[Serial][sig-compute]Templates", func() {
+var _ = Describe("[Serial][sig-compute]Templates", Labels{"Serial", "sig-compute"}, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -241,14 +241,14 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 		}
 
 		AssertTemplateTestSuccess := func() {
-			It("[test_id:3292]should succeed to create VirtualMachine via oc command", AssertVMCreationSuccess())
-			It("[test_id:3293]should fail to delete VirtualMachine via oc command", AssertVMDeletionFailure())
+			It("[test_id:3292]should succeed to create VirtualMachine via oc command", Labels{"test_id:3292"}, AssertVMCreationSuccess())
+			It("[test_id:3293]should fail to delete VirtualMachine via oc command", Labels{"test_id:3293"}, AssertVMDeletionFailure())
 
 			When("the VirtualMachine was created", func() {
 				BeforeEach(AssertVMCreationSuccess())
-				It("[test_id:3294]should succeed to start the VirtualMachine via oc command", AssertVMStartSuccess("oc"))
-				It("[test_id:3295]should succeed to delete VirtualMachine via oc command", AssertVMDeletionSuccess())
-				It("[test_id:3308]should fail to create the same VirtualMachine via oc command", AssertVMCreationFailure())
+				It("[test_id:3294]should succeed to start the VirtualMachine via oc command", Labels{"test_id:3294"}, AssertVMStartSuccess("oc"))
+				It("[test_id:3295]should succeed to delete VirtualMachine via oc command", Labels{"test_id:3295"}, AssertVMDeletionSuccess())
+				It("[test_id:3308]should fail to create the same VirtualMachine via oc command", Labels{"test_id:3308"}, AssertVMCreationFailure())
 			})
 		}
 
@@ -264,14 +264,16 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 			AssertTemplateTestSuccess()
 		})
 
-		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
-			BeforeEach(func() {
-				checks.SkipIfNoRhelImage(virtClient)
-				tests.CreatePVC(tests.OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
-				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
-			})
+		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template",
+			Labels{"rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				BeforeEach(func() {
+					checks.SkipIfNoRhelImage(virtClient)
+					tests.CreatePVC(tests.OSRhel, "15Gi", libstorage.Config.StorageClassRhel, true)
+					AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
+				})
 
-			AssertTemplateTestSuccess()
-		})
+				AssertTemplateTestSuccess()
+			})
 	})
 })

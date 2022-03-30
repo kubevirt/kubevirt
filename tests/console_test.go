@@ -55,152 +55,156 @@ func withNodeAffinityTo(label string, value string) libvmi.Option {
 	}
 }
 
-var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", func() {
+var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console",
+	Labels{"rfe_id:127", "posneg:negative", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	func() {
 
-	var virtClient kubecli.KubevirtClient
+		var virtClient kubecli.KubevirtClient
 
-	BeforeEach(func() {
-		var err error
+		BeforeEach(func() {
+			var err error
 
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+			virtClient, err = kubecli.GetKubevirtClient()
+			util.PanicOnError(err)
 
-		tests.BeforeTestCleanup()
-	})
-
-	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
-		By("Checking that the console output equals to expected one")
-		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: expected},
-		}, 120)).To(Succeed())
-	}
-
-	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		Context("with a serial console", func() {
-			Context("with a cirros image", func() {
-
-				It("[test_id:1588]should return that we are running cirros", func() {
-					vmi := libvmi.NewCirros()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-					expectConsoleOutput(
-						vmi,
-						"login as 'cirros' user",
-					)
-				})
-			})
-
-			Context("with a fedora image", func() {
-				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
-					vmi := libvmi.NewFedora()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-					expectConsoleOutput(
-						vmi,
-						"Welcome to",
-					)
-				})
-			})
-
-			Context("with an alpine image", func() {
-				type vmiBuilder func() *v1.VirtualMachineInstance
-
-				newVirtualMachineInstanceWithAlpineFileDisk := func() *v1.VirtualMachineInstance {
-					vmi, _ := tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-					return vmi
-				}
-
-				newVirtualMachineInstanceWithAlpineBlockDisk := func() *v1.VirtualMachineInstance {
-					vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-					return vmi
-				}
-
-				DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
-					vmi := createVMI()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
-					expectConsoleOutput(vmi, "login")
-				},
-					Entry("[test_id:4637][storage-req]with Filesystem Disk", newVirtualMachineInstanceWithAlpineFileDisk),
-					Entry("[test_id:4638][storage-req]with Block Disk", newVirtualMachineInstanceWithAlpineBlockDisk),
-				)
-			})
-
-			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
-				vmi := libvmi.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-
-				for i := 0; i < 5; i++ {
-					expectConsoleOutput(vmi, "login")
-				}
-			})
-
-			It("[test_id:1591]should close console connection when new console connection is opened", func() {
-				vmi := libvmi.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-
-				By("opening 1st console connection")
-				expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred())
-
-				defer expecter.Close()
-
-				By("expecting error on 1st console connection")
-				go func() {
-					defer GinkgoRecover()
-					select {
-					case receivedErr := <-errChan:
-						Expect(receivedErr.Error()).To(ContainSubstring("close"))
-					case <-time.After(60 * time.Second):
-						Fail("timed out waiting for closed 1st connection")
-					}
-				}()
-
-				By("opening 2nd console connection")
-				expectConsoleOutput(vmi, "login")
-			})
-
-			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
-				vmi := libvmi.NewAlpine()
-				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("and connecting to it very quickly. Hopefully the VM is not yet up")
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("[test_id:1593]should not be connected if scheduled to non-existing host", func() {
-				vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
-
-				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
-			})
+			tests.BeforeTestCleanup()
 		})
 
-		Context("without a serial console", func() {
+		expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
+			By("Checking that the console output equals to expected one")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: expected},
+			}, 120)).To(Succeed())
+		}
 
-			It("[test_id:4118]should run but not be connectable via the serial console", func() {
-				vmi := libvmi.NewAlpine()
-				f := false
-				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+		Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance",
+			Labels{"rfe_id:127", "posneg:negative", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				Context("with a serial console", func() {
+					Context("with a cirros image", func() {
 
-				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
+						It("[test_id:1588]should return that we are running cirros", Labels{"test_id:1588"}, func() {
+							vmi := libvmi.NewCirros()
+							vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+							expectConsoleOutput(
+								vmi,
+								"login as 'cirros' user",
+							)
+						})
+					})
 
-				Expect(runningVMISpec.Devices.Serials).To(BeEmpty(), "should not have any serial consoles present")
-				Expect(runningVMISpec.Devices.Consoles).To(BeEmpty(), "should not have any virtio console for serial consoles")
+					Context("with a fedora image", func() {
+						It("[sig-compute][test_id:1589]should return that we are running fedora", Labels{"sig-compute", "test_id:1589"}, func() {
+							vmi := libvmi.NewFedora()
+							vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+							expectConsoleOutput(
+								vmi,
+								"Welcome to",
+							)
+						})
+					})
 
-				By("failing to connect to serial console")
-				_, err = virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
+					Context("with an alpine image", func() {
+						type vmiBuilder func() *v1.VirtualMachineInstance
+
+						newVirtualMachineInstanceWithAlpineFileDisk := func() *v1.VirtualMachineInstance {
+							vmi, _ := tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+							return vmi
+						}
+
+						newVirtualMachineInstanceWithAlpineBlockDisk := func() *v1.VirtualMachineInstance {
+							vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+							return vmi
+						}
+
+						DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
+							vmi := createVMI()
+							vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
+							expectConsoleOutput(vmi, "login")
+						},
+							Entry("[test_id:4637][storage-req]with Filesystem Disk", Labels{"test_id:4637", "storage-req"}, newVirtualMachineInstanceWithAlpineFileDisk),
+							Entry("[test_id:4638][storage-req]with Block Disk", Labels{"test_id:4638", "storage-req"}, newVirtualMachineInstanceWithAlpineBlockDisk),
+						)
+					})
+
+					It("[test_id:1590]should be able to reconnect to console multiple times", Labels{"test_id:1590"}, func() {
+						vmi := libvmi.NewAlpine()
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+						for i := 0; i < 5; i++ {
+							expectConsoleOutput(vmi, "login")
+						}
+					})
+
+					It("[test_id:1591]should close console connection when new console connection is opened", Labels{"test_id:1591"}, func() {
+						vmi := libvmi.NewAlpine()
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+						By("opening 1st console connection")
+						expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
+						Expect(err).ToNot(HaveOccurred())
+
+						defer expecter.Close()
+
+						By("expecting error on 1st console connection")
+						go func() {
+							defer GinkgoRecover()
+							select {
+							case receivedErr := <-errChan:
+								Expect(receivedErr.Error()).To(ContainSubstring("close"))
+							case <-time.After(60 * time.Second):
+								Fail("timed out waiting for closed 1st connection")
+							}
+						}()
+
+						By("opening 2nd console connection")
+						expectConsoleOutput(vmi, "login")
+					})
+
+					It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", Labels{"test_id:1592"}, func() {
+						vmi := libvmi.NewAlpine()
+						By("Creating a new VirtualMachineInstance")
+						vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+						Expect(err).ToNot(HaveOccurred())
+
+						By("and connecting to it very quickly. Hopefully the VM is not yet up")
+						_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					It("[test_id:1593]should not be connected if scheduled to non-existing host", Labels{"test_id:1593"}, func() {
+						vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
+
+						By("Creating a new VirtualMachineInstance")
+						vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+						Expect(err).ToNot(HaveOccurred())
+
+						_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
+					})
+				})
+
+				Context("without a serial console", func() {
+
+					It("[test_id:4118]should run but not be connectable via the serial console", Labels{"test_id:4118"}, func() {
+						vmi := libvmi.NewAlpine()
+						f := false
+						vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+						runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+						Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
+
+						Expect(runningVMISpec.Devices.Serials).To(BeEmpty(), "should not have any serial consoles present")
+						Expect(runningVMISpec.Devices.Consoles).To(BeEmpty(), "should not have any virtio console for serial consoles")
+
+						By("failing to connect to serial console")
+						_, err = virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).To(Equal("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
+					})
+				})
 			})
-		})
 	})
-})

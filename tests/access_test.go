@@ -159,301 +159,316 @@ func (r rights) list() (e []rightsEntry) {
 	return
 }
 
-var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access", func() {
+var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access",
+	Labels{"rfe_id:500", "crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	func() {
 
-	var k8sClient string
-	var authClient *authClientV1.AuthorizationV1Client
+		var k8sClient string
+		var authClient *authClientV1.AuthorizationV1Client
 
-	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected bool) {
-		roleToUser := map[string]string{
-			"view":    tests.ViewServiceAccountName,
-			"edit":    tests.EditServiceAccountName,
-			"admin":   tests.AdminServiceAccountName,
-			"default": "default",
-		}
-		userName, exists := roleToUser[role]
-		Expect(exists).To(BeTrue(), fmt.Sprintf("role %s is not defined", role))
-		user := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, userName)
-		sar := &authv1.SubjectAccessReview{}
-		sar.Spec = authv1.SubjectAccessReviewSpec{
-			User: user,
-			ResourceAttributes: &authv1.ResourceAttributes{
-				Namespace:   namespace,
-				Verb:        verb,
-				Group:       group,
-				Version:     v1.GroupVersion.Version,
-				Resource:    resource,
-				Subresource: subresource,
-			},
-		}
-		result, err := authClient.SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(result.Status.Allowed).To(Equal(expected), fmt.Sprintf("access check for user '%v' on resource '%v' with subresource '%v' for verb '%v' should have returned '%v'.",
-			user,
-			resource,
-			subresource,
-			verb,
-			expected,
-		))
-	}
-
-	BeforeEach(func() {
-		k8sClient = clientcmd.GetK8sCmdClient()
-		clientcmd.SkipIfNoCmd(k8sClient)
-		virtClient, err := kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-		authClient, err = authClientV1.NewForConfig(virtClient.Config())
-		Expect(err).ToNot(HaveOccurred())
-
-		tests.BeforeTestCleanup()
-	})
-
-	Describe("With default kubevirt service accounts", func() {
-		DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(group string, resource string, accessRights ...rights) {
-			namespace := util.NamespaceTestDefault
-			for _, accessRight := range accessRights {
-				for _, entry := range accessRight.list() {
-					By(fmt.Sprintf("verifying sa %s for verb %s on resource %s", entry.role, entry.verb, resource))
-					doSarRequest(group, resource, "", namespace, entry.role, entry.verb, entry.allowed)
-				}
+		doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected bool) {
+			roleToUser := map[string]string{
+				"view":    tests.ViewServiceAccountName,
+				"edit":    tests.EditServiceAccountName,
+				"admin":   tests.AdminServiceAccountName,
+				"default": "default",
 			}
-		},
-			Entry("[test_id:526]given a vmi",
-				core.GroupName,
-				"virtualmachineinstances",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("[test_id:527]given a vm",
-				core.GroupName,
-				"virtualmachines",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("given a vmpool",
-				pool.GroupName,
-				"virtualmachinepools",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("[test_id:528]given a vmi preset",
-				core.GroupName,
-				"virtualmachineinstancepresets",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("[test_id:529][crit:low]given a vmi replica set",
-				core.GroupName,
-				"virtualmachineinstancereplicasets",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("[test_id:3230]given a vmi migration",
-				core.GroupName,
-				"virtualmachineinstancemigrations",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("[test_id:5243]given a vmsnapshot",
-				v1alpha1.SchemeGroupVersion.Group,
-				"virtualmachinesnapshots",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-
-			Entry("[test_id:5244]given a vmsnapshotcontent",
-				v1alpha1.SchemeGroupVersion.Group,
-				"virtualmachinesnapshotcontents",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-			Entry("[test_id:5245]given a vmsrestore",
-				v1alpha1.SchemeGroupVersion.Group,
-				"virtualmachinerestores",
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("default")),
-		)
-
-		DescribeTable("should verify permissions on subresources are correct for view, edit, admin and default", func(resource string, subresource string, accessRights ...rights) {
-			namespace := util.NamespaceTestDefault
-			for _, accessRight := range accessRights {
-				for _, entry := range accessRight.list() {
-					By(fmt.Sprintf("verifying sa %s for verb %s on resource %s on subresource %s", entry.role, entry.verb, resource, subresource))
-					doSarRequest(v1.SubresourceGroupName, resource, subresource, namespace, entry.role, entry.verb, entry.allowed)
-				}
+			userName, exists := roleToUser[role]
+			Expect(exists).To(BeTrue(), fmt.Sprintf("role %s is not defined", role))
+			user := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, userName)
+			sar := &authv1.SubjectAccessReview{}
+			sar.Spec = authv1.SubjectAccessReviewSpec{
+				User: user,
+				ResourceAttributes: &authv1.ResourceAttributes{
+					Namespace:   namespace,
+					Verb:        verb,
+					Group:       group,
+					Version:     v1.GroupVersion.Version,
+					Resource:    resource,
+					Subresource: subresource,
+				},
 			}
-		},
-			Entry("[test_id:3232]on vm start",
-				"virtualmachines", "start",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("[test_id:3233]on vm stop",
-				"virtualmachines", "stop",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("[test_id:3234]on vm restart",
-				"virtualmachines", "restart",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("on vmi guestosinfo",
-				"virtualmachineinstances", "guestosinfo",
-				allowGetFor("admin", "edit", "view"),
-				denyAllFor("default")),
-			Entry("on vmi userlist",
-				"virtualmachineinstances", "userlist",
-				allowGetFor("admin", "edit", "view"),
-				denyAllFor("default")),
-
-			Entry("on vmi filesystemlist",
-				"virtualmachineinstances", "filesystemlist",
-				allowGetFor("admin", "edit", "view"),
-				denyAllFor("default")),
-			Entry("on vmi addvolume",
-				"virtualmachineinstances", "addvolume",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("on vmi removevolume",
-				"virtualmachineinstances", "removevolume",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("on vmi freeze",
-				"virtualmachineinstances", "freeze",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("on vmi unfreeze",
-				"virtualmachineinstances", "unfreeze",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-			Entry("on vmi softreboot",
-				"virtualmachineinstances", "softreboot",
-				allowUpdateFor("admin", "edit"),
-				denyAllFor("view", "default")),
-		)
-	})
-
-	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
-
-		var testUser string
+			result, err := authClient.SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Status.Allowed).To(Equal(expected), fmt.Sprintf("access check for user '%v' on resource '%v' with subresource '%v' for verb '%v' should have returned '%v'.",
+				user,
+				resource,
+				subresource,
+				verb,
+				expected,
+			))
+		}
 
 		BeforeEach(func() {
-			// Generate unique usernames based on the test namespace which is unique per ginkgo node
-			testUser = "testuser-" + util.NamespaceTestDefault
-			clientcmd.SkipIfNoCmd("oc")
-			if !checks.IsOpenShift() {
-				Skip("Skip tests which require an openshift managed test user if not running on openshift")
-			}
-			By("Ensuring the cluster has new test user")
-			stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "create", "user", testUser)
-			Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+		    k8sClient = clientcmd.GetK8sCmdClient()
+		    clientcmd.SkipIfNoCmd(k8sClient)
+			virtClient, err := kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+			authClient, err = authClientV1.NewForConfig(virtClient.Config())
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.BeforeTestCleanup()
 		})
 
-		testAction := func(resource, verb string, right string) {
-			// AS A TEST USER
-			By(fmt.Sprintf("verifying user rights for verb %s", verb))
-			result, _, _ := clientcmd.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
-			Expect(result).To(ContainSubstring(right))
-		}
-
-		testRights := func(resource, right string) {
-			verbsList := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
-
-			for _, verb := range verbsList {
-				testAction(resource, verb, right)
-			}
-		}
-
-		Context("should fail without admin rights for the project", func() {
-			BeforeEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			AfterEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
-				testRights(resource, "no")
+		Describe("With default kubevirt service accounts", func() {
+			DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(group string, resource string, accessRights ...rights) {
+				namespace := util.NamespaceTestDefault
+				for _, accessRight := range accessRights {
+					for _, entry := range accessRight.list() {
+						By(fmt.Sprintf("verifying sa %s for verb %s on resource %s", entry.role, entry.verb, resource))
+						doSarRequest(group, resource, "", namespace, entry.role, entry.verb, entry.allowed)
+					}
+				}
 			},
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances"),
-				Entry("[test_id:2915]given a vm", "virtualmachines"),
-				Entry("given a vmpool", "virtualmachinepools"),
-				Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
-				Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
-				Entry("[test_id:5246]given a vmsnapshot", "virtualmachinesnapshots"),
-				Entry("[test_id:5247]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-				Entry("[test_id:5248]given a vmsrestore", "virtualmachinerestores"),
+				Entry("[test_id:526]given a vmi",
+					Labels{"test_id:526"},
+					core.GroupName,
+					"virtualmachineinstances",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("[test_id:527]given a vm",
+					Labels{"test_id:527"},
+					core.GroupName,
+					"virtualmachines",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("given a vmpool",
+					pool.GroupName,
+					"virtualmachinepools",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("[test_id:528]given a vmi preset",
+					Labels{"test_id:528"},
+					core.GroupName,
+					"virtualmachineinstancepresets",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("[test_id:529][crit:low]given a vmi replica set",
+					Labels{"test_id:529"},
+					core.GroupName,
+					"virtualmachineinstancereplicasets",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("[test_id:3230]given a vmi migration",
+					Labels{"test_id:3230"},
+					core.GroupName,
+					"virtualmachineinstancemigrations",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("[test_id:5243]given a vmsnapshot",
+					Labels{"test_id:5243"},
+					v1alpha1.SchemeGroupVersion.Group,
+					"virtualmachinesnapshots",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+
+				Entry("[test_id:5244]given a vmsnapshotcontent",
+					Labels{"test_id:5244"},
+					v1alpha1.SchemeGroupVersion.Group,
+					"virtualmachinesnapshotcontents",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
+				Entry("[test_id:5245]given a vmsrestore",
+					Labels{"test_id:5245"},
+					v1alpha1.SchemeGroupVersion.Group,
+					"virtualmachinerestores",
+					allowAllFor("admin"),
+					denyDeleteCollectionFor("edit"),
+					denyModificationsFor("view"),
+					denyAllFor("default")),
 			)
 
-			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
-				testAction(resource, action, "no")
+			DescribeTable("should verify permissions on subresources are correct for view, edit, admin and default", func(resource string, subresource string, accessRights ...rights) {
+				namespace := util.NamespaceTestDefault
+				for _, accessRight := range accessRights {
+					for _, entry := range accessRight.list() {
+						By(fmt.Sprintf("verifying sa %s for verb %s on resource %s on subresource %s", entry.role, entry.verb, resource, subresource))
+						doSarRequest(v1.SubresourceGroupName, resource, subresource, namespace, entry.role, entry.verb, entry.allowed)
+					}
+				}
 			},
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
+				Entry("[test_id:3232]on vm start",
+					Labels{"test_id:3232"},
+					"virtualmachines", "start",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("[test_id:3233]on vm stop",
+					Labels{"test_id:3233"},
+					"virtualmachines", "stop",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("[test_id:3234]on vm restart",
+					Labels{"test_id:3234"},
+					"virtualmachines", "restart",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("on vmi guestosinfo",
+					"virtualmachineinstances", "guestosinfo",
+					allowGetFor("admin", "edit", "view"),
+					denyAllFor("default")),
+				Entry("on vmi userlist",
+					"virtualmachineinstances", "userlist",
+					allowGetFor("admin", "edit", "view"),
+					denyAllFor("default")),
+
+				Entry("on vmi filesystemlist",
+					"virtualmachineinstances", "filesystemlist",
+					allowGetFor("admin", "edit", "view"),
+					denyAllFor("default")),
+				Entry("on vmi addvolume",
+					"virtualmachineinstances", "addvolume",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("on vmi removevolume",
+					"virtualmachineinstances", "removevolume",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("on vmi freeze",
+					"virtualmachineinstances", "freeze",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("on vmi unfreeze",
+					"virtualmachineinstances", "unfreeze",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
+				Entry("on vmi softreboot",
+					"virtualmachineinstances", "softreboot",
+					allowUpdateFor("admin", "edit"),
+					denyAllFor("view", "default")),
 			)
 		})
 
-		Context("should succeed with admin rights for the project", func() {
-			BeforeEach(func() {
-				By("Ensuring user has the admin rights for the test namespace project")
-				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+		Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user",
+			Labels{"rfe_id:2919", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
 
-				stdOut, stdErr, err = clientcmd.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+				var testUser string
+
+				BeforeEach(func() {
+					// Generate unique usernames based on the test namespace which is unique per ginkgo node
+					testUser = "testuser-" + util.NamespaceTestDefault
+			        clientcmd.SkipIfNoCmd("oc")
+					if !checks.IsOpenShift() {
+						Skip("Skip tests which require an openshift managed test user if not running on openshift")
+					}
+					By("Ensuring the cluster has new test user")
+					stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "create", "user", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+				})
+
+				testAction := func(resource, verb string, right string) {
+					// AS A TEST USER
+					By(fmt.Sprintf("verifying user rights for verb %s", verb))
+			        result, _, _ := clientcmd.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
+					Expect(result).To(ContainSubstring(right))
+				}
+
+				testRights := func(resource, right string) {
+					verbsList := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
+
+					for _, verb := range verbsList {
+						testAction(resource, verb, right)
+					}
+				}
+
+				Context("should fail without admin rights for the project", func() {
+					BeforeEach(func() {
+				    stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
+						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+					})
+
+					AfterEach(func() {
+				    stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
+						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+					})
+
+					DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
+						testRights(resource, "no")
+					},
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances"),
+						Entry("[test_id:2915]given a vm", Labels{"test_id:2915"}, "virtualmachines"),
+						Entry("given a vmpool", "virtualmachinepools"),
+						Entry("[test_id:2917]given a vmi preset", Labels{"test_id:2917"}, "virtualmachineinstancepresets"),
+						Entry("[test_id:2919]given a vmi replica set", Labels{"test_id:2919"}, "virtualmachineinstancereplicasets"),
+						Entry("[test_id:3235]given a vmi migration", Labels{"test_id:3235"}, "virtualmachineinstancemigrations"),
+						Entry("[test_id:5246]given a vmsnapshot", Labels{"test_id:5246"}, "virtualmachinesnapshots"),
+						Entry("[test_id:5247]given a vmsnapshotcontent", Labels{"test_id:5247"}, "virtualmachinesnapshotcontents"),
+						Entry("[test_id:5248]given a vmsrestore", Labels{"test_id:5248"}, "virtualmachinerestores"),
+					)
+
+					DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
+						testAction(resource, action, "no")
+					},
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/pause", "update"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/unpause", "update"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/softreboot", "update"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/console", "get"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/vnc", "get"),
+					)
+				})
+
+				Context("should succeed with admin rights for the project", func() {
+					BeforeEach(func() {
+						By("Ensuring user has the admin rights for the test namespace project")
+						// This is ussually done in backgroung when creating new user with login and by creating new project by that user
+				        stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
+						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+				        stdOut, stdErr, err = clientcmd.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
+						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+					})
+
+					AfterEach(func() {
+				        stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
+						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+					})
+
+					DescribeTable("should verify permissions on resources are correct the test user", func(resource string) {
+						testRights(resource, "yes")
+					},
+						Entry("[test_id:2920]given a vmi", Labels{"test_id:2920"}, "virtualmachineinstances"),
+						Entry("[test_id:2831]given a vm", Labels{"test_id:2831"}, "virtualmachines"),
+						Entry("given a vmpool", "virtualmachinepools"),
+						Entry("[test_id:2916]given a vmi preset", Labels{"test_id:2916"}, "virtualmachineinstancepresets"),
+						Entry("[test_id:2918][crit:low]given a vmi replica set", Labels{"test_id:2918"}, "virtualmachineinstancereplicasets"),
+						Entry("[test_id:2837]given a vmi migration", Labels{"test_id:2837"}, "virtualmachineinstancemigrations"),
+						Entry("[test_id:5249]given a vmsnapshot", Labels{"test_id:5249"}, "virtualmachinesnapshots"),
+						Entry("[test_id:5250]given a vmsnapshotcontent", Labels{"test_id:5250"}, "virtualmachinesnapshotcontents"),
+						Entry("[test_id:5251]given a vmsrestore", Labels{"test_id:5251"}, "virtualmachinerestores"),
+					)
+
+					DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
+						testAction(resource, action, "yes")
+					},
+						Entry(EntryDescription("[test_id:2921]given a vmi"), "[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/unpause", "update"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/softreboot", "update"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/console", "get"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/vnc", "get"),
+						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/guestosinfo", "get"),
+					)
+				})
 			})
-
-			AfterEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			DescribeTable("should verify permissions on resources are correct the test user", func(resource string) {
-				testRights(resource, "yes")
-			},
-				Entry("[test_id:2920]given a vmi", "virtualmachineinstances"),
-				Entry("[test_id:2831]given a vm", "virtualmachines"),
-				Entry("given a vmpool", "virtualmachinepools"),
-				Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
-				Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
-				Entry("[test_id:5249]given a vmsnapshot", "virtualmachinesnapshots"),
-				Entry("[test_id:5250]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-				Entry("[test_id:5251]given a vmsrestore", "virtualmachinerestores"),
-			)
-
-			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
-				testAction(resource, action, "yes")
-			},
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/guestosinfo", "get"),
-			)
-		})
 	})
-})

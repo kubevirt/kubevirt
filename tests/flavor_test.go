@@ -20,7 +20,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Flavor", func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Flavor", Labels{"crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute"}, func() {
 	const (
 		namespacedFlavorKind = "VirtualMachineFlavor"
 	)
@@ -38,14 +38,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("Flavor validation", func() {
-		It("[test_id:TODO] should allow valid flavor", func() {
+		It("[test_id:TODO] should allow valid flavor", Labels{"test_id:TODO"}, func() {
 			flavor := newVirtualMachineFlavor()
 			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:TODO] should fail flavor with no profiles", func() {
+		It("[test_id:TODO] should fail flavor with no profiles", Labels{"test_id:TODO"}, func() {
 			flavor := newVirtualMachineFlavor()
 			flavor.Profiles = []flavorv1alpha1.VirtualMachineFlavorProfile{}
 
@@ -63,7 +63,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("profiles"))
 		})
 
-		It("[test_id:TODO] should fail flavor with multiple default profiles", func() {
+		It("[test_id:TODO] should fail flavor with multiple default profiles", Labels{"test_id:TODO"}, func() {
 			flavor := newVirtualMachineFlavor()
 			flavor.Profiles = append(flavor.Profiles, flavorv1alpha1.VirtualMachineFlavorProfile{
 				Name:    "second-default",
@@ -86,7 +86,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("VM with invalid FlavorMatcher", func() {
-		It("[test_id:TODO] should fail to create VM with non-existing cluster flavor", func() {
+		It("[test_id:TODO] should fail to create VM with non-existing cluster flavor", Labels{"test_id:TODO"}, func() {
 			vmi := tests.NewRandomVMI()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
@@ -105,7 +105,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.flavor"))
 		})
 
-		It("[test_id:TODO] should fail to create VM with non-existing namespaced flavor", func() {
+		It("[test_id:TODO] should fail to create VM with non-existing namespaced flavor", Labels{"test_id:TODO"}, func() {
 			vmi := tests.NewRandomVMI()
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
@@ -125,7 +125,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.flavor"))
 		})
 
-		It("[test_id:TODO] should fail to create VM with non-existing default flavor profile", func() {
+		It("[test_id:TODO] should fail to create VM with non-existing default flavor profile", Labels{"test_id:TODO"}, func() {
 			flavor := newVirtualMachineFlavor()
 			for i := range flavor.Profiles {
 				flavor.Profiles[i].Default = false
@@ -155,7 +155,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.flavor"))
 		})
 
-		It("[test_id:TODO] should fail to create VM with non-existing custom flavor profile", func() {
+		It("[test_id:TODO] should fail to create VM with non-existing custom flavor profile", Labels{"test_id:TODO"}, func() {
 			flavor := newVirtualMachineFlavor()
 
 			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
@@ -218,7 +218,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		}
 
 		Context("CPU", func() {
-			It("[test_id:TODO] should apply flavor to CPU", func() {
+			It("[test_id:TODO] should apply flavor to CPU", Labels{"test_id:TODO"}, func() {
 				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
 
 				flavor := newVirtualMachineFlavor()
@@ -251,7 +251,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
 			})
 
-			It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {
+			It("[test_id:TODO] should fail if flavor and VMI define CPU", Labels{"test_id:TODO"}, func() {
 				flavor := newVirtualMachineFlavor()
 				flavor.Profiles[0].CPU = &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
 

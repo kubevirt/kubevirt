@@ -36,64 +36,74 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound",
+	Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
+		var err error
+		var virtClient kubecli.KubevirtClient
+		var vmi *v1.VirtualMachineInstance
 
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		tests.BeforeTestCleanup()
-	})
-
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
 		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "test-model-empty")
-			Expect(err).To(BeNil())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			virtClient, err = kubecli.GetKubevirtClient()
+			util.PanicOnError(err)
+
+			tests.BeforeTestCleanup()
 		})
 
-		It("should create an ich9 sound device on empty model", func() {
-			checkAudioDevice(vmi, "ich9")
-		})
+		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support",
+			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				BeforeEach(func() {
+					vmi, err = createSoundVMI(virtClient, "test-model-empty")
+					Expect(err).To(BeNil())
+					vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				})
+
+				It("should create an ich9 sound device on empty model", func() {
+					checkAudioDevice(vmi, "ich9")
+				})
+			})
+
+		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support",
+			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				BeforeEach(func() {
+					vmi, err = createSoundVMI(virtClient, "ich9")
+					Expect(err).To(BeNil())
+					vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				})
+
+				It("should create ich9 sound device on ich9 model ", func() {
+					checkXMLSoundCard(virtClient, vmi, "ich9")
+					checkAudioDevice(vmi, "ich9")
+				})
+			})
+
+		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ac97 sound support",
+			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				BeforeEach(func() {
+					vmi, err = createSoundVMI(virtClient, "ac97")
+					Expect(err).To(BeNil())
+					vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				})
+
+				It("should create ac97 sound device on ac97 model", func() {
+					checkXMLSoundCard(virtClient, vmi, "ac97")
+					checkAudioDevice(vmi, "ac97")
+				})
+			})
+
+		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support",
+			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			func() {
+				It("should fail to create VMI with unsupported sound device", func() {
+					vmi, err = createSoundVMI(virtClient, "ich7")
+					Expect(err).To(HaveOccurred())
+				})
+			})
 	})
-
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support", func() {
-		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "ich9")
-			Expect(err).To(BeNil())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		})
-
-		It("should create ich9 sound device on ich9 model ", func() {
-			checkXMLSoundCard(virtClient, vmi, "ich9")
-			checkAudioDevice(vmi, "ich9")
-		})
-	})
-
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ac97 sound support", func() {
-		BeforeEach(func() {
-			vmi, err = createSoundVMI(virtClient, "ac97")
-			Expect(err).To(BeNil())
-			vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
-		})
-
-		It("should create ac97 sound device on ac97 model", func() {
-			checkXMLSoundCard(virtClient, vmi, "ac97")
-			checkAudioDevice(vmi, "ac97")
-		})
-	})
-
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
-		It("should fail to create VMI with unsupported sound device", func() {
-			vmi, err = createSoundVMI(virtClient, "ich7")
-			Expect(err).To(HaveOccurred())
-		})
-	})
-})
 
 func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.VirtualMachineInstance, error) {
 	randomVmi := libvmi.NewCirros()

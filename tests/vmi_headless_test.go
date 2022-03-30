@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
+var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", Labels{"rfe_id:609", "sig-compute"}, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -52,7 +52,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
-	Describe("[rfe_id:609]Creating a VirtualMachineInstance", func() {
+	Describe("[rfe_id:609]Creating a VirtualMachineInstance", Labels{"rfe_id:609"}, func() {
 
 		Context("with headless", func() {
 
@@ -61,11 +61,11 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &f
 			})
 
-			It("[test_id:707]should create headless vmi without any issue", func() {
+			It("[test_id:707]should create headless vmi without any issue", Labels{"test_id:707"}, func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 			})
 
-			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
+			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", Labels{"test_id:714", "posneg:positive"}, func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -74,7 +74,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				Expect(runningVMISpec.Devices.Graphics).To(BeEmpty(), "should not have any graphics devices present")
 			})
 
-			It("[test_id:737][posneg:positive]should match memory with overcommit enabled", func() {
+			It("[test_id:737][posneg:positive]should match memory with overcommit enabled", Labels{"test_id:737", "posneg:positive"}, func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("100M"),
@@ -89,7 +89,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				Expect(computeContainer.Resources.Requests.Memory().String()).To(Equal("100M"))
 			})
 
-			It("[test_id:2444][posneg:negative]should not match memory with overcommit disabled", func() {
+			It("[test_id:2444][posneg:negative]should not match memory with overcommit disabled", Labels{"test_id:2444", "posneg:negative"}, func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("100M"),
@@ -103,7 +103,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				Expect(computeContainer.Resources.Requests.Memory().String()).ToNot(Equal("100M"))
 			})
 
-			It("[test_id:713]should have more memory on pod when headless", func() {
+			It("[test_id:713]should have more memory on pod when headless", Labels{"test_id:713"}, func() {
 				normalVmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -125,7 +125,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 						memDiff.ScaledValue(resource.Mega)))
 			})
 
-			It("[test_id:738][posneg:negative]should not connect to VNC", func() {
+			It("[test_id:738][posneg:negative]should not connect to VNC", Labels{"test_id:738", "posneg:negative"}, func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
@@ -133,7 +133,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				Expect(err.Error()).To(Equal("No graphics devices are present."), "vnc should not connect on headless VM")
 			})
 
-			It("[test_id:709][posneg:positive]should connect to console", func() {
+			It("[test_id:709][posneg:positive]should connect to console", Labels{"test_id:709", "posneg:positive"}, func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("checking that console works")
@@ -144,7 +144,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 
 		Context("without headless", func() {
 
-			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", func() {
+			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", Labels{"test_id:714", "posneg:negative"}, func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)

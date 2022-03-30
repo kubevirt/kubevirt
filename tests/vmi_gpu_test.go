@@ -54,7 +54,7 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string) {
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }
 
-var _ = Describe("[Serial][sig-compute]GPU", func() {
+var _ = Describe("[Serial][sig-compute]GPU", Labels{"Serial", "sig-compute"}, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -64,7 +64,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 	})
 
 	Context("with ephemeral disk", func() {
-		It("[test_id:4607]Should create a valid VMI but pod should not go to running state", func() {
+		It("[test_id:4607]Should create a valid VMI but pod should not go to running state", Labels{"test_id:4607"}, func() {
 			gpuName := "random.com/gpu"
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			gpus := []v1.GPU{
@@ -84,7 +84,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			Expect(pod.Status.Conditions[0].Reason).To(Equal("Unschedulable"))
 		})
 
-		It("[test_id:4608]Should create a valid VMI and appropriate libvirt domain", func() {
+		It("[test_id:4608]Should create a valid VMI and appropriate libvirt domain", Labels{"test_id:4608"}, func() {
 			nodesList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			var gpuName = ""

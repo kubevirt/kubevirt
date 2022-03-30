@@ -47,7 +47,7 @@ const (
 	sidecarContainerName = "hook-sidecar-0"
 )
 
-var _ = Describe("[sig-compute]HookSidecars", func() {
+var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -63,103 +63,105 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 
-	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
-		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, bool, error) {
-			podSelector := tests.UnfinishedVMIPodSelector(vmi)
-			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
+	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition",
+		Labels{"rfe_id:2667", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		func() {
+			getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, bool, error) {
+				podSelector := tests.UnfinishedVMIPodSelector(vmi)
+				vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
 
-			if err != nil {
-				return nil, false, fmt.Errorf("could not retrieve the VMI pod: %v", err)
-			} else if len(vmiPods.Items) == 0 {
-				return nil, false, nil
+				if err != nil {
+					return nil, false, fmt.Errorf("could not retrieve the VMI pod: %v", err)
+				} else if len(vmiPods.Items) == 0 {
+					return nil, false, nil
+				}
+				return &vmiPods.Items[0], true, nil
 			}
-			return &vmiPods.Items[0], true, nil
-		}
 
-		Context("with SM BIOS hook sidecar", func() {
-			It("[test_id:3155]should successfully start with hook sidecar annotation", func() {
-				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
-			})
+			Context("with SM BIOS hook sidecar", func() {
+				It("[test_id:3155]should successfully start with hook sidecar annotation", Labels{"test_id:3155"}, func() {
+					By("Starting a VMI")
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					tests.WaitForSuccessfulVMIStart(vmi)
+				})
 
-			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
-				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
-			})
+				It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", Labels{"test_id:3156"}, func() {
+					By("Starting a VMI")
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
+					Expect(err).ToNot(HaveOccurred())
+					tests.WaitForSuccessfulVMIStart(vmi)
+				})
 
-			It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", func() {
-				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
-				tests.WaitForSuccessfulVMIStart(vmi)
-				Eventually(logs,
-					11*time.Second,
-					500*time.Millisecond).
-					Should(ContainSubstring("Hook's Info method has been called"))
-				Eventually(logs,
-					11*time.Second,
-					500*time.Millisecond).
-					Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
-			})
+				It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", Labels{"test_id:3157"}, func() {
+					By("Getting hook-sidecar logs")
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+					tests.WaitForSuccessfulVMIStart(vmi)
+					Eventually(logs,
+						11*time.Second,
+						500*time.Millisecond).
+						Should(ContainSubstring("Hook's Info method has been called"))
+					Eventually(logs,
+						11*time.Second,
+						500*time.Millisecond).
+						Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
+				})
 
-			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
-				By("Reading domain XML using virsh")
+				It("[test_id:3158]should update domain XML with SM BIOS properties", Labels{"test_id:3158"}, func() {
+					By("Reading domain XML using virsh")
 				clientcmd.SkipIfNoCmd("kubectl")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				tests.WaitForSuccessfulVMIStart(vmi)
-				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
-				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
-				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
-			})
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					tests.WaitForSuccessfulVMIStart(vmi)
+					domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
+					Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
+					Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
+				})
 
-			It("should not start with hook sidecar annotation when the version is not provided", func() {
-				By("Starting a VMI")
-				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
+				It("should not start with hook sidecar annotation when the version is not provided", func() {
+					By("Starting a VMI")
+					vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 
-				Eventually(func() bool {
-					vmiPod, exists, err := getVMIPod(vmi)
-					if err != nil {
-						Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
-					} else if !exists {
-						return false
-					}
-
-					for _, container := range vmiPod.Status.ContainerStatuses {
-						if container.Name == sidecarContainerName && container.State.Terminated != nil {
-							terminated := container.State.Terminated
-							return terminated.ExitCode != 0 && terminated.Reason == "Error"
+					Eventually(func() bool {
+						vmiPod, exists, err := getVMIPod(vmi)
+						if err != nil {
+							Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+						} else if !exists {
+							return false
 						}
-					}
-					return false
-				}, 15*time.Second, time.Second).Should(
-					BeTrue(),
-					fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
+
+						for _, container := range vmiPod.Status.ContainerStatuses {
+							if container.Name == sidecarContainerName && container.State.Terminated != nil {
+								terminated := container.State.Terminated
+								return terminated.ExitCode != 0 && terminated.Reason == "Error"
+							}
+						}
+						return false
+					}, 15*time.Second, time.Second).Should(
+						BeTrue(),
+						fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
+				})
+			})
+
+			Context("[Serial]with sidecar feature gate disabled", Labels{"Serial"}, func() {
+				BeforeEach(func() {
+					tests.DisableFeatureGate(virtconfig.SidecarGate)
+				})
+
+				It("[test_id:2666]should not start with hook sidecar annotation", Labels{"test_id:2666"}, func() {
+					By("Starting a VMI")
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
+					Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
+				})
 			})
 		})
-
-		Context("[Serial]with sidecar feature gate disabled", func() {
-			BeforeEach(func() {
-				tests.DisableFeatureGate(virtconfig.SidecarGate)
-			})
-
-			It("[test_id:2666]should not start with hook sidecar annotation", func() {
-				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
-				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
-			})
-		})
-	})
 })
 
 func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {

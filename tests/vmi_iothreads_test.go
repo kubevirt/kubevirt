@@ -41,7 +41,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[sig-compute]IOThreads", func() {
+var _ = Describe("[sig-compute]IOThreads", Labels{"sig-compute"}, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -63,7 +63,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 
-		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {
+		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", Labels{"test_id:4122"}, func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
@@ -89,7 +89,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(1))
 		})
 
-		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
+		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", Labels{"test_id:864", "ref_id:2065"}, func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
@@ -139,7 +139,7 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			Expect(*disk0.Driver.IOThread).ToNot(Equal(*disk1.Driver.IOThread))
 		})
 
-		DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", func(numCpus int, expectedIOThreads int) {
+		DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", Labels{"ref_id:2065"}, func(numCpus int, expectedIOThreads int) {
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
@@ -218,17 +218,17 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 		},
 			// special case: there's always at least one thread for the shared pool:
 			// two dedicated and one shared thread is 3 threads.
-			Entry("[test_id:3097]for one CPU", 1, 3),
-			Entry("[test_id:856] for two CPUs", 2, 4),
-			Entry("[test_id:3095] for three CPUs", 3, 6),
+			Entry("[test_id:3097]for one CPU", Labels{"test_id:3097"}, 1, 3),
+			Entry("[test_id:856] for two CPUs", Labels{"test_id:856"}, 2, 4),
+			Entry("[test_id:3095] for three CPUs", Labels{"test_id:3095"}, 3, 6),
 			// there's only 6 threads expected because there's 6 total disks, even
 			// though the limit would have supported 8.
-			Entry("[test_id:3096]for four CPUs", 4, 6),
+			Entry("[test_id:3096]for four CPUs", Labels{"test_id:3096"}, 4, 6),
 		)
 
 		// IOThread with Emulator Thread
 
-		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
+		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", Labels{"test_id:4025"}, func() {
 			checks.SkipTestIfNoCPUManager()
 
 			policy := v1.IOThreadsPolicyAuto

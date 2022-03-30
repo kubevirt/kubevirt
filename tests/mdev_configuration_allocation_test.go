@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
+var _ = Describe("[Serial][sig-compute]MediatedDevices", Labels{"Serial", "sig-compute"}, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
