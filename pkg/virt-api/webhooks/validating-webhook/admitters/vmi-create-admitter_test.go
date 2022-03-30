@@ -140,25 +140,30 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("tolerations with eviction policies given", func() {
 		var vmi *v1.VirtualMachineInstance
-		var policy = v1.EvictionStrategyLiveMigrate
+		var policyMigrate = v1.EvictionStrategyLiveMigrate
+		var policyNone = v1.EvictionStrategyNone
+		var policyExternal = v1.EvictionStrategyExternal
+
 		BeforeEach(func() {
 			enableFeatureGate(virtconfig.LiveMigrationGate)
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.EvictionStrategy = nil
 		})
 
-		DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
-			vmi.Spec.EvictionStrategy = &policy
+		DescribeTable("it should allow", func(policy *v1.EvictionStrategy) {
+			vmi.Spec.EvictionStrategy = policy
 			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(resp).To(BeEmpty())
 		},
-			Entry("migration policy to be set to LiveMigrate", v1.EvictionStrategyLiveMigrate),
-			Entry("migration policy to be set None", v1.EvictionStrategyNone),
+			Entry("migration policy to be set to LiveMigrate", &policyMigrate),
+			Entry("migration policy to be set None", &policyNone),
+			Entry("migration policy to be set External", &policyExternal),
+			Entry("migration policy to be set nil", nil),
 		)
 
 		It("should block setting eviction policies if the feature gate is disabled", func() {
 			disableFeatureGates()
-			vmi.Spec.EvictionStrategy = &policy
+			vmi.Spec.EvictionStrategy = &policyMigrate
 			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
 		})
