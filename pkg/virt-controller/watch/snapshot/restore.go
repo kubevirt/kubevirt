@@ -46,6 +46,10 @@ const (
 
 	lastRestoreAnnotation = "restore.kubevirt.io/lastRestoreUID"
 
+	restoreSourceNameLabel = "restore.kubevirt.io/source-vm-name"
+
+	restoreSourceNamespaceLabel = "restore.kubevirt.io/source-vm-namespace"
+
 	restoreCompleteEvent = "VirtualMachineRestoreComplete"
 
 	restoreErrorEvent = "VirtualMachineRestoreError"
@@ -270,7 +274,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 
 		if pvc == nil {
 			backup := content.Spec.VolumeBackups[i]
-			if err = ctrl.createRestorePVC(vmRestore, target, backup, restore); err != nil {
+			if err = ctrl.createRestorePVC(vmRestore, target, backup, restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
 				return false, err
 			}
 			createdPVC = true
@@ -719,6 +723,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	target restoreTarget,
 	volumeBackup snapshotv1.VolumeBackup,
 	volumeRestore snapshotv1.VolumeRestore,
+	sourceVmName, sourceVmNamespace string,
 ) error {
 	sourcePVC := volumeBackup.PersistentVolumeClaim.DeepCopy()
 	pvc := &corev1.PersistentVolumeClaim{
@@ -735,10 +740,15 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		return fmt.Errorf("missing VolumeSnapshot name")
 	}
 
+	if pvc.Labels == nil {
+		pvc.Labels = make(map[string]string)
+	}
+	pvc.Labels[restoreSourceNameLabel] = sourceVmName
+	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
+
 	if pvc.Annotations == nil {
 		pvc.Annotations = make(map[string]string)
 	}
-
 	for _, prefix := range restoreAnnotationsToDelete {
 		for anno := range pvc.Annotations {
 			if strings.HasPrefix(anno, prefix) {

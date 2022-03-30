@@ -934,6 +934,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 							Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
 							Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
 							Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
+							Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
 						}
 					}
 				}

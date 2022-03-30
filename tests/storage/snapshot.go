@@ -810,6 +810,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
+							Expect(vs.Labels["snapshot.kubevirt.io/source-vm-name"]).Should(Equal(vm.Name))
 							Expect(vs.Status.Error).To(BeNil())
 							Expect(*vs.Status.ReadyToUse).To(BeTrue())
 						}
