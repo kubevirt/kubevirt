@@ -37,6 +37,10 @@ const (
 	ContainerDiskFedoraRealtime       ContainerDisk = "fedora-realtime"
 )
 
+const (
+	FedoraVolumeSize = "6Gi"
+)
+
 // ContainerDiskFor takes the name of an image and returns the full
 // registry diks image path.
 // Use the ContainerDisk* constants as input values.
