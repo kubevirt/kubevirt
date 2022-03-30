@@ -502,7 +502,7 @@ func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisrup
 }
 
 func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
-	migratableOnDrain := c.vmiMigratableOnDrain(vmiExists, vmi)
+	needsEvictionProtection := c.vmiNeedsEvictionPDB(vmiExists, vmi)
 
 	// check for deletions if pod exists
 	if pdb != nil {
@@ -510,9 +510,9 @@ func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv
 			// being deleted
 			log.Log.Infof("deleting pdb %s/%s due to VMI deletion", pdb.Namespace, pdb.Name)
 			return c.deletePDB(key, pdb, vmi)
-		} else if !migratableOnDrain {
-			// vmi isn't set to migrate on eviction, so delete.
-			log.Log.Object(vmi).Infof("deleting pdb %s/%s due to not using evictionStrategy: LiveMigration", pdb.Namespace, pdb.Name)
+		} else if !needsEvictionProtection {
+			// vmi isn't set to prevent eviction, so delete the pdb
+			log.Log.Object(vmi).Infof("deleting pdb %s/%s due to not using evictionStrategy: LiveMigration|External", pdb.Namespace, pdb.Name)
 			return c.deletePDB(key, pdb, vmi)
 		} else if isPDBFromOldVMI(vmi, pdb) {
 			// pdb for non existent vmi
@@ -533,8 +533,8 @@ func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv
 				return c.shrinkPDB(vmi, pdb)
 			}
 		}
-	} else if migratableOnDrain {
-		// pdb doesn't exist, create if vmi is set to migrate during drain.
+	} else if needsEvictionProtection {
+		// pdb doesn't exist, create if vmi's eviction strategy means it is protected during drain.
 		log.Log.Object(vmi).Infof("creating pdb for VMI %s/%s", vmi.Namespace, vmi.Name)
 		return c.createPDB(key, vmi)
 	}
@@ -542,9 +542,20 @@ func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv
 	return nil
 }
 
-func (c *DisruptionBudgetController) vmiMigratableOnDrain(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
+func (c *DisruptionBudgetController) vmiNeedsEvictionPDB(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
 	if !vmiExists || vmi.DeletionTimestamp != nil {
 		return false
 	}
-	return migrations.VMIMigratableOnEviction(c.clusterConfig, vmi)
+
+	evictionStrategy := migrations.VMIEvictionStrategy(c.clusterConfig, vmi)
+	if evictionStrategy == nil {
+		return false
+	}
+
+	switch *evictionStrategy {
+	case virtv1.EvictionStrategyLiveMigrate, virtv1.EvictionStrategyExternal:
+		return true
+	default:
+		return false
+	}
 }

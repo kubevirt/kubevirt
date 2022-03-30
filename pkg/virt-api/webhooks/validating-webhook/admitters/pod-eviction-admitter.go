@@ -46,15 +46,26 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
-	if !migrations.VMIMigratableOnEviction(admitter.ClusterConfig, vmi) {
+
+	evictionStrategy := migrations.VMIEvictionStrategy(admitter.ClusterConfig, vmi)
+	if evictionStrategy == nil {
 		// we don't act on VMIs without an eviction strategy
 		return validating_webhooks.NewPassingAdmissionResponse()
-	} else if !vmi.IsMigratable() {
-		return denied(fmt.Sprintf(
-			"VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
 	}
 
-	if !vmi.IsMarkedForEviction() && vmi.Status.NodeName == launcher.Spec.NodeName {
+	markForEviction := false
+
+	switch *evictionStrategy {
+	case virtv1.EvictionStrategyLiveMigrate:
+		if !vmi.IsMigratable() {
+			return denied(fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
+		}
+		markForEviction = true
+	case virtv1.EvictionStrategyExternal:
+		markForEviction = true
+	}
+
+	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == launcher.Spec.NodeName {
 		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
 		err := admitter.markVMI(ar, vmi.Name, vmi.Status.NodeName, dryRun)
 		if err != nil {

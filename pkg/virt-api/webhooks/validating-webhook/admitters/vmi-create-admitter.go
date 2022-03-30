@@ -712,29 +712,34 @@ func podNetworkRequiredStatusCause(field *k8sfield.Path) metav1.StatusCause {
 	}
 }
 
+func isValidEvictionStrategy(evictionStrategy *v1.EvictionStrategy) bool {
+	return evictionStrategy == nil ||
+		*evictionStrategy == v1.EvictionStrategyLiveMigrate ||
+		*evictionStrategy == v1.EvictionStrategyNone ||
+		*evictionStrategy == v1.EvictionStrategyExternal
+
+}
+
 func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	evictionStrategy := config.GetConfig().EvictionStrategy
 
 	if spec.EvictionStrategy != nil {
 		evictionStrategy = spec.EvictionStrategy
 	}
-	if !config.LiveMigrationEnabled() && evictionStrategy != nil &&
-		*evictionStrategy != v1.EvictionStrategyNone {
+	if !config.LiveMigrationEnabled() &&
+		evictionStrategy != nil &&
+		*evictionStrategy == v1.EvictionStrategyLiveMigrate {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "LiveMigration feature gate is not enabled",
 			Field:   field.Child("evictionStrategy").String(),
 		})
-	} else if evictionStrategy != nil {
-		if *evictionStrategy != v1.EvictionStrategyLiveMigrate &&
-			*evictionStrategy != v1.EvictionStrategyNone {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
-				Field:   field.Child("evictionStrategy").String(),
-			})
-		}
-
+	} else if !isValidEvictionStrategy(evictionStrategy) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
+			Field:   field.Child("evictionStrategy").String(),
+		})
 	}
 	return causes
 }
