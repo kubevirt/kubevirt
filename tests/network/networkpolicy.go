@@ -388,10 +388,10 @@ func checkHTTPPingAndStopOnFailure(fromVmi, toVmi *v1.VirtualMachineInstance, po
 }
 
 func checkHTTPPing(vmi *v1.VirtualMachineInstance, ip string, port int) error {
-	const curlCheckCmd = "curl --head %s --connect-timeout 5\n"
+	const wgetCheckCmd = "wget -S --spider %s -T 5\n"
 	url := fmt.Sprintf("http://%s", net.JoinHostPort(ip, strconv.Itoa(port)))
-	curlCheck := fmt.Sprintf(curlCheckCmd, url)
-	err := console.RunCommand(vmi, curlCheck, 10*time.Second)
+	wgetCheck := fmt.Sprintf(wgetCheckCmd, url)
+	err := console.RunCommand(vmi, wgetCheck, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed HTTP ping from vmi(%s/%s) to url(%s): %v", vmi.Namespace, vmi.Name, url, err)
 	}
