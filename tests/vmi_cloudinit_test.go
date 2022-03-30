@@ -215,7 +215,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, time.Second*120)
 
 				By("applying the hostname from meta-data")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToCirros)(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
@@ -238,7 +238,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, time.Second*120)
 
 				By("applying the hostname from meta-data")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToCirros)(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
@@ -300,7 +300,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -315,7 +315,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, true)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -364,7 +364,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -391,7 +391,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -412,7 +412,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				vmi.Annotations[v1.FlavorAnnotation] = testFlavor
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -458,7 +458,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, true)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 				By("mouting cloudinit iso")
@@ -507,7 +507,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -583,7 +583,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 

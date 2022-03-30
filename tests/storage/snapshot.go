@@ -306,7 +306,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
 				Expect(snapshot.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
 
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
 				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
 				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
@@ -535,7 +535,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
 				defer deleteWebhook()
@@ -566,7 +566,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
 				snapshot = newSnapshot()
@@ -615,7 +615,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
 				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
@@ -701,7 +701,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Logging into Fedora")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Calling Velero pre-backup hook")
 				err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)

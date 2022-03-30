@@ -539,7 +539,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			tests.WaitAgentConnected(virtClient, vmi)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 			if mode == v1.MigrationPostCopy {
 				By("Running stress test to allow transition to post-copy")
@@ -629,7 +629,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				for x := 0; x < repeat; x++ {
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+					Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 					By("starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -678,7 +678,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -705,7 +705,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -742,7 +742,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
@@ -874,7 +874,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
@@ -913,7 +913,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				num := 4
 
@@ -959,7 +959,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
@@ -1015,7 +1015,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))
@@ -1049,7 +1049,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				By("Pausing the VirtualMachineInstance")
 				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
@@ -1747,7 +1747,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+					Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 					By("starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -2446,7 +2446,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				gotExpectedCondition := false
 				for _, c := range vmi.Status.Conditions {

@@ -439,7 +439,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, expectedRestores int) {
 				By("creating 'message with initial value")
-				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(login)(vmi)).To(Succeed())
 
 				var batch []expect.Batcher
 				if device != "" {
@@ -495,7 +495,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
+					Expect(libnet.WithAlpineConfig(login)(vmi)).To(Succeed())
 
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
@@ -553,7 +553,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
-				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(login)(vmi)).To(Succeed())
 
 				batch = nil
 
@@ -955,7 +955,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
@@ -974,7 +974,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Updating the VM template spec")
 				initialMemory := vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
@@ -1022,7 +1022,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
 				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)

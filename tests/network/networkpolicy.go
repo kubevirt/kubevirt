@@ -411,7 +411,7 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 		return nil, err
 	}
 
-	clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToAlpine))
+	clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 	return clientVMI, nil
 }
 
@@ -436,7 +436,7 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 	if err != nil {
 		return nil, err
 	}
-	serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToAlpine))
+	serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 	By("Start HTTP server at serverVMI on ports 80 and 81")
 	tests.HTTPServer.Start(serverVMI, 80)

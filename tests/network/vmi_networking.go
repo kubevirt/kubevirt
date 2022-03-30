@@ -176,7 +176,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 				By("checking eth0 MTU inside the VirtualMachineInstance")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(outboundVMI)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToCirros)(outboundVMI)).To(Succeed())
 
 				addrShow = "ip address show eth0\n"
 				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
@@ -957,7 +957,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, libnet.WithIPv6(console.LoginToAlpine))
+				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})
@@ -1090,7 +1090,7 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 
 	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
-	vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+	vmi = tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 	return vmi
 }
 

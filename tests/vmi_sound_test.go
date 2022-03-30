@@ -54,7 +54,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "test-model-empty")
 			Expect(err).To(BeNil())
-			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 		})
 
 		It("should create an ich9 sound device on empty model", func() {
@@ -66,7 +66,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "ich9")
 			Expect(err).To(BeNil())
-			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 		})
 
 		It("should create ich9 sound device on ich9 model ", func() {
@@ -79,7 +79,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		BeforeEach(func() {
 			vmi, err = createSoundVMI(virtClient, "ac97")
 			Expect(err).To(BeNil())
-			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 		})
 
 		It("should create ac97 sound device on ac97 model", func() {

@@ -11,7 +11,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
+func configureAlpineVMI(vmi *v1.VirtualMachineInstance) error {
 	alreadyConfigured := func() bool {
 		err := console.RunCommand(vmi, " ip a show lo | grep UP", 30*time.Second)
 		return err == nil
@@ -86,12 +86,12 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func WithIPv6(loginTo console.LoginToFunction) console.LoginToFunction {
+func WithAlpineConfig(loginTo console.LoginToFunction) console.LoginToFunction {
 	return func(vmi *v1.VirtualMachineInstance) error {
 		err := loginTo(vmi)
 		if err != nil {
 			return err
 		}
-		return configureIPv6OnVMI(vmi)
+		return configureAlpineVMI(vmi)
 	}
 }

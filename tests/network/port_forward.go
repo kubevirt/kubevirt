@@ -168,7 +168,7 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 
 	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
-	vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+	vmi = tests.WaitUntilVMIReady(vmi, libnet.WithAlpineConfig(console.LoginToCirros))
 
 	return vmi
 }

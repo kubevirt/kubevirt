@@ -114,7 +114,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
-			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			rootPortController := []api.Controller{}
@@ -135,7 +135,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
-			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			testutils.ExpectVirtioTransitionalOnly(domSpec)
@@ -595,7 +595,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
@@ -615,7 +615,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
@@ -671,7 +671,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
@@ -719,7 +719,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				By("Expecting console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				// Check on the VM, if the Free memory is roughly what we expected
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1540,7 +1540,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(timerFrequency).ToNot(BeEmpty())
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1573,7 +1573,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Logging to VMI")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				loc, err := time.LoadLocation(timezone)
 				Expect(err).ToNot(HaveOccurred())
@@ -1718,7 +1718,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -1745,7 +1745,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				niceName := parseCPUNiceName(output)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -1767,7 +1767,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				niceName := parseCPUNiceName(output)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
 				console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -1795,7 +1795,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 			})
 		})
 	})
@@ -2197,7 +2197,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// keep the ordering!
@@ -2214,7 +2214,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+			tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 		})
@@ -2356,7 +2356,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -2404,7 +2404,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
 				//-------------------------------------------------------------------
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
@@ -2472,7 +2472,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -2507,7 +2507,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
+				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -2627,7 +2627,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(cpuvmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(cpuvmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -2637,7 +2637,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 			})
 
 			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
@@ -2650,7 +2650,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
@@ -2660,7 +2660,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(cpuvmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(cpuvmi)).To(Succeed())
 			})
 		})
 	})
@@ -2684,7 +2684,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2725,7 +2725,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2761,7 +2761,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 
@@ -2912,7 +2912,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper does not match KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
@@ -2930,7 +2930,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper matches KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{

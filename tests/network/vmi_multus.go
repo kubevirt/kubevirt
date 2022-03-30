@@ -199,7 +199,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToAlpine))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -217,7 +217,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToAlpine))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -238,7 +238,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToCirros))
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
 				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
@@ -273,7 +273,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToAlpine))
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())

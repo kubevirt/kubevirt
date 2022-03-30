@@ -78,7 +78,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Checking if we can login")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
 		})
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {

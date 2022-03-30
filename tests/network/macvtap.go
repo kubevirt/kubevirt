@@ -118,7 +118,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			newAlpineVMIWithExplicitMac(networkName, mac),
 			180,
 		)
-		err := libnet.WithIPv6(console.LoginToAlpine)(runningVMI)
+		err := libnet.WithAlpineConfig(console.LoginToAlpine)(runningVMI)
 		return runningVMI, err
 	}
 

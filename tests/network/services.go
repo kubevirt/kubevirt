@@ -242,7 +242,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()))
 			return readyVMI(
 				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue),
-				libnet.WithIPv6(console.LoginToAlpine))
+				libnet.WithAlpineConfig(console.LoginToAlpine))
 		}
 
 		BeforeEach(func() {
@@ -250,7 +250,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort, libnet.WithIPv6(console.LoginToAlpine))
+			tests.StartTCPServer(inboundVMI, servicePort, libnet.WithAlpineConfig(console.LoginToAlpine))
 		})
 
 		AfterEach(func() {

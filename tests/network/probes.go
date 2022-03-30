@@ -299,9 +299,9 @@ func isHTTPProbe(probe v1.Probe) bool {
 
 func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
 	if isHTTPProbe(*probe) {
-		tests.StartHTTPServer(vmi, port, libnet.WithIPv6(console.LoginToAlpine))
+		tests.StartHTTPServer(vmi, port, libnet.WithAlpineConfig(console.LoginToAlpine))
 	} else {
-		tests.StartTCPServer(vmi, port, libnet.WithIPv6(console.LoginToAlpine))
+		tests.StartTCPServer(vmi, port, libnet.WithAlpineConfig(console.LoginToAlpine))
 	}
 }
 
