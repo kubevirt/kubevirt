@@ -187,7 +187,7 @@ type DHCPHandler struct {
 	options       dhcp.Options
 }
 
-func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, _ dhcp.Options) (d dhcp.Packet) {
+func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, opts dhcp.Options) (d dhcp.Packet) {
 	log.Log.V(4).Info("Serving a new request")
 	if len(h.clientMAC) != 0 {
 		if mac := p.CHAddr(); !bytes.Equal(mac, h.clientMAC) {
@@ -205,6 +205,11 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, _ dhcp.
 
 	case dhcp.Request:
 		log.Log.V(4).Info("The request has message type REQUEST")
+		if requestIP, ok := opts[dhcp.OptionRequestedIPAddress]; ok && !net.IP(requestIP).Equal(h.clientIP) {
+			log.Log.Warningf("Client cannot request ip %v, not the assigned ip %v", net.IP(requestIP), h.clientIP)
+			return dhcp.ReplyPacket(p, dhcp.NAK, h.serverIP, nil, 0,
+				h.options.SelectOrderOrAll(nil))
+		}
 		return dhcp.ReplyPacket(p, dhcp.ACK, h.serverIP, h.clientIP, h.leaseDuration,
 			h.options.SelectOrderOrAll(nil))
 
