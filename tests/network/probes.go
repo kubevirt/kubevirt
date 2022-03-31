@@ -70,9 +70,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
-		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
-		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, disableEnableCycle bool) {
+		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
 
 			if ipFamily == corev1.IPv6Protocol {
@@ -107,28 +106,44 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			}
 
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
+		},
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
+		)
 
-			if disableEnableCycle {
+		Context("guest agent ping", func() {
+			const (
+				guestAgentConnectTimeout    = 120
+				guestAgentDisconnectTimeout = 300 // Marking the status to not ready can take a little more time
+			)
+
+			BeforeEach(func() {
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.ReadinessProbe = createGuestAgentPingProbe(period, initialSeconds)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				By("Waiting for agent to connect")
+				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
 				By("Disabling the guest-agent")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
-				Expect(stopGuestAgent(vmi)).ToNot(HaveOccurred())
+				Expect(stopGuestAgent(vmi)).To(Succeed())
+				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentDisconnectTimeout)
+			})
 
-				// Marking the status to not ready can take a little more time
-				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, 300)
+			When("the guest agent is enabled, after being disabled", func() {
+				BeforeEach(func() {
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
+					Expect(startGuestAgent(vmi)).To(Succeed())
+				})
 
-				By("Enabling the guest-agent again")
-				Expect(startGuestAgent(vmi)).ToNot(HaveOccurred())
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
-			}
-		},
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, false),
-			Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, false),
-			Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true),
-		)
+				It("[test_id:6741] the VMI enters `Ready` state once again", func() {
+					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
+				})
+			})
+		})
 
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By(specifyingVMReadinessProbe)
