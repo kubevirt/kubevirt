@@ -112,7 +112,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				}, 120)).ToNot(HaveOccurred())
 
 				// Marking the status to not ready can take a little more time
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 300)
+				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, 300)
 
 				By("Enabling the guest-agent again")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
