@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -38,6 +39,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Context("Flavor validation", func() {
 		It("[test_id:TODO] should allow valid flavor", func() {
 			flavor := newVirtualMachineFlavor()
+			flavorCPUCores := uint32(2)
+			flavorMemoryGuest := resource.MustParse("128M")
+			flavor.Spec.CPU.Guest = flavorCPUCores
+			flavor.Spec.Memory.Guest = &flavorMemoryGuest
 			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -86,71 +91,73 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("Flavor application", func() {
-		Context("CPU", func() {
-			It("[test_id:TODO] should apply flavor to CPU", func() {
 
-				flavor := newVirtualMachineFlavor()
-				flavorCPUCores := uint32(2)
-				flavor.Spec.CPU.Guest = flavorCPUCores
+		It("[test_id:TODO] should apply flavor and preferences to VMI", func() {
 
-				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
-					Create(context.Background(), flavor, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+			flavor := newVirtualMachineFlavor()
+			flavorCPUCores := uint32(2)
+			flavorMemoryGuest := resource.MustParse("128M")
+			flavor.Spec.CPU.Guest = flavorCPUCores
+			flavor.Spec.Memory.Guest = &flavorMemoryGuest
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-				)
-				vmi.Spec.Domain.CPU = nil
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				vm := tests.NewRandomVirtualMachine(vmi, false)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
-					Name: flavor.Name,
-					Kind: namespacedFlavorKind,
-				}
+			vmi := tests.NewRandomVMIWithEphemeralDisk(
+				cd.ContainerDiskFor(cd.ContainerDiskCirros),
+			)
+			vmi.Spec.Domain.CPU = nil
 
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-				Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: namespacedFlavorKind,
+			}
 
-				tests.StartVMAndExpectRunning(virtClient, vm)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorCPUCores))
-				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
-				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
-			})
+			tests.StartVMAndExpectRunning(virtClient, vm)
 
-			It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {
-				flavor := newVirtualMachineFlavor()
-				flavorCPUCores := uint32(2)
-				flavor.Spec.CPU.Guest = flavorCPUCores
-
-				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
-					Create(context.Background(), flavor, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vmi := tests.NewRandomVMI()
-				vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
-
-				vm := tests.NewRandomVirtualMachine(vmi, false)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
-					Name: flavor.Name,
-					Kind: namespacedFlavorKind,
-				}
-
-				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-				Expect(err).To(HaveOccurred())
-				var apiStatus errors.APIStatus
-				Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
-				Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-				cause := apiStatus.Status().Details.Causes[0]
-
-				Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-				Expect(cause.Message).To(Equal("VMI field conflicts with selected Flavor"))
-				Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
-			})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorCPUCores))
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(flavorMemoryGuest))
+			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
+			Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
 		})
+
+		It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {
+			flavor := newVirtualMachineFlavor()
+			flavorCPUCores := uint32(2)
+			flavor.Spec.CPU.Guest = flavorCPUCores
+
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: namespacedFlavorKind,
+			}
+
+			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(cause.Message).To(Equal("VM field conflicts with selected Flavor"))
+			Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
+		})
+
 	})
 })
 
@@ -161,7 +168,8 @@ func newVirtualMachineFlavor() *flavorv1alpha1.VirtualMachineFlavor {
 			Namespace:    util.NamespaceTestDefault,
 		},
 		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
-			CPU: flavorv1alpha1.CPUFlavor{},
+			CPU:    flavorv1alpha1.CPUFlavor{},
+			Memory: flavorv1alpha1.MemoryFlavor{},
 		},
 	}
 }

@@ -16485,6 +16485,20 @@
      }
     }
    },
+   "v1alpha1.MemoryFlavor": {
+    "description": "FlavorMemory",
+    "type": "object",
+    "properties": {
+     "guest": {
+      "description": "Guest allows to specifying the amount of memory which is visible inside the Guest OS.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "hugepages": {
+      "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+      "$ref": "#/definitions/v1.Hugepages"
+     }
+    }
+   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -16719,11 +16733,15 @@
     "description": "VirtualMachineFlavorSpec",
     "type": "object",
     "required": [
-     "cpu"
+     "cpu",
+     "memory"
     ],
     "properties": {
      "cpu": {
       "$ref": "#/definitions/v1alpha1.CPUFlavor"
+     },
+     "memory": {
+      "$ref": "#/definitions/v1alpha1.MemoryFlavor"
      }
     }
    },

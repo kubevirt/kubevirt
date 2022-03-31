@@ -23,6 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // VirtualMachineFlavor resource contains common VirtualMachine configuration
@@ -78,6 +80,8 @@ type VirtualMachineClusterFlavorList struct {
 // +k8s:openapi-gen=true
 type VirtualMachineFlavorSpec struct {
 	CPU CPUFlavor `json:"cpu"`
+
+	Memory MemoryFlavor `json:"memory"`
 }
 
 // CPUFlavor
@@ -114,4 +118,17 @@ type CPUFlavor struct {
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *v1.Realtime `json:"realtime,omitempty"`
+}
+
+// FlavorMemory
+//
+// +k8s:openapi-gen=true
+type MemoryFlavor struct {
+
+	// Guest allows to specifying the amount of memory which is visible inside the Guest OS.
+	Guest *resource.Quantity `json:"guest,omitempty"`
+
+	// Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
+	// +optional
+	Hugepages *v1.Hugepages `json:"hugepages,omitempty"`
 }

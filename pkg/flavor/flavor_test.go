@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -270,6 +271,42 @@ var _ = Describe("Flavor", func() {
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
+
+			})
+		})
+		Context("Apply flavor.Spec.Memory", func() {
+			BeforeEach(func() {
+				flavorMem := resource.MustParse("512M")
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					Memory: flavorv1alpha1.MemoryFlavor{
+						Guest: &flavorMem,
+						Hugepages: &v1.Hugepages{
+							PageSize: "1Gi",
+						},
+					},
+				}
+			})
+
+			It("in full to VMI", func() {
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*flavorSpec.Memory.Guest))
+				Expect(*vmi.Spec.Domain.Memory.Hugepages).To(Equal(*flavorSpec.Memory.Hugepages))
+
+			})
+
+			It("detects memory count conflict", func() {
+
+				vmiMemGuest := resource.MustParse("512M")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &vmiMemGuest,
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory"))
 
 			})
 		})

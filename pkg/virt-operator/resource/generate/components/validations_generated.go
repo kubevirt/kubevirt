@@ -6849,8 +6849,30 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        memory:
+          description: FlavorMemory
+          properties:
+            guest:
+              anyOf:
+              - type: integer
+              - type: string
+              description: Guest allows to specifying the amount of memory which is
+                visible inside the Guest OS.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            hugepages:
+              description: Hugepages allow to use hugepages for the VirtualMachineInstance
+                instead of regular memory.
+              properties:
+                pageSize:
+                  description: PageSize specifies the hugepage size, for x86_64 architecture
+                    valid values are 1Gi and 2Mi.
+                  type: string
+              type: object
+          type: object
       required:
       - cpu
+      - memory
       type: object
   required:
   - spec
@@ -6923,8 +6945,30 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        memory:
+          description: FlavorMemory
+          properties:
+            guest:
+              anyOf:
+              - type: integer
+              - type: string
+              description: Guest allows to specifying the amount of memory which is
+                visible inside the Guest OS.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            hugepages:
+              description: Hugepages allow to use hugepages for the VirtualMachineInstance
+                instead of regular memory.
+              properties:
+                pageSize:
+                  description: PageSize specifies the hugepage size, for x86_64 architecture
+                    valid values are 1Gi and 2Mi.
+                  type: string
+              type: object
+          type: object
       required:
       - cpu
+      - memory
       type: object
   required:
   - spec

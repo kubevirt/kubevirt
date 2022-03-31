@@ -491,6 +491,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Watchdog":                                                           schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUFlavor":                                                  schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref),
+		"kubevirt.io/api/flavor/v1alpha1.MemoryFlavor":                                               schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
@@ -22176,6 +22177,33 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref common.ReferenceCallbac
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FlavorMemory",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Guest allows to specifying the amount of memory which is visible inside the Guest OS.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"hugepages": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+							Ref:         ref("kubevirt.io/api/core/v1.Hugepages"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22364,12 +22392,17 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUFlavor"),
 						},
 					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"),
+						},
+					},
 				},
-				Required: []string{"cpu"},
+				Required: []string{"cpu", "memory"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUFlavor"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUFlavor", "kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"},
 	}
 }
 

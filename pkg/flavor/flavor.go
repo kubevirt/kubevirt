@@ -48,6 +48,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 	var conflicts Conflicts
 
 	conflicts = append(conflicts, applyCpu(field, flavorSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyMemory(field, flavorSpec, vmiSpec)...)
 
 	return conflicts
 
@@ -147,4 +148,27 @@ func AddFlavorNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
 	case "", apiflavor.ClusterPluralResourceName, apiflavor.ClusterSingularResourceName:
 		target.GetAnnotations()[virtv1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
 	}
+}
+
+func applyMemory(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+
+	if flavorSpec.Memory.Guest == nil {
+		return nil
+	}
+
+	if vmiSpec.Domain.Memory != nil {
+		return Conflicts{field.Child("domain", "memory")}
+	}
+
+	flavorMemoryGuest := flavorSpec.Memory.Guest.DeepCopy()
+	vmiSpec.Domain.Memory = &virtv1.Memory{
+		Guest: &flavorMemoryGuest,
+	}
+
+	if flavorSpec.Memory.Hugepages != nil {
+		flavorHugePages := flavorSpec.Memory.Hugepages.DeepCopy()
+		vmiSpec.Domain.Memory.Hugepages = flavorHugePages
+	}
+
+	return nil
 }

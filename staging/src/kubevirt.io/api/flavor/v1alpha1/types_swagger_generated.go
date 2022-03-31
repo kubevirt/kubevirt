@@ -45,3 +45,11 @@ func (CPUFlavor) SwaggerDoc() map[string]string {
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
 	}
 }
+
+func (MemoryFlavor) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "FlavorMemory\n\n+k8s:openapi-gen=true",
+		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.",
+		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+	}
+}
