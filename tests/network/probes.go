@@ -67,8 +67,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
-		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
+		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, disableEnableCycle bool) {
 			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+
 			if ipFamily == corev1.IPv6Protocol {
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
@@ -82,7 +83,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
-			} else if !isExecProbe {
+			} else if !isExecProbe(readinessProbe) {
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
@@ -123,13 +124,13 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
 			}
 		},
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
-			Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, true, false),
-			Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, false),
+			Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, false),
+			Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true),
 		)
 
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
@@ -161,8 +162,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool) {
+		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+
 			if ipFamily == corev1.IPv6Protocol {
 
 				By("Create a support pod which will reply to kubelet's probes ...")
@@ -177,7 +179,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By(specifyingVMLivenessProbe)
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
-			} else if !isExecProbe {
+			} else if !isExecProbe(livenessProbe) {
 				By(specifyingVMLivenessProbe)
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
@@ -200,11 +202,11 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
@@ -226,6 +228,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		)
 	})
 })
+
+func isExecProbe(probe *v1.Probe) bool {
+	return probe.Exec != nil
+}
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewAlpine(
