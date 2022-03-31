@@ -97,8 +97,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By(specifyingVMReadinessProbe)
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.ReadinessProbe = readinessProbe
+				vmi = libvmi.NewFedora(
+					withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(readinessProbe))...)
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
@@ -121,8 +121,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			)
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.ReadinessProbe = createGuestAgentPingProbe(period, initialSeconds)
+				vmi = libvmi.NewFedora(
+					withMasqueradeNetworkingAndFurtherUserConfig(
+						withReadinessProbe(
+							createGuestAgentPingProbe(period, initialSeconds)))...)
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 				By("Waiting for agent to connect")
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -147,8 +149,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By(specifyingVMReadinessProbe)
-			vmi = vmiFactory()
-			vmi.Spec.ReadinessProbe = readinessProbe
+			vmi = vmiFactory(withReadinessProbe(readinessProbe))
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is consistently non-ready")
@@ -199,8 +200,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By(specifyingVMLivenessProbe)
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.LivenessProbe = livenessProbe
+				vmi = libvmi.NewFedora(
+					withMasqueradeNetworkingAndFurtherUserConfig(
+						withLivelinessProbe(livenessProbe))...)
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
@@ -223,8 +225,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
-			vmi = vmiFactory()
-			vmi.Spec.LivenessProbe = livenessProbe
+			vmi = vmiFactory(withLivelinessProbe(livenessProbe))
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is in a final state after a while")
@@ -268,8 +269,8 @@ func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineI
 	vmi := libvmi.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		withLivelinessProbe(probe),
 	)
-	vmi.Spec.ReadinessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -278,8 +279,8 @@ func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineIn
 	vmi := libvmi.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		withLivelinessProbe(probe),
 	)
-	vmi.Spec.LivenessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -355,4 +356,27 @@ func getVMIConditions(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return readVmi.Status.Conditions
+}
+
+func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
+	networkData, _ := libnet.CreateDefaultCloudInitNetworkData()
+
+	return append(
+		[]libvmi.Option{
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+		}, opts...)
+}
+
+func withReadinessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.ReadinessProbe = probe
+	}
+}
+
+func withLivelinessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.LivenessProbe = probe
+	}
 }
