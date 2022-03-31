@@ -186,13 +186,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
 
 		// Multus tests need to ensure that old VMIs are gone
-		Eventually(func() int {
+		Eventually(func() []v1.VirtualMachineInstance {
 			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return len(list1.Items) + len(list2.Items)
-		}, 6*time.Minute, 1*time.Second).Should(BeZero())
+			return append(list1.Items, list2.Items...)
+		}, 6*time.Minute, 1*time.Second).Should(BeEmpty())
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
