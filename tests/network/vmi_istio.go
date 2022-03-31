@@ -285,10 +285,9 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			})
 
 			Context("With PeerAuthentication enforcing mTLS", func() {
+				peerAuthenticationGVR := schema.GroupVersionResource{Group: "security.istio.io", Version: istioApiVersion, Resource: "peerauthentications"}
 				BeforeEach(func() {
-					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: istioApiVersion, Resource: "peerauthentications"}
-					peerAuthentication := generateStrictPeerAuthentication()
-					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(util.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
+					_, err = virtClient.DynamicClient().Resource(peerAuthenticationGVR).Namespace(util.NamespaceTestDefault).Create(context.Background(), generateStrictPeerAuthentication(), metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 				Context("With VMI having explicit ports specified", func() {
@@ -324,7 +323,16 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			var (
 				ingressGatewayServiceIP string
 				serverVMI               *v1.VirtualMachineInstance
+				serverVMIService        *k8sv1.Service
+				serverVirtualService    *unstructured.Unstructured
+				serverDestinationRule   *unstructured.Unstructured
+				serverGateway           *unstructured.Unstructured
 			)
+
+			istioVirtualServiceGVR := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}
+			istioDestinationRulesGVR := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "destinationrules"}
+			istioGatewaysGVR := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "gateways"}
+			istioSidecarGVR := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
 
 			curlCommand := func(ingressGatewayIP string) string {
 				return fmt.Sprintf("curl -sD - -o /dev/null -Hhost:%s.example.com http://%s | head -n 1\n", vmiServerHostName, ingressGatewayIP)
@@ -344,7 +352,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 
-				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
+				serverVMIService = netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -353,21 +361,18 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				tests.StartHTTPServer(serverVMI, vmiServerTestPort)
 
 				By("Creating Istio VirtualService")
-				virtualServicesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}
-				virtualService := generateVirtualService()
-				_, err = virtClient.DynamicClient().Resource(virtualServicesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), virtualService, metav1.CreateOptions{})
+				serverVirtualService = generateVirtualService()
+				_, err = virtClient.DynamicClient().Resource(istioVirtualServiceGVR).Namespace(util.NamespaceTestDefault).Create(context.TODO(), serverVirtualService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating Istio DestinationRule")
-				destinationRulesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "destinationrules"}
-				destinationRule := generateDestinationRule()
-				_, err = virtClient.DynamicClient().Resource(destinationRulesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), destinationRule, metav1.CreateOptions{})
+				serverDestinationRule = generateDestinationRule()
+				_, err = virtClient.DynamicClient().Resource(istioDestinationRulesGVR).Namespace(util.NamespaceTestDefault).Create(context.TODO(), serverDestinationRule, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating Istio Gateway")
-				gatewaysRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "gateways"}
-				gateway := generateGateway()
-				_, err = virtClient.DynamicClient().Resource(gatewaysRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), gateway, metav1.CreateOptions{})
+				serverGateway = generateGateway()
+				_, err = virtClient.DynamicClient().Resource(istioGatewaysGVR).Namespace(util.NamespaceTestDefault).Create(context.TODO(), serverGateway, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting Istio ingressgateway IP")
@@ -416,13 +421,11 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
 
 				BeforeAll(func() {
-					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
-					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), generateRegistryOnlySidecar(), metav1.CreateOptions{})
+					_, err = virtClient.DynamicClient().Resource(istioSidecarGVR).Namespace(util.NamespaceTestDefault).Create(context.TODO(), generateRegistryOnlySidecar(), metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				})
 				AfterAll(func() {
-					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
-					err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Delete(context.TODO(), generateRegistryOnlySidecar().GetName(), metav1.DeleteOptions{})
+					err = virtClient.DynamicClient().Resource(istioSidecarGVR).Namespace(util.NamespaceTestDefault).Delete(context.TODO(), generateRegistryOnlySidecar().GetName(), metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				})
 
