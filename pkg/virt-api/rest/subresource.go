@@ -631,11 +631,11 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
 			return
 		}
-		if vmi.Spec.TerminationGracePeriodSeconds == nil {
+		if bodyStruct.GracePeriod == nil {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v only supports manual stop requests with graceperiod=0", v1.RunStrategyHalted)), response)
 			return
 		}
-		if *vmi.Spec.TerminationGracePeriodSeconds != 0 {
+		if *bodyStruct.GracePeriod >= *vmi.Spec.TerminationGracePeriodSeconds {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v only supports manual stop requests with graceperiod=0", v1.RunStrategyHalted)), response)
 			return
 		}

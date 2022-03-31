@@ -1448,14 +1448,28 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(statusErr.Error()).To(ContainSubstring("Halted only supports manual stop requests with graceperiod=0"))
 		})
 
-		It("should not fail on VM with RunStrategyHalted and graceperiod=0", func() {
+		It("should not fail on VM with RunStrategyHalted and a shorter grace period", func() {
 			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
 			vmi := newVirtualMachineInstanceInPhase(v1.Running)
-			vmi.Spec.TerminationGracePeriodSeconds = &gracePeriodZero
+
+			var terminationGracePeriodSeconds int64 = 1800
+			vmi.Spec.TerminationGracePeriodSeconds = &terminationGracePeriodSeconds
+
+			gracePeriodShorter := int64(600)
+			stopOptions := &v1.StopOptions{GracePeriod: &gracePeriodShorter}
+
+			bytesRepresentation, _ := json.Marshal(stopOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
 			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
 
+			vmiClient.EXPECT().Patch(vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+					//check that dryRun option has been propagated to patch request
+					Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
+					return vm, nil
+				})
 			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 
 			app.StopVMRequestHandler(request, response)
