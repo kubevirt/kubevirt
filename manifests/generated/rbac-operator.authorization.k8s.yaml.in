@@ -658,6 +658,8 @@ rules:
   - virtualmachines/start
   - virtualmachines/stop
   - virtualmachines/restart
+  - virtualmachine/addvolume
+  - virtualmachine/removevolume
   verbs:
   - update
 - apiGroups:
@@ -755,6 +757,8 @@ rules:
   - virtualmachines/start
   - virtualmachines/stop
   - virtualmachines/restart
+  - virtualmachine/addvolume
+  - virtualmachine/removevolume
   verbs:
   - update
 - apiGroups:
