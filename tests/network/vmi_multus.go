@@ -685,13 +685,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				tests.WaitAgentConnected(virtClient, agentVMI)
 
 				getOptions := &metav1.GetOptions{}
-				Eventually(func() bool {
+				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
 					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					if err != nil {
-						return false
+						return nil
 					}
-					return len(updatedVmi.Status.Interfaces) == 4
-				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
+					return updatedVmi.Status.Interfaces
+				}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
