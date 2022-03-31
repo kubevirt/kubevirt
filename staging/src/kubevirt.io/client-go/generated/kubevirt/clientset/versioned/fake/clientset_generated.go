@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/testing"
 
 	clientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
+	fakeexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake"
 	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	fakeflavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1/fake"
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
@@ -82,6 +84,11 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 }
 
 var _ clientset.Interface = &Clientset{}
+
+// ExportV1alpha1 retrieves the ExportV1alpha1Client
+func (c *Clientset) ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface {
+	return &fakeexportv1alpha1.FakeExportV1alpha1{Fake: &c.Fake}
+}
 
 // FlavorV1alpha1 retrieves the FlavorV1alpha1Client
 func (c *Clientset) FlavorV1alpha1() flavorv1alpha1.FlavorV1alpha1Interface {
