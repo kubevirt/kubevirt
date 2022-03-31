@@ -30,7 +30,18 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":    "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true",
-		"cpu": "+optional",
+		"": "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true",
+	}
+}
+
+func (CPUFlavor) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "CPUFlavor\n\n+k8s:openapi-gen=true",
+		"guest":                 "Number of vCPUs to expose to the guest.\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.",
+		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
+		"dedicatedCPUPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
+		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
+		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
+		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
 	}
 }

@@ -114,15 +114,21 @@ func (m *methods) findClusterFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.
 }
 
 func applyCpu(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
-	if flavorSpec.CPU == nil {
-		return nil
-	}
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
 	}
 
-	vmiSpec.Domain.CPU = flavorSpec.CPU.DeepCopy()
+	// TODO - Apply a preferredCPUTopology here once availabe
+	vmiSpec.Domain.CPU = &virtv1.CPU{
+		Sockets:               uint32(1),
+		Cores:                 flavorSpec.CPU.Guest,
+		Threads:               uint32(1),
+		Model:                 flavorSpec.CPU.Model,
+		DedicatedCPUPlacement: flavorSpec.CPU.DedicatedCPUPlacement,
+		IsolateEmulatorThread: flavorSpec.CPU.IsolateEmulatorThread,
+		NUMA:                  flavorSpec.CPU.NUMA.DeepCopy(),
+		Realtime:              flavorSpec.CPU.Realtime.DeepCopy(),
+	}
 
 	return nil
 }

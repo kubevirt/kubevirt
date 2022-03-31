@@ -88,10 +88,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Context("Flavor application", func() {
 		Context("CPU", func() {
 			It("[test_id:TODO] should apply flavor to CPU", func() {
-				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
 
 				flavor := newVirtualMachineFlavor()
-				flavor.Spec.CPU = cpu
+				flavorCPUCores := uint32(2)
+				flavor.Spec.CPU.Guest = flavorCPUCores
 
 				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 					Create(context.Background(), flavor, metav1.CreateOptions{})
@@ -115,14 +115,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Domain.CPU).To(Equal(cpu))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorCPUCores))
 				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
 				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
 			})
 
 			It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {
 				flavor := newVirtualMachineFlavor()
-				flavor.Spec.CPU = &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
+				flavorCPUCores := uint32(2)
+				flavor.Spec.CPU.Guest = flavorCPUCores
 
 				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 					Create(context.Background(), flavor, metav1.CreateOptions{})
@@ -159,6 +160,8 @@ func newVirtualMachineFlavor() *flavorv1alpha1.VirtualMachineFlavor {
 			GenerateName: "vm-flavor-",
 			Namespace:    util.NamespaceTestDefault,
 		},
-		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{},
+		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
+			CPU: flavorv1alpha1.CPUFlavor{},
+		},
 	}
 }

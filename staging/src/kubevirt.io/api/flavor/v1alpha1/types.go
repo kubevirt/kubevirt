@@ -77,7 +77,41 @@ type VirtualMachineClusterFlavorList struct {
 //
 // +k8s:openapi-gen=true
 type VirtualMachineFlavorSpec struct {
+	CPU CPUFlavor `json:"cpu"`
+}
 
+// CPUFlavor
+//
+// +k8s:openapi-gen=true
+type CPUFlavor struct {
+
+	// Number of vCPUs to expose to the guest.
+	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.
+	Guest uint32 `json:"guest"`
+
+	// Model specifies the CPU model inside the VMI.
+	// List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
+	// It is possible to specify special cases like "host-passthrough" to get the same CPU as the node
+	// and "host-model" to get CPU closest to the node one.
+	// Defaults to host-model.
 	// +optional
-	CPU *v1.CPU `json:"cpu,omitempty"`
+	Model string `json:"model,omitempty"`
+
+	// DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node
+	// with enough dedicated pCPUs and pin the vCPUs to it.
+	// +optional
+	DedicatedCPUPlacement bool `json:"dedicatedCPUPlacement,omitempty"`
+
+	// NUMA allows specifying settings for the guest NUMA topology
+	// +optional
+	NUMA *v1.NUMA `json:"numa,omitempty"`
+
+	// IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
+	// the emulator thread on it.
+	// +optional
+	IsolateEmulatorThread bool `json:"isolateEmulatorThread,omitempty"`
+
+	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
+	// +optional
+	Realtime *v1.Realtime `json:"realtime,omitempty"`
 }

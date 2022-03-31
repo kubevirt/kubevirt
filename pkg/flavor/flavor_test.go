@@ -76,8 +76,8 @@ var _ = Describe("Flavor", func() {
 						Name: "test-cluster-flavor",
 					},
 					Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
-						CPU: &v1.CPU{
-							Cores: 1,
+						CPU: flavorv1alpha1.CPUFlavor{
+							Guest: uint32(2),
 						},
 					},
 				}
@@ -124,8 +124,8 @@ var _ = Describe("Flavor", func() {
 						Namespace: vm.Namespace,
 					},
 					Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
-						CPU: &v1.CPU{
-							Cores: 2,
+						CPU: flavorv1alpha1.CPUFlavor{
+							Guest: uint32(2),
 						},
 					},
 				}
@@ -220,60 +220,49 @@ var _ = Describe("Flavor", func() {
 			field = k8sfield.NewPath("spec", "template", "spec")
 		})
 
-		Context("Apply flavor.CPU", func() {
+		Context("Apply flavor.Spec.CPU", func() {
 
 			It("in full to VMI", func() {
 
 				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
-					CPU: &v1.CPU{
-						Sockets: 2,
-						Cores:   1,
-						Threads: 1,
+					CPU: flavorv1alpha1.CPUFlavor{
+						Guest:                 uint32(2),
+						Model:                 "host-passthrough",
+						DedicatedCPUPlacement: true,
+						IsolateEmulatorThread: true,
+						NUMA: &v1.NUMA{
+							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+						},
+						Realtime: &v1.Realtime{
+							Mask: "0-3,^1",
+						},
 					},
 				}
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
-				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-
-			})
-
-			It("is skipped if CPU count if not defined in spec", func() {
-
-				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
-					CPU: nil,
-				}
-
-				const vmiCpuCount = uint32(4)
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Sockets: vmiCpuCount,
-					Cores:   1,
-					Threads: 1,
-				}
-
-				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
-				Expect(conflicts).To(BeEmpty())
-
-				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vmiCpuCount))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(flavorSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(flavorSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(flavorSpec.CPU.IsolateEmulatorThread))
+				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*flavorSpec.CPU.NUMA))
+				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*flavorSpec.CPU.Realtime))
 
 			})
 
 			It("detects CPU conflict", func() {
 
 				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
-					CPU: &v1.CPU{
-						Sockets: 2,
-						Cores:   1,
-						Threads: 1,
+					CPU: flavorv1alpha1.CPUFlavor{
+						Guest: uint32(2),
 					},
 				}
 
-				const vmiCpuCount = uint32(4)
 				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores:   vmiCpuCount,
+					Cores:   4,
 					Sockets: 1,
 					Threads: 1,
 				}

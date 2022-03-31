@@ -2437,10 +2437,8 @@ var _ = Describe("VirtualMachine", func() {
 			BeforeEach(func() {
 				flavorMethods.FindFlavorSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 					return &flavorv1alpha1.VirtualMachineFlavorSpec{
-						CPU: &virtv1.CPU{
-							Sockets: 2,
-							Cores:   1,
-							Threads: 1,
+						CPU: flavorv1alpha1.CPUFlavor{
+							Guest: uint32(2),
 						},
 					}, nil
 				}
@@ -2458,7 +2456,7 @@ var _ = Describe("VirtualMachine", func() {
 					Name: flavorName,
 				}
 
-				vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 2}
+				vm.Spec.Template.Spec.Domain.CPU = nil
 
 				addVirtualMachine(vm)
 

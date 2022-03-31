@@ -16405,6 +16405,40 @@
      }
     }
    },
+   "v1alpha1.CPUFlavor": {
+    "description": "CPUFlavor",
+    "type": "object",
+    "required": [
+     "guest"
+    ],
+    "properties": {
+     "dedicatedCPUPlacement": {
+      "description": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node with enough dedicated pCPUs and pin the vCPUs to it.",
+      "type": "boolean"
+     },
+     "guest": {
+      "description": "Number of vCPUs to expose to the guest. The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "isolateEmulatorThread": {
+      "description": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
+      "type": "boolean"
+     },
+     "model": {
+      "description": "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
+      "type": "string"
+     },
+     "numa": {
+      "description": "NUMA allows specifying settings for the guest NUMA topology",
+      "$ref": "#/definitions/v1.NUMA"
+     },
+     "realtime": {
+      "description": "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
+      "$ref": "#/definitions/v1.Realtime"
+     }
+    }
+   },
    "v1alpha1.Condition": {
     "description": "Condition defines conditions",
     "type": "object",
@@ -16684,9 +16718,12 @@
    "v1alpha1.VirtualMachineFlavorSpec": {
     "description": "VirtualMachineFlavorSpec",
     "type": "object",
+    "required": [
+     "cpu"
+    ],
     "properties": {
      "cpu": {
-      "$ref": "#/definitions/v1.CPU"
+      "$ref": "#/definitions/v1alpha1.CPUFlavor"
      }
     }
    },

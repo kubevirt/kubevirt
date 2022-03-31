@@ -490,6 +490,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VolumeStatus":                                                       schema_kubevirtio_api_core_v1_VolumeStatus(ref),
 		"kubevirt.io/api/core/v1.Watchdog":                                                           schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
+		"kubevirt.io/api/flavor/v1alpha1.CPUFlavor":                                                  schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
@@ -22119,6 +22120,62 @@ func schema_kubevirtio_api_core_v1_WatchdogDevice(ref common.ReferenceCallback) 
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CPUFlavor",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of vCPUs to expose to the guest. The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dedicatedCPUPlacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node with enough dedicated pCPUs and pin the vCPUs to it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"numa": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NUMA allows specifying settings for the guest NUMA topology",
+							Ref:         ref("kubevirt.io/api/core/v1.NUMA"),
+						},
+					},
+					"isolateEmulatorThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"realtime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
+							Ref:         ref("kubevirt.io/api/core/v1.Realtime"),
+						},
+					},
+				},
+				Required: []string{"guest"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.NUMA", "kubevirt.io/api/core/v1.Realtime"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22304,14 +22361,15 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 				Properties: map[string]spec.Schema{
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.CPU"),
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUFlavor"),
 						},
 					},
 				},
+				Required: []string{"cpu"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPU"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUFlavor"},
 	}
 }
 

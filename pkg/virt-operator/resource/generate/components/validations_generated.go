@@ -6802,42 +6802,19 @@ var CRDsValidation map[string]string = map[string]string{
       description: VirtualMachineFlavorSpec for the flavor
       properties:
         cpu:
-          description: CPU allows specifying the CPU topology.
+          description: CPUFlavor
           properties:
-            cores:
-              description: Cores specifies the number of cores inside the vmi. Must
-                be a value greater or equal 1.
-              format: int32
-              type: integer
-            dedicatedCpuPlacement:
+            dedicatedCPUPlacement:
               description: DedicatedCPUPlacement requests the scheduler to place the
                 VirtualMachineInstance on a node with enough dedicated pCPUs and pin
                 the vCPUs to it.
               type: boolean
-            features:
-              description: Features specifies the CPU features list inside the VMI.
-              items:
-                description: CPUFeature allows specifying a CPU feature.
-                properties:
-                  name:
-                    description: Name of the CPU feature
-                    type: string
-                  policy:
-                    description: 'Policy is the CPU feature attribute which can have
-                      the following attributes: force    - The virtual CPU will claim
-                      the feature is supported regardless of it being supported by
-                      host CPU. require  - Guest creation will fail unless the feature
-                      is supported by the host CPU or the hypervisor is able to emulate
-                      it. optional - The feature will be supported by virtual CPU
-                      if and only if it is supported by host CPU. disable  - The feature
-                      will not be supported by virtual CPU. forbid   - Guest creation
-                      will fail if the feature is supported by host CPU. Defaults
-                      to require'
-                    type: string
-                required:
-                - name
-                type: object
-              type: array
+            guest:
+              description: Number of vCPUs to expose to the guest. The resulting CPU
+                topology being derived from the optional PreferredCPUTopology attribute
+                of CPUPreferences.
+              format: int32
+              type: integer
             isolateEmulatorThread:
               description: IsolateEmulatorThread requests one more dedicated pCPU
                 to be allocated for the VMI to place the emulator thread on it.
@@ -6869,17 +6846,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Example: "0-3,^1","0,2,3","2-3"'
                   type: string
               type: object
-            sockets:
-              description: Sockets specifies the number of sockets inside the vmi.
-                Must be a value greater or equal 1.
-              format: int32
-              type: integer
-            threads:
-              description: Threads specifies the number of threads inside the vmi.
-                Must be a value greater or equal 1.
-              format: int32
-              type: integer
+          required:
+          - guest
           type: object
+      required:
+      - cpu
       type: object
   required:
   - spec
@@ -6905,42 +6876,19 @@ var CRDsValidation map[string]string = map[string]string{
       description: VirtualMachineFlavorSpec for the flavor
       properties:
         cpu:
-          description: CPU allows specifying the CPU topology.
+          description: CPUFlavor
           properties:
-            cores:
-              description: Cores specifies the number of cores inside the vmi. Must
-                be a value greater or equal 1.
-              format: int32
-              type: integer
-            dedicatedCpuPlacement:
+            dedicatedCPUPlacement:
               description: DedicatedCPUPlacement requests the scheduler to place the
                 VirtualMachineInstance on a node with enough dedicated pCPUs and pin
                 the vCPUs to it.
               type: boolean
-            features:
-              description: Features specifies the CPU features list inside the VMI.
-              items:
-                description: CPUFeature allows specifying a CPU feature.
-                properties:
-                  name:
-                    description: Name of the CPU feature
-                    type: string
-                  policy:
-                    description: 'Policy is the CPU feature attribute which can have
-                      the following attributes: force    - The virtual CPU will claim
-                      the feature is supported regardless of it being supported by
-                      host CPU. require  - Guest creation will fail unless the feature
-                      is supported by the host CPU or the hypervisor is able to emulate
-                      it. optional - The feature will be supported by virtual CPU
-                      if and only if it is supported by host CPU. disable  - The feature
-                      will not be supported by virtual CPU. forbid   - Guest creation
-                      will fail if the feature is supported by host CPU. Defaults
-                      to require'
-                    type: string
-                required:
-                - name
-                type: object
-              type: array
+            guest:
+              description: Number of vCPUs to expose to the guest. The resulting CPU
+                topology being derived from the optional PreferredCPUTopology attribute
+                of CPUPreferences.
+              format: int32
+              type: integer
             isolateEmulatorThread:
               description: IsolateEmulatorThread requests one more dedicated pCPU
                 to be allocated for the VMI to place the emulator thread on it.
@@ -6972,17 +6920,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Example: "0-3,^1","0,2,3","2-3"'
                   type: string
               type: object
-            sockets:
-              description: Sockets specifies the number of sockets inside the vmi.
-                Must be a value greater or equal 1.
-              format: int32
-              type: integer
-            threads:
-              description: Threads specifies the number of threads inside the vmi.
-                Must be a value greater or equal 1.
-              format: int32
-              type: integer
+          required:
+          - guest
           type: object
+      required:
+      - cpu
       type: object
   required:
   - spec
