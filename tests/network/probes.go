@@ -26,6 +26,11 @@ const (
 	specifyingVMLivenessProbe  = "Specifying a VMI with a liveness probe"
 )
 
+const (
+	startAgent = "start"
+	stopAgent  = "stop"
+)
+
 var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	var (
 		err           error
@@ -106,21 +111,13 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			if disableEnableCycle {
 				By("Disabling the guest-agent")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo systemctl stop qemu-guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
-				}, 120)).ToNot(HaveOccurred())
+				Expect(stopGuestAgent(vmi)).ToNot(HaveOccurred())
 
 				// Marking the status to not ready can take a little more time
 				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, 300)
 
 				By("Enabling the guest-agent again")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
-				}, 120)).ToNot(HaveOccurred())
-
+				Expect(startGuestAgent(vmi)).ToNot(HaveOccurred())
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
 			}
 		},
@@ -231,6 +228,25 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 func isExecProbe(probe *v1.Probe) bool {
 	return probe.Exec != nil
+}
+
+func startGuestAgent(vmi *v1.VirtualMachineInstance) error {
+	return guestAgentOperation(vmi, startAgent)
+}
+
+func stopGuestAgent(vmi *v1.VirtualMachineInstance) error {
+	return guestAgentOperation(vmi, stopAgent)
+}
+
+func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation string) error {
+	if startStopOperation != startAgent && startStopOperation != stopAgent {
+		return fmt.Errorf("invalid qemu-guest-agent request: %s. Allowed values are: '%s' *or* '%s'", startStopOperation, startAgent, stopAgent)
+	}
+	guestAgentSysctlString := fmt.Sprintf("sudo systemctl %s qemu-guest-agent\n", startStopOperation)
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: guestAgentSysctlString},
+		&expect.BExp{R: console.PromptExpression},
+	}, 120)
 }
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
