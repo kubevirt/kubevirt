@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -68,7 +67,6 @@ const (
 	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	linuxBridgeConfNAD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\", \"vlan\": %d, \"ipam\": {%s}, \"macspoofchk\": %t, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
 	ptpConfNAD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
-	macvtapNetworkConfNAD  = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 	sriovConfNAD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	sriovLinkEnableConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	sriovVlanConfNAD       = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 200, \"ipam\":{}}"}}`
@@ -1275,230 +1273,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 	})
 })
 
-var _ = SIGDescribe("Macvtap", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
-	var macvtapLowerDevice string
-	var macvtapNetworkName string
-
-	createMacvtapNetworkAttachmentDefinition := func(namespace, networkName, macvtapLowerDevice string) error {
-		macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, networkName, namespace, macvtapLowerDevice, networkName)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, macvtapNad)
-	}
-
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		macvtapLowerDevice = "eth0"
-		macvtapNetworkName = "net1"
-
-		// cleanup the environment
-		tests.BeforeTestCleanup()
-	})
-
-	BeforeEach(func() {
-		Expect(createMacvtapNetworkAttachmentDefinition(util.NamespaceTestDefault, macvtapNetworkName, macvtapLowerDevice)).
-			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
-	})
-
-	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
-		return libvmi.NewCirros(
-			libvmi.WithInterface(
-				*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
-	newCirrosVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewCirros(
-			libvmi.WithInterface(
-				*libvmi.InterfaceWithMac(
-					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
-	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewFedora(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(
-				*libvmi.InterfaceWithMac(
-					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
-	createCirrosVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
-		var vmi *v1.VirtualMachineInstance
-		if mac != nil {
-			vmi = newCirrosVMIWithExplicitMac(networkName, *mac)
-		} else {
-			vmi = newCirrosVMIWithMacvtapNetwork(networkName)
-		}
-		vmi = tests.WaitUntilVMIReady(
-			tests.CreateVmiOnNode(vmi, nodeName),
-			console.LoginToCirros)
-		// configure the client VMI
-		Expect(configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)).To(Succeed())
-		return vmi
-	}
-
-	createCirrosVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunch(
-			newCirrosVMIWithExplicitMac(networkName, mac),
-			180,
-		)
-		err := console.LoginToCirros(runningVMI)
-		return runningVMI, err
-	}
-
-	createFedoraVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunch(
-			newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
-			180,
-		)
-		err := console.LoginToFedora(runningVMI)
-		return runningVMI, err
-	}
-
-	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
-		var serverVMI *v1.VirtualMachineInstance
-		var chosenMAC string
-		var nodeList *k8sv1.NodeList
-		var nodeName string
-		var serverIP string
-
-		BeforeEach(func() {
-			nodeList = util.GetAllSchedulableNodes(virtClient)
-			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
-			nodeName = nodeList.Items[0].Name
-			chosenMACHW, err := tests.GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			chosenMAC = chosenMACHW.String()
-			serverCIDR := "192.0.2.102/24"
-
-			serverIP, err = cidrToIP(serverCIDR)
-			Expect(err).ToNot(HaveOccurred())
-
-			serverVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
-		})
-
-		It("should have the specified MAC address reported back via the API", func() {
-			Expect(serverVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
-			Expect(serverVMI.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
-		})
-
-		Context("and another virtual machine connected to the same network", func() {
-			var clientVMI *v1.VirtualMachineInstance
-			BeforeEach(func() {
-				clientVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
-			})
-			It("can communicate with the virtual machine in the same network", func() {
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
-			})
-		})
-	})
-
-	Context("VMI migration", func() {
-		var clientVMI *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			checks.SkipIfMigrationIsNotPossible()
-		})
-
-		BeforeEach(func() {
-			macAddressHW, err := tests.GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			macAddress := macAddressHW.String()
-			clientVMI, err = createCirrosVMIRandomNode(macvtapNetworkName, macAddress)
-			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
-		})
-
-		It("should be successful when the VMI MAC address is defined in its spec", func() {
-			By("starting the migration")
-			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migrationUID)
-		})
-
-		Context("with live traffic", func() {
-			var serverVMI *v1.VirtualMachineInstance
-			var serverVMIPodName string
-			var serverIP string
-
-			macvtapIfaceIPReportTimeout := 4 * time.Minute
-
-			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
-				var vmiIP string
-				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-					if err != nil {
-						return false, err
-					}
-
-					for _, iface := range vmi.Status.Interfaces {
-						if iface.MAC == macAddress {
-							if ip := iface.IP; ip != "" {
-								vmiIP = ip
-								return true, nil
-							}
-							return false, nil
-						}
-					}
-
-					return false, nil
-				})
-				if err != nil {
-					return "", err
-				}
-
-				return vmiIP, nil
-			}
-
-			waitForPodCompleted := func(podNamespace string, podName string) error {
-				pod, err := virtClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-					return nil
-				}
-				return fmt.Errorf("pod hasn't completed, current Phase: %s", pod.Status.Phase)
-			}
-
-			BeforeEach(func() {
-				macAddressHW, err := tests.GenerateRandomMac()
-				Expect(err).ToNot(HaveOccurred())
-				macAddress := macAddressHW.String()
-
-				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
-				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
-				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
-
-				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, macAddress, macvtapIfaceIPReportTimeout)
-				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
-			})
-
-			BeforeEach(func() {
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
-			})
-
-			It("should keep connectivity after a migration", func() {
-				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
-				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
-				// will be reachable only when the original launcher pod terminates.
-				Eventually(func() error {
-					return waitForPodCompleted(serverVMI.Namespace, serverVMIPodName)
-				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMIPodName))
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
-			})
-		})
-	})
-})
-
 func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName string, newMACAddress string) error {
 	const maxCommandTimeout = 5 * time.Second
 
@@ -1533,10 +1307,6 @@ func cidrToIP(cidr string) (string, error) {
 		return "", err
 	}
 	return ip.String(), nil
-}
-
-func configVMIInterfaceWithSudo(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string) error {
-	return configInterface(vmi, interfaceName, interfaceAddress, "sudo ")
 }
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string, userModifierPrefix ...string) error {
