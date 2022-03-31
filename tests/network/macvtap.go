@@ -147,7 +147,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			chosenMAC = chosenMACHW.String()
 			serverCIDR := "192.0.2.102/24"
 
-			serverIP, err = cidrToIP(serverCIDR)
+			serverIP, err = libnet.CidrToIP(serverCIDR)
 			Expect(err).ToNot(HaveOccurred())
 
 			serverVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)

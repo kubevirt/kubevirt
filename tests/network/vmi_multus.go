@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -407,7 +406,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				ipAddr := ""
 				if staticIPVm2 != "" {
-					ipAddr, err = cidrToIP(staticIPVm2)
+					ipAddr, err = libnet.CidrToIP(staticIPVm2)
 				} else {
 					const secondaryNetworkIndex = 1
 					ipAddr, err = getIfaceIPByNetworkName(vmiTwo.Name, networks[secondaryNetworkIndex].Name)
@@ -1202,9 +1201,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 				cidrA := "192.168.1.1/24"
 				cidrB := "192.168.1.2/24"
-				ipA, err := cidrToIP(cidrA)
+				ipA, err := libnet.CidrToIP(cidrA)
 				Expect(err).ToNot(HaveOccurred())
-				ipB, err := cidrToIP(cidrB)
+				ipB, err := libnet.CidrToIP(cidrB)
 				Expect(err).ToNot(HaveOccurred())
 
 				//create two vms on the same sriov network
@@ -1221,9 +1220,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 				vmi1CIDR := "fc00::1/64"
 				vmi2CIDR := "fc00::2/64"
-				vmi1IP, err := cidrToIP(vmi1CIDR)
+				vmi1IP, err := libnet.CidrToIP(vmi1CIDR)
 				Expect(err).ToNot(HaveOccurred())
-				vmi2IP, err := cidrToIP(vmi2CIDR)
+				vmi2IP, err := libnet.CidrToIP(vmi2CIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				//create two vms on the same sriov network
@@ -1246,7 +1245,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				BeforeEach(func() {
 					var err error
-					ipVlaned1, err = cidrToIP(cidrVlaned1)
+					ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(createSriovNetworkAttachmentDefinition(sriovnetVlanned, util.NamespaceTestDefault, sriovVlanConfNAD)).To(Succeed())
 				})
@@ -1299,14 +1298,6 @@ func createNetworkAttachmentDefinition(virtClient kubecli.KubevirtClient, name, 
 		Body([]byte(nad)).
 		Do(context.Background()).
 		Error()
-}
-
-func cidrToIP(cidr string) (string, error) {
-	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return "", err
-	}
-	return ip.String(), nil
 }
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string, userModifierPrefix ...string) error {
