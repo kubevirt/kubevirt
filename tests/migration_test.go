@@ -539,7 +539,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			tests.WaitAgentConnected(virtClient, vmi)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
-			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 			if mode == v1.MigrationPostCopy {
 				By("Running stress test to allow transition to post-copy")

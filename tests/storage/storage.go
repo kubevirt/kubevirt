@@ -335,7 +335,7 @@ var _ = SIGDescribe("Storage", func() {
 					},
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
-				
+
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Checking that /dev/vdc has a capacity of 1G, aligned to 4k")
@@ -432,7 +432,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -492,7 +492,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				By("Checking that virtio-fs is mounted")
 				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
@@ -1043,7 +1043,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(libnet.WithAlpineConfig(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 			})
 		})
 

@@ -59,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -2627,7 +2626,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(cpuvmi)).To(Succeed())
+				Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -2637,7 +2636,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 
 			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
@@ -2650,7 +2649,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
@@ -2660,7 +2659,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithAlpineConfig(console.LoginToFedora)(cpuvmi)).To(Succeed())
+				Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
 			})
 		})
 	})
@@ -2684,7 +2683,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2725,7 +2724,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2761,7 +2760,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 
@@ -2912,7 +2911,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
 
 			By("Expecting console")
-			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper does not match KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
@@ -2930,7 +2929,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Expecting console")
-			Expect(libnet.WithAlpineConfig(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper matches KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{

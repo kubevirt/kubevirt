@@ -238,7 +238,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToCirros))
+				tests.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
 				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
