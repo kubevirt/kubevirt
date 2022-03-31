@@ -1134,13 +1134,19 @@ func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		return err
 	}
 
-	if flavorSpec == nil {
+	preferenceSpec, err := c.flavorMethods.FindPreferenceSpec(vm)
+
+	if err != nil {
+		return err
+	}
+
+	if flavorSpec == nil && preferenceSpec == nil {
 		return nil
 	}
 
 	flavor.AddFlavorNameAnnotations(vm, vmi)
 
-	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, &vmi.Spec)
+	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, preferenceSpec, &vmi.Spec)
 	if len(conflicts) == 0 {
 		return nil
 	}

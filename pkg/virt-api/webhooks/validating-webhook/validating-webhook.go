@@ -78,6 +78,14 @@ func ServeVmClusterFlavors(resp http.ResponseWriter, req *http.Request, clusterC
 	validating_webhooks.Serve(resp, req, &admitters.ClusterFlavorAdmitter{})
 }
 
+func ServeVmPreferences(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.PreferenceAdmitter{})
+}
+
+func ServeVmClusterPreferences(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.ClusterPreferenceAdmitter{})
+}
+
 func ServeStatusValidation(resp http.ResponseWriter,
 	req *http.Request,
 	clusterConfig *virtconfig.ClusterConfig,

@@ -71,9 +71,8 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	return &VMsAdmitter{
 		VirtClient:         client,
 		DataSourceInformer: informers.DataSourceInformer,
-		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
-
-		ClusterConfig: clusterConfig,
+		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore(), informers.PreferenceInformer.GetStore(), informers.ClusterPreferenceInformer.GetStore()),
+		ClusterConfig:      clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
@@ -168,23 +167,29 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 }
 
 func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
-
 	flavorSpec, err := admitter.FlavorMethods.FindFlavorSpec(vm)
-
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Could not find flavor: %v", err),
+			Message: fmt.Sprintf("Failure to find flavor: %v", err),
 			Field:   k8sfield.NewPath("spec", "flavor").String(),
 		}}
-
 	}
 
-	if flavorSpec == nil {
+	preferenceSpec, err := admitter.FlavorMethods.FindPreferenceSpec(vm)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Failure to find preference: %v", err),
+			Field:   k8sfield.NewPath("spec", "preference").String(),
+		}}
+	}
+
+	if flavorSpec == nil && preferenceSpec == nil {
 		return nil
 	}
 
-	conflicts := admitter.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorSpec, &vm.Spec.Template.Spec)
+	conflicts := admitter.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorSpec, preferenceSpec, &vm.Spec.Template.Spec)
 
 	if len(conflicts) == 0 {
 		return nil
@@ -194,7 +199,7 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 	for _, conflict := range conflicts {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "VMI field conflicts with selected Flavor",
+			Message: "VM field conflicts with selected Flavor",
 			Field:   conflict.String(),
 		})
 	}

@@ -180,8 +180,10 @@ type VirtControllerApp struct {
 
 	crdInformer cache.SharedIndexInformer
 
-	flavorInformer        cache.SharedIndexInformer
-	clusterFlavorInformer cache.SharedIndexInformer
+	flavorInformer            cache.SharedIndexInformer
+	clusterFlavorInformer     cache.SharedIndexInformer
+	preferenceInformer        cache.SharedIndexInformer
+	clusterPreferenceInformer cache.SharedIndexInformer
 
 	migrationPolicyInformer cache.SharedIndexInformer
 
@@ -359,6 +361,8 @@ func Execute() {
 
 	app.flavorInformer = app.informerFactory.VirtualMachineFlavor()
 	app.clusterFlavorInformer = app.informerFactory.VirtualMachineClusterFlavor()
+	app.preferenceInformer = app.informerFactory.VirtualMachinePreference()
+	app.clusterPreferenceInformer = app.informerFactory.VirtualMachineClusterPreference()
 
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
 
@@ -561,7 +565,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore()),
+		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore(), vca.preferenceInformer.GetStore(), vca.clusterPreferenceInformer.GetStore()),
 		recorder,
 		vca.clientSet)
 }

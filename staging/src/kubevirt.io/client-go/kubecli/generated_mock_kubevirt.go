@@ -217,6 +217,26 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterFlavor() *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterFlavor")
 }
 
+func (_m *MockKubevirtClient) VirtualMachinePreference(namespace string) v1alpha15.VirtualMachinePreferenceInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachinePreference", namespace)
+	ret0, _ := ret[0].(v1alpha15.VirtualMachinePreferenceInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VirtualMachinePreference(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachinePreference", arg0)
+}
+
+func (_m *MockKubevirtClient) VirtualMachineClusterPreference() v1alpha15.VirtualMachineClusterPreferenceInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachineClusterPreference")
+	ret0, _ := ret[0].(v1alpha15.VirtualMachineClusterPreferenceInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterPreference() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterPreference")
+}
+
 func (_m *MockKubevirtClient) MigrationPolicy() v1alpha16.MigrationPolicyInterface {
 	ret := _m.ctrl.Call(_m, "MigrationPolicy")
 	ret0, _ := ret[0].(v1alpha16.MigrationPolicyInterface)

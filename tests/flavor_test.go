@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,9 +20,10 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Flavor", func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Flavor and Preferences", func() {
 	const (
-		namespacedFlavorKind = "VirtualMachineFlavor"
+		namespacedFlavorKind     = "VirtualMachineFlavor"
+		namespacedPreferenceKind = "VirtualMachinePreference"
 	)
 
 	var (
@@ -38,13 +40,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Flavor validation", func() {
 		It("[test_id:TODO] should allow valid flavor", func() {
-			flavor := newVirtualMachineFlavor()
-			flavorCPUCores := uint32(2)
-			flavorMemoryGuest := resource.MustParse("128M")
-			flavor.Spec.CPU.Guest = flavorCPUCores
-			flavor.Spec.Memory.Guest = &flavorMemoryGuest
+			flavor := newVirtualMachineFlavor(nil)
 			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("Preference validation", func() {
+		It("[test_id:TODO] should allow valid preference", func() {
+			preference := newVirtualMachinePreference()
+			_, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
+				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -65,7 +72,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Could not find flavor:"))
+			Expect(cause.Message).To(HavePrefix("Failure to find flavor"))
 			Expect(cause.Field).To(Equal("spec.flavor"))
 		})
 
@@ -85,61 +92,112 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Could not find flavor:"))
+			Expect(cause.Message).To(HavePrefix("Failure to find flavor"))
 			Expect(cause.Field).To(Equal("spec.flavor"))
 		})
 	})
 
-	Context("Flavor application", func() {
+	Context("VM with invalid PreferenceMatcher", func() {
+		It("[test_id:TODO] should fail to create VM with non-existing cluster preference", func() {
+			vmi := tests.NewRandomVMI()
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "non-existing-cluster-preference",
+			}
+
+			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(cause.Message).To(HavePrefix("Failure to find preference"))
+			Expect(cause.Field).To(Equal("spec.preference"))
+		})
+
+		It("[test_id:TODO] should fail to create VM with non-existing namespaced preference", func() {
+			vmi := tests.NewRandomVMI()
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "non-existing-preference",
+				Kind: namespacedPreferenceKind,
+			}
+
+			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(cause.Message).To(HavePrefix("Failure to find preference"))
+			Expect(cause.Field).To(Equal("spec.preference"))
+		})
+	})
+
+	Context("Flavor and preference application", func() {
 
 		It("[test_id:TODO] should apply flavor and preferences to VMI", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(
+				cd.ContainerDiskFor(cd.ContainerDiskCirros),
+			)
 
-			flavor := newVirtualMachineFlavor()
-			flavorCPUCores := uint32(2)
-			flavorMemoryGuest := resource.MustParse("128M")
-			flavor.Spec.CPU.Guest = flavorCPUCores
-			flavor.Spec.Memory.Guest = &flavorMemoryGuest
-
+			flavor := newVirtualMachineFlavor(vmi)
 			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMIWithEphemeralDisk(
-				cd.ContainerDiskFor(cd.ContainerDiskCirros),
-			)
-			vmi.Spec.Domain.CPU = nil
+			preference := newVirtualMachinePreference()
+			preference.Spec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferSockets
+			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Remove any requested resources from the VMI before generating the VM request
+			removeResourcesFromVMI(vmi)
 
 			vm := tests.NewRandomVirtualMachine(vmi, false)
+
+			// Add the flavor and preference matchers to the VM spec
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: flavor.Name,
 				Kind: namespacedFlavorKind,
+			}
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: preference.Name,
+				Kind: namespacedPreferenceKind,
 			}
 
 			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.StartVMAndExpectRunning(virtClient, vm)
+			vm = tests.StartVMAndExpectRunning(virtClient, vm)
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorCPUCores))
-			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(flavorMemoryGuest))
+
+			// Assert we've used sockets as flavorv1alpha1.PreferSockets was requested
+			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(flavor.Spec.CPU.Guest))
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*flavor.Spec.Memory.Guest))
+
+			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
 			Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
 		})
 
-		It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {
-			flavor := newVirtualMachineFlavor()
-			flavorCPUCores := uint32(2)
-			flavor.Spec.CPU.Guest = flavorCPUCores
+		It("[test_id:TODO] should fail if flavor and VM define CPU", func() {
+			vmi := tests.NewRandomVMI()
 
+			flavor := newVirtualMachineFlavor(vmi)
 			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
 				Create(context.Background(), flavor, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
 			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: flavor.Name,
 				Kind: namespacedFlavorKind,
@@ -161,15 +219,46 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 })
 
-func newVirtualMachineFlavor() *flavorv1alpha1.VirtualMachineFlavor {
+func newVirtualMachineFlavor(vmi *v1.VirtualMachineInstance) *flavorv1alpha1.VirtualMachineFlavor {
+
+	// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
+	m := resource.MustParse("128M")
+	if vmi != nil {
+		if _, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
+			m = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
+		}
+	}
+
 	return &flavorv1alpha1.VirtualMachineFlavor{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-flavor-",
 			Namespace:    util.NamespaceTestDefault,
 		},
 		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
-			CPU:    flavorv1alpha1.CPUFlavor{},
-			Memory: flavorv1alpha1.MemoryFlavor{},
+			CPU: flavorv1alpha1.CPUFlavor{
+				Guest: uint32(1),
+			},
+			Memory: flavorv1alpha1.MemoryFlavor{
+				Guest: &m,
+			},
 		},
 	}
+}
+
+func newVirtualMachinePreference() *flavorv1alpha1.VirtualMachinePreference {
+	return &flavorv1alpha1.VirtualMachinePreference{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-preference-",
+			Namespace:    util.NamespaceTestDefault,
+		},
+		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
+			CPU: &flavorv1alpha1.CPUPreferences{},
+		},
+	}
+}
+
+func removeResourcesFromVMI(vmi *v1.VirtualMachineInstance) {
+	vmi.Spec.Domain.CPU = nil
+	vmi.Spec.Domain.Memory = nil
+	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 }

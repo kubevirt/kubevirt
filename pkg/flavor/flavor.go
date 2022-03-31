@@ -16,7 +16,8 @@ import (
 
 type Methods interface {
 	FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
-	ApplyToVmi(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
+	ApplyToVmi(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, prefernceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
+	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
 }
 
 type Conflicts []*k8sfield.Path
@@ -30,28 +31,92 @@ func (c Conflicts) String() string {
 }
 
 type methods struct {
-	flavorStore        cache.Store
-	clusterFlavorStore cache.Store
+	flavorStore            cache.Store
+	clusterFlavorStore     cache.Store
+	preferenceStore        cache.Store
+	clusterPreferenceStore cache.Store
 }
 
 var _ Methods = &methods{}
 
-func NewMethods(flavorStore, clusterFlavorStore cache.Store) Methods {
+func NewMethods(flavorStore, clusterFlavorStore, preferenceStore, clusterPreferenceStore cache.Store) Methods {
 	return &methods{
-		flavorStore:        flavorStore,
-		clusterFlavorStore: clusterFlavorStore,
+		flavorStore:            flavorStore,
+		clusterFlavorStore:     clusterFlavorStore,
+		preferenceStore:        preferenceStore,
+		clusterPreferenceStore: clusterPreferenceStore,
 	}
 }
 
-func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
+func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	var conflicts Conflicts
 
-	conflicts = append(conflicts, applyCpu(field, flavorSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyMemory(field, flavorSpec, vmiSpec)...)
+	if flavorSpec != nil {
+		conflicts = append(conflicts, applyCpu(field, flavorSpec, preferenceSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyMemory(field, flavorSpec, vmiSpec)...)
+	}
 
 	return conflicts
+}
 
+func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+
+	if vm.Spec.Preference == nil {
+		return nil, nil
+	}
+
+	switch strings.ToLower(vm.Spec.Preference.Kind) {
+	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
+		preference, err := m.findPreference(vm)
+		if err != nil {
+			return nil, err
+		}
+		return &preference.Spec, nil
+	case apiflavor.ClusterSingularPreferenceResourceName, apiflavor.ClusterPluralPreferenceResourceName, "":
+		clusterPreference, err := m.findClusterPreference(vm)
+		if err != nil {
+			return nil, err
+		}
+		return &clusterPreference.Spec, nil
+	default:
+		return nil, fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
+	}
+}
+
+func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreference, error) {
+
+	if vm.Spec.Preference == nil {
+		return nil, nil
+	}
+
+	key := vm.Namespace + "/" + vm.Spec.Preference.Name
+	obj, exists, err := m.preferenceStore.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.SingularPreferenceResourceName), key)
+	}
+	preference := obj.(*flavorv1alpha1.VirtualMachinePreference)
+	return preference, nil
+}
+
+func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineClusterPreference, error) {
+
+	if vm.Spec.Preference == nil {
+		return nil, nil
+	}
+
+	key := vm.Spec.Preference.Name
+	obj, exists, err := m.clusterPreferenceStore.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(flavorv1alpha1.Resource(apiflavor.ClusterSingularPreferenceResourceName), key)
+	}
+	preference := obj.(*flavorv1alpha1.VirtualMachineClusterPreference)
+	return preference, nil
 }
 
 func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
@@ -114,21 +179,35 @@ func (m *methods) findClusterFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.
 	return flavor, nil
 }
 
-func applyCpu(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyCpu(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
 	}
 
-	// TODO - Apply a preferredCPUTopology here once availabe
 	vmiSpec.Domain.CPU = &virtv1.CPU{
 		Sockets:               uint32(1),
-		Cores:                 flavorSpec.CPU.Guest,
+		Cores:                 uint32(1),
 		Threads:               uint32(1),
 		Model:                 flavorSpec.CPU.Model,
 		DedicatedCPUPlacement: flavorSpec.CPU.DedicatedCPUPlacement,
 		IsolateEmulatorThread: flavorSpec.CPU.IsolateEmulatorThread,
 		NUMA:                  flavorSpec.CPU.NUMA.DeepCopy(),
 		Realtime:              flavorSpec.CPU.Realtime.DeepCopy(),
+	}
+
+	// Default to PreferCores when a PreferredCPUTopology isn't provided
+	preferredTopology := flavorv1alpha1.PreferCores
+	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != "" {
+		preferredTopology = preferenceSpec.CPU.PreferredCPUTopology
+	}
+
+	switch preferredTopology {
+	case flavorv1alpha1.PreferCores:
+		vmiSpec.Domain.CPU.Cores = flavorSpec.CPU.Guest
+	case flavorv1alpha1.PreferSockets:
+		vmiSpec.Domain.CPU.Sockets = flavorSpec.CPU.Guest
+	case flavorv1alpha1.PreferThreads:
+		vmiSpec.Domain.CPU.Threads = flavorSpec.CPU.Guest
 	}
 
 	return nil

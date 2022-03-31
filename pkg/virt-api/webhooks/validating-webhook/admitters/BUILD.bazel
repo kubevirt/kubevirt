@@ -8,6 +8,7 @@ go_library(
         "migration-update-admitter.go",
         "migrationpolicy-admitter.go",
         "pod-eviction-admitter.go",
+        "preference-admitter.go",
         "status-admitter.go",
         "vmi-create-admitter.go",
         "vmi-preset-admitter.go",

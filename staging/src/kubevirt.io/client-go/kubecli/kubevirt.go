@@ -70,6 +70,8 @@ type KubevirtClient interface {
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
 	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
+	VirtualMachinePreference(namespace string) flavorv1alpha1.VirtualMachinePreferenceInterface
+	VirtualMachineClusterPreference() flavorv1alpha1.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ServerVersion() ServerVersionInterface
 	ClusterProfiler() *ClusterProfiler
@@ -165,6 +167,14 @@ func (k kubevirt) VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualM
 
 func (k kubevirt) VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface {
 	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineClusterFlavors()
+}
+
+func (k kubevirt) VirtualMachinePreference(namespace string) flavorv1alpha1.VirtualMachinePreferenceInterface {
+	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachinePreferences(namespace)
+}
+
+func (k kubevirt) VirtualMachineClusterPreference() flavorv1alpha1.VirtualMachineClusterPreferenceInterface {
+	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineClusterPreferences()
 }
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {

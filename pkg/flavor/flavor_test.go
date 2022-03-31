@@ -21,19 +21,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-var _ = Describe("Flavor", func() {
+var _ = Describe("Flavor and Preferences", func() {
 	var (
-		flavorInformer        cache.SharedIndexInformer
-		clusterFlavorInformer cache.SharedIndexInformer
-		flavorMethods         flavor.Methods
-		vm                    *v1.VirtualMachine
-		vmi                   *v1.VirtualMachineInstance
+		flavorInformer            cache.SharedIndexInformer
+		clusterFlavorInformer     cache.SharedIndexInformer
+		preferenceInformer        cache.SharedIndexInformer
+		clusterPreferenceInformer cache.SharedIndexInformer
+		flavorMethods             flavor.Methods
+		vm                        *v1.VirtualMachine
+		vmi                       *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
 		flavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineFlavor{})
 		clusterFlavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterFlavor{})
-		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore())
+		preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
+		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore(), preferenceInformer.GetStore(), clusterPreferenceInformer.GetStore())
 	})
 
 	Context("Find Flavor Spec", func() {
@@ -203,11 +207,140 @@ var _ = Describe("Flavor", func() {
 		})
 	})
 
+	Context("Find Preference Spec", func() {
+
+		BeforeEach(func() {
+			vm = &v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "test-vm-namespace",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Preference: &v1.PreferenceMatcher{},
+				},
+			}
+		})
+
+		It("returns nil when no preference is specified", func() {
+			vm.Spec.Preference = nil
+			preference, err := flavorMethods.FindPreferenceSpec(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preference).To(BeNil())
+		})
+
+		It("returns error when invalid Preference Kind is specified", func() {
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "foo",
+				Kind: "bar",
+			}
+			spec, err := flavorMethods.FindPreferenceSpec(vm)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
+			Expect(spec).To(BeNil())
+		})
+
+		Context("Using global ClusterPreference", func() {
+			var preference *flavorv1alpha1.VirtualMachineClusterPreference
+
+			BeforeEach(func() {
+				preference = &flavorv1alpha1.VirtualMachineClusterPreference{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-cluster-preference",
+					},
+					Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
+						CPU: &flavorv1alpha1.CPUPreferences{
+							PreferredCPUTopology: flavorv1alpha1.PreferCores,
+						},
+					},
+				}
+
+				err := clusterPreferenceInformer.GetStore().Add(preference)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: apiflavor.ClusterSingularPreferenceResourceName,
+				}
+			})
+
+			It("should find cluster preference spec if Kind is not specified", func() {
+				vm.Spec.Preference.Kind = ""
+
+				s, err := flavorMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*s).To(Equal(preference.Spec))
+			})
+
+			It("returns expected preference spec", func() {
+				s, err := flavorMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*s).To(Equal(preference.Spec))
+			})
+
+			It("fails when preference does not exist", func() {
+				vm.Spec.Preference.Name = "non-existing-flavor"
+
+				_, err := flavorMethods.FindPreferenceSpec(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+
+		Context("Using namespaced Preference", func() {
+			var preference *flavorv1alpha1.VirtualMachinePreference
+
+			BeforeEach(func() {
+				preference = &flavorv1alpha1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-preference",
+						Namespace: vm.Namespace,
+					},
+					Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
+						CPU: &flavorv1alpha1.CPUPreferences{
+							PreferredCPUTopology: flavorv1alpha1.PreferCores,
+						},
+					},
+				}
+
+				err := preferenceInformer.GetStore().Add(preference)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: apiflavor.SingularPreferenceResourceName,
+				}
+			})
+
+			It("returns expected preference spec", func() {
+				s, err := flavorMethods.FindPreferenceSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*s).To(Equal(preference.Spec))
+			})
+
+			It("fails when preference does not exist", func() {
+				vm.Spec.Preference.Name = "non-existing-preference"
+
+				_, err := flavorMethods.FindPreferenceSpec(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("fails when preference is in different namespace", func() {
+				vm.Namespace = "other-namespace"
+
+				_, err := flavorMethods.FindPreferenceSpec(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+	})
+
 	Context("Apply flavor Spec to VMI", func() {
 
 		var (
-			flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec
-			field      *field.Path
+			flavorSpec     *flavorv1alpha1.VirtualMachineFlavorSpec
+			preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec
+			field          *field.Path
 		)
 
 		BeforeEach(func() {
@@ -221,9 +354,9 @@ var _ = Describe("Flavor", func() {
 			field = k8sfield.NewPath("spec", "template", "spec")
 		})
 
-		Context("Apply flavor.Spec.CPU", func() {
+		Context("Apply flavor.spec.CPU and preference.spec.CPU", func() {
 
-			It("in full to VMI", func() {
+			BeforeEach(func() {
 
 				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
 					CPU: flavorv1alpha1.CPUFlavor{
@@ -239,8 +372,16 @@ var _ = Describe("Flavor", func() {
 						},
 					},
 				}
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &flavorv1alpha1.CPUPreferences{
+						PreferredCPUTopology: flavorv1alpha1.PreferCores,
+					},
+				}
+			})
 
-				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+			It("in full to VMI", func() {
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
@@ -268,9 +409,23 @@ var _ = Describe("Flavor", func() {
 					Threads: 1,
 				}
 
-				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
+
+			})
+
+			It("defaults to PreferCores if no CPUPreferences are defined", func() {
+
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &flavorv1alpha1.CPUPreferences{},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
 
 			})
 		})
@@ -289,7 +444,7 @@ var _ = Describe("Flavor", func() {
 
 			It("in full to VMI", func() {
 
-				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*flavorSpec.Memory.Guest))
@@ -304,7 +459,7 @@ var _ = Describe("Flavor", func() {
 					Guest: &vmiMemGuest,
 				}
 
-				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, &vmi.Spec)
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory"))
 
