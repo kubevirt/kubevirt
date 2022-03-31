@@ -32,6 +32,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -424,17 +425,13 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
-				var interfaceName string
-				Eventually(func() error {
-					var err error
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
-					return err
-				}, 140*time.Second, 5*time.Second).Should(Succeed())
-
 				By("checking virtual machine instance has an interface with the requested MAC address")
-				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
+				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(checkMacAddress(vmi, ifaceName, mac)).To(Succeed())
+
 				By("checking virtual machine instance reports the expected network name")
 				Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovnet1))
 				By("checking virtual machine instance reports the expected info source")
@@ -471,19 +468,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 					vmi = startVmi(vmi)
 					vmi = waitVmi(vmi)
 
-					var interfaceName string
-
-					// It may take some time for the VMI interface status to be updated with the information reported by
-					// the guest-agent.
-					Eventually(func() error {
-						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
-						Expect(err).NotTo(HaveOccurred())
-						interfaceName, err = getInterfaceNameByMAC(vmi, mac)
-						return err
-					}, 30*time.Second, 5*time.Second).Should(Succeed())
-
-					Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+					ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
+					Expect(err).NotTo(HaveOccurred())
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(checkMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 				})
 
 				It("should be successful with a running VMI on the target", func() {
@@ -494,16 +483,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 					// It may take some time for the VMI interface status to be updated with the information reported by
 					// the guest-agent.
-					Eventually(func() error {
-						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
-						Expect(err).NotTo(HaveOccurred())
-						interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
-						if err != nil {
-							return err
-						}
-						return checkMacAddress(updatedVMI, interfaceName, mac)
-					}, 30*time.Second, 5*time.Second).Should(Succeed(),
-						"SR-IOV VF is expected to exist in the guest after migration")
+					ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
+					Expect(err).NotTo(HaveOccurred())
+					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(checkMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
 				})
 			})
 		})
@@ -685,4 +669,24 @@ func defaultCloudInitNetworkData() string {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create default cloud init network data for SRIOV")
 	return networkData
+}
+
+func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
+	var ifaceName string
+	err := wait.Poll(timeout, 5*time.Second, func() (done bool, err error) {
+		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(vmi.GetName(), &k8smetav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		ifaceName, err = getInterfaceNameByMAC(vmi, mac)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return ifaceName, nil
 }
