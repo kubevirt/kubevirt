@@ -12,10 +12,10 @@ class ObjectFetcher(object):
     def fetch(self, ns):
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         try:
-            config.load_incluster_config()
+            config.load_kube_config()
         except config.ConfigException:
             try:
-                config.load_kube_config()
+                config.load_incluster_config()
             except config.ConfigException:
                 raise Exception("Could not configure kubernetes python client")
         api = client.CustomObjectsApi()
