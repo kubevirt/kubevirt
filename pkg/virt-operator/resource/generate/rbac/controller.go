@@ -333,6 +333,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					flavor.PluralResourceName,
 					flavor.ClusterPluralResourceName,
+					flavor.PluralPreferenceResourceName,
+					flavor.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"list", "watch",

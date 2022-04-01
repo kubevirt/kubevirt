@@ -216,6 +216,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					flavor.PluralResourceName,
 					flavor.ClusterPluralResourceName,
+					flavor.PluralPreferenceResourceName,
+					flavor.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
@@ -344,6 +346,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					flavor.PluralResourceName,
 					flavor.ClusterPluralResourceName,
+					flavor.PluralPreferenceResourceName,
+					flavor.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -448,6 +452,8 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					flavor.PluralResourceName,
 					flavor.ClusterPluralResourceName,
+					flavor.PluralPreferenceResourceName,
+					flavor.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",
