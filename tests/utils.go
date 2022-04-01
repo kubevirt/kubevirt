@@ -3164,7 +3164,7 @@ func NewVirtctlCommand(args ...string) *cobra.Command {
 	if kubeconfig != nil && kubeconfig.String() != "" {
 		commandline = append(commandline, "--kubeconfig", kubeconfig.String())
 	}
-	cmd := virtctl.NewVirtctlCommand()
+	cmd, _ := virtctl.NewVirtctlCommand()
 	cmd.SetArgs(append(commandline, args...))
 	return cmd
 }

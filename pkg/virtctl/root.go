@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/client-go/kubecli"
@@ -28,7 +30,7 @@ import (
 
 var programName string
 
-func NewVirtctlCommand() *cobra.Command {
+func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 
 	programName := GetProgramName(filepath.Base(os.Args[0]))
 
@@ -55,7 +57,7 @@ func NewVirtctlCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
+			cmd.Printf(cmd.UsageString())
 		},
 	}
 
@@ -63,7 +65,7 @@ func NewVirtctlCommand() *cobra.Command {
 		Use:    "options",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
+			cmd.Printf(cmd.UsageString())
 		},
 	}
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
@@ -71,6 +73,7 @@ func NewVirtctlCommand() *cobra.Command {
 	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
 	AddGlogFlags(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
+	rootCmd.SetOut(os.Stdout)
 	rootCmd.AddCommand(
 		configuration.NewListPermittedDevices(clientConfig),
 		console.NewCommand(clientConfig),
@@ -97,7 +100,7 @@ func NewVirtctlCommand() *cobra.Command {
 		guestfs.NewGuestfsShellCommand(clientConfig),
 		optionsCmd,
 	)
-	return rootCmd
+	return rootCmd, clientConfig
 }
 
 // GetProgramName returns the command name to display in help texts.
@@ -115,8 +118,9 @@ func GetProgramName(binary string) string {
 
 func Execute() {
 	log.InitializeLogging(programName)
-	cmd := NewVirtctlCommand()
+	cmd, clientConfig := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
+		version.CheckClientServerVersion(&clientConfig)
 		fmt.Fprintln(cmd.Root().ErrOrStderr(), strings.TrimSpace(err.Error()))
 		os.Exit(1)
 	}
