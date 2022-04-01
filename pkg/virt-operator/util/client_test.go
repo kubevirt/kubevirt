@@ -67,7 +67,7 @@ var _ = Describe("Operator Client", func() {
 			Context("When it doesn't exist yet", func() {
 				It("Should add the condition", func() {
 					updateCondition(kv, v1.KubeVirtConditionAvailable, k8sv1.ConditionTrue, "NewReason", "new message")
-					Expect(len(kv.Status.Conditions)).To(Equal(2), "should have 2 conditions")
+					Expect(kv.Status.Conditions).To(HaveLen(2), "should have 2 conditions")
 					condition1 := kv.Status.Conditions[0]
 					Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated), "should keep old condition type")
 					condition2 := kv.Status.Conditions[1]
@@ -81,7 +81,7 @@ var _ = Describe("Operator Client", func() {
 			Context("When it exists", func() {
 				It("Should update the condition", func() {
 					updateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, "NewReason", "new message")
-					Expect(len(kv.Status.Conditions)).To(Equal(1), "should still have 1 condition")
+					Expect(kv.Status.Conditions).To(HaveLen(1), "should still have 1 condition")
 					condition1 := kv.Status.Conditions[0]
 					Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated), "should keep old condition type")
 					Expect(condition1.Status).To(Equal(k8sv1.ConditionTrue), "should update condition status")
@@ -97,7 +97,7 @@ var _ = Describe("Operator Client", func() {
 			Context("When it doesn't exist", func() {
 				It("Should not change existing conditions", func() {
 					removeCondition(kv, v1.KubeVirtConditionAvailable)
-					Expect(len(kv.Status.Conditions)).To(Equal(1), "should still have 1 condition")
+					Expect(kv.Status.Conditions).To(HaveLen(1), "should still have 1 condition")
 					condition1 := kv.Status.Conditions[0]
 					Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated))
 					Expect(condition1.Status).To(Equal(k8sv1.ConditionFalse))
@@ -119,13 +119,13 @@ var _ = Describe("Operator Client", func() {
 			Context("When another one already exists", func() {
 				It("Should add it", func() {
 					AddFinalizer(kv)
-					Expect(len(kv.Finalizers)).To(Equal(2), "should have 2 finalizers")
+					Expect(kv.Finalizers).To(HaveLen(2), "should have 2 finalizers")
 					Expect(kv.Finalizers[0]).To(Equal("oldFinalizer"), "should keep first old finalizer")
 					Expect(kv.Finalizers[1]).To(Equal(KubeVirtFinalizer), "should add new finalizer")
 				})
 				It("Should not add it again", func() {
 					AddFinalizer(kv)
-					Expect(len(kv.Finalizers)).To(Equal(2), "should still have 2 finalizers")
+					Expect(kv.Finalizers).To(HaveLen(2), "should still have 2 finalizers")
 					Expect(kv.Finalizers[0]).To(Equal("oldFinalizer"), "should keep first old finalizer")
 					Expect(kv.Finalizers[1]).To(Equal(KubeVirtFinalizer), "should keep second old finalizer")
 				})

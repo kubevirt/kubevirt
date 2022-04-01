@@ -212,7 +212,7 @@ var _ = Describe("Patches", func() {
 
 		It("should return flags in the proper format", func() {
 			fa := flagsToArray(flags)
-			Expect(len(fa)).To(Equal(5))
+			Expect(fa).To(HaveLen(5))
 
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--flag-one 1"))
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--flag 3"))
@@ -221,7 +221,7 @@ var _ = Describe("Patches", func() {
 
 		It("should add flag patch", func() {
 			patches := addFlagsPatch(components.VirtAPIName, resource, flags, []v1.CustomizeComponentsPatch{})
-			Expect(len(patches)).To(Equal(1))
+			Expect(patches).To(HaveLen(1))
 			patch := patches[0]
 
 			Expect(patch.ResourceName).To(Equal(components.VirtAPIName))
@@ -235,10 +235,10 @@ var _ = Describe("Patches", func() {
 
 		It("should chain patches", func() {
 			patches := addFlagsPatch(components.VirtAPIName, resource, flags, []v1.CustomizeComponentsPatch{})
-			Expect(len(patches)).To(Equal(1))
+			Expect(patches).To(HaveLen(1))
 
 			patches = addFlagsPatch(components.VirtControllerName, resource, flags, patches)
-			Expect(len(patches)).To(Equal(2))
+			Expect(patches).To(HaveLen(2))
 		})
 
 		It("should return all flag patches", func() {
@@ -247,7 +247,7 @@ var _ = Describe("Patches", func() {
 			}
 
 			patches := flagsToPatches(f)
-			Expect(len(patches)).To(Equal(1))
+			Expect(patches).To(HaveLen(1))
 		})
 	})
 
