@@ -379,7 +379,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineFlavorCrd,
 		components.NewVirtualMachineClusterFlavorCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
-		components.NewVirtualMachineClusterPreferenceCrd,
+		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineExportCrd,
 	}
 	for _, f := range functions {
 		crd, err := f()

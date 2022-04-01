@@ -25,10 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
@@ -93,74 +89,6 @@ func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition, 
 	}
 
 	return conditions
-}
-
-func processWorkItem(queue workqueue.RateLimitingInterface, handler func(string) (time.Duration, error)) bool {
-	obj, shutdown := queue.Get()
-	if shutdown {
-		return false
-	}
-
-	err := func(obj interface{}) error {
-		defer queue.Done(obj)
-		key, ok := obj.(string)
-		if !ok {
-			queue.Forget(obj)
-			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
-		}
-
-		if requeueAfter, err := handler(key); requeueAfter > 0 || err != nil {
-			if requeueAfter > 0 {
-				queue.AddAfter(key, requeueAfter)
-			} else {
-				queue.AddRateLimited(key)
-			}
-
-			return err
-		}
-
-		queue.Forget(obj)
-
-		return nil
-
-	}(obj)
-
-	if err != nil {
-		utilruntime.HandleError(err)
-		return true
-	}
-
-	return true
-}
-
-func podsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcNames sets.String) ([]corev1.Pod, error) {
-	var pods []corev1.Pod
-
-	if pvcNames.Len() < 1 {
-		return pods, nil
-	}
-
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, obj := range objs {
-		pod, ok := obj.(*corev1.Pod)
-		if !ok {
-			return nil, fmt.Errorf("expected Pod, got %T", obj)
-		}
-
-		for _, volume := range pod.Spec.Volumes {
-			if volume.VolumeSource.PersistentVolumeClaim != nil &&
-				pvcNames.Has(volume.PersistentVolumeClaim.ClaimName) {
-				pods = append(pods, *pod)
-			}
-		}
-	}
-
-	return pods, nil
 }
 
 func getFailureDeadline(vmSnapshot *snapshotv1.VirtualMachineSnapshot) time.Duration {

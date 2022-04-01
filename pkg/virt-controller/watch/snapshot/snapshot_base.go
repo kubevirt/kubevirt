@@ -40,6 +40,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 const (
@@ -254,7 +255,7 @@ func (ctrl *VMSnapshotController) vmWorker() {
 }
 
 func (ctrl *VMSnapshotController) processVMSnapshotWorkItem() bool {
-	return processWorkItem(ctrl.vmSnapshotQueue, func(key string) (time.Duration, error) {
+	return watchutil.ProcessWorkItem(ctrl.vmSnapshotQueue, func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vmSnapshot worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(key)
@@ -272,7 +273,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotWorkItem() bool {
 }
 
 func (ctrl *VMSnapshotController) processVMSnapshotContentWorkItem() bool {
-	return processWorkItem(ctrl.vmSnapshotContentQueue, func(key string) (time.Duration, error) {
+	return watchutil.ProcessWorkItem(ctrl.vmSnapshotContentQueue, func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vmSnapshotContent worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(key)
@@ -290,7 +291,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotContentWorkItem() bool {
 }
 
 func (ctrl *VMSnapshotController) processCRDWorkItem() bool {
-	return processWorkItem(ctrl.crdQueue, func(key string) (time.Duration, error) {
+	return watchutil.ProcessWorkItem(ctrl.crdQueue, func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("CRD worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.CRDInformer.GetStore().GetByKey(key)
@@ -321,7 +322,7 @@ func (ctrl *VMSnapshotController) processCRDWorkItem() bool {
 }
 
 func (ctrl *VMSnapshotController) processVMSnapshotStatusWorkItem() bool {
-	return processWorkItem(ctrl.vmSnapshotStatusQueue, func(key string) (time.Duration, error) {
+	return watchutil.ProcessWorkItem(ctrl.vmSnapshotStatusQueue, func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vmSnapshotStatus worker processing VM [%s]", key)
 
 		storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(key)
@@ -345,7 +346,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotStatusWorkItem() bool {
 }
 
 func (ctrl *VMSnapshotController) processVMWorkItem() bool {
-	return processWorkItem(ctrl.vmQueue, func(key string) (time.Duration, error) {
+	return watchutil.ProcessWorkItem(ctrl.vmQueue, func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vm worker processing VM [%s]", key)
 
 		storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(key)

@@ -555,6 +555,12 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
           - pool.kubevirt.io
           resources:
           - virtualmachinepools

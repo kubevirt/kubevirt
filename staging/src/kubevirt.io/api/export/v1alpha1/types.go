@@ -72,7 +72,7 @@ type VirtualMachineExportStatus struct {
 	Token string `json:"token,omitempty"`
 
 	// +optional
-	Links VirtualMachineExportLinks `json:"links,omitempty"`
+	Links *VirtualMachineExportLinks `json:"links,omitempty"`
 
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
@@ -81,9 +81,9 @@ type VirtualMachineExportStatus struct {
 // VirtualMachineExportLinks contains the links that point the exported VM resources
 type VirtualMachineExportLinks struct {
 	// +optional
-	Internal VirtualMachineExportLink `json:"internal,omitempty"`
+	Internal *VirtualMachineExportLink `json:"internal,omitempty"`
 	// +optional
-	External VirtualMachineExportLink `json:"external,omitempty"`
+	External *VirtualMachineExportLink `json:"external,omitempty"`
 }
 
 // VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes

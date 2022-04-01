@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/api/migrations"
 
 	kubev1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	flavorv1 "kubevirt.io/api/flavor/v1alpha1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -114,6 +115,9 @@ type KubeInformerFactory interface {
 
 	// Watches VirtualMachineInstanceMigration objects
 	VirtualMachineInstanceMigration() cache.SharedIndexInformer
+
+	// Watches VirtualMachineExport objects
+	VirtualMachineExport() cache.SharedIndexInformer
 
 	// Watches VirtualMachineSnapshot objects
 	VirtualMachineSnapshot() cache.SharedIndexInformer
@@ -521,6 +525,13 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, GetVirtualMachineInformerIndexers())
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineExport() cache.SharedIndexInformer {
+	return f.getInformer("vmExportInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().ExportV1alpha1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &exportv1.VirtualMachineExport{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
