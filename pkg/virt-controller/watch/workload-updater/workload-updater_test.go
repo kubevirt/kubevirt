@@ -136,7 +136,7 @@ var _ = Describe("Workload Updater", func() {
 	Context("workload update in progress", func() {
 		It("should migrate the VMI", func() {
 			newVirtualMachine("testvm", true, "madeup", vmiSource, podSource)
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
 			kv := newKubeVirt(1)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
@@ -149,7 +149,7 @@ var _ = Describe("Workload Updater", func() {
 
 		It("should do nothing if deployment is updating", func() {
 			newVirtualMachine("testvm", true, "madeup", vmiSource, podSource)
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
 			kv := newKubeVirt(1)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
@@ -168,16 +168,20 @@ var _ = Describe("Workload Updater", func() {
 			zero := 0.0
 			Expect(dto.GetGauge().Value).To(Equal(&zero), "outdated vmi workload reported should be equal to zero")
 
+			totalVMs := 0
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiSource, podSource)
+				totalVMs++
 			}
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-non-migratable-%d", i), false, "madeup", vmiSource, podSource)
+				totalVMs++
 			}
 			// add vmis that are not outdated to ensure they are not counted as outdated in count
 			for i := 0; i < 100; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-%d", i), false, expectedImage, vmiSource, podSource)
+				totalVMs++
 			}
 			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
 				reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -186,8 +190,7 @@ var _ = Describe("Workload Updater", func() {
 				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
 			}
 
-			// wait for informer to catch up since we aren't watching for vmis directly
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, totalVMs)
 			kv := newKubeVirt(0)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
@@ -218,12 +221,15 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should migrate VMIs up to the global max migration count and delete up to delete batch count", func() {
+			totalVMs := 0
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiSource, podSource)
+				totalVMs++
 			}
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup", vmiSource, podSource)
+				totalVMs++
 			}
 			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
 				reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -232,10 +238,8 @@ var _ = Describe("Workload Updater", func() {
 				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
 			}
 
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
-			kv := newKubeVirt(100)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, totalVMs)
+			kv := newKubeVirt(totalVMs)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
@@ -249,12 +253,13 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should detect in-flight migrations when only migrate VMIs up to the global max migration count", func() {
-			kv := newKubeVirt(50)
+			const desiredNumberOfVMs = 50
+			kv := newKubeVirt(desiredNumberOfVMs)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
 			reasons := []string{}
-			for i := 0; i < 50; i++ {
+			for i := 0; i < desiredNumberOfVMs; i++ {
 				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiSource, podSource)
 				// create enough migrations to only allow one more active one to be created
 				if i < int(virtconfig.ParallelMigrationsPerClusterDefault)-1 {
@@ -268,8 +273,7 @@ var _ = Describe("Workload Updater", func() {
 				}
 			}
 
-			// wait for informer to catch up since we aren't watching for vmis directly
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
 			//migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).AnyTimes()
 			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
@@ -286,13 +290,14 @@ var _ = Describe("Workload Updater", func() {
 			newVirtualMachine("testvm-outdated-non-migratable", false, "madeup", vmiSource, podSource)
 			reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
 
+			totalVMs := 2
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-migratable-%d", i), true, expectedImage, vmiSource, podSource)
 				newVirtualMachine(fmt.Sprintf("testvm-up-to-date-non-migratable-%d", i), false, expectedImage, vmiSource, podSource)
+				totalVMs += 2
 			}
 
-			// wait for informer to catch up since we aren't watching for vmis directly
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, totalVMs)
 			kv := newKubeVirt(2)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
@@ -307,34 +312,34 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should do nothing if no method is set", func() {
+			totalVMs := 0
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiSource, podSource)
+				totalVMs++
 			}
 			for i := 0; i < 50; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup", vmiSource, podSource)
+				totalVMs++
 			}
 
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
-			kv := newKubeVirt(100)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, totalVMs)
+			kv := newKubeVirt(totalVMs)
 			addKubeVirt(kv)
 			controller.Execute()
 		})
 
 		It("should shutdown VMIs and not migrate when only shutdown method is set", func() {
+			const desiredNumberOfVMs = 50
 			reasons := []string{}
-			for i := 0; i < 50; i++ {
+			for i := 0; i < desiredNumberOfVMs; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiSource, podSource)
 			}
 			for i := 0; i < defaultBatchDeletionCount; i++ {
 				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
 			}
 
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
-			kv := newKubeVirt(50)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
+			kv := newKubeVirt(desiredNumberOfVMs)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
@@ -347,7 +352,8 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should not evict VMIs when an active migration is in flight", func() {
-			kv := newKubeVirt(2)
+			const desiredNumberOfVMs = 2
+			kv := newKubeVirt(desiredNumberOfVMs)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
@@ -356,28 +362,25 @@ var _ = Describe("Workload Updater", func() {
 			vmi = newVirtualMachine("testvm-nonmigratable", true, "madeup", vmiSource, podSource)
 			migrationFeeder.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
 
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
 			controller.Execute()
 			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should respect custom batch deletion count", func() {
+			const desiredNumberOfVMs = 50
 			batchDeletions := 30
 			reasons := []string{}
-			for i := 0; i < 50; i++ {
+			for i := 0; i < desiredNumberOfVMs; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup", vmiSource, podSource)
 			}
 			for i := 0; i < batchDeletions; i++ {
 				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
 			}
 
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
-			kv := newKubeVirt(50)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
+			kv := newKubeVirt(desiredNumberOfVMs)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
 			kv.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &batchDeletions
 			addKubeVirt(kv)
@@ -401,9 +404,7 @@ var _ = Describe("Workload Updater", func() {
 			for i := 0; i < batchDeletions*2; i++ {
 				newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, "madeup", vmiSource, podSource)
 			}
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, batchDeletions*2)
 			kv := newKubeVirt(batchDeletions * 2)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
 			kv.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &batchDeletions
@@ -442,6 +443,12 @@ var _ = Describe("Workload Updater", func() {
 		Expect(recorder.Events).To(BeEmpty())
 	})
 })
+
+func waitForNumberOfInstancesOnVMIInformerCache(wu *WorkloadUpdateController, vmisNo int) {
+	EventuallyWithOffset(1, func() []interface{} {
+		return wu.vmiInformer.GetStore().List()
+	}, 3*time.Second, 200*time.Millisecond).Should(HaveLen(vmisNo))
+}
 
 func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 	return &v1.KubeVirt{
