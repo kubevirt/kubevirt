@@ -411,6 +411,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource":                                  schema_kubevirtio_api_core_v1_PersistentVolumeClaimVolumeSource(ref),
 		"kubevirt.io/api/core/v1.PodNetwork":                                                         schema_kubevirtio_api_core_v1_PodNetwork(ref),
 		"kubevirt.io/api/core/v1.Port":                                                               schema_kubevirtio_api_core_v1_Port(ref),
+		"kubevirt.io/api/core/v1.PreferenceMatcher":                                                  schema_kubevirtio_api_core_v1_PreferenceMatcher(ref),
 		"kubevirt.io/api/core/v1.Probe":                                                              schema_kubevirtio_api_core_v1_Probe(ref),
 		"kubevirt.io/api/core/v1.ProfilerResult":                                                     schema_kubevirtio_api_core_v1_ProfilerResult(ref),
 		"kubevirt.io/api/core/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":              schema_kubevirtio_api_core_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
@@ -491,12 +492,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Watchdog":                                                           schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUFlavor":                                                  schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref),
+		"kubevirt.io/api/flavor/v1alpha1.CPUPreferences":                                             schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.MemoryFlavor":                                               schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterPreference":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterPreference(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterPreferenceList":                        schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterPreferenceList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorList":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreference":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreference(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceList":                               schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceList(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec":                               schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
@@ -18605,6 +18612,34 @@ func schema_kubevirtio_api_core_v1_Port(ref common.ReferenceCallback) common.Ope
 	}
 }
 
+func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind specifies which preference resource is referenced. Allowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\". If not specified, \"VirtualMachineClusterPreference\" is used by default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Probe(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21520,6 +21555,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 							Ref:         ref("kubevirt.io/api/core/v1.FlavorMatcher"),
 						},
 					},
+					"preference": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferenceMatcher references a set of preference that is used to fill fields in Template",
+							Ref:         ref("kubevirt.io/api/core/v1.PreferenceMatcher"),
+						},
+					},
 					"template": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Template is the direct specification of VirtualMachineInstance",
@@ -21544,7 +21585,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DataVolumeTemplateSpec", "kubevirt.io/api/core/v1.FlavorMatcher", "kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/api/core/v1.DataVolumeTemplateSpec", "kubevirt.io/api/core/v1.FlavorMatcher", "kubevirt.io/api/core/v1.PreferenceMatcher", "kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 
@@ -22177,6 +22218,26 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref common.ReferenceCallbac
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PreferencesCPU",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredCPUTopology": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22292,6 +22353,98 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref c
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterPreference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterPreference",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterPreferenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterPreference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterPreference"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22403,6 +22556,118 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/flavor/v1alpha1.CPUFlavor", "kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreference",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreferenceList is a list of VirtualMachinePreference resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreference"},
+	}
+}
+
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePreferenceSpec",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUPreferences"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences"},
 	}
 }
 

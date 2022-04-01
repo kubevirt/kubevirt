@@ -300,6 +300,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
 		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
 		"flavor":              "FlavorMatcher references a flavor that is used to fill fields in Template",
+		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
 	}
@@ -739,5 +740,13 @@ func (FlavorMatcher) SwaggerDoc() map[string]string {
 		"":     "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
 		"name": "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
 		"kind": "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
+	}
+}
+
+func (PreferenceMatcher) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
+		"name": "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference",
+		"kind": "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
 	}
 }

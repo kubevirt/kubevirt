@@ -132,3 +132,78 @@ type MemoryFlavor struct {
 	// +optional
 	Hugepages *v1.Hugepages `json:"hugepages,omitempty"`
 }
+
+// VirtualMachinePreference
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+// +genclient
+type VirtualMachinePreference struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VirtualMachinePreferenceSpec `json:"spec"`
+}
+
+// VirtualMachinePreferenceList is a list of VirtualMachinePreference resources.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachinePreferenceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	// +listType=set
+	Items []VirtualMachinePreference `json:"items"`
+}
+
+// VirtualMachineClusterPreference
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+// +genclient
+// +genclient:nonNamespaced
+type VirtualMachineClusterPreference struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VirtualMachinePreferenceSpec `json:"spec"`
+}
+
+// VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineClusterPreferenceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	// +listType=set
+	Items []VirtualMachineClusterPreference `json:"items"`
+}
+
+// VirtualMachinePreferenceSpec
+//
+// +k8s:openapi-gen=true
+type VirtualMachinePreferenceSpec struct {
+
+	//+optional
+	CPU *CPUPreferences `json:"cpu,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type PreferredCPUTopology string
+
+const (
+	PreferSockets PreferredCPUTopology = "preferSockets"
+	PreferCores   PreferredCPUTopology = "preferCores"
+	PreferThreads PreferredCPUTopology = "preferThreads"
+)
+
+// PreferencesCPU
+//
+// +k8s:openapi-gen=true
+type CPUPreferences struct {
+
+	// Defaults to
+	//+optional
+	PreferredCPUTopology PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
+}

@@ -33,8 +33,16 @@ func (c *FakeFlavorV1alpha1) VirtualMachineClusterFlavors() v1alpha1.VirtualMach
 	return &FakeVirtualMachineClusterFlavors{c}
 }
 
+func (c *FakeFlavorV1alpha1) VirtualMachineClusterPreferences() v1alpha1.VirtualMachineClusterPreferenceInterface {
+	return &FakeVirtualMachineClusterPreferences{c}
+}
+
 func (c *FakeFlavorV1alpha1) VirtualMachineFlavors(namespace string) v1alpha1.VirtualMachineFlavorInterface {
 	return &FakeVirtualMachineFlavors{c, namespace}
+}
+
+func (c *FakeFlavorV1alpha1) VirtualMachinePreferences(namespace string) v1alpha1.VirtualMachinePreferenceInterface {
+	return &FakeVirtualMachinePreferences{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

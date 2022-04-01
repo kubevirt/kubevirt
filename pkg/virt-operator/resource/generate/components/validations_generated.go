@@ -3679,6 +3679,21 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - name
           type: object
+        preference:
+          description: PreferenceMatcher references a set of preference that is used
+            to fill fields in Template
+          properties:
+            kind:
+              description: 'Kind specifies which preference resource is referenced.
+                Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
+                If not specified, "VirtualMachineClusterPreference" is used by default.'
+              type: string
+            name:
+              description: Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
+              type: string
+          required:
+          - name
+          type: object
         runStrategy:
           description: Running state indicates the requested running state of the
             VirtualMachineInstance mutually exclusive with Running
@@ -6873,6 +6888,36 @@ var CRDsValidation map[string]string = map[string]string{
       required:
       - cpu
       - memory
+      type: object
+  required:
+  - spec
+  type: object
+`,
+	"virtualmachineclusterpreference": `openAPIV3Schema:
+  description: VirtualMachineClusterPreference
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachinePreferenceSpec
+      properties:
+        cpu:
+          description: PreferencesCPU
+          properties:
+            preferredCPUTopology:
+              description: Defaults to
+              type: string
+          type: object
       type: object
   required:
   - spec
@@ -14576,6 +14621,23 @@ var CRDsValidation map[string]string = map[string]string{
                   required:
                   - name
                   type: object
+                preference:
+                  description: PreferenceMatcher references a set of preference that
+                    is used to fill fields in Template
+                  properties:
+                    kind:
+                      description: 'Kind specifies which preference resource is referenced.
+                        Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
+                        If not specified, "VirtualMachineClusterPreference" is used
+                        by default.'
+                      type: string
+                    name:
+                      description: Name is the name of the VirtualMachinePreference
+                        or VirtualMachineClusterPreference
+                      type: string
+                  required:
+                  - name
+                  type: object
                 runStrategy:
                   description: Running state indicates the requested running state
                     of the VirtualMachineInstance mutually exclusive with Running
@@ -17609,6 +17671,36 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"virtualmachinepreference": `openAPIV3Schema:
+  description: VirtualMachinePreference
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachinePreferenceSpec
+      properties:
+        cpu:
+          description: PreferencesCPU
+          properties:
+            preferredCPUTopology:
+              description: Defaults to
+              type: string
+          type: object
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"virtualmachinerestore": `openAPIV3Schema:
   description: VirtualMachineRestore defines the operation of restoring a VM
   properties:
@@ -18479,6 +18571,23 @@ var CRDsValidation map[string]string = map[string]string{
                         name:
                           description: Name is the name of the VirtualMachineFlavor
                             or VirtualMachineClusterFlavor
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    preference:
+                      description: PreferenceMatcher references a set of preference
+                        that is used to fill fields in Template
+                      properties:
+                        kind:
+                          description: 'Kind specifies which preference resource is
+                            referenced. Allowed values are: "VirtualMachinePreference"
+                            and "VirtualMachineClusterPreference". If not specified,
+                            "VirtualMachineClusterPreference" is used by default.'
+                          type: string
+                        name:
+                          description: Name is the name of the VirtualMachinePreference
+                            or VirtualMachineClusterPreference
                           type: string
                       required:
                       - name

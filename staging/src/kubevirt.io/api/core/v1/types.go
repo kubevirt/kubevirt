@@ -1258,6 +1258,9 @@ type VirtualMachineSpec struct {
 	// FlavorMatcher references a flavor that is used to fill fields in Template
 	Flavor *FlavorMatcher `json:"flavor,omitempty" optional:"true"`
 
+	// PreferenceMatcher references a set of preference that is used to fill fields in Template
+	Preference *PreferenceMatcher `json:"preference,omitempty" optional:"true"`
+
 	// Template is the direct specification of VirtualMachineInstance
 	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
 
@@ -2227,6 +2230,19 @@ type FlavorMatcher struct {
 	// Kind specifies which flavor resource is referenced.
 	// Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
 	// If not specified, "VirtualMachineClusterFlavor" is used by default.
+	//
+	// +optional
+	Kind string `json:"kind,omitempty"`
+}
+
+// PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
+type PreferenceMatcher struct {
+	// Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
+	Name string `json:"name"`
+
+	// Kind specifies which preference resource is referenced.
+	// Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
+	// If not specified, "VirtualMachineClusterPreference" is used by default.
 	//
 	// +optional
 	Kind string `json:"kind,omitempty"`

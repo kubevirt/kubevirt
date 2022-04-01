@@ -169,6 +169,8 @@ func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
 func flavorApiServiceDefinitions() []*restful.WebService {
 	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralResourceName)
 	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralResourceName)
+	preferenceGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.PluralPreferenceResourceName)
+	clusterPreferenceGVR := flavorv1alpha1.SchemeGroupVersion.WithResource(flavor.ClusterPluralPreferenceResourceName)
 
 	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
 	if err != nil {
@@ -181,6 +183,16 @@ func flavorApiServiceDefinitions() []*restful.WebService {
 	}
 
 	ws, err = GenericClusterResourceProxy(ws, clusterFlavorGVR, &flavorv1alpha1.VirtualMachineClusterFlavor{}, "VirtualMachineClusterFlavor", &flavorv1alpha1.VirtualMachineClusterFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, preferenceGVR, &flavorv1alpha1.VirtualMachinePreference{}, "VirtualMachinePreference", &flavorv1alpha1.VirtualMachinePreferenceList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericClusterResourceProxy(ws, clusterPreferenceGVR, &flavorv1alpha1.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &flavorv1alpha1.VirtualMachineClusterPreferenceList{})
 	if err != nil {
 		panic(err)
 	}

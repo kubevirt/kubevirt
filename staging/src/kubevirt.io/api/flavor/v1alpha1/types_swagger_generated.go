@@ -53,3 +53,43 @@ func (MemoryFlavor) SwaggerDoc() map[string]string {
 		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
 	}
 }
+
+func (VirtualMachinePreference) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachinePreference\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
+	}
+}
+
+func (VirtualMachinePreferenceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VirtualMachinePreferenceList is a list of VirtualMachinePreference resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+		"items": "+listType=set",
+	}
+}
+
+func (VirtualMachineClusterPreference) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineClusterPreference\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
+	}
+}
+
+func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+		"items": "+listType=set",
+	}
+}
+
+func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":    "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
+		"cpu": "+optional",
+	}
+}
+
+func (CPUPreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "PreferencesCPU\n\n+k8s:openapi-gen=true",
+		"preferredCPUTopology": "Defaults to\n+optional",
+	}
+}
