@@ -1074,7 +1074,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
 				}
 
-				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, hugepageType)
+				nodeWithHugepages := getNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
 					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
@@ -2935,3 +2935,15 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 })
+
+func getNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	for _, node := range nodes.Items {
+		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
+			return &node
+		}
+	}
+	return nil
+}
