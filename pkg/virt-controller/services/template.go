@@ -1096,8 +1096,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 
-	capabilities := getRequiredCapabilities(vmi, t.clusterConfig)
-
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
@@ -1140,7 +1138,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RunAsUser:  &userId,
 			Privileged: &privileged,
 			Capabilities: &k8sv1.Capabilities{
-				Add:  capabilities,
+				Add:  getRequiredCapabilities(vmi),
 				Drop: []k8sv1.Capability{CAP_NET_RAW},
 			},
 		},
@@ -1806,7 +1804,7 @@ func haveSlirp(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
+func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	if util.IsNonRootVMI(vmi) {
 		return []k8sv1.Capability{CAP_NET_BIND_SERVICE}
 	}
