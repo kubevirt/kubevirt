@@ -38,8 +38,6 @@ import (
 	"sync"
 	"time"
 
-	util2 "kubevirt.io/kubevirt/pkg/util"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -651,7 +649,7 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
-	size = util2.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
+	size = kutil.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
 	if size == 0 {
 		return fmt.Errorf("%s must be at least 1MiB", imagePath)
 	}
@@ -679,7 +677,7 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		return 0, false
 	}
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
-	size = util2.AlignImageSizeTo1MiB(size, log.DefaultLogger())
+	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
 	}
