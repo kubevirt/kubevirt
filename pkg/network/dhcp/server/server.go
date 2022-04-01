@@ -206,7 +206,7 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, opts dh
 	case dhcp.Request:
 		log.Log.V(4).Info("The request has message type REQUEST")
 		if requestIP, ok := opts[dhcp.OptionRequestedIPAddress]; ok && !net.IP(requestIP).Equal(h.clientIP) {
-			log.Log.Warningf("Client cannot request ip %v, not the assigned ip %v", net.IP(requestIP), h.clientIP)
+			log.Log.Warningf("Client cannot request ip %v; the IP being advertised by the server is %v", net.IP(requestIP), h.clientIP)
 			return dhcp.ReplyPacket(p, dhcp.NAK, h.serverIP, nil, 0,
 				h.options.SelectOrderOrAll(nil))
 		}
