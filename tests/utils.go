@@ -2822,7 +2822,7 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 				continue
 			}
 
-			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
+			body, err := callUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
 				return fmt.Errorf("failed to call healthz endpoint. %s", errAdditionalInfo)
 			}
@@ -3011,7 +3011,7 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 	return certificate
 }
 
-func CallUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
+func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
