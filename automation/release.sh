@@ -81,7 +81,9 @@ function generate_stable_version_file() {
         sort -rV |
         head -1
     ) > _out/stable.txt
+    # this place is deprecated. Combining "devel" and stable is not optimal
     gsutil cp "_out/stable.txt" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/"
+    gsutil cp "_out/stable.txt" "gs://kubevirt-prow/release/kubevirt/kubevirt/"
 }
 
 function main() {
