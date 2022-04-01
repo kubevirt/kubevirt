@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//pkg/util/openapi:go_default_library",
         "//pkg/virt-api:go_default_library",
-        "//pkg/virt-api/rest:go_default_library",
+        "//pkg/virt-api/definitions:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",

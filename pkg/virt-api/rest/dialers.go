@@ -10,6 +10,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 func netDialer(request *restful.Request) dialer {
@@ -22,13 +24,13 @@ func netDialer(request *restful.Request) dialer {
 			return nil, errors.NewBadRequest(err.Error())
 		}
 
-		port := request.PathParameter(PortParamName)
+		port := request.PathParameter(definitions.PortParamName)
 		if len(port) < 1 {
 			return nil, errors.NewBadRequest("port must not be empty")
 		}
 
 		protocol := "tcp"
-		if protocolParam := request.PathParameter(ProtocolParamName); len(protocolParam) > 0 {
+		if protocolParam := request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
 			protocol = protocolParam
 		}
 

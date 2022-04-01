@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
@@ -216,14 +217,14 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws := new(restful.WebService)
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
-		subws.Path(rest.GroupVersionBasePath(version))
+		subws.Path(definitions.GroupVersionBasePath(version))
 
 		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
 
-		restartRouteBuilder := subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
+		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
 			Reads(v1.RestartOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Restart").
 			Doc("Restart a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
@@ -232,30 +233,30 @@ func (app *virtAPIApp) composeSubresources() {
 		restartRouteBuilder.ParameterNamed("body").Required(false)
 		subws.Route(restartRouteBuilder)
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("migrate")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("migrate")).
 			To(subresourceApp.MigrateVMRequestHandler).
 			Reads(v1.MigrateOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Migrate").
 			Doc("Migrate a running VirtualMachine to another node.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
 			Reads(v1.StartOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Start").
 			Doc("Start a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		stopRouteBuilder := subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
+		stopRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("stop")).
 			To(subresourceApp.StopVMRequestHandler).
 			Reads(v1.StopOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Stop").
 			Doc("Stop a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
@@ -264,130 +265,130 @@ func (app *virtAPIApp) composeSubresources() {
 		stopRouteBuilder.ParameterNamed("body").Required(false)
 		subws.Route(stopRouteBuilder)
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("freeze")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("freeze")).
 			To(subresourceApp.FreezeVMIRequestHandler).
 			Reads(v1.FreezeUnfreezeTimeout{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Freeze").
 			Doc("Freeze a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("unfreeze")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("unfreeze")).
 			To(subresourceApp.UnfreezeVMIRequestHandler).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Unfreeze").
 			Doc("Unfreeze a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("softreboot")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("softreboot")).
 			To(subresourceApp.SoftRebootVMIRequestHandler).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"SoftReboot").
 			Doc("Soft reboot a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("pause")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).
 			Reads(v1.PauseOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Pause").
 			Doc("Pause a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("unpause")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("unpause")).
 			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
 			Reads(v1.UnpauseOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Unpause").
 			Doc("Unpause a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("console")).
 			To(subresourceApp.ConsoleRequestHandler).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version + "Console").
 			Doc("Open a websocket connection to a serial console on the specified VirtualMachineInstance."))
 
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("vnc")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("vnc")).
 			To(subresourceApp.VNCRequestHandler).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version + "VNC").
 			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("usbredir")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("usbredir")).
 			To(subresourceApp.USBRedirRequestHandler).
-			Param(rest.NamespaceParam(subws)).
-			Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).
+			Param(definitions.NameParam(subws)).
 			Operation(version.Version + "usbredir").
 			Doc("Open a websocket connection to connect to USB device on the specified VirtualMachineInstance."))
 
 		// VMI endpoint
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("portforward") + rest.PortPath).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("portforward") + definitions.PortPath).
 			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstance)).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Param(rest.PortForwardPortParameter(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Param(definitions.PortForwardPortParameter(subws)).
 			Operation(version.Version + "vmi-PortForward").
 			Doc("Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port."))
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("portforward") + rest.PortPath + rest.ProtocolPath).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("portforward") + definitions.PortPath + definitions.ProtocolPath).
 			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstance)).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Param(rest.PortForwardPortParameter(subws)).
-			Param(rest.PortForwardProtocolParameter(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Param(definitions.PortForwardPortParameter(subws)).
+			Param(definitions.PortForwardProtocolParameter(subws)).
 			Operation(version.Version + "vmi-PortForwardWithProtocol").
 			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port."))
 
 		// VM endpoint
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmGVR) + rest.SubResourcePath("portforward") + rest.PortPath).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR) + definitions.SubResourcePath("portforward") + definitions.PortPath).
 			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Param(rest.PortForwardPortParameter(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Param(definitions.PortForwardPortParameter(subws)).
 			Operation(version.Version + "vm-PortForward").
 			Doc("Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port."))
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmGVR) + rest.SubResourcePath("portforward") + rest.PortPath + rest.ProtocolPath).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR) + definitions.SubResourcePath("portforward") + definitions.PortPath + definitions.ProtocolPath).
 			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Param(rest.PortForwardPortParameter(subws)).
-			Param(rest.PortForwardProtocolParameter(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Param(definitions.PortForwardPortParameter(subws)).
+			Param(definitions.PortForwardProtocolParameter(subws)).
 			Operation(version.Version + "vm-PortForwardWithProtocol").
 			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port."))
 
 		// An empty handler function would respond with HTTP OK by default
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("test")).
 			To(func(request *restful.Request, response *restful.Response) {}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version + "Test").
 			Doc("Test endpoint verifying apiserver connectivity."))
 
-		subws.Route(subws.GET(rest.SubResourcePath("version")).Produces(restful.MIME_JSON).
+		subws.Route(subws.GET(definitions.SubResourcePath("version")).Produces(restful.MIME_JSON).
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(virtversion.Get())
 			}).Operation(version.Version + "Version"))
 
-		subws.Route(subws.GET(rest.SubResourcePath("start-cluster-profiler")).Produces(restful.MIME_JSON).
+		subws.Route(subws.GET(definitions.SubResourcePath("start-cluster-profiler")).Produces(restful.MIME_JSON).
 			To(subresourceApp.StartClusterProfilerHandler).
 			Operation(version.Version + "start-cluster-profiler"))
 
-		subws.Route(subws.GET(rest.SubResourcePath("stop-cluster-profiler")).Produces(restful.MIME_JSON).
+		subws.Route(subws.GET(definitions.SubResourcePath("stop-cluster-profiler")).Produces(restful.MIME_JSON).
 			To(subresourceApp.StopClusterProfilerHandler).
 			Operation(version.Version + "stop-cluster-profiler"))
 
-		subws.Route(subws.GET(rest.SubResourcePath("dump-cluster-profiler")).Produces(restful.MIME_JSON).
+		subws.Route(subws.GET(definitions.SubResourcePath("dump-cluster-profiler")).Produces(restful.MIME_JSON).
 			To(subresourceApp.DumpClusterProfilerHandler).
 			Operation(version.Version + "dump-cluster-profiler"))
 
-		subws.Route(subws.GET(rest.SubResourcePath("guestfs")).Produces(restful.MIME_JSON).
+		subws.Route(subws.GET(definitions.SubResourcePath("guestfs")).Produces(restful.MIME_JSON).
 			To(app.GetGsInfo()).
 			Operation(version.Version+"Guestfs").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
-		subws.Route(subws.GET(rest.SubResourcePath("healthz")).
+		subws.Route(subws.GET(definitions.SubResourcePath("healthz")).
 			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
@@ -395,9 +396,9 @@ func (app *virtAPIApp) composeSubresources() {
 			Doc("Health endpoint").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, "Unhealthy", ""))
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("guestosinfo")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("guestosinfo")).
 			To(subresourceApp.GuestOSInfo).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Operation(version.Version+"Guestosinfo").
@@ -405,7 +406,7 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceGuestAgentInfo{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
 
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("userlist")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("userlist")).
 			To(subresourceApp.UserList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
@@ -414,7 +415,7 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceGuestOSUserList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestOSUserList{}))
 
-		subws.Route(subws.GET(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("filesystemlist")).
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("filesystemlist")).
 			To(subresourceApp.FilesystemList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
@@ -423,54 +424,54 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("addvolume")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
 			Reads(v1.AddVolumeOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-addvolume").
 			Doc("Add a volume and disk to a running Virtual Machine Instance").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("removevolume")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("removevolume")).
 			To(subresourceApp.VMIRemoveVolumeRequestHandler).
 			Reads(v1.RemoveVolumeOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-removevolume").
 			Doc("Removes a volume and disk from a running Virtual Machine Instance").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("addvolume")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMAddVolumeRequestHandler).
 			Reads(v1.AddVolumeOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-addvolume").
 			Doc("Add a volume and disk to a running Virtual Machine.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("removevolume")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removevolume")).
 			To(subresourceApp.VMRemoveVolumeRequestHandler).
 			Reads(v1.RemoveVolumeOptions{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-removevolume").
 			Doc("Removes a volume and disk from a running Virtual Machine.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("memorydump")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("memorydump")).
 			To(subresourceApp.MemoryDumpVMRequestHandler).
 			Reads(v1.VirtualMachineMemoryDumpRequest{}).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"MemoryDump").
 			Doc("Dumps a VirtualMachineInstance memory.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("removememorydump")).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removememorydump")).
 			To(subresourceApp.RemoveMemoryDumpVMRequestHandler).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"RemoveMemoryDump").
 			Doc("Remove memory dump association.").
 			Returns(http.StatusOK, "OK", "").
@@ -582,8 +583,8 @@ func (app *virtAPIApp) composeSubresources() {
 				"/openapi/v2",
 			}
 			for _, version := range v1.SubresourceGroupVersions {
-				paths = append(paths, rest.GroupBasePath(version))
-				paths = append(paths, rest.GroupVersionBasePath(version))
+				paths = append(paths, definitions.GroupBasePath(version))
+				paths = append(paths, definitions.GroupVersionBasePath(version))
 			}
 			response.WriteAsJson(&metav1.RootPaths{
 				Paths: paths,
@@ -603,7 +604,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group
-		ws.Route(ws.GET(rest.GroupBasePath(version)).
+		ws.Route(ws.GET(definitions.GroupBasePath(version)).
 			Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(subresourceAPIGroup())

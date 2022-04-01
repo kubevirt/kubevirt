@@ -13,6 +13,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
@@ -65,8 +67,8 @@ func NewWebsocketStreamer(fetch vmiFetcher, validate validator, dial dialer) *St
 }
 
 func (s *Streamer) Handle(request *restful.Request, response *restful.Response) error {
-	namespace := request.PathParameter(NamespaceParamName)
-	name := request.PathParameter(NameParamName)
+	namespace := request.PathParameter(definitions.NamespaceParamName)
+	name := request.PathParameter(definitions.NameParamName)
 
 	vmi, statusErr := s.fetchAndValidateVMI(namespace, name)
 	if statusErr != nil {

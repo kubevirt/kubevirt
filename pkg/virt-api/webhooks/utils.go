@@ -33,14 +33,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	clientutil "kubevirt.io/client-go/util"
-
-	"kubevirt.io/kubevirt/pkg/util/openapi"
-	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
 var Arch = runtime.GOARCH
-
-var Validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())
 
 var VirtualMachineInstanceGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,

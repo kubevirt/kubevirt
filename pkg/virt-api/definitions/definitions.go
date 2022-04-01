@@ -17,7 +17,7 @@
  *
  */
 
-package rest
+package definitions
 
 import (
 	"fmt"

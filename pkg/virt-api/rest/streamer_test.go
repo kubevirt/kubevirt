@@ -19,6 +19,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 var _ = Describe("Streamer", func() {
@@ -89,8 +91,8 @@ var _ = Describe("Streamer", func() {
 	})
 	It("fetches the VMI specified in the request params", func() {
 		params := req.PathParameters()
-		params[NamespaceParamName] = testNamespace
-		params[NameParamName] = testName
+		params[definitions.NamespaceParamName] = testNamespace
+		params[definitions.NameParamName] = testName
 
 		streamer.Handle(req, resp)
 		Expect(fetchVMICalled).To(BeTrue())
