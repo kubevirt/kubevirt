@@ -187,6 +187,9 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
 		const ptpGateway = ptpSubnetIP1
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
+			BeforeEach(func() {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+			})
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := libvmi.NewAlpine()
@@ -261,6 +264,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 				detachedVMI := libvmi.NewAlpine()
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
