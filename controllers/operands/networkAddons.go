@@ -143,7 +143,6 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 	cnaoSpec := networkaddonsshared.NetworkAddonsConfigSpec{
 		Multus:      &networkaddonsshared.Multus{},
 		LinuxBridge: &networkaddonsshared.LinuxBridge{},
-		NMState:     &networkaddonsshared.NMState{},
 		KubeMacPool: &networkaddonsshared.KubeMacPool{},
 	}
 

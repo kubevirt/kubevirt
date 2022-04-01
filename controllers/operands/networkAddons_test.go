@@ -787,8 +787,15 @@ var _ = Describe("CNA Operand", func() {
 				Expect(handler.hooks.(*cnaHooks).cache == crII).To(BeTrue())
 			})
 
-		})
+			Context("Requested components", func() {
+				It("should not request nmstate", func() {
+					expectedResource, err := NewNetworkAddons(hco)
+					Expect(err).ToNot(HaveOccurred())
 
+					Expect(expectedResource.Spec.NMState).To(BeNil())
+				})
+			})
+		})
 	})
 
 	Context("hcoConfig2CnaoPlacement", func() {
