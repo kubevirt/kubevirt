@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -238,7 +239,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		var archivePath string
 
 		BeforeEach(func() {
-			archivePath = tests.CreateArchive("archive", os.TempDir(), imagePath)
+			archivePath = createArchive("archive", os.TempDir(), imagePath)
 		})
 
 		AfterEach(func() {
@@ -297,3 +298,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 })
+
+func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string {
+	tgtPath := filepath.Join(tgtDir, filepath.Base(targetFile)+".tar")
+	tgtFile, err := os.Create(tgtPath)
+	Expect(err).ToNot(HaveOccurred())
+	defer tgtFile.Close()
+
+	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
+
+	return tgtPath
+}

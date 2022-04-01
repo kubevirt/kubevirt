@@ -3358,17 +3358,6 @@ func CreateBlockPVC(virtClient kubecli.KubevirtClient, name string, size resourc
 	return createdPvc
 }
 
-func CreateArchive(targetFile, tgtDir string, sourceFilesNames ...string) string {
-	tgtPath := filepath.Join(tgtDir, filepath.Base(targetFile)+".tar")
-	tgtFile, err := os.Create(tgtPath)
-	Expect(err).ToNot(HaveOccurred())
-	defer tgtFile.Close()
-
-	ArchiveToFile(tgtFile, sourceFilesNames...)
-
-	return tgtPath
-}
-
 func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 	w := tar.NewWriter(tgtFile)
 	defer w.Close()
