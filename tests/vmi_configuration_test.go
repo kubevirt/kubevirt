@@ -1378,7 +1378,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in vmi status")
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedVmi.Status.GuestOSInfo.Name).To(Equal("Fedora"))
+				Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
 			})
 
 			It("[test_id:4627]should return the whole data when agent is present", func() {

@@ -122,33 +122,6 @@ http_file(
 )
 
 http_file(
-    name = "microlivecd_image",
-    sha256 = "ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
-    urls = [
-        "https://github.com/jean-edouard/microlivecd/releases/download/0.1/microlivecd_amd64.iso",
-        "https://storage.googleapis.com/builddeps/ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
-    ],
-)
-
-http_file(
-    name = "microlivecd_image_ppc64el",
-    sha256 = "eae431d68b9dc5fab422f4b90d4204cbc28c39518780c4822970a4bef42f7c7f",
-    urls = [
-        "https://github.com/jean-edouard/microlivecd/releases/download/0.1/microlivecd_ppc64el.iso",
-        "https://storage.googleapis.com/builddeps/eae431d68b9dc5fab422f4b90d4204cbc28c39518780c4822970a4bef42f7c7f",
-    ],
-)
-
-http_file(
-    name = "microlivecd_image_aarch64",
-    sha256 = "2d9a7790fa6347251aacd997384b30962bc60dfe4eb9f0c2bd76b42f54d04b8d",
-    urls = [
-        "https://github.com/jean-edouard/microlivecd/releases/download/0.2/microlivecd_arm64.iso",
-        "https://storage.googleapis.com/builddeps/2d9a7790fa6347251aacd997384b30962bc60dfe4eb9f0c2bd76b42f54d04b8d",
-    ],
-)
-
-http_file(
     name = "virtio_win_image",
     sha256 = "7bf7f53e30c69a360f89abb3d2cc19cc978f533766b1b2270c2d8344edf9b3ef",
     urls = [
@@ -357,7 +330,7 @@ container_pull(
 # TODO build fedora_with_test_tooling for multi-arch
 container_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:14193941e1fe74f2189536263c71479abbd296dc93b75e8a7f97f0b31e78b71e",
+    digest = "sha256:da6c118dbd9ac643713c1737cbaa43dcc7386b269b4beb0984413168f3a5f2d3",
     registry = "quay.io",
     repository = "kubevirtci/fedora-with-test-tooling",
 )

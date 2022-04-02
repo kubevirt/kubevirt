@@ -101,11 +101,10 @@ const (
 )
 
 const (
-	imageAlpine      = "alpine-container-disk-demo"
-	imageCirros      = "cirros-container-disk-demo"
-	imageFedora      = "fedora-with-test-tooling-container-disk"
-	imageMicroLiveCD = "microlivecd-container-disk-demo"
-	imageKernelBoot  = "alpine-ext-kernel-boot-demo"
+	imageAlpine     = "alpine-container-disk-demo"
+	imageCirros     = "cirros-container-disk-demo"
+	imageFedora     = "fedora-with-test-tooling-container-disk"
+	imageKernelBoot = "alpine-ext-kernel-boot-demo"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
@@ -430,7 +429,7 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 func GetVMISecureBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiSecureBoot)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageMicroLiveCD, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), busVirtio)
 
 	_true := true
 	vmi.Spec.Domain.Features = &v1.Features{

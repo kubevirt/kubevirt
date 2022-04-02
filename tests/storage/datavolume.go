@@ -942,7 +942,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		}
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("5Gi")
+			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse(cd.FedoraVolumeSize)
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation
 
@@ -966,7 +966,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "dd if=/dev/urandom of=largefile bs=1M count=100 2> /dev/null\n"},
+				&expect.BSnd{S: "dd if=/dev/urandom of=largefile bs=1M count=300 2> /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: syncName},
 				&expect.BExp{R: console.PromptExpression},
@@ -986,7 +986,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Deleting large file and trimming disk")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// Write a small file so that we'll have an increase in image size if trim is unsupported.
-				&expect.BSnd{S: "dd if=/dev/urandom of=smallfile bs=1M count=20 2> /dev/null\n"},
+				&expect.BSnd{S: "dd if=/dev/urandom of=smallfile bs=1M count=50 2> /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: syncName},
 				&expect.BExp{R: console.PromptExpression},
