@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virt-launcher-monitor.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virt-launcher-monitor",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/net:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+        "//vendor/k8s.io/client-go/util/retry:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "virt-launcher-monitor",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

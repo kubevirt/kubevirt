@@ -1045,7 +1045,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"-c",
 			"echo", "bound PVCs"}
 	} else {
-		command = []string{"/usr/bin/virt-launcher",
+		command = []string{"/usr/bin/virt-launcher-monitor",
 			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
 			"--name", domain,
 			"--uid", string(vmi.UID),
