@@ -42,7 +42,8 @@ const (
 	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
 	MacvtapGate                = "Macvtap"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
-	NonRoot                    = "NonRootExperimental"
+	NonRootDeprecated          = "NonRootExperimental"
+	NonRoot                    = "NonRoot"
 	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 )
@@ -126,7 +127,7 @@ func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 }
 
 func (config *ClusterConfig) NonRootEnabled() bool {
-	return config.isFeatureGateEnabled(NonRoot)
+	return config.isFeatureGateEnabled(NonRoot) || config.isFeatureGateEnabled(NonRootDeprecated)
 }
 
 func (config *ClusterConfig) ClusterProfilerEnabled() bool {
