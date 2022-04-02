@@ -97,10 +97,11 @@ func (o *SSH) tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
 		signer, err := ssh.ParsePrivateKey(key)
 		if _, isPassErr := err.(*ssh.PassphraseMissingError); isPassErr {
 			signer, err = o.parsePrivateKeyWithPassphrase(key)
-			if err != nil {
-				return nil, err
-			}
 		}
+		if err != nil {
+			return nil, err
+		}
+
 		return []ssh.Signer{signer}, nil
 	})
 
