@@ -18959,10 +18959,16 @@
     "type": "object",
     "properties": {
      "namespaceSelector": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      },
      "virtualMachineInstanceSelector": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      }
     }
    },

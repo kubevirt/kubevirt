@@ -2505,11 +2505,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Spec: v1alpha1.MigrationPolicySpec{
 						BandwidthPerMigration: &quantity,
 						Selectors: &v1alpha1.Selectors{
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									cleanup.TestLabelForNamespace(util.NamespaceTestDefault): "",
-								},
-							},
+							NamespaceSelector: v1alpha1.LabelSelector{cleanup.TestLabelForNamespace(util.NamespaceTestDefault): ""},
 						},
 					},
 				}

@@ -53,11 +53,13 @@ type MigrationPolicySpec struct {
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 }
 
+type LabelSelector map[string]string
+
 type Selectors struct {
 	//+optional
-	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+	NamespaceSelector LabelSelector `json:"namespaceSelector,omitempty"`
 	//+optional
-	VirtualMachineInstanceSelector *metav1.LabelSelector `json:"virtualMachineInstanceSelector,omitempty"`
+	VirtualMachineInstanceSelector LabelSelector `json:"virtualMachineInstanceSelector,omitempty"`
 }
 
 type MigrationPolicyStatus struct {

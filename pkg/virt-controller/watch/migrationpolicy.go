@@ -2,7 +2,6 @@ package watch
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations/v1alpha1"
@@ -103,16 +102,16 @@ func countMatchingLabels(policy *v1alpha1.MigrationPolicy, vmiLabels, namespaceL
 		return matchingLabels
 	}
 
-	areSelectorsAndLabelsNotNil := func(selector *metav1.LabelSelector, labels map[string]string) bool {
-		return selector != nil && selector.MatchLabels != nil && labels != nil
+	areSelectorsAndLabelsNotNil := func(selector v1alpha1.LabelSelector, labels map[string]string) bool {
+		return selector != nil && labels != nil
 	}
 
 	if areSelectorsAndLabelsNotNil(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmiLabels) {
-		matchingVMILabels = countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels, vmiLabels)
+		matchingVMILabels = countLabelsHelper(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmiLabels)
 	}
 
 	if doesMatch && areSelectorsAndLabelsNotNil(policy.Spec.Selectors.NamespaceSelector, vmiLabels) {
-		matchingNSLabels = countLabelsHelper(policy.Spec.Selectors.NamespaceSelector.MatchLabels, namespaceLabels)
+		matchingNSLabels = countLabelsHelper(policy.Spec.Selectors.NamespaceSelector, namespaceLabels)
 	}
 
 	if doesMatch {

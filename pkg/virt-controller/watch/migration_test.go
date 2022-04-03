@@ -1488,11 +1488,11 @@ var _ = Describe("Migration watcher", func() {
 				const labelValue = "mp-value-0"
 
 				policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, &namespace, 4, 3)
-				_, exists := policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey]
+				_, exists := policy.Spec.Selectors.VirtualMachineInstanceSelector[labelKey]
 				Expect(exists).To(BeTrue())
 
 				By("Changing one of the policy's labels to it won't match to VMI")
-				policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey] = labelValue + "XYZ"
+				policy.Spec.Selectors.VirtualMachineInstanceSelector[labelKey] = labelValue + "XYZ"
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
 
 				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
