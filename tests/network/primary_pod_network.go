@@ -150,7 +150,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					cleanupVMI(virtClient, vmi)
 				})
 
-				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
+				It("[test_id:4153]should report PodIP/s as its own on interface status", Labels{"test_id:4153"}, func() {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Consistently(func() error {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -174,7 +174,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					cleanupVMI(virtClient, vmi)
 				})
 
-				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
+				It("[Conformance] should report PodIP as its own on interface status", Labels{"Conformance"}, func() { AssertReportedIP(vmi) })
 			})
 		})
 	})

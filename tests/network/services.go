@@ -183,14 +183,14 @@ var _ = SIGDescribe("Services", func() {
 				jobCleanup = nil
 			})
 
-			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
+			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", Labels{"test_id:1547"}, func() {
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), expectConnectivityToExposedService)
 			})
 
-			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
+			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", Labels{"test_id:1548"}, func() {
 				var err error
 
 				jobCleanup, err = assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
@@ -217,7 +217,7 @@ var _ = SIGDescribe("Services", func() {
 				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
-			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
+			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", Labels{"test_id:1549"}, func() {
 				var err error
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
 
@@ -272,7 +272,7 @@ var _ = SIGDescribe("Services", func() {
 				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
-			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", Labels{"Conformance"}, func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
 					libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)

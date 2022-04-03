@@ -28,174 +28,106 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
-	var (
-		virtClient      kubecli.KubevirtClient
-		serverVMILabels map[string]string
-	)
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
+var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy",
+	Labels{"rfe_id:150", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+	func() {
+		var (
+			virtClient      kubecli.KubevirtClient
+			serverVMILabels map[string]string
+		)
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
 
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")
+			var err error
+			virtClient, err = kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")
 
-		checks.SkipIfUseFlannel(virtClient)
-		skipNetworkPolicyRunningOnKindInfra()
+			checks.SkipIfUseFlannel(virtClient)
+			skipNetworkPolicyRunningOnKindInfra()
 
-		serverVMILabels = map[string]string{"type": "test"}
-	})
+			serverVMILabels = map[string]string{"type": "test"}
+		})
 
 	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
-		BeforeEach(func() {
-			var err error
-			serverVMI, err = createServerVmi(virtClient, util.NamespaceTestDefault, serverVMILabels)
-			Expect(err).ToNot(HaveOccurred())
-			assertIPsNotEmptyForVMI(serverVMI)
-		})
-
-		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", func() {
-			var policy *networkv1.NetworkPolicy
-
 			BeforeEach(func() {
 				var err error
-				// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
-				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
-				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				serverVMI, err = createServerVmi(virtClient, util.NamespaceTestDefault, serverVMILabels)
 				Expect(err).ToNot(HaveOccurred())
-				assertIPsNotEmptyForVMI(clientVMI)
+				assertIPsNotEmptyForVMI(serverVMI)
 			})
 
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-
-			It("[test_id:1511] should fail to reach serverVMI from clientVMI", func() {
-				By("Connect serverVMI from clientVMI")
-				assertPingFail(clientVMI, serverVMI)
-			})
-
-			It("[test_id:1512] should fail to reach clientVMI from serverVMI", func() {
-				By("Connect clientVMI from serverVMI")
-				assertPingFail(serverVMI, clientVMI)
-			})
-			It("[test_id:369] should deny http traffic for ports 80/81 from clientVMI to serverVMI", func() {
-				assertHTTPPingFailed(clientVMI, serverVMI, 80)
-				assertHTTPPingFailed(clientVMI, serverVMI, 81)
-			})
-
-		})
-
-		Context("and vms limited by allow same namespace networkpolicy", func() {
-			var policy *networkv1.NetworkPolicy
-
-			BeforeEach(func() {
-				// allow-same-namespace networkpolicy will only allow the traffic inside the namespace
-				By("Create allow-same-namespace networkpolicy")
-				policy = createNetworkPolicy(serverVMI.Namespace, "allow-same-namespace", metav1.LabelSelector{},
-					[]networkv1.NetworkPolicyIngressRule{
-						{
-							From: []networkv1.NetworkPolicyPeer{
-								{
-									PodSelector: &metav1.LabelSelector{},
-								},
-							},
-						},
-					},
-				)
-			})
-
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-
-			When("client vmi is on default namespace", func() {
+			Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", func() {
+				var policy *networkv1.NetworkPolicy
 
 				BeforeEach(func() {
 					var err error
+					// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
+					policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
 					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
 
-				It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
-					assertPingSucceed(clientVMI, serverVMI)
-				})
-			})
-
-			When("client vmi is on alternative namespace", func() {
-				var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
-
-				BeforeEach(func() {
-					var err error
-					clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
-					Expect(err).ToNot(HaveOccurred())
-					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+				AfterEach(func() {
+					waitForNetworkPolicyDeletion(policy)
 				})
 
-				It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
-					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
-				})
-			})
-		})
-
-		Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", func() {
-			var policy *networkv1.NetworkPolicy
-
-			BeforeEach(func() {
-				// deny-by-label networkpolicy will deny the traffic for the vm which have the same label
-				By("Create deny-by-label networkpolicy")
-				policy = &networkv1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: serverVMI.Namespace,
-						Name:      "deny-by-label",
-					},
-					Spec: networkv1.NetworkPolicySpec{
-						PodSelector: metav1.LabelSelector{
-							MatchLabels: serverVMILabels,
-						},
-						Ingress: []networkv1.NetworkPolicyIngressRule{},
-					},
-				}
-				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-label", metav1.LabelSelector{MatchLabels: serverVMILabels}, []networkv1.NetworkPolicyIngressRule{})
-			})
-
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-
-			When("client vmi is on alternative namespace", func() {
-				var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
-
-				BeforeEach(func() {
-					var err error
-					clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
-					Expect(err).ToNot(HaveOccurred())
-					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
-				})
-
-				It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
-					By("Connect serverVMI from clientVMIAlternativeNamespace")
-					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
-				})
-			})
-
-			When("client vmi is on default namespace", func() {
-				BeforeEach(func() {
-					var err error
-					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
-					Expect(err).ToNot(HaveOccurred())
-					assertIPsNotEmptyForVMI(clientVMI)
-				})
-
-				It("[test_id:1515] should fail to reach serverVMI from clientVMI", func() {
-					By("Connect serverVMI from clientVMIAlternativeNamespace")
+				It("[test_id:1511] should fail to reach serverVMI from clientVMI", Labels{"test_id:1511"}, func() {
+					By("Connect serverVMI from clientVMI")
 					assertPingFail(clientVMI, serverVMI)
 				})
 
-				When("another client vmi is on an alternative namespace", func() {
+				It("[test_id:1512] should fail to reach clientVMI from serverVMI", Labels{"test_id:1512"}, func() {
+					By("Connect clientVMI from serverVMI")
+					assertPingFail(serverVMI, clientVMI)
+				})
+				It("[test_id:369] should deny http traffic for ports 80/81 from clientVMI to serverVMI", Labels{"test_id:369"}, func() {
+					assertHTTPPingFailed(clientVMI, serverVMI, 80)
+					assertHTTPPingFailed(clientVMI, serverVMI, 81)
+				})
+
+			})
+
+			Context("and vms limited by allow same namespace networkpolicy", func() {
+				var policy *networkv1.NetworkPolicy
+
+				BeforeEach(func() {
+					// allow-same-namespace networkpolicy will only allow the traffic inside the namespace
+					By("Create allow-same-namespace networkpolicy")
+					policy = createNetworkPolicy(serverVMI.Namespace, "allow-same-namespace", metav1.LabelSelector{},
+						[]networkv1.NetworkPolicyIngressRule{
+							{
+								From: []networkv1.NetworkPolicyPeer{
+									{
+										PodSelector: &metav1.LabelSelector{},
+									},
+								},
+							},
+						},
+					)
+				})
+
+				AfterEach(func() {
+					waitForNetworkPolicyDeletion(policy)
+				})
+
+				When("client vmi is on default namespace", func() {
+
+					BeforeEach(func() {
+						var err error
+						clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+						Expect(err).ToNot(HaveOccurred())
+						assertIPsNotEmptyForVMI(clientVMI)
+					})
+
+					It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", Labels{"Conformance", "test_id:1513"}, func() {
+						assertPingSucceed(clientVMI, serverVMI)
+					})
+				})
+
+				When("client vmi is on alternative namespace", func() {
 					var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
 
 					BeforeEach(func() {
@@ -205,77 +137,147 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 						assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 					})
 
-					It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", func() {
-						By("Connect clientVMI from clientVMIAlternativeNamespace")
-						assertPingSucceed(clientVMIAlternativeNamespace, clientVMI)
+					It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", Labels{"Conformance", "test_id:1514"}, func() {
+						assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 					})
 				})
 			})
-		})
 
-		Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", func() {
-			var policy *networkv1.NetworkPolicy
+			Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", func() {
+				var policy *networkv1.NetworkPolicy
 
-			BeforeEach(func() {
-				port80 := intstr.FromInt(80)
-				port81 := intstr.FromInt(81)
-				tcp := corev1.ProtocolTCP
-				policy = createNetworkPolicy(serverVMI.Namespace, "allow-all-http-ports", metav1.LabelSelector{},
-					[]networkv1.NetworkPolicyIngressRule{
-						{
-							Ports: []networkv1.NetworkPolicyPort{
-								{Port: &port80, Protocol: &tcp},
-								{Port: &port81, Protocol: &tcp},
+				BeforeEach(func() {
+					// deny-by-label networkpolicy will deny the traffic for the vm which have the same label
+					By("Create deny-by-label networkpolicy")
+					policy = &networkv1.NetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: serverVMI.Namespace,
+							Name:      "deny-by-label",
+						},
+						Spec: networkv1.NetworkPolicySpec{
+							PodSelector: metav1.LabelSelector{
+								MatchLabels: serverVMILabels,
+							},
+							Ingress: []networkv1.NetworkPolicyIngressRule{},
+						},
+					}
+					policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-label", metav1.LabelSelector{MatchLabels: serverVMILabels}, []networkv1.NetworkPolicyIngressRule{})
+				})
+
+				AfterEach(func() {
+					waitForNetworkPolicyDeletion(policy)
+				})
+
+				When("client vmi is on alternative namespace", func() {
+					var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
+
+					BeforeEach(func() {
+						var err error
+						clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+						Expect(err).ToNot(HaveOccurred())
+						assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+					})
+
+					It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", Labels{"test_id:1515"}, func() {
+						By("Connect serverVMI from clientVMIAlternativeNamespace")
+						assertPingFail(clientVMIAlternativeNamespace, serverVMI)
+					})
+				})
+
+				When("client vmi is on default namespace", func() {
+					BeforeEach(func() {
+						var err error
+						clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+						Expect(err).ToNot(HaveOccurred())
+						assertIPsNotEmptyForVMI(clientVMI)
+					})
+
+					It("[test_id:1515] should fail to reach serverVMI from clientVMI", Labels{"test_id:1515"}, func() {
+						By("Connect serverVMI from clientVMIAlternativeNamespace")
+						assertPingFail(clientVMI, serverVMI)
+					})
+
+					When("another client vmi is on an alternative namespace", func() {
+						var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
+
+						BeforeEach(func() {
+							var err error
+							clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+							Expect(err).ToNot(HaveOccurred())
+							assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+						})
+
+						It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", Labels{"test_id:1517"}, func() {
+							By("Connect clientVMI from clientVMIAlternativeNamespace")
+							assertPingSucceed(clientVMIAlternativeNamespace, clientVMI)
+						})
+					})
+				})
+			})
+
+			Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", func() {
+				var policy *networkv1.NetworkPolicy
+
+				BeforeEach(func() {
+					port80 := intstr.FromInt(80)
+					port81 := intstr.FromInt(81)
+					tcp := corev1.ProtocolTCP
+					policy = createNetworkPolicy(serverVMI.Namespace, "allow-all-http-ports", metav1.LabelSelector{},
+						[]networkv1.NetworkPolicyIngressRule{
+							{
+								Ports: []networkv1.NetworkPolicyPort{
+									{Port: &port80, Protocol: &tcp},
+									{Port: &port81, Protocol: &tcp},
+								},
 							},
 						},
-					},
-				)
+					)
 
-				var err error
-				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				assertIPsNotEmptyForVMI(clientVMI)
+					var err error
+					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					assertIPsNotEmptyForVMI(clientVMI)
+				})
+				AfterEach(func() {
+					waitForNetworkPolicyDeletion(policy)
+				})
+				It("[test_id:2774] should allow http traffic for ports 80 and 81 from clientVMI to serverVMI", Labels{"test_id:2774"}, func() {
+					assertHTTPPingSucceed(clientVMI, serverVMI, 80)
+					assertHTTPPingSucceed(clientVMI, serverVMI, 81)
+				})
 			})
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-			It("[test_id:2774] should allow http traffic for ports 80 and 81 from clientVMI to serverVMI", func() {
-				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
-				assertHTTPPingSucceed(clientVMI, serverVMI, 81)
-			})
-		})
-		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", func() {
-			var policy *networkv1.NetworkPolicy
+			Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", func() {
+				var policy *networkv1.NetworkPolicy
 
-			BeforeEach(func() {
-				port80 := intstr.FromInt(80)
-				tcp := corev1.ProtocolTCP
-				policy = createNetworkPolicy(serverVMI.Namespace, "allow-http80-ports", metav1.LabelSelector{},
-					[]networkv1.NetworkPolicyIngressRule{
-						{
-							Ports: []networkv1.NetworkPolicyPort{
-								{Port: &port80, Protocol: &tcp},
+				BeforeEach(func() {
+					port80 := intstr.FromInt(80)
+					tcp := corev1.ProtocolTCP
+					policy = createNetworkPolicy(serverVMI.Namespace, "allow-http80-ports", metav1.LabelSelector{},
+						[]networkv1.NetworkPolicyIngressRule{
+							{
+								Ports: []networkv1.NetworkPolicyPort{
+									{Port: &port80, Protocol: &tcp},
+								},
 							},
 						},
-					},
-				)
+					)
 
-				var err error
-				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				assertIPsNotEmptyForVMI(clientVMI)
+					var err error
+					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					assertIPsNotEmptyForVMI(clientVMI)
+				})
+				AfterEach(func() {
+					waitForNetworkPolicyDeletion(policy)
+				})
+				It("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", Labels{"test_id:2775"}, func() {
+					assertHTTPPingSucceed(clientVMI, serverVMI, 80)
+					assertHTTPPingFailed(clientVMI, serverVMI, 81)
+				})
 			})
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-			It("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", func() {
-				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
-				assertHTTPPingFailed(clientVMI, serverVMI, 81)
-			})
+
 		})
-
 	})
-})
 
 func skipNetworkPolicyRunningOnKindInfra() {
 	if tests.IsRunningOnKindInfra() {

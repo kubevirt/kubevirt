@@ -23,10 +23,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func SIGDescribe(text string, body func()) bool {
-	return Describe("[sig-network] "+text, body)
+func SIGDescribe(text string, args ...interface{}) bool {
+	for i := range args {
+		if labels, ok := args[i].(Labels); ok {
+			labels = append(labels, "sig-network")
+			args[i] = labels
+		}
+	}
+	return Describe("[sig-network] "+text, args)
 }
 
-func FSIGDescribe(text string, body func()) bool {
-	return FDescribe("[sig-network] "+text, body)
+func FSIGDescribe(text string, args ...interface{}) bool {
+	for i := range args {
+		if labels, ok := args[i].(Labels); ok {
+			labels = append(labels, "sig-network")
+			args[i] = labels
+		}
+	}
+	return FDescribe("[sig-network] "+text, args)
 }

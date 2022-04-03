@@ -26,7 +26,7 @@ const (
 	specifyingVMLivenessProbe  = "Specifying a VMI with a liveness probe"
 )
 
-var _ = SIGDescribe("[ref_id:1182]Probes", func() {
+var _ = SIGDescribe("[ref_id:1182]Probes", Labels{"ref_id:1182"}, func() {
 	var (
 		err           error
 		virtClient    kubecli.KubevirtClient
@@ -123,13 +123,13 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
 			}
 		},
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
-			Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, true, false),
-			Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", Labels{"test_id:1202", "posneg:positive"}, tcpProbe, corev1.IPv4Protocol, false, false),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", Labels{"test_id:1202", "posneg:positive"}, tcpProbe, corev1.IPv6Protocol, false, false),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", Labels{"test_id:1200", "posneg:positive"}, httpProbe, corev1.IPv4Protocol, false, false),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", Labels{"test_id:1200", "posneg:positive"}, httpProbe, corev1.IPv6Protocol, false, false),
+			Entry("[test_id:TODO]with working Exec probe", Labels{"test_id:TODO"}, createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
+			Entry("[test_id:6739]with GuestAgentPing", Labels{"test_id:6739"}, guestAgentPingProbe, blankIPFamily, true, false),
+			Entry("[test_id:6741]status change with guest-agent availability", Labels{"test_id:6741"}, guestAgentPingProbe, blankIPFamily, true, true),
 		)
 
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
@@ -143,10 +143,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return getVMIConditions(virtClient, vmi)
 			}).ShouldNot(ContainElement(v1.VirtualMachineInstanceReady))
 		},
-			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewAlpine),
-			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewAlpine),
-			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
-			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmi.NewFedora),
+			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", Labels{"test_id:1220", "posneg:negative"}, tcpProbe, libvmi.NewAlpine),
+			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", Labels{"test_id:1219", "posneg:negative"}, httpProbe, libvmi.NewAlpine),
+			Entry("[test_id:TODO]with working Exec probe and invalid command", Labels{"test_id:TODO"}, createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
+			Entry("[test_id:TODO]with working Exec probe and infinitely running command", Labels{"test_id:TODO"}, createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmi.NewFedora),
 		)
 	})
 
@@ -200,11 +200,11 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", Labels{"test_id:1199", "posneg:positive"}, tcpProbe, corev1.IPv4Protocol, false),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", Labels{"test_id:1199", "posneg:positive"}, tcpProbe, corev1.IPv6Protocol, false),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", Labels{"test_id:1201", "posneg:positive"}, httpProbe, corev1.IPv4Protocol, false),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", Labels{"test_id:1201", "posneg:positive"}, httpProbe, corev1.IPv6Protocol, false),
+			Entry("[test_id:TODO]with working Exec probe", Labels{"test_id:TODO"}, createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
 		)
 
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
@@ -220,9 +220,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmi.NewCirros),
-			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmi.NewCirros),
-			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
+			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", Labels{"test_id:1217", "posneg:negative"}, tcpProbe, libvmi.NewCirros),
+			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", Labels{"test_id:1218", "posneg:negative"}, httpProbe, libvmi.NewCirros),
+			Entry("[test_id:TODO]with working Exec probe and invalid command", Labels{"test_id:TODO"}, createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmi.NewFedora),
 		)
 	})
 })
