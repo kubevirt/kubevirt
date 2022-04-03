@@ -50,7 +50,10 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 	var stopCh chan struct{}
 	var lastObservedEvent string
 
-	const e2eCanaryTestAnnotation = "e2e-canary-test"
+	const (
+		e2eCanaryTestAnnotation = "e2e-canary-test"
+		canaryTestNodeTimeout   = 60
+	)
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
@@ -175,6 +178,11 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 			"maxUnavailable=1",
 		}
 
+		ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		nodesToUpdate := ds.Status.DesiredNumberScheduled
+		Expect(nodesToUpdate > 0).To(BeTrue())
+
 		go dsInformer.Run(stopCh)
 		cache.WaitForCacheSync(stopCh, dsInformer.HasSynced)
 
@@ -187,14 +195,15 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", func() {
 			},
 		})
 
-		err := updateVirtHandler()
+		err = updateVirtHandler()
 		Expect(err).ToNot(HaveOccurred())
 
+		updateTimeout := time.Duration(canaryTestNodeTimeout * nodesToUpdate)
 		Eventually(func() bool {
 			expectedEventsLock.Lock()
 			defer expectedEventsLock.Unlock()
 			return len(expectedEvents) == 0
-		}, 120*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("events %v were expected but did not occur", expectedEvents))
+		}, updateTimeout*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("events %v were expected but did not occur", expectedEvents))
 
 		Expect(isVirtHandlerUpdated(getVirtHandler())).To(BeTrue())
 	})
