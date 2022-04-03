@@ -154,28 +154,28 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		Labels{"rfe_id:3188", "crit:high", "vendor:cnv-qe@redhat.com", "level:system"},
 		func() {
 
-		Context("[Serial]without fsgroup support", Labels{"Serial"}, func() {
-			size := "1Gi"
+			Context("[Serial]without fsgroup support", Labels{"Serial"}, func() {
+				size := "1Gi"
 
-			It("should succesfully start", func() {
-				// Create DV and alter permission of disk.img
-				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
-				dv := libstorage.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				tests.SetDataVolumeForceBindAnnotation(dv)
-				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
-				var pvc *k8sv1.PersistentVolumeClaim
-				Eventually(func() *k8sv1.PersistentVolumeClaim {
-					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return pvc
-				}, 30*time.Second).Should(Not(BeNil()))
-				By("waiting for the dv import to pvc to finish")
-				Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
-				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+				It("should succesfully start", func() {
+					// Create DV and alter permission of disk.img
+					url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+					dv := libstorage.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+					tests.SetDataVolumeForceBindAnnotation(dv)
+					dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
+					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+					Expect(err).To(BeNil())
+					var pvc *k8sv1.PersistentVolumeClaim
+					Eventually(func() *k8sv1.PersistentVolumeClaim {
+						pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+						if err != nil {
+							return nil
+						}
+						return pvc
+					}, 30*time.Second).Should(Not(BeNil()))
+					By("waiting for the dv import to pvc to finish")
+					Eventually(ThisDV(dv), 180*time.Second).Should(HaveSucceeded())
+					tests.ChangeImgFilePermissionsToNonQEMU(pvc)
 
 					vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 
@@ -212,20 +212,20 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 
-				// This will only work on storage with binding mode WaitForFirstConsumer,
-				if tests.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
-				}
-				num := 2
-				By("Starting and stopping the VirtualMachineInstance a number of times")
-				for i := 1; i <= num; i++ {
-					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
-					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
-					// after being restarted multiple times
-					if i == num {
-						By(checkingVMInstanceConsoleExpectedOut)
-						Expect(console.LoginToAlpine(vmi)).To(Succeed())
+					// This will only work on storage with binding mode WaitForFirstConsumer,
+					if tests.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
+						Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 					}
+					num := 2
+					By("Starting and stopping the VirtualMachineInstance a number of times")
+					for i := 1; i <= num; i++ {
+						vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+						// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+						// after being restarted multiple times
+						if i == num {
+							By(checkingVMInstanceConsoleExpectedOut)
+							Expect(console.LoginToAlpine(vmi)).To(Succeed())
+						}
 
 						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 						Expect(err).To(BeNil())
@@ -241,10 +241,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					vmis := make([]*v1.VirtualMachineInstance, 0, numVmis)
 					dvs := make([]*cdiv1.DataVolume, 0, numVmis)
 
-				for idx := 0; idx < numVmis; idx++ {
+					for idx := 0; idx < numVmis; idx++ {
 					dataVolume := libstorage.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+						vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+						vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 
 						_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 						Expect(err).To(BeNil())
@@ -270,15 +270,15 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					dataVolume := libstorage.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 					vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
-				// This will only work on storage with binding mode WaitForFirstConsumer,
+					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+					Expect(err).To(BeNil())
+					// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
-				}
-				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
-				// import and start
-				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+						Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
+					}
+					// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
+					// import and start
+					vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 					By(checkingVMInstanceConsoleExpectedOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -575,7 +575,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var dataVolumeName string
 			var pvcName string
 
-		k8sClient := clientcmd.GetK8sCmdClient()
+			k8sClient := clientcmd.GetK8sCmdClient()
 
 			BeforeEach(func() {
 				running := true
@@ -592,7 +592,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", Labels{"test_id:836"}, func() {
 				By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
+				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By(verifyingDataVolumeSuccess)
@@ -607,7 +607,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", Labels{"test_id:837"}, func() {
 				By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
+				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By(verifyingDataVolumeSuccess)
@@ -620,7 +620,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 				By("Deleting VM with cascade=true")
-			_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=true")
+				_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=true")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the VM to be deleted")
@@ -638,7 +638,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", Labels{"test_id:838"}, func() {
 				By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
+				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By(verifyingDataVolumeSuccess)
@@ -651,7 +651,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 				By("Deleting VM with cascade=false")
-			_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=false")
+				_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=false")
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the VM to be deleted")

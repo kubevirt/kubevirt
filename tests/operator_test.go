@@ -1550,12 +1550,12 @@ spec:
 					for _, vmYaml := range vmYamls {
 						By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
 						// NOTE: using kubectl to post yaml directly
-				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmYaml.yamlFile, "--cache-dir", oldClientCacheDir)
-				Expect(err).ToNot(HaveOccurred())
+						_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmYaml.yamlFile, "--cache-dir", oldClientCacheDir)
+						Expect(err).ToNot(HaveOccurred())
 
 						for _, vmSnapshot := range vmYaml.vmSnapshots {
 							By(fmt.Sprintf("Creating VM snapshot %s for vm %s", vmSnapshot.vmSnapshotName, vmYaml.vmName))
-					_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmSnapshot.yamlFile, "--cache-dir", oldClientCacheDir)
+							_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmSnapshot.yamlFile, "--cache-dir", oldClientCacheDir)
 							Expect(err).ToNot(HaveOccurred())
 						}
 
@@ -1563,7 +1563,7 @@ spec:
 						// NOTE: we are using virtctl explicitly here because we want to start the VM
 						// using the subresource endpoint in the same way virtctl performs this.
 						By("Starting VM with virtctl")
-			        	startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
+						startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
 						Expect(startCommand()).To(Succeed())
 
 						By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
@@ -1651,7 +1651,7 @@ spec:
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 
 						By("Stopping VM with virtctl")
-				        stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
+						stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
 						Eventually(func() error {
 							return stopFn()
 						}, 30*time.Second, 1*time.Second).Should(BeNil())
@@ -1707,7 +1707,7 @@ spec:
 
 						By(fmt.Sprintf("Ensure vm %s can be restored from vmsnapshots", vmYaml.vmName))
 						for _, snapshot := range vmYaml.vmSnapshots {
-					        _, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
+							_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
 							Expect(err).ToNot(HaveOccurred())
 							Eventually(func() bool {
 								r, err := virtClient.VirtualMachineRestore(util2.NamespaceTestDefault).Get(context.Background(), snapshot.restoreName, metav1.GetOptions{})
@@ -1719,7 +1719,7 @@ spec:
 						}
 
 						By(fmt.Sprintf("Deleting VM with %s api", vmYaml.apiVersion))
-				        _, _, err = clientcmd.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile, "--cache-dir", newClientCacheDir)
+						_, _, err = clientcmd.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile, "--cache-dir", newClientCacheDir)
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Waiting for VM to be removed")

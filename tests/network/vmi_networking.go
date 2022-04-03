@@ -138,13 +138,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					outboundVMI = runVMI(outboundVMI)
 				})
 
-			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				vmi := *vmiRef
-				if vmiHasCustomMacAddress(vmi) {
-					checks.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
-				}
-				vmi = runVMI(vmi)
-				addr := vmi.Status.Interfaces[0].IP
+				DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
+					vmi := *vmiRef
+					if vmiHasCustomMacAddress(vmi) {
+						checks.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
+					}
+					vmi = runVMI(vmi)
+					addr := vmi.Status.Interfaces[0].IP
 
 					payloadSize := 0
 					ipHeaderSize := 28 // IPv4 specific
@@ -175,39 +175,39 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("checking eth0 MTU inside the VirtualMachineInstance")
 				Expect(console.LoginToCirros(outboundVMI)).To(Succeed())
 
-				addrShow := "ip address show eth0\n"
-				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: addrShow},
-					&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 180)).To(Succeed())
+					addrShow := "ip address show eth0\n"
+					Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+						&expect.BSnd{S: "\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: addrShow},
+						&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
+						&expect.BSnd{S: tests.EchoLastReturnValue},
+						&expect.BExp{R: console.RetValue("0")},
+					}, 180)).To(Succeed())
 
-				By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
-				// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
-				// we transferred its IP address under DHCP server control, so the
-				// only thing we can validate is connectivity between VMIs
-				//
-				// NOTE: cirros ping doesn't support -M do that could be used to
-				// validate end-to-end connectivity with Don't Fragment flag set
-				cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
-				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: cmdCheck},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: tests.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 180)
-				Expect(err).ToNot(HaveOccurred())
-			},
-				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
-				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
-				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
-			)
-		})
+					By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
+					// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
+					// we transferred its IP address under DHCP server control, so the
+					// only thing we can validate is connectivity between VMIs
+					//
+					// NOTE: cirros ping doesn't support -M do that could be used to
+					// validate end-to-end connectivity with Don't Fragment flag set
+					cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+					err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+						&expect.BSnd{S: "\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: cmdCheck},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: tests.EchoLastReturnValue},
+						&expect.BExp{R: console.RetValue("0")},
+					}, 180)
+					Expect(err).ToNot(HaveOccurred())
+				},
+					Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+					Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
+					Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+				)
+			})
 
 		Context("with propagated IP from a pod", func() {
 			BeforeEach(func() {
@@ -300,37 +300,37 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 		})
 
-	Context("VirtualMachineInstance with default settings", func() {
-		It("[test_id:1542]should be able to reach the internet", Labels{"test_id:1542"}, func() {
-			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
-			outboundVMI := libvmi.NewCirros()
-			outboundVMI = runVMI(outboundVMI)
-			tests.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
+		Context("VirtualMachineInstance with default settings", func() {
+			It("[test_id:1542]should be able to reach the internet", Labels{"test_id:1542"}, func() {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				outboundVMI := libvmi.NewCirros()
+				outboundVMI = runVMI(outboundVMI)
+				tests.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
 
-			By("checking the VirtualMachineInstance can fetch via HTTP")
-			err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: tests.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
+				By("checking the VirtualMachineInstance can fetch via HTTP")
+				err := console.SafeExpectBatch(outboundVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 15)
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
-	})
 
-	Context("VirtualMachineInstance with custom interface model", func() {
-		It("[test_id:1770]should expose the right device type to the guest", Labels{"test_id:1770"}, func() {
-			By("checking the device vendor in /sys/class")
-			// Create a machine with e1000 interface model
-			// Use alpine because cirros dhcp client starts prematurely before link is ready
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.Model = "e1000"
-			e1000VMI := libvmi.NewAlpine(
-				libvmi.WithInterface(masqIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
+		Context("VirtualMachineInstance with custom interface model", func() {
+			It("[test_id:1770]should expose the right device type to the guest", Labels{"test_id:1770"}, func() {
+				By("checking the device vendor in /sys/class")
+				// Create a machine with e1000 interface model
+				// Use alpine because cirros dhcp client starts prematurely before link is ready
+				masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+				masqIface.Model = "e1000"
+				e1000VMI := libvmi.NewAlpine(
+					libvmi.WithInterface(masqIface),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				e1000VMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(e1000VMI)
 				Expect(err).ToNot(HaveOccurred())

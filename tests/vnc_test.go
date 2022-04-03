@@ -175,7 +175,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 				It("[test_id:4272]should connect to vnc with --proxy-only flag", Labels{"test_id:4272"}, func() {
 
 					By("Invoking virtctl vnc with --proxy-only")
-			proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
+					proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
 
 					r, w, _ := os.Pipe()
 					proxyOnlyCommand.SetOut(w)
@@ -214,7 +214,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					testPort := "33333"
 
 					By("Invoking virtctl vnc with --proxy-only")
-			proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--port", testPort, "--namespace", vmi.Namespace, vmi.Name)
+					proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--port", testPort, "--namespace", vmi.Namespace, vmi.Name)
 
 					// Run this as go routine to keep proxy open in the background
 					go func() {

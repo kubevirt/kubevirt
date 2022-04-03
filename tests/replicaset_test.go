@@ -411,7 +411,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmis, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmis.Items).Should(HaveLen(2))
-	})
+		})
 
 		It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
 			By("Creating new replica set")
@@ -475,7 +475,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newRS := newReplicaSet()
 			doScale(newRS.ObjectMeta.Name, 2)
 
-		    result, _, _ := clientcmd.RunCommand(k8sClient, "get", "virtualmachineinstancereplicaset")
+			result, _, _ := clientcmd.RunCommand(k8sClient, "get", "virtualmachineinstancereplicaset")
 			Expect(result).ToNot(BeNil())
 			resultFields := strings.Fields(result)
 			expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}

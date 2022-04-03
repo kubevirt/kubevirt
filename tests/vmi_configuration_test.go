@@ -239,15 +239,15 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				})
 
-			It("[test_id:1659]should report 3 cpu cores under guest OS", Labels{"test_id:1659"}, func() {
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 3,
-				}
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
-					},
-				}
+				It("[test_id:1659]should report 3 cpu cores under guest OS", Labels{"test_id:1659"}, func() {
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						Cores: 3,
+					}
+					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceMemory: resource.MustParse("100M"),
+						},
+					}
 
 					By("Starting a VirtualMachineInstance")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -263,21 +263,21 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 						&expect.BExp{R: console.RetValue("3")},
 					}, 15)).To(Succeed(), "should report number of cores")
 
-				By("Checking the requested amount of memory allocated for a guest")
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("100M"))
+					By("Checking the requested amount of memory allocated for a guest")
+					Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("100M"))
 
-				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-				var computeContainer *kubev1.Container
-				for _, container := range readyPod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainer = &container
-						break
+					readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+					var computeContainer *kubev1.Container
+					for _, container := range readyPod.Spec.Containers {
+						if container.Name == "compute" {
+							computeContainer = &container
+							break
+						}
 					}
-				}
-				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
-				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(296)))
+					if computeContainer == nil {
+						util.PanicOnError(fmt.Errorf("could not find the compute container"))
+					}
+					Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(296)))
 
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -609,10 +609,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("225")},
-				}, 10)).To(Succeed())
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
+						&expect.BExp{R: console.RetValue("225")},
+					}, 10)).To(Succeed())
 
 				})
 			})
@@ -630,10 +630,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("225")},
-				}, 10)).To(Succeed())
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
+						&expect.BExp{R: console.RetValue("225")},
+					}, 10)).To(Succeed())
 
 				})
 			})
@@ -1170,19 +1170,19 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 							vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(hugepagesVmi.Name, &metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 
-						for _, cond := range vmi.Status.Conditions {
-							if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
-								vmiCondition = cond
-								return true
+							for _, cond := range vmi.Status.Conditions {
+								if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
+									vmiCondition = cond
+									return true
+								}
 							}
-						}
-						return false
-					}, 30*time.Second, time.Second).Should(BeTrue())
-					Expect(vmiCondition.Message).To(ContainSubstring("Insufficient hugepages-3Mi"))
-					Expect(vmiCondition.Reason).To(Equal("Unschedulable"))
+							return false
+						}, 30*time.Second, time.Second).Should(BeTrue())
+						Expect(vmiCondition.Message).To(ContainSubstring("Insufficient hugepages-3Mi"))
+						Expect(vmiCondition.Reason).To(Equal("Unschedulable"))
+					})
 				})
 			})
-		})
 
 		Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng",
 			Labels{"rfe_id:893", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
@@ -1414,22 +1414,22 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				It("[test_id:4627]should return the whole data when agent is present", Labels{"test_id:4627"}, func() {
 					agentVMI := prepareAgentVM()
 
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					guestInfo, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).GuestOsInfo(agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
+					By("Expecting the Guest VM information")
+					Eventually(func() bool {
+						guestInfo, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).GuestOsInfo(agentVMI.Name)
+						if err != nil {
+							// invalid request, retry
+							return false
+						}
 
-					return guestInfo.Hostname != "" &&
-						guestInfo.Timezone != "" &&
-						guestInfo.GAVersion != "" &&
-						guestInfo.OS.Name != "" &&
-						len(guestInfo.FSInfo.Filesystems) > 0
+						return guestInfo.Hostname != "" &&
+							guestInfo.Timezone != "" &&
+							guestInfo.GAVersion != "" &&
+							guestInfo.OS.Name != "" &&
+							len(guestInfo.FSInfo.Filesystems) > 0
 
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
-			})
+					}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
+				})
 
 				It("[test_id:4628]should not return the whole data when agent is not present", Labels{"test_id:4628"}, func() {
 					agentVMI := prepareAgentVM()
@@ -1458,34 +1458,34 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 					Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					userList, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).UserList(agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
+					By("Expecting the Guest VM information")
+					Eventually(func() bool {
+						userList, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).UserList(agentVMI.Name)
+						if err != nil {
+							// invalid request, retry
+							return false
+						}
 
-					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
+						return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
 
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
-			})
+					}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
+				})
 
 				It("[test_id:4630]should return filesystem list", Labels{"test_id:4630"}, func() {
 					agentVMI := prepareAgentVM()
 
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					fsList, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).FilesystemList(agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
+					By("Expecting the Guest VM information")
+					Eventually(func() bool {
+						fsList, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).FilesystemList(agentVMI.Name)
+						if err != nil {
+							// invalid request, retry
+							return false
+						}
 
-					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != ""
+						return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != ""
 
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
-			})
+					}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
+				})
 
 			})
 

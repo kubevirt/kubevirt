@@ -112,7 +112,7 @@ var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 
 				It("[test_id:3158]should update domain XML with SM BIOS properties", Labels{"test_id:3158"}, func() {
 					By("Reading domain XML using virsh")
-				clientcmd.SkipIfNoCmd("kubectl")
+					clientcmd.SkipIfNoCmd("kubectl")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					tests.WaitForSuccessfulVMIStart(vmi)
 					domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)

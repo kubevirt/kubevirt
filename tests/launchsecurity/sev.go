@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", func() {
+var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", Labels{"sig-compute"}, func() {
 	BeforeEach(func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
 		checks.SkipTestIfNotSEVCapable()
