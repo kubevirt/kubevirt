@@ -203,9 +203,11 @@ func NewExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance,
 		})
 	}()
 
-	opts = append(opts, expect.SendTimeout(timeout))
-	opts = append(opts, expect.Verbose(true))
-	opts = append(opts, expect.VerboseWriter(GinkgoWriter))
+	options := []expect.Option{}
+	options = append(options, expect.SendTimeout(timeout))
+	options = append(options, expect.Verbose(true))
+	options = append(options, expect.VerboseWriter(GinkgoWriter))
+	options = append(options, opts...)
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
 		Out: expecterReader,
@@ -218,7 +220,7 @@ func NewExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance,
 			return nil
 		},
 		Check: func() bool { return true },
-	}, timeout, opts...)
+	}, timeout, options...)
 }
 
 // ExpectBatchWithValidatedSend adds the expect.BSnd command to the exect.BExp expression.

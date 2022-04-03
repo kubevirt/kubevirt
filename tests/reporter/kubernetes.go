@@ -1061,11 +1061,11 @@ func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
 	switch vmiType {
 	case "fedora":
-		return console.LoginToFedora(&vmi)
+		return console.LoginToFedora(&vmi, expect.VerboseWriter(nil))
 	case "cirros":
-		return console.LoginToCirros(&vmi)
+		return console.LoginToCirros(&vmi, expect.VerboseWriter(nil))
 	case "alpine":
-		return console.LoginToAlpine(&vmi)
+		return console.LoginToAlpine(&vmi, expect.VerboseWriter(nil))
 	default:
 		return fmt.Errorf("unknown vmi %s type", vmi.ObjectMeta.Name)
 	}

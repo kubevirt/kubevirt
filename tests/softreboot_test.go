@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.VirtualMachineInstance) error) {
+func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login func(vmi *v1.VirtualMachineInstance, opts ...expect.Option) error) {
 	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
 	if vmi.Namespace == "" {
 		vmi.Namespace = util.NamespaceTestDefault

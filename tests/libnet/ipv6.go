@@ -3,15 +3,16 @@ package libnet
 import (
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libnet/cluster"
+	expect "github.com/google/goexpect"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 )
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, opts ...expect.Option) error {
 
 	hasEth0Iface := func() bool {
 		err := console.RunCommand(vmi, "ip a | grep -q eth0", 30*time.Second)
@@ -57,7 +58,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func WithIPv6(loginTo console.LoginToFunction) console.LoginToFunction {
-	return func(vmi *v1.VirtualMachineInstance) error {
+	return func(vmi *v1.VirtualMachineInstance, opts ...expect.Option) error {
 		err := loginTo(vmi)
 		if err != nil {
 			return err

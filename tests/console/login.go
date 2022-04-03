@@ -17,15 +17,15 @@ import (
 )
 
 // LoginToFunction represents any of the LoginTo* functions
-type LoginToFunction func(*v1.VirtualMachineInstance) error
+type LoginToFunction func(*v1.VirtualMachineInstance, ...expect.Option) error
 
 // LoginToCirros performs a console login to a Cirros base VM
-func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
+func LoginToCirros(vmi *v1.VirtualMachineInstance, opts ...expect.Option) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second, opts...)
 	if err != nil {
 		return err
 	}
@@ -66,13 +66,13 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 }
 
 // LoginToAlpine performs a console login to an Alpine base VM
-func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
+func LoginToAlpine(vmi *v1.VirtualMachineInstance, opts ...expect.Option) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second, opts...)
 	if err != nil {
 		return err
 	}
@@ -126,13 +126,13 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 }
 
 // LoginToFedora performs a console login to a Fedora base VM
-func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
+func LoginToFedora(vmi *v1.VirtualMachineInstance, opts ...expect.Option) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second, opts...)
 	if err != nil {
 		return err
 	}
@@ -203,13 +203,13 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 }
 
 // OnPrivilegedPrompt performs a console check that the prompt is privileged.
-func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
+func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int, opts ...expect.Option) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second, opts...)
 	if err != nil {
 		return false
 	}
