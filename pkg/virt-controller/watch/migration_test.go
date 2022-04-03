@@ -1470,7 +1470,7 @@ var _ = Describe("Migration watcher", func() {
 				}
 
 				policyList := kubecli.NewMinimalMigrationPolicyList(policies...)
-				actualMatchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				actualMatchedPolicy := MatchPolicy(policyList, vmi, &namespace)
 
 				Expect(actualMatchedPolicy.Name).To(Equal(expectedMatchedPolicyName))
 			},
@@ -1495,13 +1495,13 @@ var _ = Describe("Migration watcher", func() {
 				policy.Spec.Selectors.VirtualMachineInstanceSelector.MatchLabels[labelKey] = labelValue + "XYZ"
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
 
-				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
 				Expect(matchedPolicy).To(BeNil())
 			})
 
 			It("when no policies exist, MatchPolicy() should return nil", func() {
 				policyList := kubecli.NewMinimalMigrationPolicyList()
-				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
 				Expect(matchedPolicy).To(BeNil())
 			})
 
@@ -1515,7 +1515,7 @@ var _ = Describe("Migration watcher", func() {
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policyWithNSLabels, *policyWithVmiLabels)
 
 				By("Expecting VMI labels policy to be matched")
-				matchedPolicy := policyList.MatchPolicy(vmi, &namespace)
+				matchedPolicy := MatchPolicy(policyList, vmi, &namespace)
 				Expect(matchedPolicy.Name).To(Equal(policyWithVmiLabels.Name), "policy with VMI labels should match")
 			})
 		})

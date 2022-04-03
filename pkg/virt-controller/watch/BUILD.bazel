@@ -6,6 +6,7 @@ go_library(
     srcs = [
         "application.go",
         "migration.go",
+        "migrationpolicy.go",
         "node.go",
         "pool.go",
         "replicaset.go",
