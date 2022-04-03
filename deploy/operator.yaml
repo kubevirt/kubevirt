@@ -58,7 +58,7 @@ spec:
         - name: CDI_VERSION
           value: v1.46.0
         - name: NETWORK_ADDONS_VERSION
-          value: v0.73.0
+          value: v0.74.0
         - name: SSP_VERSION
           value: v0.13.2
         - name: NMO_VERSION
@@ -258,11 +258,11 @@ spec:
         - name: KUBE_RBAC_PROXY_IMAGE
           value: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:856b315041255349e7d94d8ab459ca958e2166ef9679797a21b634c161dcafce
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:b35f3e8d16009728ba977515748da7983ea609e27c5e59593cf9a2a79356dd32
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.73.0
+          value: v0.74.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -280,7 +280,7 @@ spec:
           value: openshift-monitoring
         - name: MONITORING_SERVICE_ACCOUNT
           value: prometheus-k8s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:856b315041255349e7d94d8ab459ca958e2166ef9679797a21b634c161dcafce
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:b35f3e8d16009728ba977515748da7983ea609e27c5e59593cf9a2a79356dd32
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources:
