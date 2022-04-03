@@ -41,7 +41,7 @@ const (
 	creatingSnapshot          = "creating snapshot"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
+var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", Labels{"Serial"}, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -208,7 +208,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		})
 
 		Context("and no snapshot", func() {
-			It("[test_id:5255]should reject restore", func() {
+			It("[test_id:5255]should reject restore", Labels{"test_id:5255"}, func() {
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				restore := createRestoreDef(vm, "foobar")
@@ -265,7 +265,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[test_id:5256]should successfully restore", func() {
+			It("[test_id:5256]should successfully restore", Labels{"test_id:5256"}, func() {
 				var origSpec *v1.VirtualMachineSpec
 
 				Eventually(func() bool {
@@ -306,7 +306,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(restore)
 			})
 
-			It("[test_id:5257]should reject restore if VM running", func() {
+			It("[test_id:5257]should reject restore if VM running", Labels{"test_id:5257"}, func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -318,7 +318,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
 			})
 
-			It("[test_id:5258]should reject restore if another in progress", func() {
+			It("[test_id:5258]should reject restore if another in progress", Labels{"test_id:5258"}, func() {
 				fp := admissionregistrationv1.Fail
 				sideEffectNone := admissionregistrationv1.SideEffectClassNone
 				whPath := "/foobar"
@@ -398,7 +398,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		})
 	})
 
-	Context("[storage-req]", func() {
+	Context("[storage-req]", Labels{"storage-req"}, func() {
 		Context("With a more complicated VM", func() {
 			var (
 				vm                   *v1.VirtualMachine
@@ -583,7 +583,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 			}
 
-			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
+			It("[test_id:5259]should restore a vm multiple from the same snapshot", Labels{"test_id:5259"}, func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -612,7 +612,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", func() {
+			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", Labels{"test_id:5260"}, func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -630,7 +630,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
+			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", Labels{"test_id:5261"}, func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -677,7 +677,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[test_id:5262]should restore a vm that boots from a PVC", func() {
+			It("[test_id:5262]should restore a vm that boots from a PVC", Labels{"test_id:5262"}, func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				pvc := &corev1.PersistentVolumeClaim{
@@ -730,7 +730,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
+			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", Labels{"test_id:5263"}, func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
@@ -882,7 +882,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(restore)
 			})
 
-			It("[test_id:6053]should restore a vm from an online snapshot", func() {
+			It("[test_id:6053]should restore a vm from an online snapshot", Labels{"test_id:6053"}, func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
@@ -894,7 +894,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			})
 
-			It("[test_id:6766]should restore a vm from an online snapshot with guest agent", func() {
+			It("[test_id:6766]should restore a vm from an online snapshot with guest agent", Labels{"test_id:6766"}, func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -947,7 +947,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			})
 
-			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
+			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", Labels{"test_id:6836"}, func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
@@ -1014,7 +1014,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
 
-			It("[test_id:7425]should restore vm with hot plug disks", func() {
+			It("[test_id:7425]should restore vm with hot plug disks", Labels{"test_id:7425"}, func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,

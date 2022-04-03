@@ -34,7 +34,7 @@ func (f *fakeAttacher) closeChannel() {
 	f.done <- true
 }
 
-var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
+var _ = SIGDescribe("[rfe_id:6364][Serial]Guestfs", Labels{"rfe_id:6364", "Serial"}, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		pvcClaim   string
@@ -126,51 +126,57 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 		})
 
-		It("[posneg:positive][test_id:6480]Should successfully run guestfs command on a filesystem-based PVC", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
-			pvcClaim = "pvc-fs"
-			podName := libguestsTools + pvcClaim
-			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim)
-			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(ContainSubstring("Formatting"))
-			Expect(err).ToNot(HaveOccurred())
-			stdout, stderr, err = execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/disk/disk.img", "run"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(Equal(""))
-			Expect(err).ToNot(HaveOccurred())
+		It("[posneg:positive][test_id:6480]Should successfully run guestfs command on a filesystem-based PVC",
+			Labels{"posneg:positive", "test_id:6480"},
+			func() {
+				f := createFakeAttacher()
+				defer f.closeChannel()
+				pvcClaim = "pvc-fs"
+				podName := libguestsTools + pvcClaim
+				createPVCFilesystem(pvcClaim)
+				runGuestfsOnPVC(pvcClaim)
+				stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
+				Expect(stderr).To(Equal(""))
+				Expect(stdout).To(ContainSubstring("Formatting"))
+				Expect(err).ToNot(HaveOccurred())
+				stdout, stderr, err = execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/disk/disk.img", "run"})
+				Expect(stderr).To(Equal(""))
+				Expect(stdout).To(Equal(""))
+				Expect(err).ToNot(HaveOccurred())
 
-		})
+			})
 
-		It("[posneg:negative][test_id:6480]Should fail to run the guestfs command on a PVC in use", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
-			pvcClaim = "pvc-fail-to-run-twice"
-			createPVCFilesystem(pvcClaim)
-			runGuestfsOnPVC(pvcClaim)
+		It("[posneg:negative][test_id:6480]Should fail to run the guestfs command on a PVC in use",
+			Labels{"posneg:negative", "test_id:6480"},
+			func() {
+				f := createFakeAttacher()
+				defer f.closeChannel()
+				pvcClaim = "pvc-fail-to-run-twice"
+				createPVCFilesystem(pvcClaim)
+				runGuestfsOnPVC(pvcClaim)
 			guestfsCmd := clientcmd.NewVirtctlCommand("guestfs",
-				pvcClaim,
-				"--namespace", util.NamespaceTestDefault)
-			Expect(guestfsCmd.Execute()).To(HaveOccurred())
-		})
+					pvcClaim,
+					"--namespace", util.NamespaceTestDefault)
+				Expect(guestfsCmd.Execute()).To(HaveOccurred())
+			})
 
-		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", func() {
-			f := createFakeAttacher()
-			defer f.closeChannel()
+		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC",
+			Labels{"posneg:positive", "test_id:6479"},
+			func() {
+				f := createFakeAttacher()
+				defer f.closeChannel()
 
-			pvcClaim = "pvc-block"
-			podName := libguestsTools + pvcClaim
-			size, _ := resource.ParseQuantity("500Mi")
-			tests.CreateBlockPVC(virtClient, pvcClaim, size)
-			runGuestfsOnPVC(pvcClaim)
-			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
-			Expect(stderr).To(Equal(""))
-			Expect(stdout).To(Equal(""))
-			Expect(err).ToNot(HaveOccurred())
+				pvcClaim = "pvc-block"
+				podName := libguestsTools + pvcClaim
+				size, _ := resource.ParseQuantity("500Mi")
+				tests.CreateBlockPVC(virtClient, pvcClaim, size)
+				runGuestfsOnPVC(pvcClaim)
+				stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
+				Expect(stderr).To(Equal(""))
+				Expect(stdout).To(Equal(""))
+				Expect(err).ToNot(HaveOccurred())
 
-		})
+			})
 
 	})
 })

@@ -584,7 +584,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("[storage-req]", func() {
+	Context("[storage-req]", Labels{"storage-req"}, func() {
 		Context("Online VM", func() {
 			var (
 				vm *v1.VirtualMachine
@@ -791,7 +791,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				Entry("[Serial] with VMs and block", Labels{"Serial"}, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
@@ -1224,7 +1224,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 		},
 			Entry("with default", false),
-			Entry("[test_id:7803]with dry-run", true),
+			Entry("[test_id:7803]with dry-run", Labels{"test_id:7803"}, true),
 		)
 
 		DescribeTable("should remove volume according to options", func(dryRun bool) {
@@ -1265,7 +1265,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 		},
 			Entry("with default", false),
-			Entry("[test_id:7829]with dry-run", true),
+			Entry("[test_id:7829]with dry-run", Labels{"test_id:7829"}, true),
 		)
 	})
 })
