@@ -880,6 +880,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 					_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
 					return err
 				}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
+
+				Expect(1).To(Equal(2))
 			})
 			It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", func() {
 				checks.SkipTestIfNoCPUManager()
