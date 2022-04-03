@@ -8,19 +8,16 @@ import (
 	"reflect"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-
 	jsonpatch "github.com/evanphx/json-patch"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -45,7 +42,7 @@ type genericOperand struct {
 	removeExistingOwner bool
 	// Should the handler add the controller reference
 	setControllerReference bool
-	// Set of resource handler hooks, to be implement in each handler
+	// Set of resource handler hooks, to be implemented in each handler
 	hooks hcoResourceHooks
 }
 

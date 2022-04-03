@@ -8,10 +8,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
+	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	operatorsapiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -27,7 +30,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
-	components "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -48,7 +51,8 @@ var (
 func initReconciler(client client.Client, old *ReconcileHyperConverged) *ReconcileHyperConverged {
 	s := commonTestUtils.GetScheme()
 	eventEmitter := commonTestUtils.NewEventEmitterMock()
-	operandHandler := operands.NewOperandHandler(client, s, true, eventEmitter)
+	ci := commonTestUtils.ClusterInfoMock{}
+	operandHandler := operands.NewOperandHandler(client, s, ci, eventEmitter)
 	upgradeMode := false
 	firstLoop := true
 	upgradeableCondition := newStubOperatorCondition()
@@ -124,6 +128,10 @@ type BasicExpected struct {
 	virtioWinRole        *rbacv1.Role
 	virtioWinRoleBinding *rbacv1.RoleBinding
 	hcoCRD               *apiextensionsv1.CustomResourceDefinition
+	consolePluginDeploy  *appsv1.Deployment
+	consolePluginSvc     *corev1.Service
+	consolePlugin        *consolev1alpha1.ConsolePlugin
+	consoleConfig        *operatorv1.Console
 }
 
 func (be BasicExpected) toArray() []runtime.Object {
@@ -148,6 +156,10 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.virtioWinRole,
 		be.virtioWinRoleBinding,
 		be.hcoCRD,
+		be.consolePluginDeploy,
+		be.consolePluginSvc,
+		be.consolePlugin,
+		be.consoleConfig,
 	}
 }
 
@@ -271,6 +283,27 @@ func getBasicDeployment() *BasicExpected {
 
 	expectedVirtioWinRoleBinding := operands.NewVirtioWinCmReaderRoleBinding(hco)
 	res.virtioWinRoleBinding = expectedVirtioWinRoleBinding
+
+	expectedConsolePluginDeployment, err := operands.NewKvUiPluginDeplymnt(hco)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	res.consolePluginDeploy = expectedConsolePluginDeployment
+
+	expectedConsolePluginService := operands.NewKvUiPluginSvc(hco)
+	res.consolePluginSvc = expectedConsolePluginService
+
+	expectedConsolePlugin := operands.NewKvConsolePlugin(hco)
+	res.consolePlugin = expectedConsolePlugin
+
+	expectedConsoleConfig := &operatorv1.Console{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Console",
+			APIVersion: "operator.openshift.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+	}
+	res.consoleConfig = expectedConsoleConfig
 
 	hcoCrd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{

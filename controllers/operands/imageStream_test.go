@@ -123,9 +123,10 @@ var _ = Describe("imageStream tests", func() {
 			hco := commonTestUtils.NewHco()
 			hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			ci := commonTestUtils.ClusterInfoMock{}
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)
@@ -189,8 +190,9 @@ var _ = Describe("imageStream tests", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			ci := commonTestUtils.ClusterInfoMock{}
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)

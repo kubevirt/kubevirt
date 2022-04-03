@@ -7,8 +7,6 @@ import (
 	"os"
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/blang/semver/v4"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
@@ -25,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -106,7 +105,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 	return &ReconcileHyperConverged{
 		client:               mgr.GetClient(),
 		scheme:               mgr.GetScheme(),
-		operandHandler:       operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift(), hcoutil.GetEventEmitter()),
+		operandHandler:       operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci, hcoutil.GetEventEmitter()),
 		upgradeMode:          false,
 		ownVersion:           ownVersion,
 		eventEmitter:         hcoutil.GetEventEmitter(),
@@ -972,7 +971,7 @@ func getNumOfChangesJSONPatch(jsonPatch string) int {
 
 func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoRequest) {
 	// Initialize operand handler.
-	r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo().IsOpenshift(), request.Instance)
+	r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo(), request.Instance)
 
 	// Avoid re-initializing.
 	r.firstLoop = false

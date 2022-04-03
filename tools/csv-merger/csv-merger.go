@@ -84,6 +84,7 @@ var (
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	webhookImage        = flag.String("webhook-image-name", "", "HyperConverged Cluster Webhook image")
 	cliDownloadsImage   = flag.String("cli-downloads-image-name", "", "Downloads Server image")
+	kvUiPluginImage     = flag.String("kubevirt-consoleplugin-image-name", "", "KubeVirt Console Plugin image")
 	kvVirtIOWinImage    = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
 	smbios              = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
 	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
@@ -481,6 +482,7 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		Image:              *operatorImage,
 		WebhookImage:       *webhookImage,
 		CliDownloadsImage:  *cliDownloadsImage,
+		KvUiPluginImage:    *kvUiPluginImage,
 		ImagePullPolicy:    "IfNotPresent",
 		VirtIOWinContainer: *kvVirtIOWinImage,
 		Smbios:             *smbios,

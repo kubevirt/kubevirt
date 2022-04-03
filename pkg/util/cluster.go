@@ -24,6 +24,7 @@ type ClusterInfo interface {
 	IsManagedByOLM() bool
 	IsControlPlaneHighlyAvailable() bool
 	IsInfrastructureHighlyAvailable() bool
+	IsConsolePluginImageProvided() bool
 }
 
 type ClusterInfoImp struct {
@@ -32,6 +33,7 @@ type ClusterInfoImp struct {
 	runningLocally                bool
 	controlPlaneHighlyAvailable   bool
 	infrastructureHighlyAvailable bool
+	consolePluginImageProvided    bool
 	domain                        string
 }
 
@@ -58,6 +60,9 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	} else {
 		err = c.initKubernetes(cl)
 	}
+
+	varValue, varExists := os.LookupEnv(KvUiPluginImageEnvV)
+	c.consolePluginImageProvided = varExists && len(varValue) > 0
 
 	return err
 }
@@ -120,6 +125,10 @@ func (c ClusterInfoImp) IsManagedByOLM() bool {
 
 func (c ClusterInfoImp) IsOpenshift() bool {
 	return c.runningInOpenshift
+}
+
+func (c ClusterInfoImp) IsConsolePluginImageProvided() bool {
+	return c.consolePluginImageProvided
 }
 
 func (c ClusterInfoImp) IsRunningLocally() bool {

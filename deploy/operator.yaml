@@ -65,6 +65,7 @@ spec:
           value: v0.11.3
         - name: HPPO_VERSION
           value: v0.12.1
+        - name: KV_CONSOLE_PLUGIN_IMAGE
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:

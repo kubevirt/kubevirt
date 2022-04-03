@@ -511,6 +511,7 @@ rules:
   - get
   - list
   - delete
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -529,6 +530,10 @@ rules:
   verbs:
   - get
   - list
+  - watch
+  - create
+  - update
+  - delete
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -660,9 +665,29 @@ rules:
   - get
   - list
   - watch
-  - update
   - create
+  - update
   - delete
+- apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleplugins
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - consoles
+  verbs:
+  - get
+  - list
+  - watch
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -41,9 +41,10 @@ var _ = Describe("Test operandHandler", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			ci := commonTestUtils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 
@@ -163,9 +164,10 @@ var _ = Describe("Test operandHandler", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			ci := commonTestUtils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 
@@ -205,8 +207,10 @@ var _ = Describe("Test operandHandler", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			ci := commonTestUtils.ClusterInfoMock{}
+
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)
@@ -297,9 +301,10 @@ var _ = Describe("Test operandHandler", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			ci := commonTestUtils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)
@@ -347,8 +352,10 @@ var _ = Describe("Test operandHandler", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			ci := commonTestUtils.ClusterInfoMock{}
+
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)
@@ -398,9 +405,10 @@ var _ = Describe("Test operandHandler", func() {
 
 			fakeError := fmt.Errorf("fake CNA deletion error")
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			ci := commonTestUtils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)
@@ -448,9 +456,10 @@ var _ = Describe("Test operandHandler", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			eventEmitter := commonTestUtils.NewEventEmitterMock()
+			ci := commonTestUtils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
 			err := handler.Ensure(req)

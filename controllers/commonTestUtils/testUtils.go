@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	consolev1 "github.com/openshift/api/console/v1"
+	consolev1alpha1 "github.com/openshift/api/console/v1alpha1"
 	imagev1 "github.com/openshift/api/image/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -153,6 +154,8 @@ func GetScheme() *runtime.Scheme {
 		apiextensionsv1.AddToScheme,
 		routev1.Install,
 		imagev1.Install,
+		consolev1alpha1.Install,
+		operatorv1.Install,
 	} {
 		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}
@@ -226,6 +229,9 @@ func (ClusterInfoMock) IsInfrastructureHighlyAvailable() bool {
 func (ClusterInfoMock) GetDomain() string {
 	return "domain"
 }
+func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
+	return true
+}
 
 // ClusterInfoSNOMock mocks Openshift SNO
 type ClusterInfoSNOMock struct{}
@@ -252,6 +258,10 @@ func (ClusterInfoSNOMock) GetDomain() string {
 	return "domain"
 }
 
+func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
+	return true
+}
+
 // ClusterInfoSRCPHAIMock mocks Openshift with SingleReplica ControlPlane and HighAvailable Infrastructure
 type ClusterInfoSRCPHAIMock struct{}
 
@@ -275,4 +285,7 @@ func (ClusterInfoSRCPHAIMock) IsInfrastructureHighlyAvailable() bool {
 }
 func (ClusterInfoSRCPHAIMock) GetDomain() string {
 	return "domain"
+}
+func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
+	return true
 }

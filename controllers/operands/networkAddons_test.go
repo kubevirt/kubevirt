@@ -281,7 +281,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(req.Conditions).To(BeEmpty())
 		})
 
-		It("should add self signed configutation if missing in CNAO", func() {
+		It("should add self signed configuration if missing in CNAO", func() {
 			existingResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -320,7 +320,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(req.Conditions).To(BeEmpty())
 		})
 
-		It("should set self signed configutation to defaults if missing in HCO CR", func() {
+		It("should set self signed configuration to defaults if missing in HCO CR", func() {
 			existingResource := NewNetworkAddonsWithNameOnly(hco)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco})
@@ -349,7 +349,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(req.Conditions).To(BeEmpty())
 		})
 
-		It("should modify self signed configutation according to HCO CR", func() {
+		It("should modify self signed configuration according to HCO CR", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 				CA: hcov1beta1.CertRotateConfigCA{
@@ -401,7 +401,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(req.Conditions).To(BeEmpty())
 		})
 
-		It("should overwrite self signed configutation if directly set on CNAO CR", func() {
+		It("should overwrite self signed configuration if directly set on CNAO CR", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
 				CA: hcov1beta1.CertRotateConfigCA{

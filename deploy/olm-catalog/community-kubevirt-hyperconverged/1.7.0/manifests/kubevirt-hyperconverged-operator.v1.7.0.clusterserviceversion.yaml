@@ -10,7 +10,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
-    createdAt: "2022-03-29 04:09:53"
+    createdAt: "2022-04-01 15:32:37"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -300,6 +300,7 @@ spec:
           - get
           - list
           - delete
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -318,6 +319,10 @@ spec:
           verbs:
           - get
           - list
+          - watch
+          - create
+          - update
+          - delete
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -449,9 +454,29 @@ spec:
           - get
           - list
           - watch
-          - update
           - create
+          - update
           - delete
+        - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleplugins
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - consoles
+          verbs:
+          - get
+          - list
+          - watch
+          - update
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:
@@ -2265,6 +2290,7 @@ spec:
                   value: v0.11.3
                 - name: HPPO_VERSION
                   value: v0.12.1
+                - name: KV_CONSOLE_PLUGIN_IMAGE
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -3323,6 +3349,8 @@ spec:
     name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:7df2177401406874ff0f2b3b296624eba4a291b9485829c52a9b3491fefc2753
     name: kubemacpool
+  - image: quay.io/openshift-cnv/kubevirt-plugin@sha256:7cc4c8756a55a5b7afde66cb4663288b6fb20c5860c3612e4bafdd3b5aae2d53
+    name: kubevirt-plugin
   - image: quay.io/kubevirt/libguestfs-tools@sha256:96cef1f296d337922c82ed916e3dcca18dc594e8c60cd90c4a02565d0af4d5ec
     name: libguestfs-tools
   - image: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
