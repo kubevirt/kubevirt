@@ -27,6 +27,11 @@ var _ = Describe("[sig-compute] virt-api scaling", func() {
 	})
 
 	calcExpectedReplicas := func(nodesCount int) (expectedReplicas int32) {
+		// Please note that this logic is temporary. For more information take a look on the comment in
+		// getDesiredApiReplicas() function in pkg/virt-operator/resource/apply/apps.go.
+		//
+		// When the logic is replaced for getDesiredApiReplicas(), it needs to be replaced here as well.
+
 		if nodesCount == 1 {
 			return 1
 		}
