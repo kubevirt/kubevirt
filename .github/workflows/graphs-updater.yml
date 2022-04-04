@@ -42,5 +42,5 @@ jobs:
           assignees: tiraboschi
           reviewers: tiraboschi
           team-reviewers: owners, maintainers
-          branch: update_dashboard_configmaps
+          branch: update_component_graphs
           delete-branch: true
