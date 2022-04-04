@@ -1096,7 +1096,7 @@ spec:
 		waitForKv(kv)
 	})
 
-	Describe("should reconcile components", func() {
+	Describe("[Serial]should reconcile components", func() {
 
 		deploymentName := "virt-controller"
 		daemonSetName := "virt-handler"
@@ -1370,7 +1370,7 @@ spec:
 		})
 	})
 
-	Describe("[test_id:4744]should apply component customization", func() {
+	Describe("[test_id:4744][Serial]should apply component customization", func() {
 
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"

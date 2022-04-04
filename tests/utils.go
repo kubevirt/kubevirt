@@ -5013,3 +5013,11 @@ func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 
 	return strings.TrimSpace(podOutput)
 }
+
+func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, nodeName string, command []string) (stdout string, stderr string, err error) {
+	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+	if err != nil {
+		return "", "", err
+	}
+	return ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+}

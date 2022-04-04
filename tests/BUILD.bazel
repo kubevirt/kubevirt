@@ -143,6 +143,7 @@ go_test(
         "softreboot_test.go",
         "stability_test.go",
         "subresource_api_test.go",
+        "swap_test.go",
         "sysprep_test.go",
         "template_test.go",
         "tests_suite_test.go",
