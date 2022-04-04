@@ -111,59 +111,8 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 }
 
 // **** Handler for Service ****
-type cliDownloadServiceHandler genericOperand
 
-func newCliDownloadsServiceHandler(Client client.Client, Scheme *runtime.Scheme) *cliDownloadServiceHandler {
-	return &cliDownloadServiceHandler{
-		Client:                 Client,
-		Scheme:                 Scheme,
-		crType:                 "Service",
-		removeExistingOwner:    false,
-		setControllerReference: true,
-		hooks:                  &cliDownloadsServiceHooks{},
-	}
-}
-
-type cliDownloadsServiceHooks struct{}
-
-func (h cliDownloadsServiceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
-	return NewCliDownloadsService(hc), nil
-}
-
-func (h cliDownloadsServiceHooks) getEmptyCr() client.Object {
-	return &corev1.Service{}
-}
-
-func (h cliDownloadsServiceHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*corev1.Service).ObjectMeta
-}
-
-func (h *cliDownloadsServiceHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
-	service, ok1 := required.(*corev1.Service)
-	found, ok2 := exists.(*corev1.Service)
-	if !ok1 || !ok2 {
-		return false, false, errors.New("can't convert to Service")
-	}
-	if !hasServiceRightFields(found, service) {
-		if req.HCOTriggered {
-			req.Logger.Info("Updating existing Service Spec to new opinionated values")
-		} else {
-			req.Logger.Info("Reconciling an externally updated Service's Spec to its opinionated values")
-		}
-		util.DeepCopyLabels(&service.ObjectMeta, &found.ObjectMeta)
-		service.Spec.ClusterIP = found.Spec.ClusterIP
-		service.Spec.DeepCopyInto(&found.Spec)
-		err := Client.Update(req.Ctx, found)
-		if err != nil {
-			return false, false, err
-		}
-		return true, !req.HCOTriggered, nil
-	}
-	return false, false, nil
-}
-
-func (h cliDownloadsServiceHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
-
+// NewCliDownloadsService creates a service object for the CLI downloads
 func NewCliDownloadsService(hc *hcov1beta1.HyperConverged) *corev1.Service {
 
 	return &corev1.Service{
@@ -188,17 +137,7 @@ func NewCliDownloadsService(hc *hcov1beta1.HyperConverged) *corev1.Service {
 	}
 }
 
-// We need to check only certain fields of Service object. Since there
-// are some fields in the Spec that are set by k8s like "clusterIP", "ipFamilyPolicy", etc.
-// When we compare current spec with expected spec by using reflect.DeepEqual, it
-// never returns true.
-func hasServiceRightFields(found *corev1.Service, required *corev1.Service) bool {
-	return reflect.DeepEqual(found.Labels, required.Labels) &&
-		reflect.DeepEqual(found.Spec.Selector, required.Spec.Selector) &&
-		reflect.DeepEqual(found.Spec.Ports, required.Spec.Ports)
-}
-
-// **** Handler for Service ****
+// **** Handler for route ****
 type cliDownloadRouteHandler genericOperand
 
 func newCliDownloadsRouteHandler(Client client.Client, Scheme *runtime.Scheme) *cliDownloadRouteHandler {

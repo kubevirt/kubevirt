@@ -2,6 +2,7 @@ package operands
 
 import (
 	"errors"
+	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,32 +14,32 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
-func newServiceHandler(Client client.Client, Scheme *runtime.Scheme, required *corev1.Service) Operand {
-	h := &genericOperand{
+type genericServiceHandler genericOperand
+
+func newServiceHandler(Client client.Client, Scheme *runtime.Scheme, newCrFunc newSvcFunc) *genericServiceHandler {
+	h := &genericServiceHandler{
 		Client:              Client,
 		Scheme:              Scheme,
 		crType:              "Service",
 		removeExistingOwner: false,
-		hooks:               &serviceHooks{required: required},
+		hooks:               &serviceHooks{newCrFunc: newCrFunc},
 	}
 
 	return h
 }
 
+type newSvcFunc func(hc *hcov1beta1.HyperConverged) *corev1.Service
+
 type serviceHooks struct {
-	required *corev1.Service
+	newCrFunc newSvcFunc
 }
 
-func (h serviceHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
-	return h.required.DeepCopy(), nil
+func (h *serviceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	return h.newCrFunc(hc), nil
 }
 
 func (h serviceHooks) getEmptyCr() client.Object {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: h.required.Name,
-		},
-	}
+	return &corev1.Service{}
 }
 
 func (h serviceHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
@@ -50,6 +51,10 @@ func (h serviceHooks) reset() { /* no implementation */ }
 func (h serviceHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func (h serviceHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	return updateService(req, Client, exists, required)
+}
+
+func updateService(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	service, ok1 := required.(*corev1.Service)
 	found, ok2 := exists.(*corev1.Service)
 	if !ok1 || !ok2 {
@@ -71,4 +76,14 @@ func (h serviceHooks) updateCr(req *common.HcoRequest, Client client.Client, exi
 		return true, !req.HCOTriggered, nil
 	}
 	return false, false, nil
+}
+
+// We need to check only certain fields of Service object. Since there
+// are some fields in the Spec that are set by k8s like "clusterIP", "ipFamilyPolicy", etc.
+// When we compare current spec with expected spec by using reflect.DeepEqual, it
+// never returns true.
+func hasServiceRightFields(found *corev1.Service, required *corev1.Service) bool {
+	return reflect.DeepEqual(found.Labels, required.Labels) &&
+		reflect.DeepEqual(found.Spec.Selector, required.Spec.Selector) &&
+		reflect.DeepEqual(found.Spec.Ports, required.Spec.Ports)
 }

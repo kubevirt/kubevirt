@@ -234,10 +234,9 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 		It("should create plugin service if not present", func() {
 			expectedResource := NewKvUiPluginSvc(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler, err := newKvUiPluginSvcHandler(logger, cl, commonTestUtils.GetScheme(), hco)
-			Expect(err).ToNot(HaveOccurred())
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewKvUiPluginSvc))
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -257,10 +256,9 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler, err := newKvUiPluginSvcHandler(logger, cl, commonTestUtils.GetScheme(), hco)
-			Expect(err).ToNot(HaveOccurred())
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewKvUiPluginSvc))
 
-			res := handler[0].ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -287,9 +285,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.Spec.Ports[0].Port = 6666
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
-			handler, err := newKvUiPluginSvcHandler(logger, cl, commonTestUtils.GetScheme(), hco)
-			Expect(err).ToNot(HaveOccurred())
-			res := handler[0].ensure(req)
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewKvUiPluginSvc))
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())

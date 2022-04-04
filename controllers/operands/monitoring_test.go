@@ -31,9 +31,9 @@ var _ = Describe("Monitoring Operand", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewMetricsService(hco, commonTestUtils.Namespace)
+			expectedResource := NewMetricsService(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := (*genericOperand)(newMetricsServiceHandler(cl, commonTestUtils.GetScheme()))
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewMetricsService))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeTrue())
 			Expect(res.Updated).To(BeFalse())
@@ -53,9 +53,9 @@ var _ = Describe("Monitoring Operand", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewMetricsService(hco, commonTestUtils.Namespace)
+			expectedResource := NewMetricsService(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
-			handler := (*genericOperand)(newMetricsServiceHandler(cl, commonTestUtils.GetScheme()))
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewMetricsService))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
@@ -69,7 +69,7 @@ var _ = Describe("Monitoring Operand", func() {
 		})
 
 		It("should reconcile to default", func() {
-			existingResource := NewMetricsService(hco, commonTestUtils.Namespace)
+			existingResource := NewMetricsService(hco)
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.Ports[0].Name = "Non default value"
@@ -77,7 +77,7 @@ var _ = Describe("Monitoring Operand", func() {
 			req.HCOTriggered = false
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newMetricsServiceHandler(cl, commonTestUtils.GetScheme()))
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewMetricsService))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())

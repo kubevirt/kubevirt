@@ -119,7 +119,7 @@ var _ = Describe("Downloads Service", func() {
 		It("should create if not present", func() {
 			expectedResource := NewCliDownloadsService(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := (*genericOperand)(newCliDownloadsServiceHandler(cl, commonTestUtils.GetScheme()))
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewCliDownloadsService))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -134,7 +134,7 @@ var _ = Describe("Downloads Service", func() {
 		It("should find if present", func() {
 			expectedResource := NewCliDownloadsService(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCliDownloadsServiceHandler(cl, commonTestUtils.GetScheme()))
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewCliDownloadsService))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 
@@ -153,7 +153,8 @@ var _ = Describe("Downloads Service", func() {
 			modify(modifiedResource)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
-			handler := (*genericOperand)(newCliDownloadsServiceHandler(cl, commonTestUtils.GetScheme()))
+
+			handler := (*genericOperand)(newServiceHandler(cl, commonTestUtils.GetScheme(), NewCliDownloadsService))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
 

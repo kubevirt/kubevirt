@@ -56,18 +56,19 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 	if ci.IsOpenshift() {
 		operands = append(operands, []Operand{
 			newSspHandler(client, scheme),
-			(*genericOperand)(newMetricsServiceHandler(client, scheme)),
+			(*genericOperand)(newServiceHandler(client, scheme, NewMetricsService)),
 			(*genericOperand)(newMetricsServiceMonitorHandler(client, scheme)),
 			(*genericOperand)(newMonitoringPrometheusRuleHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadHandler(client, scheme)),
 			(*genericOperand)(newCliDownloadsRouteHandler(client, scheme)),
-			(*genericOperand)(newCliDownloadsServiceHandler(client, scheme)),
+			(*genericOperand)(newServiceHandler(client, scheme, NewCliDownloadsService)),
 			newNamespaceHandler(client, scheme),
 		}...)
 	}
 
 	if ci.IsOpenshift() && ci.IsConsolePluginImageProvided() {
 		operands = append(operands, newConsoleHandler(client))
+		operands = append(operands, (*genericOperand)(newServiceHandler(client, scheme, NewKvUiPluginSvc)))
 	}
 
 	return &OperandHandler{
@@ -96,7 +97,6 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, ci hcoutil.C
 
 	if ci.IsOpenshift() && ci.IsConsolePluginImageProvided() {
 		h.addOperands(scheme, hc, newKvUiPluginDplymntHandler)
-		h.addOperands(scheme, hc, newKvUiPluginSvcHandler)
 		h.addOperands(scheme, hc, newKvUiNginxCmHandler)
 		h.addOperands(scheme, hc, newKvUiPluginCRHandler)
 	}

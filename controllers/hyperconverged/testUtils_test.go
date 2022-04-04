@@ -209,7 +209,7 @@ func getBasicDeployment() *BasicExpected {
 	}
 
 	res.pc = operands.NewKubeVirtPriorityClass(hco)
-	res.mService = operands.NewMetricsService(hco, namespace)
+	res.mService = operands.NewMetricsService(hco)
 	res.serviceMonitor = operands.NewServiceMonitor(hco, namespace)
 	res.promRule = operands.NewPrometheusRule(hco, namespace)
 

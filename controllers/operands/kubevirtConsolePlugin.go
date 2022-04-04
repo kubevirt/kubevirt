@@ -42,13 +42,6 @@ func newKvUiPluginDplymntHandler(logger log.Logger, Client client.Client, Scheme
 	return []Operand{newDeploymentHandler(Client, Scheme, kvUiPluginDeplymnt)}, nil
 }
 
-// **** Kubevirt UI Plugin Service Handler ****
-func newKvUiPluginSvcHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUiPluginSvc := NewKvUiPluginSvc(hc)
-
-	return []Operand{newServiceHandler(Client, Scheme, kvUiPluginSvc)}, nil
-}
-
 // **** nginx config map Handler ****
 func newKvUiNginxCmHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
 	kvUiNginxCm := NewKvUiNginxCm(hc)
