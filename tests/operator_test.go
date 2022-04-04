@@ -1229,6 +1229,9 @@ spec:
 				},
 
 				func() runtime.Object {
+					// No virt-controller PDB on single-replica deployments
+					checks.SkipIfSingleReplica(virtClient)
+
 					pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pdb
