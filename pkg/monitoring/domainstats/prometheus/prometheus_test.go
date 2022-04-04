@@ -1084,6 +1084,41 @@ var _ = Describe("Prometheus", func() {
 			Expect(s).To(ContainSubstring("vcpu_0_cpu_1=false"))
 			Expect(s).To(ContainSubstring("vcpu_0_cpu_2=true"))
 		})
+
+		It("should expose migration metrics", func() {
+			const channelSize = 3
+			ch := make(chan prometheus.Metric, channelSize)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			const fakeDataProcessed = 123
+			const fakeDataRemaining = 456
+			const fakeMemDirtyRate = 789
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Net:    []stats.DomainStatsNet{},
+				Vcpu:   []stats.DomainStatsVcpu{},
+				Migration: &stats.DomainStatsMigration{
+					DataProcessedSet: true,
+					DataProcessed:    fakeDataProcessed,
+					DataRemainingSet: true,
+					DataRemaining:    fakeDataRemaining,
+					MemDirtyRateSet:  true,
+					MemDirtyRate:     fakeMemDirtyRate,
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			for i := 0; i < channelSize; i++ {
+				res := <-ch
+				Expect(res.Desc().String()).To(Or(ContainSubstring(migrationDataRemainingMetric), ContainSubstring(migrationDataProcessedMetric), ContainSubstring(migrationDirtyRateMetric)))
+			}
+		})
 	})
 
 })
