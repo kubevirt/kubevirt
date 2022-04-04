@@ -144,6 +144,18 @@ var (
 			name:        vmiMemoryUsedBytes,
 			description: vmiMemoryUsedBytesDesc,
 		},
+		{
+			name:        "kubevirt_migration_vmi_data_remaining_kb",
+			description: "The remaining guest OS data to be migrated to the new VM.",
+		},
+		{
+			name:        "kubevirt_migration_vmi_data_processed_kb",
+			description: "The total Guest OS data processed and migrated to the new VM.",
+		},
+		{
+			name:        "kubevirt_migration_vmi_dirty_memory_rate_kb",
+			description: "The rate of memory being dirty in the Guest OS.",
+		},
 	}
 )
 
