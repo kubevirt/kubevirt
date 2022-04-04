@@ -68,6 +68,8 @@ type DomainStats struct {
 	// extra stats
 	CPUMapSet bool
 	CPUMap    [][]bool
+	// omitted from libvirt-go: DomainJobInfo
+	Migration *DomainStatsMigration
 }
 
 type DomainStatsCPU struct {
@@ -168,4 +170,13 @@ type DomainStatsMemory struct {
 	Usable           uint64
 	TotalSet         bool
 	Total            uint64
+}
+
+type DomainStatsMigration struct {
+	DataProcessedSet bool
+	DataProcessed    uint64
+	DataRemainingSet bool
+	DataRemaining    uint64
+	MemDirtyRateSet  bool
+	MemDirtyRate     uint64
 }

@@ -32,7 +32,7 @@ type DomainIdentifier interface {
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, devAliasMap map[string]string, out *stats.DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, inJobInfo *libvirt.DomainJobInfo, devAliasMap map[string]string, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -50,6 +50,7 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
 	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net, devAliasMap)
 	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block, devAliasMap)
+	out.Migration = Convert_libvirt_DomainJobInfo_To_stats_DomainStatsMigration(inJobInfo)
 
 	return nil
 }
@@ -203,4 +204,19 @@ func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.Dom
 		ret = append(ret, blkStat)
 	}
 	return ret
+}
+
+func Convert_libvirt_DomainJobInfo_To_stats_DomainStatsMigration(in *libvirt.DomainJobInfo) *stats.DomainStatsMigration {
+	if in == nil {
+		return &stats.DomainStatsMigration{}
+	}
+
+	return &stats.DomainStatsMigration{
+		DataProcessedSet: in.DataProcessedSet,
+		DataProcessed:    in.DataProcessed,
+		DataRemainingSet: in.DataRemainingSet,
+		DataRemaining:    in.DataRemaining,
+		MemDirtyRateSet:  in.MemDirtyRateSet,
+		MemDirtyRate:     in.MemDirtyRate,
+	}
 }
