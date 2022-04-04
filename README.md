@@ -19,6 +19,8 @@ Use it to obtain an opinionated deployment of KubeVirt and its helper operators.
 
 ![](images/HCO-design.jpg)
 
+In the [HCO components](docs/hco_components.md) doc you can get an up-to-date overview of the involved components.
+
 ## Installing HCO using kustomize (Openshift OLM Only)
 To install the default community HyperConverged Cluster Operator, along with its underlying components, run:
 ```bash

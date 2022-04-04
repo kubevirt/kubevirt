@@ -13,7 +13,7 @@ jobs:
 
       - name: Check for update
         run: |
-          ./hco/automation/dashboard-updater/dashboard-updater.sh "./hco/docs"
+          ./hco/automation/graphs-updater/graphs-updater.sh "./hco/docs"
           cd hco
           git add docs/*.gv
           if ! git diff HEAD --quiet --exit-code; then
