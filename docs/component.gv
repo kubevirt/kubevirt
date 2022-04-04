@@ -1,0 +1,58 @@
+digraph component {
+	graph [rankdir=LR]
+	node [fontname="Courier-Bold" fontsize=24 height=1 shape=box style=rounded width=3]
+	subgraph cluster_compute {
+		fontname="Courier-Bold" fontsize=42 group=compute label=compute rank=same style=dashed
+		"KubeVirt/kubevirt-kubevirt-hyperconverged" [label="KubeVirt/kubevirt-kubevirt-hyperconverged"]
+		"daemonset/virt-handler" [label="daemonset/virt-handler"]
+		"deployment/virt-api" [label="deployment/virt-api"]
+		"deployment/virt-controller" [label="deployment/virt-controller"]
+		"deployment/virt-operator" [label="deployment/virt-operator"]
+	}
+	subgraph cluster_deployment {
+		fontname="Courier-Bold" fontsize=42 group=deployment label=deployment rank=same style=dashed
+		"deployment/hco-operator" [label="deployment/hco-operator"]
+		"deployment/hco-webhook" [label="deployment/hco-webhook"]
+		"deployment/hyperconverged-cluster-cli-download" [label="deployment/hyperconverged-cluster-cli-download"]
+	}
+	subgraph cluster_network {
+		fontname="Courier-Bold" fontsize=42 group=network label=network rank=same style=dashed
+		"NetworkAddonsConfig/cluster" [label="NetworkAddonsConfig/cluster"]
+		"daemonset/bridge-marker" [label="daemonset/bridge-marker"]
+		"daemonset/kube-cni-linux-bridge-plugin" [label="daemonset/kube-cni-linux-bridge-plugin"]
+		"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+		"deployment/kubemacpool-cert-manager" [label="deployment/kubemacpool-cert-manager"]
+		"deployment/kubemacpool-mac-controller-manager" [label="deployment/kubemacpool-mac-controller-manager"]
+		"deployment/node-maintenance-operator" [label="deployment/node-maintenance-operator"]
+	}
+	subgraph cluster_schedule {
+		fontname="Courier-Bold" fontsize=42 group=schedule label=schedule rank=same style=dashed
+		"SSP/ssp-kubevirt-hyperconverged" [label="SSP/ssp-kubevirt-hyperconverged"]
+		"deployment/ssp-operator" [label="deployment/ssp-operator"]
+	}
+	subgraph cluster_storage {
+		fontname="Courier-Bold" fontsize=42 group=storage label=storage rank=same style=dashed
+		"CDI/cdi-kubevirt-hyperconverged" [label="CDI/cdi-kubevirt-hyperconverged"]
+		"CDIConfig/config" [label="CDIConfig/config"]
+		"deployment/cdi-apiserver" [label="deployment/cdi-apiserver"]
+		"deployment/cdi-deployment" [label="deployment/cdi-deployment"]
+		"deployment/cdi-operator" [label="deployment/cdi-operator"]
+		"deployment/cdi-uploadproxy" [label="deployment/cdi-uploadproxy"]
+		"deployment/hostpath-provisioner-operator" [label="deployment/hostpath-provisioner-operator"]
+	}
+	subgraph cluster_templating {
+		fontname="Courier-Bold" fontsize=42 group=templating label=templating rank=same style=dashed
+		"deployment/virt-template-validator" [label="deployment/virt-template-validator"]
+	}
+	subgraph cluster_unassigned {
+		fontname="Courier-Bold" fontsize=42 group=unassigned label=unassigned rank=same style=dashed
+		"HyperConverged/kubevirt-hyperconverged" [label="HyperConverged/kubevirt-hyperconverged"]
+	}
+	edge [style=invis]
+	"KubeVirt/kubevirt-kubevirt-hyperconverged" -> "deployment/hco-operator"
+	"deployment/hco-operator" -> "NetworkAddonsConfig/cluster"
+	"NetworkAddonsConfig/cluster" -> "SSP/ssp-kubevirt-hyperconverged"
+	"SSP/ssp-kubevirt-hyperconverged" -> "CDI/cdi-kubevirt-hyperconverged"
+	"CDI/cdi-kubevirt-hyperconverged" -> "deployment/virt-template-validator"
+	"deployment/virt-template-validator" -> "HyperConverged/kubevirt-hyperconverged"
+}

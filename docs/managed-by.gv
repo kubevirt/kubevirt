@@ -1,0 +1,81 @@
+digraph "managed-by" {
+	graph [center=true margin=0.1 nodesep=0.1 rankdir=LR ranksep=2]
+	node [fontname="Courier-Bold" fontsize=24 height=1 shape=box style=rounded width=3]
+	edge [arrowhead=vee arrowsize=2]
+	"HyperConverged/kubevirt-hyperconverged" [label="HyperConverged/kubevirt-hyperconverged"]
+	"KubeVirt/kubevirt-kubevirt-hyperconverged" [label="KubeVirt/kubevirt-kubevirt-hyperconverged"]
+	"deployment/hco-operator" [label="deployment/hco-operator"]
+	"deployment/hco-operator" -> "KubeVirt/kubevirt-kubevirt-hyperconverged"
+	"SSP/ssp-kubevirt-hyperconverged" [label="SSP/ssp-kubevirt-hyperconverged"]
+	"deployment/hco-operator" [label="deployment/hco-operator"]
+	"deployment/hco-operator" -> "SSP/ssp-kubevirt-hyperconverged"
+	"CDI/cdi-kubevirt-hyperconverged" [label="CDI/cdi-kubevirt-hyperconverged"]
+	"deployment/hco-operator" [label="deployment/hco-operator"]
+	"deployment/hco-operator" -> "CDI/cdi-kubevirt-hyperconverged"
+	"CDIConfig/config" [label="CDIConfig/config"]
+	"deployment/cdi-deployment" [label="deployment/cdi-deployment"]
+	"deployment/cdi-deployment" -> "CDIConfig/config"
+	"NetworkAddonsConfig/cluster" [label="NetworkAddonsConfig/cluster"]
+	"deployment/hco-operator" [label="deployment/hco-operator"]
+	"deployment/hco-operator" -> "NetworkAddonsConfig/cluster"
+	"deployment/cdi-apiserver" [label="deployment/cdi-apiserver"]
+	"deployment/cdi-operator" [label="deployment/cdi-operator"]
+	"deployment/cdi-operator" -> "deployment/cdi-apiserver"
+	"deployment/cdi-deployment" [label="deployment/cdi-deployment"]
+	"deployment/cdi-operator" [label="deployment/cdi-operator"]
+	"deployment/cdi-operator" -> "deployment/cdi-deployment"
+	"deployment/cdi-operator" [label="deployment/cdi-operator"]
+	olm [label=olm]
+	olm -> "deployment/cdi-operator"
+	"deployment/cdi-uploadproxy" [label="deployment/cdi-uploadproxy"]
+	"deployment/cdi-operator" [label="deployment/cdi-operator"]
+	"deployment/cdi-operator" -> "deployment/cdi-uploadproxy"
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	olm [label=olm]
+	olm -> "deployment/cluster-network-addons-operator"
+	"deployment/hco-operator" [label="deployment/hco-operator"]
+	olm [label=olm]
+	olm -> "deployment/hco-operator"
+	"deployment/hco-webhook" [label="deployment/hco-webhook"]
+	olm [label=olm]
+	olm -> "deployment/hco-webhook"
+	"deployment/hostpath-provisioner-operator" [label="deployment/hostpath-provisioner-operator"]
+	olm [label=olm]
+	olm -> "deployment/hostpath-provisioner-operator"
+	"deployment/hyperconverged-cluster-cli-download" [label="deployment/hyperconverged-cluster-cli-download"]
+	olm [label=olm]
+	olm -> "deployment/hyperconverged-cluster-cli-download"
+	"deployment/kubemacpool-cert-manager" [label="deployment/kubemacpool-cert-manager"]
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	"deployment/cluster-network-addons-operator" -> "deployment/kubemacpool-cert-manager"
+	"deployment/kubemacpool-mac-controller-manager" [label="deployment/kubemacpool-mac-controller-manager"]
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	"deployment/cluster-network-addons-operator" -> "deployment/kubemacpool-mac-controller-manager"
+	"deployment/node-maintenance-operator" [label="deployment/node-maintenance-operator"]
+	olm [label=olm]
+	olm -> "deployment/node-maintenance-operator"
+	"deployment/ssp-operator" [label="deployment/ssp-operator"]
+	olm [label=olm]
+	olm -> "deployment/ssp-operator"
+	"deployment/virt-api" [label="deployment/virt-api"]
+	"deployment/virt-operator" [label="deployment/virt-operator"]
+	"deployment/virt-operator" -> "deployment/virt-api"
+	"deployment/virt-controller" [label="deployment/virt-controller"]
+	"deployment/virt-operator" [label="deployment/virt-operator"]
+	"deployment/virt-operator" -> "deployment/virt-controller"
+	"deployment/virt-operator" [label="deployment/virt-operator"]
+	olm [label=olm]
+	olm -> "deployment/virt-operator"
+	"deployment/virt-template-validator" [label="deployment/virt-template-validator"]
+	"deployment/ssp-operator" [label="deployment/ssp-operator"]
+	"deployment/ssp-operator" -> "deployment/virt-template-validator"
+	"daemonset/bridge-marker" [label="daemonset/bridge-marker"]
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	"deployment/cluster-network-addons-operator" -> "daemonset/bridge-marker"
+	"daemonset/kube-cni-linux-bridge-plugin" [label="daemonset/kube-cni-linux-bridge-plugin"]
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	"deployment/cluster-network-addons-operator" -> "daemonset/kube-cni-linux-bridge-plugin"
+	"daemonset/virt-handler" [label="daemonset/virt-handler"]
+	"deployment/virt-operator" [label="deployment/virt-operator"]
+	"deployment/virt-operator" -> "daemonset/virt-handler"
+}

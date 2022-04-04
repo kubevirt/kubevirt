@@ -1,0 +1,46 @@
+name: Update component graphs from the nightly job
+on: workflow_dispatch
+jobs:
+  build:
+    name: Update Dashboard ConfigMaps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v2
+        with:
+          ref: main
+          path: hco
+
+      - name: Check for update
+        run: |
+          ./hco/automation/dashboard-updater/dashboard-updater.sh "./hco/docs"
+          cd hco
+          git add docs/*.gv
+          if ! git diff HEAD --quiet --exit-code; then
+            echo "There is an update."
+            git add --all
+            echo "UPDATED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create a PR
+        uses: peter-evans/create-pull-request@v3
+        if: ${{ env.UPDATED }}
+        with:
+          path: hco
+          token: ${{ secrets.HCO_BOT_TOKEN }}
+          commit-message: |
+            Update component graphs from the nightly job
+
+            Signed-off-by: HCO Bump Bot <noreply@github.com>
+          committer: HCO Bump Bot <noreply@github.com>
+          title: "Update component graphs from the nightly job"
+          body: |
+            Update component graphs from the nightly job
+            ```release-note
+            Update component graphs from the nightly job
+            ```
+          assignees: tiraboschi
+          reviewers: tiraboschi
+          team-reviewers: owners, maintainers
+          branch: update_dashboard_configmaps
+          delete-branch: true

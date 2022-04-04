@@ -29,7 +29,7 @@ class GraphGenerator(object):
             graph_attr={
                 'rankdir': 'LR',
                 'center': 'true',
-                'margin': '0.1',
+                'margin': '0.2',
                 'nodesep': '0.1',
                 'ranksep': '2'
             },
