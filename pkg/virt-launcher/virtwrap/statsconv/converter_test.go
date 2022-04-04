@@ -40,11 +40,14 @@ var _ = Describe("StatsConverter", func() {
 	var mockDomainIdent *MockDomainIdentifier
 	var ctrl *gomock.Controller
 	var testStats []libvirt.DomainStats
+	var inJobInfo *libvirt.DomainJobInfo
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDomainIdent = NewMockDomainIdentifier(ctrl)
 		testStats, _ = util.LoadStats()
+
+		inJobInfo = &libvirt.DomainJobInfo{}
 	})
 
 	Context("on conversion attempt", func() {
@@ -57,7 +60,7 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &out)
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, devAliasMap, &out)
 
 			Expect(err).To(BeNil())
 			Expect(out.Name).To(Equal("testName"))
@@ -67,13 +70,14 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
+			inJobInfo.MemDirtyRate = 123
 			devAliasMap := make(map[string]string)
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &out)
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, devAliasMap, &out)
 
 			Expect(err).To(BeNil())
 			// very very basic sanity check
@@ -82,18 +86,20 @@ var _ = Describe("StatsConverter", func() {
 			Expect(len(out.Vcpu)).To(Equal(len(testStats[0].Vcpu)))
 			Expect(len(out.Net)).To(Equal(len(testStats[0].Net)))
 			Expect(len(out.Block)).To(Equal(len(testStats[0].Block)))
+			Expect(out.Migration.MemDirtyRate).To(Equal(inJobInfo.MemDirtyRate))
 		})
 
 		It("should convert valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
+			inJobInfo.MemDirtyRate = 123
 			devAliasMap := make(map[string]string)
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &out)
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, devAliasMap, &out)
 
 			Expect(err).To(BeNil())
 

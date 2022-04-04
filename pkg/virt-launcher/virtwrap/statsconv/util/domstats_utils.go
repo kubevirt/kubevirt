@@ -243,7 +243,15 @@ var Testdataexpected = `{
      }
    ],
    "CPUMapSet": false,
-   "CPUMap": null
+   "CPUMap": null,
+   "Migration": {
+       "DataProcessedSet": false,
+       "DataProcessed": 0,
+       "DataRemainingSet": false,
+       "DataRemaining": 0,
+       "MemDirtyRateSet": false,
+       "MemDirtyRate": 123
+   }
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {
