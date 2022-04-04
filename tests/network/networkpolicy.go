@@ -403,21 +403,20 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := libvmi.NewAlpine(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+	clientVMI := libvmi.NewAlpineWithTestTooling(libvmi.WithMasqueradeNetworking()...)
 	var err error
 	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(clientVMI)
 	if err != nil {
 		return nil, err
 	}
 
-	clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
+	clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 	return clientVMI, nil
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
-	serverVMI := libvmi.NewAlpine(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(
+	serverVMI := libvmi.NewAlpineWithTestTooling(
+		libvmi.WithMasqueradeNetworking(
 			v1.Port{
 				Name:     "http80",
 				Port:     80,
@@ -428,15 +427,14 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 				Port:     81,
 				Protocol: "TCP",
 			},
-		)),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)...,
 	)
 	serverVMI.Labels = serverVMILabels
 	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(serverVMI)
 	if err != nil {
 		return nil, err
 	}
-	serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
+	serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 
 	By("Start HTTP server at serverVMI on ports 80 and 81")
 	tests.HTTPServer.Start(serverVMI, 80)

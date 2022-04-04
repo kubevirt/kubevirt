@@ -266,21 +266,15 @@ func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation stri
 }
 
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpine(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		withLivelinessProbe(probe),
-	)
+	vmi := libvmi.NewAlpineWithTestTooling(
+		withMasqueradeNetworkingAndFurtherUserConfig(withLivelinessProbe(probe))...)
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
 
 func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpine(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		withLivelinessProbe(probe),
-	)
+	vmi := libvmi.NewAlpineWithTestTooling(
+		withMasqueradeNetworkingAndFurtherUserConfig(withLivelinessProbe(probe))...)
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -337,9 +331,9 @@ func isHTTPProbe(probe v1.Probe) bool {
 
 func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
 	if isHTTPProbe(*probe) {
-		tests.StartHTTPServer(vmi, port, libnet.WithAlpineConfig(console.LoginToAlpine))
+		tests.StartHTTPServer(vmi, port, console.LoginToAlpine)
 	} else {
-		tests.StartTCPServer(vmi, port, libnet.WithAlpineConfig(console.LoginToAlpine))
+		tests.StartTCPServer(vmi, port, console.LoginToAlpine)
 	}
 }
 
@@ -359,14 +353,7 @@ func getVMIConditions(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 }
 
 func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
-	networkData, _ := libnet.CreateDefaultCloudInitNetworkData()
-
-	return append(
-		[]libvmi.Option{
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
-		}, opts...)
+	return append(libvmi.WithMasqueradeNetworking(), opts...)
 }
 
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {

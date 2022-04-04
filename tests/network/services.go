@@ -237,12 +237,12 @@ var _ = SIGDescribe("Services", func() {
 		)
 
 		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			vmi := libvmi.NewAlpine(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()))
+			vmi := libvmi.NewAlpineWithTestTooling(
+				libvmi.WithMasqueradeNetworking()...,
+			)
 			return readyVMI(
 				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue),
-				libnet.WithAlpineConfig(console.LoginToAlpine))
+				console.LoginToAlpine)
 		}
 
 		BeforeEach(func() {
@@ -250,7 +250,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort, libnet.WithAlpineConfig(console.LoginToAlpine))
+			tests.StartTCPServer(inboundVMI, servicePort, console.LoginToAlpine)
 		})
 
 		AfterEach(func() {

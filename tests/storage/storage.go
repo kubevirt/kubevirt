@@ -362,9 +362,8 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmi.NewAlpine(
-					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				vmi = libvmi.NewAlpineWithTestTooling(
+					libvmi.WithMasqueradeNetworking()...,
 				)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 					Name:   "emptydisk1",
@@ -385,7 +384,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking for the specified serial number")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
