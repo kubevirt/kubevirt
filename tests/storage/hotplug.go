@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -173,7 +174,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		if dryRun {
 			commandAndArgs = append(commandAndArgs, "--dry-run")
 		}
-		addvolumeCommand := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
+		addvolumeCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return addvolumeCommand()
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -203,7 +204,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		if dryRun {
 			commandAndArgs = append(commandAndArgs, "--dry-run")
 		}
-		removeVolumeCommand := tests.NewRepeatableVirtctlCommand(commandAndArgs...)
+		removeVolumeCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return removeVolumeCommand()
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

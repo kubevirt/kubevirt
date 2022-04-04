@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -66,7 +67,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		if config.Status.UploadProxyURL == nil {
 			By("Setting up port forwarding")
 			portMapping := fmt.Sprintf("%d:%d", localUploadProxyPort, uploadProxyPort)
-			_, kubectlCmd, err = tests.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
+			_, kubectlCmd, err = clientcmd.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = kubectlCmd.Start()
@@ -149,7 +150,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
 				namespace, util.NamespaceTestDefault,
 				"--image-path", imagePath,
@@ -214,7 +215,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
 				namespace, util.NamespaceTestDefault,
 				"--image-path", imagePath,
@@ -269,7 +270,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			defer deleteFunc(targetName)
 
 			By("Upload archive content")
-			virtctlCmd := tests.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
 				resource, targetName,
 				namespace, util.NamespaceTestDefault,
 				"--archive-path", archivePath,

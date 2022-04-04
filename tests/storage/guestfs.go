@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -70,7 +71,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 	runGuestfsOnPVC := func(pvcClaim string) {
 		podName := libguestsTools + pvcClaim
-		guestfsCmd := tests.NewVirtctlCommand("guestfs",
+		guestfsCmd := clientcmd.NewVirtctlCommand("guestfs",
 			pvcClaim,
 			"--namespace", util.NamespaceTestDefault)
 		go func() {
@@ -149,7 +150,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			pvcClaim = "pvc-fail-to-run-twice"
 			createPVCFilesystem(pvcClaim)
 			runGuestfsOnPVC(pvcClaim)
-			guestfsCmd := tests.NewVirtctlCommand("guestfs",
+			guestfsCmd := clientcmd.NewVirtctlCommand("guestfs",
 				pvcClaim,
 				"--namespace", util.NamespaceTestDefault)
 			Expect(guestfsCmd.Execute()).To(HaveOccurred())

@@ -17,7 +17,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
-	"kubevirt.io/kubevirt/tests"
+
+	virtctlcmd "kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 const (
@@ -110,19 +111,19 @@ var _ = Describe("Guestfs shell", func() {
 
 		It("Succesfully attach to PVC", func() {
 			guestfs.SetClient(fakeCreateClientPVC)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, pvcName)
+			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			Expect(cmd()).To(BeNil())
 		})
 		It("PVC in use", func() {
 			guestfs.SetClient(fakeCreateClientPVCinUse)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, pvcName)
+			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("PVC %s is used by another pod", pvcName)))
 		})
 		It("PVC doesn't exist", func() {
 			guestfs.SetClient(fakeCreateClient)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, pvcName)
+			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("The PVC %s doesn't exist", pvcName)))

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/gomega"
@@ -21,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/tests"
 )
 
 type AlertRequestResult struct {
@@ -62,7 +62,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 		sourcePort := 4321 + rand.Intn(6000)
 		targetPort := 9090
 		Eventually(func() error {
-			_, cmd, err := tests.CreateCommandWithNS(monitoringNs, tests.GetK8sCmdClient(),
+			_, cmd, err := clientcmd.CreateCommandWithNS(monitoringNs, clientcmd.GetK8sCmdClient(),
 				"port-forward", "service/prometheus-k8s", fmt.Sprintf("%d:%d", sourcePort, targetPort))
 			if err != nil {
 				return err
@@ -93,7 +93,7 @@ func getPrometheusURLForOpenShift() string {
 	Eventually(func() error {
 		var stderr string
 		var err error
-		host, stderr, err = tests.RunCommand(tests.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
+		host, stderr, err = clientcmd.RunCommand(clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
 		if err != nil {
 			return fmt.Errorf("error while getting route. err:'%v', stderr:'%v'", err, stderr)
 		}

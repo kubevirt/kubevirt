@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/dns"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -310,14 +311,14 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	Context("[ref_id:142]with kubectl command", func() {
 		var yamlFile string
 		BeforeEach(func() {
-			tests.SkipIfNoCmd("kubectl")
+			clientcmd.SkipIfNoCmd("kubectl")
 			yamlFile, err = tests.GenerateVMIJson(windowsVMI, GinkgoT().TempDir())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:223]should succeed to start a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
+			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
@@ -325,14 +326,14 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 		It("[test_id:239]should succeed to stop a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
+			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 			podSelector := tests.UnfinishedVMIPodSelector(windowsVMI)
 			By("Deleting the vmi via kubectl command")
-			_, _, err = tests.RunCommand("kubectl", "delete", "-f", yamlFile)
+			_, _, err = clientcmd.RunCommand("kubectl", "delete", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vmi does not exist anymore")

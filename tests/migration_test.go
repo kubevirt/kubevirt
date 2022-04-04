@@ -40,6 +40,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -279,12 +280,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
 		// time that we call it.
 		vmiSelector := v1.AppLabel + "=virt-launcher"
-		k8sClient := tests.GetK8sCmdClient()
+		k8sClient := clientcmd.GetK8sCmdClient()
 		if k8sClient == "oc" {
-			tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		} else {
-			tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			clientcmd.RunCommandWithNS("", k8sClient, "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		}
 	}
@@ -390,7 +391,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
 		} else {
 			By("Cancelling a Migration with virtctl")
-			command := tests.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)
+			command := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)
 			Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
 		}
 	}
@@ -1055,7 +1056,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
 
 				By("verify that VMI can be unpaused after migration")
-				command := tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
+				command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
 				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 

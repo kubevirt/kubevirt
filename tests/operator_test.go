@@ -30,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -154,7 +155,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		util2.PanicOnError(err)
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
-		k8sClient = tests.GetK8sCmdClient()
+		k8sClient = clientcmd.GetK8sCmdClient()
 
 		copyOriginalCDI = func() *cdiv1.CDI {
 			newCDI := &cdiv1.CDI{
@@ -602,7 +603,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 		installOperator = func(manifestPath string) {
 			// namespace is already hardcoded within the manifests
-			_, _, err = tests.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
+			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for KubeVirt CRD to be created")
@@ -616,7 +617,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		}
 
 		deleteOperator = func(manifestPath string) {
-			_, _, err = tests.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
+			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -1544,12 +1545,12 @@ spec:
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
 				// NOTE: using kubectl to post yaml directly
-				_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmYaml.yamlFile, "--cache-dir", oldClientCacheDir)
+				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmYaml.yamlFile, "--cache-dir", oldClientCacheDir)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, vmSnapshot := range vmYaml.vmSnapshots {
 					By(fmt.Sprintf("Creating VM snapshot %s for vm %s", vmSnapshot.vmSnapshotName, vmYaml.vmName))
-					_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmSnapshot.yamlFile, "--cache-dir", oldClientCacheDir)
+					_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmSnapshot.yamlFile, "--cache-dir", oldClientCacheDir)
 					Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -1557,7 +1558,7 @@ spec:
 				// NOTE: we are using virtctl explicitly here because we want to start the VM
 				// using the subresource endpoint in the same way virtctl performs this.
 				By("Starting VM with virtctl")
-				startCommand := tests.NewRepeatableVirtctlCommand("start", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
+				startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
 				Expect(startCommand()).To(Succeed())
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
@@ -1645,7 +1646,7 @@ spec:
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Stopping VM with virtctl")
-				stopFn := tests.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
+				stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
 				Eventually(func() error {
 					return stopFn()
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
@@ -1701,7 +1702,7 @@ spec:
 
 				By(fmt.Sprintf("Ensure vm %s can be restored from vmsnapshots", vmYaml.vmName))
 				for _, snapshot := range vmYaml.vmSnapshots {
-					_, _, err = tests.RunCommand(k8sClient, "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
+					_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(func() bool {
 						r, err := virtClient.VirtualMachineRestore(util2.NamespaceTestDefault).Get(context.Background(), snapshot.restoreName, metav1.GetOptions{})
@@ -1713,7 +1714,7 @@ spec:
 				}
 
 				By(fmt.Sprintf("Deleting VM with %s api", vmYaml.apiVersion))
-				_, _, err = tests.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile, "--cache-dir", newClientCacheDir)
+				_, _, err = clientcmd.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile, "--cache-dir", newClientCacheDir)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VM to be removed")

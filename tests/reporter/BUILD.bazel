@@ -14,6 +14,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests:go_default_library",
+        "//tests/clientcmd:go_default_library",
         "//tests/console:go_default_library",
         "//tests/flags:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
