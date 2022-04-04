@@ -3,7 +3,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-sample"},"spec":{"nodeName":"node02","reason":"Test
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"tektontasks.kubevirt.io/v1alpha1","kind":"TektonTasks","metadata":{"name":"tektontasks-sample","namespace":"kubevirt"},"spec":{"featureGates":{"deployTektonTaskResources":true},"pipelines":{"namespace":"kubevirt"}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-sample"},"spec":{"nodeName":"node02","reason":"Test
       node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":"ReadWriteOnce","resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}}]'
     capabilities: Deep Insights
     categories: OpenShift Optional
@@ -16,7 +16,7 @@ metadata:
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
     operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'
-    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","tektontasks.tektontasks.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
   name: kubevirt-hyperconverged-operator.v1.7.0
@@ -89,6 +89,11 @@ spec:
       kind: SSP
       name: ssps.ssp.kubevirt.io
       version: v1beta1
+    - description: TektonTasks is the Schema for the tektontasks API
+      displayName: Tekton Tasks
+      kind: TektonTasks
+      name: tektontasks.tektontasks.kubevirt.io
+      version: v1alpha1
     - description: Represents a CDI deployment
       displayName: CDI deployment
       kind: CDI
@@ -226,6 +231,18 @@ spec:
           resources:
           - ssps
           - ssps/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
+          - tektontasks.kubevirt.io
+          resources:
+          - tektontasks
+          - tektontasks/finalizers
           verbs:
           - get
           - list
@@ -1664,6 +1681,159 @@ spec:
         serviceAccountName: ssp-operator
       - rules:
         - apiGroups:
+          - '*'
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - list
+          - watch
+        - apiGroups:
+          - '*'
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - '*'
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - cdi.kubevirt.io
+          resources:
+          - datavolumes
+          verbs:
+          - '*'
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstances
+          - virtualmachines
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines/finalizers
+          verbs:
+          - '*'
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          - rolebindings
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/restart
+          - virtualmachines/start
+          - virtualmachines/stop
+          verbs:
+          - update
+        - apiGroups:
+          - tekton.dev
+          resources:
+          - clustertasks
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - tekton.dev
+          resources:
+          - pipelines
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - tektontasks.kubevirt.io
+          resources:
+          - tektontasks
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - tektontasks.kubevirt.io
+          resources:
+          - tektontasks/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - tektontasks.kubevirt.io
+          resources:
+          - tektontasks/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - template.openshift.io
+          resources:
+          - processedtemplates
+          verbs:
+          - create
+        - apiGroups:
+          - template.openshift.io
+          resources:
+          - templates
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - watch
+        serviceAccountName: tekton-tasks-operator
+      - rules:
+        - apiGroups:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
@@ -2286,6 +2456,8 @@ spec:
                   value: v0.74.0
                 - name: SSP_VERSION
                   value: v0.13.2
+                - name: TTO_VERSION
+                  value: v0.1.2
                 - name: NMO_VERSION
                   value: v0.11.3
                 - name: HPPO_VERSION
@@ -2687,6 +2859,77 @@ spec:
               serviceAccountName: ssp-operator
               terminationGracePeriodSeconds: 10
       - label:
+          app.kubernetes.io/component: tekton
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.7.0
+        name: tekton-tasks-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: tekton-tasks-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: tekton
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.7.0
+                control-plane: tekton-tasks-operator
+                name: tekton-tasks-operator
+                prometheus.kubevirt.io: "true"
+              namespace: kubevirt-hyperconverged
+            spec:
+              containers:
+              - args:
+                - --leader-elect
+                command:
+                - /manager
+                env:
+                - name: OPERATOR_VERSION
+                  value: v0.1.2
+                - name: CLEANUP_VM_IMG
+                - name: COPY_TEMPLATE_IMG
+                - name: CREATE_DATAVOLUME_IMG
+                - name: CREATE_VM_IMG
+                - name: DISK_VIRT_CUSTOMIZE_IMG
+                - name: DISK_VIRT_SYSPREP_IMG
+                - name: MODIFY_VM_TEMPLATE_IMG
+                - name: WAIT_FOR_VMI_STATUS_IMG
+                - name: OPERATOR_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                image: quay.io/kubevirt/tekton-tasks-operator@sha256:c5a662b98108c415b8c962fc876ac0c649137386a248adecd8e695a8b68a6a56
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                ports:
+                - containerPort: 8443
+                  name: metrics
+                  protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 150Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+              priorityClassName: system-cluster-critical
+              serviceAccountName: tekton-tasks-operator
+              terminationGracePeriodSeconds: 10
+      - label:
           app.kubernetes.io/component: storage
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
@@ -3021,6 +3264,39 @@ spec:
           - create
           - patch
         serviceAccountName: ssp-operator
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: tekton-tasks-operator
       - rules:
         - apiGroups:
           - rbac.authorization.k8s.io
@@ -3369,6 +3645,8 @@ spec:
     name: ovs-cni-plugin
   - image: quay.io/kubevirt/ssp-operator@sha256:522549d048596366f5dc3aa1f454b2e82e892bf9a38b87431b67a79602de715f
     name: ssp-operator
+  - image: quay.io/kubevirt/tekton-tasks-operator@sha256:c5a662b98108c415b8c962fc876ac0c649137386a248adecd8e695a8b68a6a56
+    name: tekton-tasks-operator
   - image: quay.io/kubevirt/virt-api@sha256:9d331736392af853da7a82ee00b7358008d47488bf383563d5910753018a1164
     name: virt-api
   - image: quay.io/kubevirt/virt-controller@sha256:6c3cf4ebb8d173316de2a557ea7208808d1b9fbfdd4ccf44e71ecc0ea28559a5

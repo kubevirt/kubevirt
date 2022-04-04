@@ -27,6 +27,7 @@ source cluster/kubevirtci.sh
 CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml"
 KUBEVIRT_OPERATOR_URL="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-operator.yaml"
 SSP_OPERATOR_URL="https://github.com/kubevirt/ssp-operator/releases/download/${SSP_VERSION}/ssp-operator.yaml"
+TTO_OPERATOR_URL="https://github.com/kubevirt/tekton-tasks-operator/releases/download/${TTO_VERSION}/tekton-tasks-operator.yaml"
 CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}"
 
 mem_size=${KUBEVIRT_MEMORY_SIZE:-5120M}

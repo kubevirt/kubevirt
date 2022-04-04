@@ -36,6 +36,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
+	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -232,6 +233,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.cdi.Status.Conditions = nil
 				expected.cna.Status.Conditions = nil
 				expected.ssp.Status.Conditions = nil
+				expected.tto.Status.Conditions = nil
 				cl := expected.initClient()
 
 				r := initReconciler(cl, nil)
@@ -444,6 +446,29 @@ var _ = Describe("HyperconvergedController", func() {
 
 				Expect(foundResource.Spec.CommonTemplates.Namespace).To(Equal(expected.hco.Namespace), "common-templates namespace should be "+expected.hco.Namespace)
 			})
+
+			It("should set different pipeline namespace to tto CR", func() {
+				expected := getBasicDeployment()
+				expected.hco.Spec.TektonPipelinesNamespace = &expected.hco.Namespace
+
+				cl := expected.initClient()
+				r := initReconciler(cl, nil)
+
+				// Do the reconcile
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				foundResource := &ttov1alpha1.TektonTasks{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.tto.Name, Namespace: expected.hco.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Pipelines.Namespace).To(Equal(expected.hco.Namespace), "pipelines namespace should be "+expected.hco.Namespace)
+			})
+
 			It("should complete when components are finished", func() {
 				expected := getBasicDeployment()
 
@@ -673,6 +698,20 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 				})
+				By("Check TTO", func() {
+					origConds := expected.tto.Status.Conditions
+					expected.tto.Status.Conditions = expected.tto.Status.Conditions[1:]
+					cl = expected.initClient()
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionFalse)
+
+					expected.tto.Status.Conditions = origConds
+					cl = expected.initClient()
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+				})
 			})
 
 			It(`should delete HCO`, func() {
@@ -693,7 +732,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(20))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(21))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -922,6 +961,9 @@ var _ = Describe("HyperconvergedController", func() {
 
 				_ = os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
 				expected.ssp.Status.ObservedVersion = newComponentVersion
+
+				_ = os.Setenv(hcoutil.TtoVersionEnvV, newComponentVersion)
+				expected.tto.Status.ObservedVersion = newComponentVersion
 
 				expected.hco.Status.Conditions = origConditions
 
@@ -1440,6 +1482,11 @@ var _ = Describe("HyperconvergedController", func() {
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "ssps.ssp.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "tektontasks.tektontasks.kubevirt.io",
 							},
 						},
 					}

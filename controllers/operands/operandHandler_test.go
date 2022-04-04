@@ -84,6 +84,11 @@ var _ = Describe("Test operandHandler", func() {
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
+					Msg:       "Created TektonTasks tto-kubevirt-hyperconverged",
+				},
+				{
+					EventType: corev1.EventTypeNormal,
+					Reason:    "Created",
 					Msg:       "Created Service kubevirt-hyperconverged-operator-metrics",
 				},
 				{
@@ -245,6 +250,11 @@ var _ = Describe("Test operandHandler", func() {
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Killing",
 					Msg:       "Removed SSP ssp-kubevirt-hyperconverged",
+				},
+				{
+					EventType: corev1.EventTypeNormal,
+					Reason:    "Killing",
+					Msg:       "Removed TektonTasks tto-kubevirt-hyperconverged",
 				},
 				{
 					EventType: corev1.EventTypeNormal,
