@@ -126,12 +126,14 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 	}
 
 	BeforeEach(func() {
+		checks.SkipIfMigrationIsNotPossible()
+
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items)).To(BeNumerically(">", 1),
-			"should have at least two shcedulable nodes in the cluster")
+			"should have at least two schedulable nodes in the cluster")
 
 		checks.SkipIfVersionBelow("swap requires v1.22 and above", k8sSwapVer)
 		skipIfSwapOff(fmt.Sprintf("swap should be enabled through env var: KUBEVIRT_SWAP_ON=true "+
@@ -140,7 +142,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 	})
 
 	Context("Migration to/from memory overcommitted nodes", func() {
-
 		It("Postcopy Migration of vmi that is dirtying(stress-ng) more memory than the source node's memory", func() {
 			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
 			sourceNode := nodes[0]
