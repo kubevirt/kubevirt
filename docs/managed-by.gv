@@ -1,5 +1,5 @@
 digraph "managed-by" {
-	graph [center=true margin=0.1 nodesep=0.1 rankdir=LR ranksep=2]
+	graph [center=true margin=0.2 nodesep=0.1 rankdir=LR ranksep=2]
 	node [fontname="Courier-Bold" fontsize=24 height=1 shape=box style=rounded width=3]
 	edge [arrowhead=vee arrowsize=2]
 	"HyperConverged/kubevirt-hyperconverged" [label="HyperConverged/kubevirt-hyperconverged"]
@@ -57,6 +57,9 @@ digraph "managed-by" {
 	"deployment/ssp-operator" [label="deployment/ssp-operator"]
 	olm [label=olm]
 	olm -> "deployment/ssp-operator"
+	"deployment/tekton-tasks-operator" [label="deployment/tekton-tasks-operator"]
+	olm [label=olm]
+	olm -> "deployment/tekton-tasks-operator"
 	"deployment/virt-api" [label="deployment/virt-api"]
 	"deployment/virt-operator" [label="deployment/virt-operator"]
 	"deployment/virt-operator" -> "deployment/virt-api"
