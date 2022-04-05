@@ -217,7 +217,7 @@ var _ = Describe("ContainerDisk", func() {
 				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "bin-volume")
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(containers)).To(Equal(2))
+				Expect(containers).To(HaveLen(2))
 				Expect(containers[0].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 				Expect(containers[1].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 			})
