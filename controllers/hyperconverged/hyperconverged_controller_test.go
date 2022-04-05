@@ -9,6 +9,9 @@ import (
 	"path"
 	"time"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -884,6 +887,132 @@ var _ = Describe("HyperconvergedController", func() {
 
 				Expect(foundResource.Status.ObservedGeneration).Should(BeEquivalentTo(10))
 			})
+
+		})
+
+		Context("APIServer CR", func() {
+
+			externalClusterInfo := hcoutil.GetClusterInfo
+
+			BeforeEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = externalClusterInfo
+			})
+
+			It("Should refresh cached APIServer if the reconciliation is caused by a change there", func() {
+
+				initialTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+					Type:         openshiftconfigv1.TLSProfileIntermediateType,
+					Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+				}
+				customTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				}
+
+				clusterVersion := &openshiftconfigv1.ClusterVersion{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "version",
+					},
+					Spec: openshiftconfigv1.ClusterVersionSpec{
+						ClusterID: "clusterId",
+					},
+				}
+
+				infrastructure := &openshiftconfigv1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Status: openshiftconfigv1.InfrastructureStatus{
+						ControlPlaneTopology:   openshiftconfigv1.HighlyAvailableTopologyMode,
+						InfrastructureTopology: openshiftconfigv1.HighlyAvailableTopologyMode,
+						PlatformStatus: &openshiftconfigv1.PlatformStatus{
+							Type: "mocked",
+						},
+					},
+				}
+
+				ingress := &openshiftconfigv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.IngressSpec{
+						Domain: "domain",
+					},
+				}
+
+				apiServer := &openshiftconfigv1.APIServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.APIServerSpec{
+						TLSSecurityProfile: initialTLSSecurityProfile,
+					},
+				}
+
+				expected := getBasicDeployment()
+				Expect(expected.hco.Spec.TLSSecurityProfile).To(BeNil())
+
+				resources := expected.toArray()
+				resources = append(resources, clusterVersion, infrastructure, ingress, apiServer)
+				cl := commonTestUtils.InitClient(resources)
+
+				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged_controller_test")
+				err := hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(initialTLSSecurityProfile).ToNot(Equal(customTLSSecurityProfile), "customTLSSecurityProfile should be a different value")
+
+				r := initReconciler(cl, nil)
+
+				// Reconcile to get all related objects under HCO's status
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Requeue).To(BeFalse())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+				checkAvailability(foundResource, metav1.ConditionTrue)
+				Expect(foundResource.Spec.TLSSecurityProfile).To(BeNil(), "TLSSecurityProfile on HCO CR should still be nil")
+
+				// Update ApiServer CR
+				apiServer.Spec.TLSSecurityProfile = customTLSSecurityProfile
+				err = cl.Update(context.TODO(), apiServer)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
+
+				// mock a reconciliation triggered by a change in the APIServer CR
+				ph, err := getApiServerCRPlaceholder()
+				Expect(err).ToNot(HaveOccurred())
+				rq := request
+				rq.NamespacedName = ph
+
+				// Reconcile again to refresh ApiServer CR in memory
+				res, err = r.Reconcile(context.TODO(), rq)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Requeue).To(BeFalse())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+				checkAvailability(foundResource, metav1.ConditionTrue)
+				Expect(foundResource.Spec.TLSSecurityProfile).To(BeNil(), "TLSSecurityProfile on HCO CR should still be nil")
+
+				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(customTLSSecurityProfile), "should return the up-to-date value")
+
+			})
+
 		})
 
 		Context("Validate OLM required fields", func() {

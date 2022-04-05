@@ -295,16 +295,27 @@ spec:
                                 type: array
                                 items:
                                   type: string
+                                x-kubernetes-list-type: atomic
+                              groups:
+                                description: groups is the list of claims value of which should be used to synchronize groups from the OIDC provider to OpenShift for the user. If multiple claims are specified, the first one with a non-empty value is used.
+                                type: array
+                                items:
+                                  description: OpenIDClaim represents a claim retrieved from an OpenID provider's tokens or userInfo responses
+                                  type: string
+                                  minLength: 1
+                                x-kubernetes-list-type: atomic
                               name:
                                 description: name is the list of claims whose values should be used as the display name. Optional. If unspecified, no display name is set for the identity
                                 type: array
                                 items:
                                   type: string
+                                x-kubernetes-list-type: atomic
                               preferredUsername:
                                 description: preferredUsername is the list of claims whose values should be used as the preferred username. If unspecified, the preferred username is determined from the value of the sub claim
                                 type: array
                                 items:
                                   type: string
+                                x-kubernetes-list-type: atomic
                           clientID:
                             description: clientID is the oauth client ID
                             type: string
@@ -377,6 +388,7 @@ spec:
                       type:
                         description: type identifies the identity provider type for this entry.
                         type: string
+                  x-kubernetes-list-type: atomic
                 templates:
                   description: templates allow you to customize pages like the login page.
                   type: object
@@ -413,7 +425,7 @@ spec:
                   type: object
                   properties:
                     accessTokenInactivityTimeout:
-                      description: accessTokenInactivityTimeout defines the token inactivity timeout for tokens granted by any client. The value represents the maximum amount of time that can occur between consecutive uses of the token. Tokens become invalid if they are not used within this temporal window. The user will need to acquire a new token to regain access once a token times out. Takes valid time duration string such as "5m", "1.5h" or "2h45m". The minimum allowed value for duration is 300s (5 minutes). If the timeout is configured per client, then that value takes precedence. If the timeout value is not specified and the client does not override the value, then tokens are valid until their lifetime.
+                      description: "accessTokenInactivityTimeout defines the token inactivity timeout for tokens granted by any client. The value represents the maximum amount of time that can occur between consecutive uses of the token. Tokens become invalid if they are not used within this temporal window. The user will need to acquire a new token to regain access once a token times out. Takes valid time duration string such as \"5m\", \"1.5h\" or \"2h45m\". The minimum allowed value for duration is 300s (5 minutes). If the timeout is configured per client, then that value takes precedence. If the timeout value is not specified and the client does not override the value, then tokens are valid until their lifetime. \n WARNING: existing tokens' timeout will not be affected (lowered) by changing this value"
                       type: string
                     accessTokenInactivityTimeoutSeconds:
                       description: 'accessTokenInactivityTimeoutSeconds - DEPRECATED: setting this field has no effect.'

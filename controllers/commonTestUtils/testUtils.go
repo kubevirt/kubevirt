@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -158,6 +160,7 @@ func GetScheme() *runtime.Scheme {
 		imagev1.Install,
 		consolev1alpha1.Install,
 		operatorv1.Install,
+		openshiftconfigv1.Install,
 	} {
 		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}
@@ -234,6 +237,15 @@ func (ClusterInfoMock) GetDomain() string {
 func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 	return true
 }
+func (ClusterInfoMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
+	return &openshiftconfigv1.TLSSecurityProfile{
+		Type:         openshiftconfigv1.TLSProfileIntermediateType,
+		Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+	}
+}
+func (ClusterInfoMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
+	return nil
+}
 
 // ClusterInfoSNOMock mocks Openshift SNO
 type ClusterInfoSNOMock struct{}
@@ -258,6 +270,15 @@ func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
 }
 func (ClusterInfoSNOMock) GetDomain() string {
 	return "domain"
+}
+func (ClusterInfoSNOMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
+	return &openshiftconfigv1.TLSSecurityProfile{
+		Type:         openshiftconfigv1.TLSProfileIntermediateType,
+		Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+	}
+}
+func (ClusterInfoSNOMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
+	return nil
 }
 
 func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
@@ -290,4 +311,13 @@ func (ClusterInfoSRCPHAIMock) GetDomain() string {
 }
 func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
 	return true
+}
+func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
+	return &openshiftconfigv1.TLSSecurityProfile{
+		Type:         openshiftconfigv1.TLSProfileIntermediateType,
+		Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+	}
+}
+func (ClusterInfoSRCPHAIMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
+	return nil
 }

@@ -174,7 +174,7 @@ replace (
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer-api/blob/release-v1.41.1
 replace (
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20210817132244-67c28690af52
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
 	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200804184258-4fc3a5379c7a
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2

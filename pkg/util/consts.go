@@ -62,6 +62,8 @@ const (
 
 	CliDownloadsServerPort       = 8080
 	UiPluginServerPort     int32 = 9443
+
+	ApiServerCRName = "cluster"
 )
 
 type AppComponent string

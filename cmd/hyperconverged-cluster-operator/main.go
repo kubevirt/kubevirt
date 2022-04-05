@@ -227,6 +227,7 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				&corev1.Namespace{}: {
 					Label: labelSelectorForNamespace,
 				},
+				&openshiftconfigv1.APIServer{}: {},
 			},
 		},
 	)

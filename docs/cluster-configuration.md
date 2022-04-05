@@ -699,6 +699,24 @@ Please correctly consider the implications of this option before setting it.
 
 `BlockUninstallIfWorkloadsExist` is the default behaviour.
 
+## Hyperconverged Kubevirt cluster-wide Crypto Policy API
+
+Starting from OCP/OKD 4.6, a [cluster-wide API](https://github.com/openshift/enhancements/blob/master/enhancements/kube-apiserver/tls-config.md) is available for cluster administrators to set TLS profiles for OCP/OKD core components.
+HCO, as an OCP/OKD layered product, will follow along OCP/OKD crypto policy cluster-wide setting, and use the same profile configured for the cluster’s control plane.
+Configuration of a TLS security profile ensures that OCP/OKD, as well as HCO and its sibling operators and operands, use cryptographic libraries that do not allow known insecure protocols, ciphers, or algorithms.
+
+By default, on OCP/OKD, HCO will read the global configuration for TLS security profile of the APIServer, without storing it in HCO CR, and will propagate the .spec.tlsSecurityProfile stanza to all underlying HCO managed custom resources.
+The value on the HCO CR can be used to override the cluster wide setting.
+
+The TLS security profiles are based on [Mozilla Recommended Configurations](https://wiki.mozilla.org/Security/Server_Side_TLS):
+* Old - intended for use with legacy clients of libraries; requires a minimum TLS version of 1.0
+* Intermediate - the default profile for all components; requires a minimum TLS version of 1.2
+* Modern - intended for use with clients that don’t need backward compatibility; requires a minimum TLS version of 1.3. Unsupported in OCP/OKD 4.8 and below.
+
+On plain k8s, where APIServer CR is not available, the default value will be `Intermediate`.
+
+> Currently, this is going to be propagated only to the Cluster Network Addons Operator, other Kubevirt Hyperconverged components are going to follow.
+
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

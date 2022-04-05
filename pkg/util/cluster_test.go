@@ -52,6 +52,18 @@ var _ = Describe("test clusterInfo", func() {
 				Domain: "domain",
 			},
 		}
+
+		apiServer = &openshiftconfigv1.APIServer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster",
+			},
+			Spec: openshiftconfigv1.APIServerSpec{
+				TLSSecurityProfile: &openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+			},
+		}
 	)
 
 	testScheme := scheme.Scheme
@@ -99,7 +111,7 @@ var _ = Describe("test clusterInfo", func() {
 		os.Setenv(OperatorConditionNameEnvVar, "aValue")
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(clusterVersion, infrastructure, ingress).
+			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer).
 			Build()
 		err := GetClusterInfo().Init(context.TODO(), cl, logger)
 		Expect(err).ToNot(HaveOccurred())
@@ -113,7 +125,7 @@ var _ = Describe("test clusterInfo", func() {
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(clusterVersion, infrastructure, ingress).
+			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer).
 			Build()
 		err := GetClusterInfo().Init(context.TODO(), cl, logger)
 		Expect(err).ToNot(HaveOccurred())
@@ -142,7 +154,7 @@ var _ = Describe("test clusterInfo", func() {
 			os.Setenv(OperatorConditionNameEnvVar, "aValue")
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(clusterVersion, testInfrastructure, ingress).
+				WithRuntimeObjects(clusterVersion, testInfrastructure, ingress, apiServer).
 				Build()
 			err := GetClusterInfo().Init(context.TODO(), cl, logger)
 			Expect(err).ToNot(HaveOccurred())
@@ -252,5 +264,141 @@ var _ = Describe("test clusterInfo", func() {
 			false,
 		),
 	)
+
+	// TODO: cover GetTLSSecurityProfile and RefreshAPIServerCR
+
+	Context("TLSSecurityProfile", func() {
+
+		DescribeTable(
+			"check TLSSecurityProfile on different configurations ...",
+			func(isOnOpenshift bool, clusterTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile, expectedTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) {
+
+				testApiServer := &openshiftconfigv1.APIServer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: openshiftconfigv1.APIServerSpec{
+						TLSSecurityProfile: clusterTLSSecurityProfile,
+					},
+				}
+
+				cl := fake.NewClientBuilder().
+					WithScheme(testScheme).
+					WithRuntimeObjects().
+					Build()
+				if isOnOpenshift {
+					os.Setenv(OperatorConditionNameEnvVar, "aValue")
+					cl = fake.NewClientBuilder().
+						WithScheme(testScheme).
+						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer).
+						Build()
+				}
+				err := GetClusterInfo().Init(context.TODO(), cl, logger)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(GetClusterInfo().IsOpenshift()).To(Equal(isOnOpenshift), "should return true for IsOpenshift()")
+				Expect(GetClusterInfo().GetTLSSecurityProfile(hcoTLSSecurityProfile)).To(Equal(expectedTLSSecurityProfile), "should return the expected TLSSecurityProfile")
+
+			},
+			Entry(
+				"on Openshift, TLSSecurityProfile unset on HCO, should return cluster wide TLSSecurityProfile",
+				true,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+				nil,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+			),
+			Entry(
+				"on Openshift, TLSSecurityProfile set on HCO, should return HCO specific TLSSecurityProfile",
+				true,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileOldType,
+					Old:  &openshiftconfigv1.OldTLSProfile{},
+				},
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type: openshiftconfigv1.TLSProfileOldType,
+					Old:  &openshiftconfigv1.OldTLSProfile{},
+				},
+			),
+			Entry(
+				"on k8s, TLSSecurityProfile unset on HCO, should return a default value (Intermediate TLSSecurityProfile)",
+				false,
+				nil,
+				nil,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:         openshiftconfigv1.TLSProfileIntermediateType,
+					Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+				},
+			),
+			Entry(
+				"on k8s, TLSSecurityProfile unset on HCO, should return HCO specific TLSSecurityProfile)",
+				false,
+				nil,
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+				&openshiftconfigv1.TLSSecurityProfile{
+					Type:   openshiftconfigv1.TLSProfileModernType,
+					Modern: &openshiftconfigv1.ModernTLSProfile{},
+				},
+			),
+		)
+
+		It("should refresh ApiServer on changes", func() {
+			os.Setenv(OperatorConditionNameEnvVar, "aValue")
+
+			initialTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:         openshiftconfigv1.TLSProfileIntermediateType,
+				Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+			}
+			updatedTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:   openshiftconfigv1.TLSProfileModernType,
+				Modern: &openshiftconfigv1.ModernTLSProfile{},
+			}
+
+			testApiServer := &openshiftconfigv1.APIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: openshiftconfigv1.APIServerSpec{
+					TLSSecurityProfile: initialTLSSecurityProfile,
+				},
+			}
+
+			cl := fake.NewClientBuilder().
+				WithScheme(testScheme).
+				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer).
+				Build()
+			err := GetClusterInfo().Init(context.TODO(), cl, logger)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
+			Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
+
+			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should return the initial value")
+
+			testApiServer.Spec.TLSSecurityProfile = updatedTLSSecurityProfile
+			err = cl.Update(context.TODO(), testApiServer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
+
+			err = GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(updatedTLSSecurityProfile), "should return the updated value")
+
+		})
+
+	})
 
 })

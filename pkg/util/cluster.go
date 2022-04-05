@@ -25,6 +25,8 @@ type ClusterInfo interface {
 	IsControlPlaneHighlyAvailable() bool
 	IsInfrastructureHighlyAvailable() bool
 	IsConsolePluginImageProvided() bool
+	GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile
+	RefreshAPIServerCR(ctx context.Context, c client.Client) error
 }
 
 type ClusterInfoImp struct {
@@ -38,6 +40,8 @@ type ClusterInfoImp struct {
 }
 
 var clusterInfo ClusterInfo
+
+var apiServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
 
 var GetClusterInfo = func() ClusterInfo {
 	return clusterInfo
@@ -60,11 +64,19 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	} else {
 		err = c.initKubernetes(cl)
 	}
+	if err != nil {
+		return err
+	}
 
 	varValue, varExists := os.LookupEnv(KvUiPluginImageEnvV)
 	c.consolePluginImageProvided = varExists && len(varValue) > 0
 
-	return err
+	err = c.RefreshAPIServerCR(ctx, cl)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *ClusterInfoImp) initKubernetes(cl client.Client) error {
@@ -190,6 +202,35 @@ func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client, log
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *ClusterInfoImp) GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
+	if hcoTLSSecurityProfile != nil {
+		return hcoTLSSecurityProfile
+	} else if apiServerTLSSecurityProfile != nil {
+		return apiServerTLSSecurityProfile
+	}
+	return &openshiftconfigv1.TLSSecurityProfile{
+		Type:         openshiftconfigv1.TLSProfileIntermediateType,
+		Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+	}
+}
+
+func (c *ClusterInfoImp) RefreshAPIServerCR(ctx context.Context, cl client.Client) error {
+	if c.IsOpenshift() {
+		instance := &openshiftconfigv1.APIServer{}
+
+		key := client.ObjectKey{Namespace: UndefinedNamespace, Name: ApiServerCRName}
+		err := cl.Get(ctx, key, instance)
+		if err != nil {
+			return err
+		}
+		apiServerTLSSecurityProfile = instance.Spec.TLSSecurityProfile
+		return nil
+	} else {
+		apiServerTLSSecurityProfile = nil
 	}
 	return nil
 }

@@ -4,6 +4,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
@@ -131,6 +133,13 @@ type HyperConvergedSpec struct {
 	// be deployed.
 	// +optional
 	TektonPipelinesNamespace *string `json:"tektonPipelinesNamespace,omitempty"`
+
+	// TLSSecurityProfile specifies the settings for TLS connections to be propagated to all kubevirt-hyperconverged components.
+	// If unset, the hyperconverged cluster operator will consume the value set on the APIServer CR on OCP/OKD or Intermediate if on vanilla k8s.
+	// Note that only Old, Intermediate and Custom profiles are currently supported, and the maximum available
+	// MinTLSVersions is VersionTLS12.
+	// +optional
+	TLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.

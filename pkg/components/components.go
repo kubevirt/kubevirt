@@ -506,6 +506,11 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			Resources: stringListToSlice("clusterversions", "infrastructures", "ingresses"),
 			Verbs:     stringListToSlice("get", "list"),
 		},
+		{
+			APIGroups: stringListToSlice("config.openshift.io"),
+			Resources: stringListToSlice("apiservers"),
+			Verbs:     stringListToSlice("get", "list", "watch"),
+		},
 		roleWithAllPermissions("coordination.k8s.io", stringListToSlice("leases")),
 		roleWithAllPermissions("route.openshift.io", stringListToSlice("routes")),
 		{

@@ -68,6 +68,12 @@ type ClusterVersionSpec struct {
 	// +optional
 	Channel string `json:"channel,omitempty"`
 
+	// capabilities configures the installation of optional, core
+	// cluster components.  A null value here is identical to an
+	// empty object; see the child properties for default semantics.
+	// +optional
+	Capabilities *ClusterVersionCapabilitiesSpec `json:"capabilities,omitempty"`
+
 	// overrides is list of overides for components that are managed by
 	// cluster version operator. Marking a component unmanaged will prevent
 	// the operator from creating or updating the object.
@@ -113,6 +119,9 @@ type ClusterVersionStatus struct {
 	// +required
 	VersionHash string `json:"versionHash"`
 
+	// capabilities describes the state of optional, core cluster components.
+	Capabilities ClusterVersionCapabilitiesStatus `json:"capabilities"`
+
 	// conditions provides information about the cluster version. The condition
 	// "Available" is set to true if the desiredUpdate has been reached. The
 	// condition "Progressing" is set to true if an update is being applied.
@@ -123,14 +132,26 @@ type ClusterVersionStatus struct {
 	// +optional
 	Conditions []ClusterOperatorStatusCondition `json:"conditions,omitempty"`
 
-	// availableUpdates contains the list of updates that are appropriate
-	// for this cluster. This list may be empty if no updates are recommended,
-	// if the update service is unavailable, or if an invalid channel has
-	// been specified.
+	// availableUpdates contains updates recommended for this
+	// cluster. Updates which appear in conditionalUpdates but not in
+	// availableUpdates may expose this cluster to known issues. This list
+	// may be empty if no updates are recommended, if the update service
+	// is unavailable, or if an invalid channel has been specified.
 	// +nullable
 	// +kubebuilder:validation:Required
 	// +required
 	AvailableUpdates []Release `json:"availableUpdates"`
+
+	// conditionalUpdates contains the list of updates that may be
+	// recommended for this cluster if it meets specific required
+	// conditions. Consumers interested in the set of updates that are
+	// actually recommended for this cluster should use
+	// availableUpdates. This list may be empty if no updates are
+	// recommended, if the update service is unavailable, or if an empty
+	// or invalid channel has been specified.
+	// +listType=atomic
+	// +optional
+	ConditionalUpdates []ConditionalUpdate `json:"conditionalUpdates,omitempty"`
 }
 
 // UpdateState is a constant representing whether an update was successfully
@@ -190,10 +211,105 @@ type UpdateHistory struct {
 	// +kubebuilder:validation:Required
 	// +required
 	Verified bool `json:"verified"`
+
+	// acceptedRisks records risks which were accepted to initiate the update.
+	// For example, it may menition an Upgradeable=False or missing signature
+	// that was overriden via desiredUpdate.force, or an update that was
+	// initiated despite not being in the availableUpdates set of recommended
+	// update targets.
+	// +optional
+	AcceptedRisks string `json:"acceptedRisks,omitempty"`
 }
 
 // ClusterID is string RFC4122 uuid.
 type ClusterID string
+
+// ClusterVersionCapability enumerates optional, core cluster components.
+// +kubebuilder:validation:Enum=openshift-samples;baremetal
+type ClusterVersionCapability string
+
+const (
+	// ClusterVersionCapabilityOpenShiftSamples manages the sample
+	// image streams and templates stored in the openshift
+	// namespace, and any registry credentials, stored as a secret,
+	// needed for the image streams to import the images they
+	// reference.
+	ClusterVersionCapabilityOpenShiftSamples ClusterVersionCapability = "openshift-samples"
+
+	// ClusterVersionCapabilityBaremetal manages the cluster
+	// baremetal operator which is responsible for running the metal3
+	// deployment.
+	ClusterVersionCapabilityBaremetal ClusterVersionCapability = "baremetal"
+)
+
+// ClusterVersionCapabilitySet defines sets of cluster version capabilities.
+// +kubebuilder:validation:Enum=None;v4.11;vCurrent
+type ClusterVersionCapabilitySet string
+
+const (
+	// ClusterVersionCapabilitySetNone is an empty set enabling
+	// no optional capabilities.
+	ClusterVersionCapabilitySetNone ClusterVersionCapabilitySet = "None"
+
+	// ClusterVersionCapabilitySet4_11 is the recommended set of
+	// optional capabilities to enable for the 4.11 version of
+	// OpenShift.  This list will remain the same no matter which
+	// version of OpenShift is installed.
+	ClusterVersionCapabilitySet4_11 ClusterVersionCapabilitySet = "v4.11"
+
+	// ClusterVersionCapabilitySetCurrent is the recommended set
+	// of optional capabilities to enable for the cluster's
+	// current version of OpenShift.
+	ClusterVersionCapabilitySetCurrent ClusterVersionCapabilitySet = "vCurrent"
+)
+
+// ClusterVersionCapabilitySets defines sets of cluster version capabilities.
+var ClusterVersionCapabilitySets = map[ClusterVersionCapabilitySet][]ClusterVersionCapability{
+	ClusterVersionCapabilitySetNone: {},
+	ClusterVersionCapabilitySet4_11: {
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityBaremetal,
+	},
+	ClusterVersionCapabilitySetCurrent: {
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityBaremetal,
+	},
+}
+
+// ClusterVersionCapabilitiesSpec selects the managed set of
+// optional, core cluster components.
+// +k8s:deepcopy-gen=true
+type ClusterVersionCapabilitiesSpec struct {
+	// baselineCapabilitySet selects an initial set of
+	// optional capabilities to enable, which can be extended via
+	// additionalEnabledCapabilities.  If unset, the cluster will
+	// choose a default, and the default may change over time.
+	// The current default is vCurrent.
+	// +optional
+	BaselineCapabilitySet ClusterVersionCapabilitySet `json:"baselineCapabilitySet,omitempty"`
+
+	// additionalEnabledCapabilities extends the set of managed
+	// capabilities beyond the baseline defined in
+	// baselineCapabilitySet.  The default is an empty set.
+	// +listType=atomic
+	// +optional
+	AdditionalEnabledCapabilities []ClusterVersionCapability `json:"additionalEnabledCapabilities,omitempty"`
+}
+
+// ClusterVersionCapabilitiesStatus describes the state of optional,
+// core cluster components.
+// +k8s:deepcopy-gen=true
+type ClusterVersionCapabilitiesStatus struct {
+	// enabledCapabilities lists all the capabilities that are currently managed.
+	// +listType=atomic
+	// +optional
+	EnabledCapabilities []ClusterVersionCapability `json:"enabledCapabilities,omitempty"`
+
+	// knownCapabilities lists all the capabilities known to the current cluster.
+	// +listType=atomic
+	// +optional
+	KnownCapabilities []ClusterVersionCapability `json:"knownCapabilities,omitempty"`
+}
 
 // ComponentOverride allows overriding cluster version operator's behavior
 // for a component.
@@ -289,6 +405,112 @@ type Release struct {
 // if the updates could not be retrieved or recently failed, or True if the
 // availableUpdates field is accurate and recent.
 const RetrievedUpdates ClusterStatusConditionType = "RetrievedUpdates"
+
+// ConditionalUpdate represents an update which is recommended to some
+// clusters on the version the current cluster is reconciling, but which
+// may not be recommended for the current cluster.
+type ConditionalUpdate struct {
+	// release is the target of the update.
+	// +kubebuilder:validation:Required
+	// +required
+	Release Release `json:"release"`
+
+	// risks represents the range of issues associated with
+	// updating to the target release. The cluster-version
+	// operator will evaluate all entries, and only recommend the
+	// update if there is at least one entry and all entries
+	// recommend the update.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
+	// +required
+	Risks []ConditionalUpdateRisk `json:"risks" patchStrategy:"merge" patchMergeKey:"name"`
+
+	// conditions represents the observations of the conditional update's
+	// current status. Known types are:
+	// * Evaluating, for whether the cluster-version operator will attempt to evaluate any risks[].matchingRules.
+	// * Recommended, for whether the update is recommended for the current cluster.
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+}
+
+// ConditionalUpdateRisk represents a reason and cluster-state
+// for not recommending a conditional update.
+// +k8s:deepcopy-gen=true
+type ConditionalUpdateRisk struct {
+	// url contains information about this risk.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	URL string `json:"url"`
+
+	// name is the CamelCase reason for not recommending a
+	// conditional update, in the event that matchingRules match the
+	// cluster state.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Name string `json:"name"`
+
+	// message provides additional information about the risk of
+	// updating, in the event that matchingRules match the cluster
+	// state. This is only to be consumed by humans. It may
+	// contain Line Feed characters (U+000A), which should be
+	// rendered as new lines.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Message string `json:"message"`
+
+	// matchingRules is a slice of conditions for deciding which
+	// clusters match the risk and which do not. The slice is
+	// ordered by decreasing precedence. The cluster-version
+	// operator will walk the slice in order, and stop after the
+	// first it can successfully evaluate. If no condition can be
+	// successfully evaluated, the update will not be recommended.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
+	// +required
+	MatchingRules []ClusterCondition `json:"matchingRules"`
+}
+
+// ClusterCondition is a union of typed cluster conditions.  The 'type'
+// property determines which of the type-specific properties are relevant.
+// When evaluated on a cluster, the condition may match, not match, or
+// fail to evaluate.
+// +k8s:deepcopy-gen=true
+type ClusterCondition struct {
+	// type represents the cluster-condition type. This defines
+	// the members and semantics of any additional properties.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum={"Always","PromQL"}
+	// +required
+	Type string `json:"type"`
+
+	// promQL represents a cluster condition based on PromQL.
+	// +optional
+	PromQL *PromQLClusterCondition `json:"promql,omitempty"`
+}
+
+// PromQLClusterCondition represents a cluster condition based on PromQL.
+type PromQLClusterCondition struct {
+	// PromQL is a PromQL query classifying clusters. This query
+	// query should return a 1 in the match case and a 0 in the
+	// does-not-match case. Queries which return no time
+	// series, or which return values besides 0 or 1, are
+	// evaluation failures.
+	// +kubebuilder:validation:Required
+	// +required
+	PromQL string `json:"promql"`
+}
 
 // ClusterVersionList is a list of ClusterVersion resources.
 //

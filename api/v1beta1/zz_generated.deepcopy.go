@@ -25,8 +25,9 @@
 package v1beta1
 
 import (
+	v1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	apicorev1 "kubevirt.io/api/core/v1"
 	apiv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -313,6 +314,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TLSSecurityProfile != nil {
+		in, out := &in.TLSSecurityProfile, &out.TLSSecurityProfile
+		*out = new(v1.TLSSecurityProfile)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
@@ -331,7 +337,7 @@ func (in *HyperConvergedStatus) DeepCopyInto(out *HyperConvergedStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.Condition, len(*in))
+		*out = make([]metav1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -381,7 +387,7 @@ func (in *HyperConvergedWorkloadUpdateStrategy) DeepCopyInto(out *HyperConverged
 	}
 	if in.BatchEvictionInterval != nil {
 		in, out := &in.BatchEvictionInterval, &out.BatchEvictionInterval
-		*out = new(v1.Duration)
+		*out = new(metav1.Duration)
 		**out = **in
 	}
 	return

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -796,6 +798,78 @@ var _ = Describe("CNA Operand", func() {
 				})
 			})
 		})
+
+		Context("TLSSecurityProfile", func() {
+
+			intermediateTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:         openshiftconfigv1.TLSProfileIntermediateType,
+				Intermediate: &openshiftconfigv1.IntermediateTLSProfile{},
+			}
+			modernTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+				Type:   openshiftconfigv1.TLSProfileModernType,
+				Modern: &openshiftconfigv1.ModernTLSProfile{},
+			}
+
+			It("should modify TLSSecurityProfile on CNAO CR according to ApiServer or HCO CR", func() {
+				existingResource, err := NewNetworkAddons(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(existingResource.Spec.TLSSecurityProfile).To(Equal(intermediateTLSSecurityProfile))
+
+				// now, modify HCO's TLSSecurityProfile
+				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.TLSSecurityProfile).To(Equal(modernTLSSecurityProfile))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite TLSSecurityProfile if directly set on CNAO CR", func() {
+				hco.Spec.TLSSecurityProfile = intermediateTLSSecurityProfile
+				existingResource, err := NewNetworkAddons(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in CNAO CR
+				req.HCOTriggered = false
+
+				// now, modify CNAO node placement
+				existingResource.Spec.TLSSecurityProfile = modernTLSSecurityProfile
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.TLSSecurityProfile).To(Equal(hco.Spec.TLSSecurityProfile))
+				Expect(foundResource.Spec.TLSSecurityProfile).ToNot(Equal(existingResource.Spec.TLSSecurityProfile))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
 	})
 
 	Context("hcoConfig2CnaoPlacement", func() {
