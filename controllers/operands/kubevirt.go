@@ -92,6 +92,9 @@ const (
 
 	// Allow automatic numa mapping on VMs with dedicated CPUs, if requested
 	kvNUMA = "NUMA"
+
+	// Enables rootless virt-launcher.
+	kvNonRoot = "NonRoot"
 )
 
 var (
@@ -107,6 +110,7 @@ var (
 		kvHostDevicesGate,
 		kvDownwardMetricsGate,
 		kvNUMA,
+		kvNonRoot,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of

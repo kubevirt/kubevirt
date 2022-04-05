@@ -1251,7 +1251,7 @@ Version: 1.2.3`)
 
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the HotplugVolumes feature gate", func() {
+					By("KV CR should contain the WithHostPassthroughCPU feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("WithHostPassthroughCPU"))
 					})
@@ -1265,7 +1265,7 @@ Version: 1.2.3`)
 
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the HotplugVolumes feature gate", func() {
+					By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVLiveMigration))
 					})
@@ -1279,7 +1279,7 @@ Version: 1.2.3`)
 
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the HotplugVolumes feature gate", func() {
+					By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("SRIOVLiveMigration"))
 					})
@@ -1300,7 +1300,7 @@ Version: 1.2.3`)
 
 						existingResource, err := NewKubeVirt(hco)
 						Expect(err).ToNot(HaveOccurred())
-						By("KV CR should contain the HotplugVolumes feature gate", func() {
+						By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
 							Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 							Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvSRIOVLiveMigration))
 						})
@@ -1314,7 +1314,7 @@ Version: 1.2.3`)
 
 						existingResource, err := NewKubeVirt(hco)
 						Expect(err).ToNot(HaveOccurred())
-						By("KV CR should contain the HotplugVolumes feature gate", func() {
+						By("KV CR should contain the SRIOVLiveMigration feature gate", func() {
 							Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 							Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("SRIOVLiveMigration"))
 						})

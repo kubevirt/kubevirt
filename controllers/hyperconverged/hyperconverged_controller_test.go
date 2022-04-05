@@ -197,15 +197,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "Initializing HyperConverged cluster",
 				})))
 
-				// Get the KV
-				kvList := &kubevirtcorev1.KubeVirtList{}
-				Expect(cl.List(context.TODO(), kvList)).To(BeNil())
-				Expect(kvList.Items).Should(HaveLen(1))
-				kv := kvList.Items[0]
-				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(15))
-
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(
+				expectedFeatureGates := []string{
 					"DataVolumes",
 					"SRIOV",
 					"LiveMigration",
@@ -220,9 +212,17 @@ var _ = Describe("HyperconvergedController", func() {
 					"DownwardMetrics",
 					"ExpandDisks",
 					"NUMA",
-				),
-				)
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("WithHostPassthroughCPU"))
+					"NonRoot",
+					"WithHostPassthroughCPU",
+				}
+				// Get the KV
+				kvList := &kubevirtcorev1.KubeVirtList{}
+				Expect(cl.List(context.TODO(), kvList)).To(BeNil())
+				Expect(kvList.Items).Should(HaveLen(1))
+				kv := kvList.Items[0]
+				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(expectedFeatureGates)))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(expectedFeatureGates))
 			})
 
 			It("should find all managed resources", func() {
