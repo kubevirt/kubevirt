@@ -587,23 +587,33 @@ spec:
 
 There is no need to copy the whole object, but only the relevant fields; i.e. the `metadat.name` field.
 
-### Modifying the storage field
-It is possible to checge the storage configuration of a common golden image by adding the common image to the `dataImportCronTemplates` list in the `spec` field. HCO will replace the existing storage object if it exists, or add it if it is missing; for example, change the storage class for centos8 golden image:
+### Modifying a common dataImportCronTemplate
+It is possible to change the configuration of a common golden image by adding the common image to the
+`dataImportCronTemplates` list in the `spec` field. HCO will replace the existing spec object; The `schedule` 
+field is mandatory, and HCO will copy it from the common template if it is missing. 
+
+Copy the required dtaImportCronTemplate object from the list in the `status` field (not including the `status`
+field), and change or add the desired fields.
+
+for example, set the storage class for centos8 golden image, and modify the source URL:
 
 ```yaml
-apiVersion: hco.kubevirt.io/v1beta1
-kind: HyperConverged
-metadata:
-  name: kubevirt-hyperconverged
-spec:
-  dataImportCronTemplates:
-  - metadata:
-      name: centos-stream8-image-cron
-    spec:
-      template:
-        spec:
-          storage:
-            storageClassName: "some-name"
+- metadata:
+    name: kubevirt-hyperconverged
+  spec:
+    schedule: "0 */12 * * *"
+    template:
+      spec:
+        source:
+          registry:
+            url: docker://my-private-registry/my-own-version-of-centos:8
+        storage:
+          resources:
+            requests:
+              storage: 10Gi
+            storageClassName: "some-non-default-storage-class"
+    garbageCollect: Outdated
+    managedDataSource: centos-stream8
 ```
 
 ## Configure custom golden images

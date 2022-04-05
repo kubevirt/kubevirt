@@ -259,11 +259,12 @@ func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 				continue
 			}
 
-			if crDict.Spec.Template.Spec.Storage != nil {
-				targetDict.Spec.Template.Spec.Storage = crDict.Spec.Template.Spec.Storage.DeepCopy()
-
-				targetDict.Status.Modified = true
+			// if the schedule is missing, copy from the common dict:
+			if len(crDict.Spec.Schedule) == 0 {
+				crDict.Spec.Schedule = targetDict.Spec.Schedule
 			}
+			targetDict.Spec = *crDict.Spec.DeepCopy()
+			targetDict.Status.Modified = true
 		}
 		list = append(list, targetDict)
 	}

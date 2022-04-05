@@ -561,7 +561,11 @@ var _ = Describe("SSP Operands", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(goldenImageList).To(HaveLen(3))
 					Expect(goldenImageList).To(HaveCap(4))
-					Expect(goldenImageList).To(ContainElements(statusImage2, statusImage3, statusImage4))
+
+					statusImage2Enabled := statusImage2.DeepCopy()
+					statusImage2Enabled.Status.Modified = true
+
+					Expect(goldenImageList).To(ContainElements(*statusImage2Enabled, statusImage3, statusImage4))
 				})
 
 				It("Should reject if the CR list contain DIC templates with the same name, when there are also common DIC templates", func() {
@@ -661,6 +665,9 @@ var _ = Describe("SSP Operands", func() {
 						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &anotherURL},
 					}
 
+					By("check that if the CR schedule is empty, HCO adds it from the common dict")
+					modifiedImage1.Spec.Schedule = ""
+
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*modifiedImage1, image3, image4}
 
 					goldenImageList, err := getDataImportCronTemplates(hco)
@@ -668,11 +675,12 @@ var _ = Describe("SSP Operands", func() {
 					Expect(goldenImageList).To(HaveLen(4))
 					Expect(goldenImageList).To(HaveCap(4))
 
+					modifiedImage1.Spec.Schedule = image1.Spec.Schedule
+
 					for _, dict := range goldenImageList {
 						if dict.Name == "image1" {
-							// no change
-							Expect(*dict.Spec.Template.Spec.Source.Registry.URL).Should(Equal(modifiedURL))
-							Expect(dict.Status.Modified).Should(BeFalse())
+							Expect(dict.Spec).Should(Equal(modifiedImage1.Spec))
+							Expect(dict.Status.Modified).Should(BeTrue())
 							Expect(dict.Status.CommonTemplate).Should(BeTrue())
 						} else if dict.Name == "image2" {
 							Expect(dict.Status.Modified).Should(BeFalse())
@@ -681,7 +689,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 				})
 
-				It("Should replace the common DICT storage field if the CR list includes it", func() {
+				It("Should replace the common DICT spec field if the CR list includes it", func() {
 					image1FromFile := image1.DeepCopy()
 
 					storageFromFile := &cdiv1beta1.StorageSpec{
@@ -710,6 +718,7 @@ var _ = Describe("SSP Operands", func() {
 						},
 					}
 					modifiedImage1.Spec.Template.Spec.Storage = storageFromCr.DeepCopy()
+					modifiedImage1.Spec.Schedule = image1.Spec.Schedule
 
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*modifiedImage1, image3, image4}
 
@@ -895,6 +904,44 @@ var _ = Describe("SSP Operands", func() {
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+				})
+
+				It("should modify a common dic if it exist in the HyperConverged CR", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
+
+					Expect(dataImportCronTemplateHardCodedMap).To(HaveLen(2))
+					commonFedora := dataImportCronTemplateHardCodedMap["fedora-image-cron"]
+					commonCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
+
+					fedoraDic := commonFedora.DeepCopy()
+
+					retentionPolicy := cdiv1beta1.DataImportCronRetainAll
+					garbageCollect := cdiv1beta1.DataImportCronGarbageCollectOutdated
+
+					fedoraDic.Spec.RetentionPolicy = &retentionPolicy
+					fedoraDic.Spec.GarbageCollect = &garbageCollect
+					fedoraDic.Spec.ImportsToKeep = pointer.Int32(5)
+					fedoraDic.Spec.Template.Spec.Source.Registry = &cdiv1beta1.DataVolumeSourceRegistry{
+						URL: pointer.StringPtr("docker://not-the-same-image"),
+					}
+					fedoraDic.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: pointer.StringPtr("someOtherStorageClass")}
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
+					ssp, _, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(*fedoraDic, commonCentos8, image3, image4))
 				})
 			})
 
