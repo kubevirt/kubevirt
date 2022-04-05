@@ -17417,6 +17417,13 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"serviceMonitorNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"monitorAccount": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The name of the Prometheus service account that needs read-access to KubeVirt endpoints Defaults to prometheus-k8s",

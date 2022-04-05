@@ -997,7 +997,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(rb); err == nil {
 					r.expectations.RoleBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.RbacV1().RoleBindings(r.kv.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
+					err := r.clientset.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
 					if err != nil {
 						r.expectations.RoleBinding.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)
@@ -1022,7 +1022,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(role); err == nil {
 					r.expectations.Role.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.RbacV1().Roles(r.kv.Namespace).Delete(context.Background(), role.Name, deleteOptions)
+					err := r.clientset.RbacV1().Roles(role.Namespace).Delete(context.Background(), role.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Role.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete role %+v: %v", role, err)
@@ -1047,7 +1047,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(sa); err == nil {
 					r.expectations.ServiceAccount.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.CoreV1().ServiceAccounts(r.kv.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
+					err := r.clientset.CoreV1().ServiceAccounts(sa.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ServiceAccount.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
@@ -1105,11 +1105,39 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					r.expectations.PrometheusRule.AddExpectedDeletion(r.kvKey, key)
 					err := r.clientset.PrometheusClient().
 						MonitoringV1().
-						PrometheusRules(r.kv.Namespace).
+						PrometheusRules(cachePromRule.Namespace).
 						Delete(context.Background(), cachePromRule.Name, deleteOptions)
 					if err != nil {
 						r.expectations.PrometheusRule.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete prometheusrule %+v: %v", cachePromRule, err)
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused prometheus serviceMonitor obejcts
+	objects = r.stores.ServiceMonitorCache.List()
+	for _, obj := range objects {
+		if cacheServiceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && cacheServiceMonitor.DeletionTimestamp == nil {
+			found := false
+			for _, targetServiceMonitor := range r.targetStrategy.ServiceMonitors() {
+				if targetServiceMonitor.Name == cacheServiceMonitor.Name && targetServiceMonitor.Namespace == cacheServiceMonitor.Namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(cacheServiceMonitor); err == nil {
+					r.expectations.ServiceMonitor.AddExpectedDeletion(r.kvKey, key)
+					err := r.clientset.PrometheusClient().
+						MonitoringV1().
+						ServiceMonitors(cacheServiceMonitor.Namespace).
+						Delete(context.Background(), cacheServiceMonitor.Name, deleteOptions)
+					if err != nil {
+						r.expectations.ServiceMonitor.DeletionObserved(r.kvKey, key)
+						log.Log.Errorf("Failed to delete prometheusServiceMonitor %+v: %v", cacheServiceMonitor, err)
 						return err
 					}
 				}

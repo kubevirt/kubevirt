@@ -256,9 +256,11 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 }
 
 func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
-	for _, ns := range config.GetMonitorNamespaces() {
+	for _, ns := range config.GetPotentialMonitorNamespaces() {
 		if nsExists, err := isNamespaceExist(clientset, ns); nsExists {
-			if saExists, err := isServiceAccountExist(clientset, ns, config.GetMonitorServiceAccount()); saExists {
+			// the monitoring service account must be in the monitoring namespace otherwise
+			// we won't be able to create roleBinding for prometheus operator pods
+			if saExists, err := isServiceAccountExist(clientset, ns, config.GetMonitorServiceAccountName()); saExists {
 				return ns, nil
 			} else if err != nil {
 				return "", err
@@ -392,16 +394,21 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 
-	if monitorNamespace != "" {
+	monitorServiceAccount := config.GetMonitorServiceAccountName()
+	isServiceAccountFound := monitorNamespace != ""
 
+	if isServiceAccountFound {
+		serviceMonitorNamespace := config.GetServiceMonitorNamespace()
+		if serviceMonitorNamespace == "" {
+			serviceMonitorNamespace = monitorNamespace
+		}
 		workloadUpdatesEnabled := config.WorkloadUpdatesEnabled()
 
-		monitorServiceAccount := config.GetMonitorServiceAccount()
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
-		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
+		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), serviceMonitorNamespace, true))
 		strategy.prometheusRules = append(strategy.prometheusRules, components.NewPrometheusRuleCR(config.GetNamespace(), workloadUpdatesEnabled))
 	} else {
-		glog.Warningf("failed to create service monitor resources because namespace %s does not exist", monitorNamespace)
+		glog.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetPotentialMonitorNamespaces(), ", "))
 	}
 
 	for _, entry := range rbaclist {
