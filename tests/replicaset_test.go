@@ -402,7 +402,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		By("Checking number of RS VM's to see that we got a replacement")
 		vmis, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmis.Items)).Should(Equal(2))
+		Expect(vmis.Items).Should(HaveLen(2))
 	})
 
 	It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {

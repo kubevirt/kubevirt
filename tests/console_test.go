@@ -193,8 +193,8 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
 
-				Expect(len(runningVMISpec.Devices.Serials)).To(Equal(0), "should not have any serial consoles present")
-				Expect(len(runningVMISpec.Devices.Consoles)).To(Equal(0), "should not have any virtio console for serial consoles")
+				Expect(runningVMISpec.Devices.Serials).To(BeEmpty(), "should not have any serial consoles present")
+				Expect(runningVMISpec.Devices.Consoles).To(BeEmpty(), "should not have any virtio console for serial consoles")
 
 				By("failing to connect to serial console")
 				_, err = virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})

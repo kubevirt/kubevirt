@@ -255,7 +255,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	setMastersUnschedulable := func(mode bool) {
 		masters, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/master`})
 		Expect(err).ShouldNot(HaveOccurred(), "could not list master nodes")
-		Expect(len(masters.Items)).Should(BeNumerically(">=", 1))
+		Expect(masters.Items).ShouldNot(BeEmpty())
 
 		for _, node := range masters.Items {
 			nodeCopy := node.DeepCopy()
@@ -2123,7 +2123,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 					createdPods = append(createdPods, createdPod.Name)
 				}
-				Expect(len(createdPods)).To(BeNumerically(">=", 1), "There is no node for migration")
+				Expect(createdPods).ToNot(BeEmpty(), "There is no node for migration")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")

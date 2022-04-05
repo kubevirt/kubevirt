@@ -1142,12 +1142,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(hugepagesVmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						if len(vmi.Status.Conditions) > 0 {
-							for _, cond := range vmi.Status.Conditions {
-								if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
-									vmiCondition = cond
-									return true
-								}
+						for _, cond := range vmi.Status.Conditions {
+							if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
+								vmiCondition = cond
+								return true
 							}
 						}
 						return false
@@ -1391,14 +1389,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						// invalid request, retry
 						return false
 					}
-					if guestInfo.Hostname != "" &&
+
+					return guestInfo.Hostname != "" &&
 						guestInfo.Timezone != "" &&
 						guestInfo.GAVersion != "" &&
 						guestInfo.OS.Name != "" &&
-						len(guestInfo.FSInfo.Filesystems) > 0 {
-						return true
-					}
-					return false
+						len(guestInfo.FSInfo.Filesystems) > 0
+
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
 			})
 
@@ -1436,10 +1433,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						// invalid request, retry
 						return false
 					}
-					if len(userList.Items) > 0 && userList.Items[0].UserName == "fedora" {
-						return true
-					}
-					return false
+
+					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
+
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
 			})
 
@@ -1453,10 +1449,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						// invalid request, retry
 						return false
 					}
-					if len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" {
-						return true
-					}
-					return false
+
+					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != ""
+
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
 			})
 
@@ -1706,7 +1701,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
 			It("[test_id:1678]should report defined CPU model", func() {
 				supportedCPUs := tests.GetSupportedCPUModels(*nodes)
-				Expect(len(supportedCPUs)).ToNot(Equal(0))
+				Expect(supportedCPUs).ToNot(BeEmpty())
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Model: supportedCPUs[0],
 				}
@@ -1780,7 +1775,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		Context("when CPU features defined", func() {
 			It("[test_id:3123]should start a Virtual Machine with matching features", func() {
 				supportedCPUFeatures := tests.GetSupportedCPUFeatures(*nodes)
-				Expect(len(supportedCPUFeatures)).ToNot(Equal(0))
+				Expect(supportedCPUFeatures).ToNot(BeEmpty())
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
 						{
@@ -2234,12 +2229,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if len(vmi.Status.Conditions) > 0 {
-					for _, cond := range vmi.Status.Conditions {
-						if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
-							vmiCondition = cond
-							return true
-						}
+				for _, cond := range vmi.Status.Conditions {
+					if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
+						vmiCondition = cond
+						return true
 					}
 				}
 				return false
@@ -2875,7 +2868,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", numOfDevices))
+			Expect(vmi.Spec.Domain.Devices.Disks).Should(HaveLen(numOfDevices))
 
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
