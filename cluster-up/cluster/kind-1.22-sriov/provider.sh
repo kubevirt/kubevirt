@@ -36,6 +36,18 @@ function print_sriov_data() {
     done
 }
 
+function configure_registry_proxy() {
+    [ "$CI" != "true" ] && return
+
+    echo "Configuring cluster nodes to work with CI mirror-proxy..."
+
+    local -r ci_proxy_hostname="docker-mirror-proxy.kubevirt-prow.svc"
+    local -r kind_binary_path="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind"
+    local -r configure_registry_proxy_script="${KUBEVIRTCI_PATH}/cluster/kind/configure-registry-proxy.sh"
+
+    KIND_BIN="$kind_binary_path" PROXY_HOSTNAME="$ci_proxy_hostname" $configure_registry_proxy_script
+}
+
 function up() {
     # print hardware info for easier debugging based on logs
     echo 'Available NICs'
@@ -44,6 +56,8 @@ function up() {
 
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     kind_up
+
+    configure_registry_proxy
 
     # remove the rancher.io kind default storageClass
     _kubectl delete sc standard
