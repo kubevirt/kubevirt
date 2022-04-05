@@ -180,6 +180,11 @@ func (in *VirtualMachineRestoreList) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineRestoreSpec) DeepCopyInto(out *VirtualMachineRestoreSpec) {
 	*out = *in
 	in.Target.DeepCopyInto(&out.Target)
+	if in.Patches != nil {
+		in, out := &in.Patches, &out.Patches
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

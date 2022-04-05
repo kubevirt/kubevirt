@@ -17667,6 +17667,16 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
       properties:
+        patches:
+          description: "If the target for the restore does not exist, it will be created.
+            Patches holds JSON patches that would be applied to the target manifest
+            before it's created. Patches should fit the target's Kind. \n Example
+            for a patch: {\"op\": \"replace\", \"path\": \"/metadata/name\", \"value\":
+            \"new-vm-name\"}"
+          items:
+            type: string
+          type: array
+          x-kubernetes-list-type: atomic
         target:
           description: initially only VirtualMachine type supported
           properties:
