@@ -85,6 +85,7 @@ const (
 	defaultHost = "0.0.0.0"
 
 	launcherImage       = "virt-launcher"
+	exporterImage       = "virt-exporter"
 	launcherQemuTimeout = 240
 
 	imagePullSecret = ""
@@ -194,6 +195,7 @@ type VirtControllerApp struct {
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
+	exporterImage              string
 	launcherQemuTimeout        int
 	imagePullSecret            string
 	virtShareDir               string
@@ -512,6 +514,7 @@ func (vca *VirtControllerApp) initCommon() {
 		virtClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,
+		vca.exporterImage,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
@@ -659,8 +662,10 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
+		TemplateService:  vca.templateService,
 		Client:           vca.clientSet,
 		VMExportInformer: vca.vmExportInformer,
+		PVCInformer:      vca.persistentVolumeClaimInformer,
 		Recorder:         recorder,
 		ResyncPeriod:     vca.snapshotControllerResyncPeriod,
 	}
@@ -695,6 +700,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMIs")
+
+	flag.StringVar(&vca.exporterImage, "exporter-image", exporterImage,
+		"Container for exporting VMs and VM images")
 
 	flag.IntVar(&vca.launcherQemuTimeout, "launcher-qemu-timeout", launcherQemuTimeout,
 		"Amount of time to wait for qemu")

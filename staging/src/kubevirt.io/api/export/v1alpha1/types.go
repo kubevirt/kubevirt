@@ -129,6 +129,8 @@ type ConditionType string
 const (
 	// ConditionReady is the "ready" condition type
 	ConditionReady ConditionType = "Ready"
+	// ConditionPVC is the condition of the PVC we are exporting
+	ConditionPVC ConditionType = "PVCReady"
 )
 
 // Condition defines conditions

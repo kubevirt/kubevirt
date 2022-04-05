@@ -363,6 +363,8 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	container.Args = []string{
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+		"--exporter-image",
+		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 		portName,
 		"8443",
 		"-v",

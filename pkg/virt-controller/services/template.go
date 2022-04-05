@@ -44,6 +44,7 @@ import (
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -136,6 +137,7 @@ type TemplateService interface {
 	RenderHotplugAttachmentPodTemplate(volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport) *k8sv1.Pod
 	GetLauncherImage() string
 	IsPPC64() bool
 	IsARM64() bool
@@ -143,6 +145,7 @@ type TemplateService interface {
 
 type templateService struct {
 	launcherImage              string
+	exporterImage              string
 	launcherQemuTimeout        int
 	virtShareDir               string
 	virtLibDir                 string
@@ -1754,6 +1757,36 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 	return pod, nil
 }
 
+func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachineExport) *k8sv1.Pod {
+	exporterPod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("exporter-%s", vmExport.Name),
+			Namespace: vmExport.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
+					Group:   exportv1.SchemeGroupVersion.Group,
+					Version: exportv1.SchemeGroupVersion.Version,
+					Kind:    "VirtualMachineExport",
+				}),
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			Containers: []k8sv1.Container{
+				{
+					Name:  vmExport.Name,
+					Image: t.exporterImage,
+					Command: []string{
+						"/bin/sh", "-c",
+						"/usr/bin/tail -f /dev/null",
+					},
+					ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
+				},
+			},
+		},
+	}
+	return exporterPod
+}
+
 func getVirtiofsCapabilities() []k8sv1.Capability {
 	return []k8sv1.Capability{
 		"CHOWN",
@@ -2044,9 +2077,11 @@ func NewTemplateService(launcherImage string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-	launcherSubGid int64) TemplateService {
+	launcherSubGid int64,
+	exporterImage string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
+	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
 	svc := templateService{
 		launcherImage:              launcherImage,
 		launcherQemuTimeout:        launcherQemuTimeout,
@@ -2060,6 +2095,7 @@ func NewTemplateService(launcherImage string,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
+		exporterImage:              exporterImage,
 	}
 	return &svc
 }
