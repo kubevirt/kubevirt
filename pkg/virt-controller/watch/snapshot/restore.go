@@ -21,16 +21,17 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -51,7 +52,6 @@ const (
 )
 
 type restoreTarget interface {
-	UID() types.UID
 	Ready() (bool, error)
 	Reconcile() (bool, error)
 	Cleanup() error
@@ -221,7 +221,7 @@ func (ctrl *VMRestoreController) doUpdate(original, updated *snapshotv1.VirtualM
 }
 
 func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) (bool, error) {
-	content, err := ctrl.getSnapshotContent(vmRestore, target.UID())
+	content, err := ctrl.getSnapshotContent(vmRestore)
 	if err != nil {
 		return false, err
 	}
@@ -310,11 +310,11 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 	return sc.VolumeBindingMode, nil
 }
 
-func (t *vmRestoreTarget) UID() types.UID {
-	return t.vm.UID
-}
-
 func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
+	if !t.doesTargetVMExist() {
+		return true, nil
+	}
+
 	if t.vm.Status.RestoreInProgress == nil || *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
 		return false, nil
 	}
@@ -326,6 +326,10 @@ func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
 }
 
 func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
+	if !t.doesTargetVMExist() {
+		return nil
+	}
+
 	if t.vm.Status.RestoreInProgress != nil && *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
 		return fmt.Errorf("vm restore %s in progress", *t.vm.Status.RestoreInProgress)
 	}
@@ -344,6 +348,10 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {
+	if !t.doesTargetVMExist() {
+		return true, nil
+	}
+
 	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
 
 	rs, err := t.vm.RunStrategy()
@@ -373,11 +381,13 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 
 	restoreID := fmt.Sprintf("%s-%s", t.vmRestore.Name, t.vmRestore.UID)
 
-	if lastRestoreID, ok := t.vm.Annotations[lastRestoreAnnotation]; ok && lastRestoreID == restoreID {
-		return false, nil
+	if t.doesTargetVMExist() {
+		if lastRestoreID, ok := t.vm.Annotations[lastRestoreAnnotation]; ok && lastRestoreID == restoreID {
+			return false, nil
+		}
 	}
 
-	content, err := t.controller.getSnapshotContent(t.vmRestore, t.UID())
+	content, err := t.controller.getSnapshotContent(t.vmRestore)
 	if err != nil {
 		return false, err
 	}
@@ -478,7 +488,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 		}
 	}
 
-	if updatedStatus {
+	if t.doesTargetVMExist() && updatedStatus {
 		// find DataVolumes that will no longer exist
 		for _, cdv := range t.vm.Spec.DataVolumeTemplates {
 			found := false
@@ -497,8 +507,24 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 		return true, nil
 	}
 
-	newVM := t.vm.DeepCopy()
-	newVM.Spec = snapshotVM.Spec
+	var newVM *kubevirtv1.VirtualMachine
+	if !t.doesTargetVMExist() {
+		newVM = &kubevirtv1.VirtualMachine{
+			TypeMeta: snapshotVM.TypeMeta,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        t.vmRestore.Spec.Target.Name,
+				Namespace:   t.vmRestore.Namespace,
+				Labels:      snapshotVM.Labels,
+				Annotations: snapshotVM.Annotations,
+			},
+			Spec:   *snapshotVM.Spec.DeepCopy(),
+			Status: kubevirtv1.VirtualMachineStatus{},
+		}
+	} else {
+		newVM = t.vm.DeepCopy()
+		newVM.Spec = *snapshotVM.Spec.DeepCopy()
+	}
+
 	// update Running state in case snapshot was on online VM
 	if newVM.Spec.RunStrategy != nil {
 		runStrategyHalted := kubevirtv1.RunStrategyHalted
@@ -514,15 +540,29 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	}
 	newVM.Annotations[lastRestoreAnnotation] = restoreID
 
-	_, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(newVM)
+	newVM, err = patchVM(newVM, t.vmRestore.Spec.Patches)
+	if err != nil {
+		return false, fmt.Errorf("error patching VM %s: %v", newVM.Name, err)
+	}
+
+	if !t.doesTargetVMExist() {
+		newVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(newVM)
+	} else {
+		newVM, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(newVM)
+	}
 	if err != nil {
 		return false, err
 	}
+	t.vm = newVM
 
 	return true, nil
 }
 
 func (t *vmRestoreTarget) Own(obj metav1.Object) {
+	if !t.doesTargetVMExist() {
+		return
+	}
+
 	b := true
 	obj.SetOwnerReferences([]metav1.OwnerReference{
 		{
@@ -556,7 +596,11 @@ func (t *vmRestoreTarget) Cleanup() error {
 	return nil
 }
 
-func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.VirtualMachineRestore, targetUID types.UID) (*snapshotv1.VirtualMachineSnapshotContent, error) {
+func (t *vmRestoreTarget) doesTargetVMExist() bool {
+	return t.vm != nil
+}
+
+func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.VirtualMachineRestore) (*snapshotv1.VirtualMachineSnapshotContent, error) {
 	objKey := cacheKeyFunc(vmRestore.Namespace, vmRestore.Spec.VirtualMachineSnapshotName)
 	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(objKey)
 	if err != nil {
@@ -594,18 +638,48 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 	return vmss, nil
 }
 
-func (ctrl *VMRestoreController) getVM(namespace, name string) (*kubevirtv1.VirtualMachine, error) {
+func (ctrl *VMRestoreController) getVM(namespace, name string) (vm *kubevirtv1.VirtualMachine, err error) {
 	objKey := cacheKeyFunc(namespace, name)
 	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(objKey)
-	if err != nil {
+	if err != nil || !exists {
 		return nil, err
 	}
 
-	if !exists {
-		return nil, fmt.Errorf("VirtualMachine %s/%s does not exist", namespace, name)
+	return obj.(*kubevirtv1.VirtualMachine).DeepCopy(), nil
+}
+
+func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.VirtualMachine, error) {
+	if len(patches) == 0 {
+		return vm, nil
 	}
 
-	return obj.(*kubevirtv1.VirtualMachine).DeepCopy(), nil
+	log.Log.V(3).Object(vm).Infof("patching restore target. VM: %s. patches: %+v", vm.Name, patches)
+
+	marshalledVM, err := json.Marshal(vm)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
+	}
+
+	jsonPatch := "[\n" + strings.Join(patches, ",\n") + "\n]"
+
+	patch, err := jsonpatch.DecodePatch([]byte(jsonPatch))
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
+	}
+
+	modifiedMarshalledVM, err := patch.Apply(marshalledVM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
+	}
+
+	err = json.Unmarshal(modifiedMarshalledVM, vm)
+	if err != nil {
+		return nil, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
+	}
+
+	log.Log.V(3).Object(vm).Infof("patching restore target completed. Modified VM: %s", string(modifiedMarshalledVM))
+
+	return vm, nil
 }
 
 func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
