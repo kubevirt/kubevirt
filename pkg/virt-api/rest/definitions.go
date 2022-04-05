@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1alpha1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -54,6 +55,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	for _, f := range []func() []*restful.WebService{
 		kubevirtApiServiceDefinitions,
 		snapshotApiServiceDefinitions,
+		exportApiServiceDefinitions,
 		flavorApiServiceDefinitions,
 		migrationPoliciesApiServiceDefinitions,
 		poolApiServiceDefinitions,
@@ -140,6 +142,26 @@ func snapshotApiServiceDefinitions() []*restful.WebService {
 	}
 
 	ws2, err := ResourceProxyAutodiscovery(vmsGVR)
+	if err != nil {
+		panic(err)
+	}
+	return []*restful.WebService{ws, ws2}
+}
+
+func exportApiServiceDefinitions() []*restful.WebService {
+	exportsGVR := exportv1.SchemeGroupVersion.WithResource("virtualmachineexports")
+
+	ws, err := GroupVersionProxyBase(schema.GroupVersion{Group: exportv1.SchemeGroupVersion.Group, Version: exportv1.SchemeGroupVersion.Version})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, exportsGVR, &exportv1.VirtualMachineExport{}, "VirtualMachineExport", &exportv1.VirtualMachineExportList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(exportsGVR)
 	if err != nil {
 		panic(err)
 	}

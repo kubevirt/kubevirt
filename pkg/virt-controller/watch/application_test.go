@@ -111,7 +111,7 @@ var _ = Describe("Application", func() {
 		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -133,7 +133,7 @@ var _ = Describe("Application", func() {
 			flavorMethods,
 			recorder,
 			virtClient)
-		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			podInformer,
 			migrationInformer,

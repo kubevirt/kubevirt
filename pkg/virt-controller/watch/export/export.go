@@ -288,7 +288,7 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		} else if exporterPod.Status.Phase == corev1.PodSucceeded {
 			updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podCompletedReason), true)
 			vmExportCopy.Status.Phase = exportv1.Terminated
-		}  else if exporterPod.Status.Phase == corev1.PodPending {
+		} else if exporterPod.Status.Phase == corev1.PodPending {
 			updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, initializingReason), true)
 			vmExportCopy.Status.Phase = exportv1.Pending
 		} else {

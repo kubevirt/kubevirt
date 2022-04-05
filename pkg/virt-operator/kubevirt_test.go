@@ -139,7 +139,7 @@ type KubeVirtTestData struct {
 	totalUpdates    int
 	totalPatches    int
 	totalDeletions  int
-	resourceChanges map[string]map[string]int
+	resourceChanges map[string]map[string]intpkg/virt-operator/kubevirt_test.go
 
 	deleteFromCache bool
 	addToCache      bool
@@ -1148,6 +1148,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
+		components.NewVirtualMachineExportCrd,
 		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineFlavorCrd,
 		components.NewVirtualMachineClusterFlavorCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,

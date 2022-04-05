@@ -42,7 +42,7 @@ type VirtualMachineExport struct {
 type VirtualMachineExportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-
+	// +listType=atomic
 	Items []VirtualMachineExport `json:"items"`
 }
 
@@ -75,6 +75,7 @@ type VirtualMachineExportStatus struct {
 	Links *VirtualMachineExportLinks `json:"links,omitempty"`
 
 	// +optional
+	// +listType=atomic
 	Conditions []Condition `json:"conditions,omitempty"`
 }
 
@@ -92,13 +93,17 @@ type VirtualMachineExportLink struct {
 	Cert string `json:"cert"`
 
 	// Volumes is a list of available volumes to export
+	// +listType=atomic
+	// +optional
 	Volumes []VirtualMachineExportVolume `json:"volumes"`
 }
 
 // VirtualMachineExportVolume contains the name and available formats for the exported volume
 type VirtualMachineExportVolume struct {
 	// Name is the name of the exported volume
-	Name    string                             `json:"name"`
+	Name string `json:"name"`
+	// +listType=atomic
+	// +optional
 	Formats []VirtualMachineExportVolumeFormat `json:"formats,omitempty"`
 }
 
