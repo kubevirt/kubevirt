@@ -53,3 +53,11 @@ func GetLoopbackAddressForUrl(family k8sv1.IPFamily) string {
 	}
 	return address
 }
+
+func CidrToIP(cidr string) (string, error) {
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+	return ip.String(), nil
+}
