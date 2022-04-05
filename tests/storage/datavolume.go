@@ -227,7 +227,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
+					Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
@@ -286,7 +286,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.IsStorageClassBindingModeWaitForFirstConsumer(tests.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 60).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
+					Eventually(ThisDV(dataVolume), 40).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
