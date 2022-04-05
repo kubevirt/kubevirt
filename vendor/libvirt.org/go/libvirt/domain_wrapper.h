@@ -347,6 +347,13 @@ virDomainGetLaunchSecurityInfoWrapper(virDomainPtr domain,
                                       unsigned int flags,
                                       virErrorPtr err);
 
+int
+virDomainSetLaunchSecurityStateWrapper(virDomainPtr domain,
+				       virTypedParameterPtr params,
+				       int nparams,
+				       unsigned int flags,
+				       virErrorPtr err);
+
 unsigned long
 virDomainGetMaxMemoryWrapper(virDomainPtr domain,
                              virErrorPtr err);

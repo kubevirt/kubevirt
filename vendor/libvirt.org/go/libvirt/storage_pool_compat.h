@@ -88,5 +88,10 @@ typedef void (*virConnectStoragePoolEventGenericCallback)(virConnectPtr conn,
 #define VIR_STORAGE_POOL_EVENT_DELETED 5
 #endif
 
+/* 7.7.0 */
+
+#ifndef VIR_STORAGE_POOL_DEFINE_VALIDATE
+#define VIR_STORAGE_POOL_DEFINE_VALIDATE 1 << 0
+#endif
 
 #endif /* LIBVIRT_GO_STORAGE_POOL_COMPAT_H__ */

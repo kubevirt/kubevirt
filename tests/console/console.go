@@ -169,10 +169,10 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 
 	esc := UTFPosEscape
 	b := append([]expect.Batcher{
-		// SeaBIOS uses escape (\u001b) combinations for letter placement on screen
-		// The regex below effectively grep for "iPXE" while ignoring those
-		//&expect.BExp{R: "\u001b\\[7;27Hi\u001b\\[7;28HP\u001b\\[7;29HX\u001b\\[7;30HE"},
-		&expect.BExp{R: esc + "i" + esc + "P" + esc + "X" + esc + "E"},
+		// SeaBIOS can use escape (\u001b) combinations for letter placement on screen
+		// The regex below looks for the string "iPXE" and can detect it
+		// even when these escape sequences are present
+		&expect.BExp{R: "i(PXE|" + esc + "P" + esc + "X" + esc + "E)"},
 	})
 	res, err := expecter.ExpectBatch(b, 30*time.Second)
 	if err != nil {
