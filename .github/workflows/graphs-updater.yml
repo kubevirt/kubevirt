@@ -1,8 +1,11 @@
 name: Update component graphs from the nightly job
-on: workflow_dispatch
+on:
+  schedule:
+    - cron:  '0 8 * * *'
+  workflow_dispatch:
 jobs:
   build:
-    name: Update Dashboard ConfigMaps
+    name: Update Components Graph
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repository
@@ -15,8 +18,7 @@ jobs:
         run: |
           ./hco/automation/graphs-updater/graphs-updater.sh "./hco/docs"
           cd hco
-          git add docs/*.gv
-          if ! git diff HEAD --quiet --exit-code; then
+          if ! git diff HEAD --quiet --exit-code '*.gv'; then
             echo "There is an update."
             git add --all
             echo "UPDATED=true" >> $GITHUB_ENV
