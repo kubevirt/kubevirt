@@ -30,6 +30,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
+var mountBaseDir = filepath.Join(util.VirtShareDir, "/hotplug-disks")
+
 const (
 	hotplugDisksKubeletVolumePath = "volumes/kubernetes.io~empty-dir/hotplug-disks"
 )
@@ -44,6 +46,7 @@ var (
 type HotplugDiskManagerInterface interface {
 	GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error)
 	GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error)
+	GetFileSystemDirectoryTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error)
 }
 
 func NewHotplugDiskManager() *hotplugDiskManager {
@@ -76,6 +79,25 @@ func (h *hotplugDiskManager) GetHotplugTargetPodPathOnHost(virtlauncherPodUID ty
 	return "", fmt.Errorf("Unable to locate target path: %s", podpath)
 }
 
+// GetFileSystemDirectoryTargetPathFromHostView gets the directory path in the target pod (virt-launcher) on the host.
+func (h *hotplugDiskManager) GetFileSystemDirectoryTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error) {
+	targetPath, err := h.GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
+	if err != nil {
+		return "", err
+	}
+	directoryPath := filepath.Join(targetPath, volumeName)
+	exists, err := diskutils.FileExists(directoryPath)
+	if err != nil {
+		return "", err
+	}
+	if !exists && create {
+		if err := os.Mkdir(directoryPath, 0750); err != nil {
+			return "", err
+		}
+	}
+	return directoryPath, nil
+}
+
 // GetFileSystemDiskTargetPathFromHostView gets the disk image file in the target pod (virt-launcher) on the host.
 func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error) {
 	targetPath, err := h.GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
@@ -94,8 +116,13 @@ func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlaunche
 	return diskFile, err
 }
 
-// CreateLocalDirectory creates the base directory where disk images will be mounted when hotplugged. File system volumes will be in
+// SetLocalDirectory creates the base directory where disk images will be mounted when hotplugged. File system volumes will be in
 // a directory under this, that contains the volume name. block volumes will be in this directory as a block device.
-func CreateLocalDirectory(dir string) error {
+func SetLocalDirectory(dir string) error {
+	mountBaseDir = dir
 	return os.MkdirAll(dir, 0755)
+}
+
+func GetVolumeMountDir(volumeName string) string {
+	return filepath.Join(mountBaseDir, volumeName)
 }

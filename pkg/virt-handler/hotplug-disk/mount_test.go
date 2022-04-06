@@ -677,7 +677,7 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
 
-			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record)
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(record.MountTargetEntries).To(HaveLen(1))
 			Expect(record.MountTargetEntries[0].TargetFile).To(Equal(targetFilePath))
