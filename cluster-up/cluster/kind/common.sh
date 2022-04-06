@@ -303,7 +303,7 @@ function down() {
     if [ -z "$($KIND get clusters | grep ${CLUSTER_NAME})" ]; then
         return
     fi
-    $KIND delete cluster --name=${CLUSTER_NAME}
+    $KIND delete cluster -v 9 --name=${CLUSTER_NAME}
     docker rm -f $REGISTRY_NAME >> /dev/null
     rm -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
 }
