@@ -10637,6 +10637,57 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/memorydump": {
+    "put": {
+     "description": "Dumps a VirtualMachineInstance memory.",
+     "operationId": "v1MemoryDump",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
@@ -11791,6 +11842,57 @@
       },
       "401": {
        "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/memorydump": {
+    "put": {
+     "description": "Dumps a VirtualMachineInstance memory.",
+     "operationId": "v1alpha3MemoryDump",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
       }
      }
     },
@@ -17292,6 +17394,32 @@
      }
     }
    },
+   "v1.VirtualMachineMemoryDumpRequest": {
+    "description": "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
+    "type": "object",
+    "required": [
+     "claimName",
+     "phase"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of the pvc that will contain the memory dump",
+      "type": "string"
+     },
+     "fileName": {
+      "description": "FileName represents the name of the output file",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase represents the memory dump phase",
+      "type": "string"
+     },
+     "timestamp": {
+      "description": "Timestamp represents the time the memory dump was completed",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec describes how the proper VirtualMachine should look like",
     "type": "object",
@@ -17382,6 +17510,10 @@
      "created": {
       "description": "Created indicates if the virtual machine is created in the cluster",
       "type": "boolean"
+     },
+     "memoryDumpRequest": {
+      "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
+      "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
      },
      "printableStatus": {
       "description": "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",

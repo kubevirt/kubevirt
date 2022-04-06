@@ -1040,6 +1040,143 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	})
 
+	Context("Memory dump Subresource api", func() {
+
+		newMemoryDumpBody := func(req *v1.VirtualMachineMemoryDumpRequest) io.ReadCloser {
+			reqJson, _ := json.Marshal(req)
+			return &readCloserWrapper{bytes.NewReader(reqJson)}
+		}
+
+		BeforeEach(func() {
+			request.PathParameters()["name"] = testVMName
+			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+		})
+
+		DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, enableGate bool, vmiRunning bool) {
+
+			if enableGate {
+				enableFeatureGate(virtconfig.HotplugVolumesGate)
+			}
+			request.Request.Body = newMemoryDumpBody(memDumpReq)
+
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = k8smetav1.NamespaceDefault
+
+			patchedVM := vm.DeepCopy()
+			patchedVM.Status.MemoryDumpRequest = memDumpReq
+
+			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).AnyTimes()
+			vmi := &v1.VirtualMachineInstance{}
+			if vmiRunning {
+				vmi = api.NewMinimalVMI(testVMIName)
+				vmi.Status.Phase = v1.Running
+			}
+			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+					return patchedVM, nil
+				}).AnyTimes()
+			app.MemoryDumpVMRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(statusCode))
+		},
+			Entry("VM with a valid memory dump request should succeed", &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: "vol1",
+				Phase:     v1.MemoryDumpAssociating,
+			}, http.StatusAccepted, true, true),
+			Entry("VM with an invalid memory dump request that's missing a claim name should fail", &v1.VirtualMachineMemoryDumpRequest{
+				Phase: v1.MemoryDumpAssociating,
+			}, http.StatusBadRequest, true, true),
+			Entry("VM with an invalid memory dump request that's missing a phase should fail", &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: "vol1",
+			}, http.StatusBadRequest, true, true),
+			Entry("VM with an invalid memory dump request that's has phase different then 'Associating' should fail", &v1.VirtualMachineMemoryDumpRequest{
+				Phase: v1.MemoryDumpCompleted,
+			}, http.StatusBadRequest, true, true),
+			Entry("VM with a valid memory dump request but no feature gate should fail", &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: "vol1",
+				Phase:     v1.MemoryDumpAssociating,
+			}, http.StatusBadRequest, false, true),
+			Entry("VM with a valid memory dump request vmi not running should fail", &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: "vol1",
+				Phase:     v1.MemoryDumpAssociating,
+			}, http.StatusConflict, true, false),
+		)
+
+		DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatch string, expectError bool) {
+
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = k8smetav1.NamespaceDefault
+
+			if existingMemDumpReq != nil {
+				vm.Status.MemoryDumpRequest = existingMemDumpReq
+			}
+
+			patch, err := generateVMMemoryDumpRequestPatch(vm, memDumpReq)
+			if expectError {
+				Expect(err).ToNot(BeNil())
+			} else {
+				Expect(err).To(BeNil())
+			}
+
+			fmt.Println(patch)
+			Expect(patch).To(Equal(expectedPatch))
+		},
+			Entry("add memory dump request with no existing request",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpAssociating,
+				},
+				nil,
+				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
+				false),
+			Entry("add memory dump request to the same vol after completed",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpAssociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpCompleted,
+				},
+				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Completed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
+				false),
+			Entry("add memory dump request to the same vol after previous failed",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpAssociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpFailed,
+				},
+				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Failed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
+				false),
+			Entry("add memory dump request to the same vol while memory dump in progress should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpAssociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpInProgress,
+				},
+				"",
+				true),
+			Entry("add memory dump request to a different vol while another exists should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol2",
+					Phase:     v1.MemoryDumpAssociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpCompleted,
+				},
+				"",
+				true),
+		)
+	})
+
 	Context("Subresource api - error handling for StartVMRequestHandler", func() {
 		BeforeEach(func() {
 			request.PathParameters()["name"] = testVMName

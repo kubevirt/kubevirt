@@ -269,6 +269,7 @@ type VirtualMachineInterface interface {
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
+	MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

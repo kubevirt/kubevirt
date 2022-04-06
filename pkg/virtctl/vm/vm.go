@@ -46,10 +46,12 @@ const (
 	COMMAND_GUESTOSINFO    = "guestosinfo"
 	COMMAND_USERLIST       = "userlist"
 	COMMAND_FSLIST         = "fslist"
+	COMMAND_MEMORYDUMP     = "memory-dump"
 	COMMAND_ADDVOLUME      = "addvolume"
 	COMMAND_REMOVEVOLUME   = "removevolume"
 
 	volumeNameArg         = "volume-name"
+	claimNameArg          = "claim-name"
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
@@ -69,6 +71,7 @@ var (
 	persist      bool
 	startPaused  bool
 	dryRun       bool
+	claimName    string
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -201,6 +204,24 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
+func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "memory-dump (VMI)",
+		Short:   "Dump the memory of a running VM to a given pvc",
+		Example: usageMemoryDump(),
+		Args:    templates.ExactArgs("memory-dump", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_MEMORYDUMP, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
+	cmd.MarkFlagRequired(claimNameArg)
+
+	return cmd
+}
+
 func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "addvolume VMI",
@@ -285,6 +306,13 @@ func usage(cmd string) string {
 	return usage
 }
 
+func usageMemoryDump() string {
+	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an pvc called 'memoryvolume'.
+  {{ProgramName}} memory-dump myvm --claim-name=memoryvolume
+  `
+	return usage
+}
+
 func usageAddVolume() string {
 	usage := `  #Dynamically attach a volume to a running VM.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
@@ -359,6 +387,26 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 		return fmt.Errorf("error removing volume, %v", err)
 	}
 	fmt.Printf("Successfully submitted remove volume request to VM %s for volume %s\n", vmiName, volumeName)
+	return nil
+}
+
+func memoryDump(vmName, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), claimName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error dumping vm memory, failed to verify pvc %s, %v", claimName, err)
+	} else if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+		return fmt.Errorf("error dumping vm memory, pvc %s should be filesystem pvc", claimName)
+	}
+	memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
+		ClaimName: claimName,
+		Phase:     v1.MemoryDumpAssociating,
+	}
+
+	err = virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+	if err != nil {
+		return fmt.Errorf("error dumping vm memory, %v", err)
+	}
+	fmt.Printf("Successfully submitted memory dump request of VM %s to pvc %s\n", vmName, claimName)
 	return nil
 }
 
@@ -512,6 +560,8 @@ func (o *Command) Run(args []string) error {
 		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_REMOVEVOLUME:
 		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
+	case COMMAND_MEMORYDUMP:
+		return memoryDump(args[0], claimName, namespace, virtClient)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)

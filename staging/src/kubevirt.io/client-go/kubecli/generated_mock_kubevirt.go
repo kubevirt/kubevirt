@@ -1577,6 +1577,16 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) PortForward(arg0, arg1, arg2 in
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PortForward", arg0, arg1, arg2)
 }
 
+func (_m *MockVirtualMachineInterface) MemoryDump(name string, memoryDumpRequest *v119.VirtualMachineMemoryDumpRequest) error {
+	ret := _m.ctrl.Call(_m, "MemoryDump", name, memoryDumpRequest)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) MemoryDump(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryDump", arg0, arg1)
+}
+
 // Mock of VirtualMachineInstanceMigrationInterface interface
 type MockVirtualMachineInstanceMigrationInterface struct {
 	ctrl     *gomock.Controller

@@ -1259,3 +1259,121 @@ func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Reques
 func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.removeVolumeRequestHandler(request, response, true)
 }
+
+func getMemoryDumpPatchVerb(request *v1.VirtualMachineMemoryDumpRequest) string {
+	verb := "add"
+	if request != nil {
+		verb = "replace"
+	}
+	return verb
+}
+
+func addMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) error {
+	claimName := memoryDumpReq.ClaimName
+	if vm.Status.MemoryDumpRequest != nil {
+		if vm.Status.MemoryDumpRequest.ClaimName != claimName {
+			return fmt.Errorf("can't request memory dump for pvc [%s] while pvc [%s] is still bound as the memory dump pvc", claimName, vm.Status.MemoryDumpRequest.ClaimName)
+		}
+		if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted && vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpFailed {
+			return fmt.Errorf("memory dump request for pvc [%s] already in progress", claimName)
+		}
+	}
+	vmCopy.Status.MemoryDumpRequest = memoryDumpReq
+	return nil
+}
+
+func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) (string, error) {
+	verb := getMemoryDumpPatchVerb(vm.Status.MemoryDumpRequest)
+	vmCopy := vm.DeepCopy()
+
+	if err := addMemoryDumpRequest(vm, vmCopy, memoryDumpReq); err != nil {
+		return "", err
+	}
+
+	oldJson, err := json.Marshal(vm.Status.MemoryDumpRequest)
+	if err != nil {
+		return "", err
+	}
+	newJson, err := json.Marshal(vmCopy.Status.MemoryDumpRequest)
+	if err != nil {
+		return "", err
+	}
+
+	test := fmt.Sprintf(`{ "op": "test", "path": "/status/memoryDumpRequest", "value": %s}`, string(oldJson))
+	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/memoryDumpRequest", "value": %s}`, verb, string(newJson))
+	patch := fmt.Sprintf("[%s, %s]", test, update)
+
+	return patch, nil
+}
+
+func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
+	vm, statErr := app.fetchVirtualMachine(name, namespace)
+	if statErr != nil {
+		return statErr
+	}
+	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
+	if statErr != nil {
+		return statErr
+	}
+
+	if !vmi.IsRunning() {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
+	}
+
+	patch, err := generateVMMemoryDumpRequestPatch(vm, memoryDumpReq)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
+	}
+
+	log.Log.Object(vm).V(4).Infof(patchingVMFmt, patch)
+	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
+		log.Log.Object(vm).V(1).Errorf("unable to patch vm status: %v", err)
+		if errors.IsInvalid(err) {
+			if statErr, ok := err.(*errors.StatusError); ok {
+				return statErr
+			}
+		}
+		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
+	}
+	return nil
+}
+
+func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	if !app.clusterConfig.HotplugVolumesEnabled() {
+		writeError(errors.NewBadRequest("Unable to memory dump because HotplugVolumes feature gate is not enabled."), response)
+		return
+	}
+
+	memoryDumpReq := &v1.VirtualMachineMemoryDumpRequest{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(memoryDumpReq)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+			return
+		}
+	} else {
+		writeError(errors.NewBadRequest("Request with no body"), response)
+		return
+	}
+
+	if memoryDumpReq.ClaimName == "" {
+		writeError(errors.NewBadRequest("MemoryDumpRequest requires claim name to be set"), response)
+		return
+	} else if memoryDumpReq.Phase != v1.MemoryDumpAssociating {
+		writeError(errors.NewBadRequest("MemoryDumpRequest requires phase to be set as `Associating`"), response)
+		return
+	}
+	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, memoryDumpReq); err != nil {
+		writeError(err, response)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}

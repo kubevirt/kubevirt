@@ -1374,6 +1374,12 @@ type VirtualMachineStatus struct {
 	// +nullable
 	// +optional
 	StartFailure *VirtualMachineStartFailure `json:"startFailure,omitempty" optional:"true"`
+
+	// MemoryDumpRequest tracks memory dump request phase and info of getting a memory
+	// dump to the given pvc
+	// +nullable
+	// +optional
+	MemoryDumpRequest *VirtualMachineMemoryDumpRequest `json:"memoryDumpRequest,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1998,6 +2004,33 @@ type VirtualMachineInstanceFileSystem struct {
 type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
 }
+
+// VirtualMachineMemoryDumpRequest represent the memory dump request phase and info
+type VirtualMachineMemoryDumpRequest struct {
+	// ClaimName is the name of the pvc that will contain the memory dump
+	ClaimName string `json:"claimName"`
+	// Phase represents the memory dump phase
+	Phase MemoryDumpPhase `json:"phase"`
+	// Timestamp represents the time the memory dump was completed
+	Timestamp *metav1.Time `json:"timestamp,omitempty"`
+	// FileName represents the name of the output file
+	FileName *string `json:"fileName,omitempty"`
+}
+
+type MemoryDumpPhase string
+
+const (
+	// The memorydump is during pvc Associating
+	MemoryDumpAssociating MemoryDumpPhase = "Associating"
+	// The memorydump is in progress
+	MemoryDumpInProgress MemoryDumpPhase = "InProgress"
+	// The memorydump is being unmounted
+	MemoryDumpUnmounting MemoryDumpPhase = "Unmounting"
+	// The memorydump is completed
+	MemoryDumpCompleted MemoryDumpPhase = "Completed"
+	// The memorydump is being unbound
+	MemoryDumpDissociating MemoryDumpPhase = "Dissociating"
+)
 
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk
 type AddVolumeOptions struct {

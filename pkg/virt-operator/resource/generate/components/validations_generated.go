@@ -6512,6 +6512,29 @@ var CRDsValidation map[string]string = map[string]string{
           description: Created indicates if the virtual machine is created in the
             cluster
           type: boolean
+        memoryDumpRequest:
+          description: MemoryDumpRequest tracks memory dump request phase and info
+            of getting a memory dump to the given pvc
+          nullable: true
+          properties:
+            claimName:
+              description: ClaimName is the name of the pvc that will contain the
+                memory dump
+              type: string
+            fileName:
+              description: FileName represents the name of the output file
+              type: string
+            phase:
+              description: Phase represents the memory dump phase
+              type: string
+            timestamp:
+              description: Timestamp represents the time the memory dump was completed
+              format: date-time
+              type: string
+          required:
+          - claimName
+          - phase
+          type: object
         printableStatus:
           description: PrintableStatus is a human readable, high-level representation
             of the status of the virtual machine
@@ -22791,6 +22814,31 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Created indicates if the virtual machine is created
                         in the cluster
                       type: boolean
+                    memoryDumpRequest:
+                      description: MemoryDumpRequest tracks memory dump request phase
+                        and info of getting a memory dump to the given pvc
+                      nullable: true
+                      properties:
+                        claimName:
+                          description: ClaimName is the name of the pvc that will
+                            contain the memory dump
+                          type: string
+                        fileName:
+                          description: FileName represents the name of the output
+                            file
+                          type: string
+                        phase:
+                          description: Phase represents the memory dump phase
+                          type: string
+                        timestamp:
+                          description: Timestamp represents the time the memory dump
+                            was completed
+                          format: date-time
+                          type: string
+                      required:
+                      - claimName
+                      - phase
+                      type: object
                     printableStatus:
                       description: PrintableStatus is a human readable, high-level
                         representation of the status of the virtual machine

@@ -480,6 +480,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceStatus":                                       schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec":                                 schema_kubevirtio_api_core_v1_VirtualMachineInstanceTemplateSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineList":                                                 schema_kubevirtio_api_core_v1_VirtualMachineList(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest":                                    schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineSpec":                                                 schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineStartFailure":                                         schema_kubevirtio_api_core_v1_VirtualMachineStartFailure(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest":                                   schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref),
@@ -21533,6 +21534,49 @@ func schema_kubevirtio_api_core_v1_VirtualMachineList(ref common.ReferenceCallba
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the pvc that will contain the memory dump",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase represents the memory dump phase",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"timestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timestamp represents the time the memory dump was completed",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"fileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FileName represents the name of the output file",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"claimName", "phase"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21773,11 +21817,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineStartFailure"),
 						},
 					},
+					"memoryDumpRequest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
+			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
 	}
 }
 

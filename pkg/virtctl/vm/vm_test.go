@@ -565,4 +565,78 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("with dry-run arg", true),
 		)
 	})
+
+	Context("memory dump", func() {
+		var (
+			coreClient *fake.Clientset
+		)
+
+		createTestPVC := func() *corev1.PersistentVolumeClaim {
+			return &corev1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvolume",
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{},
+			}
+		}
+
+		expectVMEndpointMemoryDump := func(vmName, claimName string) {
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachine(k8smetav1.NamespaceDefault).
+				Return(vmInterface).
+				Times(1)
+			vmInterface.EXPECT().MemoryDump(vmName, gomock.Any()).DoAndReturn(func(arg0, arg1 interface{}) interface{} {
+				Expect(arg1.(*v1.VirtualMachineMemoryDumpRequest).ClaimName).To(Equal(claimName))
+				Expect(arg1.(*v1.VirtualMachineMemoryDumpRequest).Phase).To(Equal(v1.MemoryDumpAssociating))
+				return nil
+			})
+		}
+
+		BeforeEach(func() {
+			coreClient = fake.NewSimpleClientset()
+		})
+
+		DescribeTable("should fail with missing required or invalid parameters", func(errorString string, args ...string) {
+			commandAndArgs := []string{"memory-dump"}
+			commandAndArgs = append(commandAndArgs, args...)
+			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
+			Expect(res).NotTo(BeNil())
+			Expect(res.Error()).To(ContainSubstring(errorString))
+		},
+			Entry("memorydump no args", "argument validation failed"),
+			Entry("memorydump name, missing required claim-name", "required flag(s)", "testvm"),
+			Entry("memorydump name, invalid extra parameter", "unknown flag", "testvm", "--claim-name=blah", "--invalid=test"),
+		)
+		It("should fail memorydump when no pvc is found", func() {
+			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+			commandAndArgs := []string{"memory-dump", "testvm", "--claim-name=my-pvc"}
+			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
+			Expect(res).ToNot(BeNil())
+			Expect(res.Error()).To(ContainSubstring("error dumping vm memory, failed to verify pvc"))
+		})
+		It("should fail memorydump when getting block pvc", func() {
+			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+			testPvc := createTestPVC()
+			volumeMode := corev1.PersistentVolumeBlock
+			testPvc.Spec.VolumeMode = &volumeMode
+			coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
+			commandAndArgs := []string{"memory-dump", "testvm", "--claim-name=my-pvc"}
+			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+			res := cmdAdd()
+			Expect(res).ToNot(BeNil())
+			Expect(res.Error()).To(ContainSubstring("error dumping vm memory, failed to verify pvc"))
+		})
+		It("should call memory dump subresource", func() {
+			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+			coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
+			expectVMEndpointMemoryDump("testvm", "testvolume")
+			commandAndArgs := []string{"memory-dump", "testvm", "--claim-name=testvolume"}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
+	})
 })
