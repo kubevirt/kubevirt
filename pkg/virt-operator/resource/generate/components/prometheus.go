@@ -154,7 +154,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "kubevirt_virt_controller_ready_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(kubevirt_virt_controller_ready{namespace='%s'})", ns),
+							fmt.Sprintf("sum(kubevirt_virt_controller_ready{namespace='%s'}) or vector(0)", ns),
 						),
 					},
 					{
@@ -284,7 +284,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "kubevirt_virt_operator_ready_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(kubevirt_virt_operator_ready{namespace='%s'})", ns),
+							fmt.Sprintf("sum(kubevirt_virt_operator_ready{namespace='%s'}) or vector(0)", ns),
 						),
 					},
 					{
