@@ -756,6 +756,8 @@ spec:
           - virtualmachines/start
           - virtualmachines/stop
           - virtualmachines/restart
+          - virtualmachine/addvolume
+          - virtualmachine/removevolume
           verbs:
           - update
         - apiGroups:
@@ -853,6 +855,8 @@ spec:
           - virtualmachines/start
           - virtualmachines/stop
           - virtualmachines/restart
+          - virtualmachine/addvolume
+          - virtualmachine/removevolume
           verbs:
           - update
         - apiGroups:
