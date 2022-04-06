@@ -62,6 +62,7 @@ import (
 var (
 	expectedThawedOutput = `{"return":"thawed"}`
 	expectedFrozenOutput = `{"return":"frozen"}`
+	testDumpPath         = "/test/dump/path/vol1.memory.dump"
 )
 
 var _ = BeforeSuite(func() {
@@ -344,6 +345,42 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			// wait for the unfreeze timeout
 			time.Sleep(unfreezeTimeout + 2*time.Second)
+		})
+		It("should get completion true after memory dump completion", func() {
+			mockDomain.EXPECT().Free()
+			vmi := newVMI(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().CoreDumpWithFormat(testDumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).Return(nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			completed, err := manager.MemoryDump(vmi, testDumpPath)
+			Expect(err).To(BeNil())
+			Expect(completed).To(BeFalse())
+			Eventually(func() bool {
+				completed, err = manager.MemoryDump(vmi, testDumpPath)
+				Expect(err).To(BeNil())
+				return completed
+			}, 3*time.Second, 1).Should(BeTrue(), "memory dump completion was not called")
+		})
+		It("should prevent trigger more then one memory dump", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).MaxTimes(1).Return(mockDomain, nil)
+			// expects for only 1 call to core dump
+			mockDomain.EXPECT().CoreDumpWithFormat(testDumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).MaxTimes(1).DoAndReturn(
+				func(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error {
+					time.Sleep(1 * time.Second)
+					return nil
+				})
+			mockDomain.EXPECT().Free().MaxTimes(1)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			_, err := manager.MemoryDump(vmi, testDumpPath)
+			Expect(err).To(BeNil())
+			completed, errInProgress := manager.MemoryDump(vmi, testDumpPath)
+			Expect(errInProgress).To(BeNil())
+			Expect(completed).To(BeFalse())
 		})
 		It("should pause a VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
