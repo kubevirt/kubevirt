@@ -125,6 +125,10 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		spec.Config.ScratchSpaceStorageClass = hc.Spec.ScratchSpaceStorageClass
 	}
 
+	if hc.Spec.FilesystemOverhead != nil {
+		spec.Config.FilesystemOverhead = hc.Spec.FilesystemOverhead.DeepCopy()
+	}
+
 	if hc.Spec.StorageImport != nil {
 		if length := len(hc.Spec.StorageImport.InsecureRegistries); length > 0 {
 			spec.Config.InsecureRegistries = make([]string, length)

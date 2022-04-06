@@ -885,6 +885,30 @@ spec:
                       from CPU HW perspective doc here
                     type: boolean
                 type: object
+              filesystemOverhead:
+                description: FilesystemOverhead describes the space reserved for overhead
+                  when using Filesystem volumes. A value is between 0 and 1, if not
+                  defined it is 0.055 (5.5 percent overhead)
+                properties:
+                  global:
+                    description: Global is how much space of a Filesystem volume should
+                      be reserved for overhead. This value is used unless overridden
+                      by a more specific value (per storageClass)
+                    pattern: ^(0(?:\.\d{1,3})?|1)$
+                    type: string
+                  storageClass:
+                    additionalProperties:
+                      description: 'Percent is a string that can only be a value between
+                        [0,1) (Note: we actually rely on reconcile to reject invalid
+                        values)'
+                      pattern: ^(0(?:\.\d{1,3})?|1)$
+                      type: string
+                    description: StorageClass specifies how much space of a Filesystem
+                      volume should be reserved for safety. The keys are the storageClass
+                      and the values are the overhead. This value overrides the global
+                      value
+                    type: object
+                type: object
               infra:
                 description: infra HyperConvergedConfig influences the pod configuration
                   (currently only placement) for all the infra components needed on

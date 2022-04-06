@@ -360,6 +360,44 @@ spec:
       resourceName: "nvidia.com/GRID_T4-1Q"
 ```
 
+## Filesystem Overhead
+
+By default when using DataVolumes with storage profiles (spec.storage is non-empty), the size of a Filesystem
+PVC chosen is bigger, ensuring 5.5% of the space isn't used. This is to account for root reserved blocks as
+well as to avoid reaching full capacity, as file systems often have degraded performance and perhaps weak
+guarantees about the amount of space that can be fully occupied.
+
+In case a larger or smaller padding is needed, for example if the root reservation is larger or the file
+system recommends a larger percentage of the space should be unused for optimal performance, we can change
+this tunable through the HCO CR.  
+This is possible to do as a global setting and per-storage class name.
+
+Administrators can Override the storage class used for scratch space during transfer operations by setting the
+`scratchSpaceStorageClass` field under the HyperConverged `spec` field.
+
+The scratch space storage class is determined in the following order:
+
+value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage
+class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space
+
+### Storage Class for Scratch Space Example
+
+For example, if we want the 'nfs' storage class to not use any padding, and the global setting to be 10% instead,
+we can add the following parts to the HCO spec:
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  filesystemOverhead: 
+    global: "0.1"
+    storageClass:
+      nfs: "0"
+```
+
+
 ## Storage Class for Scratch Space
 
 Administrators can Override the storage class used for scratch space during transfer operations by setting the

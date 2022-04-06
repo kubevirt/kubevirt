@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	apicorev1 "kubevirt.io/api/core/v1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	apiv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
@@ -298,6 +299,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.FilesystemOverhead != nil {
+		in, out := &in.FilesystemOverhead, &out.FilesystemOverhead
+		*out = new(corev1beta1.FilesystemOverhead)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.UninstallStrategy != nil {
 		in, out := &in.UninstallStrategy, &out.UninstallStrategy

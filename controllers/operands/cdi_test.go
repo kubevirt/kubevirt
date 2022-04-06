@@ -421,6 +421,102 @@ var _ = Describe("CDI Operand", func() {
 			})
 		})
 
+		Context("Test FilesystemOverhead", func() {
+
+			hcoFilesystemOverheadValue := cdiv1beta1.FilesystemOverhead{
+				Global:       "0.123",
+				StorageClass: map[string]cdiv1beta1.Percent{"someStorageClass": cdiv1beta1.Percent("0.321")},
+			}
+			cdiFilesystemOverheadValue := cdiv1beta1.FilesystemOverhead{
+				Global:       "0.234",
+				StorageClass: map[string]cdiv1beta1.Percent{"someStorageClass": cdiv1beta1.Percent("0.432")},
+			}
+
+			It("should add FilesystemOverhead if missing in CDI", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				hco.Spec.FilesystemOverhead = &hcoFilesystemOverheadValue
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundCdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundCdi),
+				).ToNot(HaveOccurred())
+
+				Expect(foundCdi.Spec.Config).ToNot(BeNil())
+				Expect(foundCdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
+				Expect(*foundCdi.Spec.Config.FilesystemOverhead).Should(Equal(hcoFilesystemOverheadValue))
+			})
+
+			It("should remove FilesystemOverhead if missing in HCO CR", func() {
+				hcoResourceRequirements := commonTestUtils.NewHco()
+
+				existingCdi, err := NewCDI(hcoResourceRequirements)
+				Expect(err).ToNot(HaveOccurred())
+				existingCdi.Spec.Config.FilesystemOverhead = &cdiFilesystemOverheadValue
+
+				Expect(existingCdi.Spec.Config).ToNot(BeNil())
+				Expect(existingCdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
+				Expect(*existingCdi.Spec.Config.FilesystemOverhead).Should(Equal(cdiFilesystemOverheadValue))
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCdi})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundCDI := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingCdi.Name, Namespace: existingCdi.Namespace},
+						foundCDI),
+				).ToNot(HaveOccurred())
+
+				Expect(foundCDI.Spec.Config).ToNot(BeNil())
+				Expect(foundCDI.Spec.Config.FilesystemOverhead).To(BeNil())
+			})
+
+			It("should modify FilesystemOverhead according to HCO CR", func() {
+				hco.Spec.FilesystemOverhead = &cdiFilesystemOverheadValue
+				existingCDI, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(existingCDI.Spec.Config).ToNot(BeNil())
+				Expect(*existingCDI.Spec.Config.FilesystemOverhead).To(Equal(cdiFilesystemOverheadValue))
+
+				hco.Spec.FilesystemOverhead = &hcoFilesystemOverheadValue
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCDI})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundCDI := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingCDI.Name, Namespace: existingCDI.Namespace},
+						foundCDI),
+				).ToNot(HaveOccurred())
+
+				Expect(foundCDI.Spec.Config.FilesystemOverhead).ToNot(BeNil())
+				Expect(*foundCDI.Spec.Config.FilesystemOverhead).To(Equal(hcoFilesystemOverheadValue))
+			})
+		})
+
 		Context("Test ScratchSpaceStorageClass", func() {
 
 			hcoScratchSpaceStorageClassValue := "hcoScratchSpaceStorageClassValue"

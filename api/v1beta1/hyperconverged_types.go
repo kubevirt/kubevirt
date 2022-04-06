@@ -7,6 +7,7 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
@@ -111,6 +112,11 @@ type HyperConvergedSpec struct {
 	// +optional
 	// +listType=atomic
 	DataImportCronTemplates []sspv1beta1.DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
+
+	// FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes.
+	// A value is between 0 and 1, if not defined it is 0.055 (5.5 percent overhead)
+	// +optional
+	FilesystemOverhead *cdiv1beta1.FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 
 	// UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist.
 	// BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist.
