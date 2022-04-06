@@ -303,6 +303,18 @@ type VolumeStatus struct {
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
 	// Represents the size of the volume
 	Size int64 `json:"size,omitempty"`
+	// If the volume is memorydump volume, this will contain the memorydump info.
+	MemoryDumpVolume *DomainMemoryDumpInfo `json:"memoryDumpVolume,omitempty"`
+}
+
+// DomainMemoryDumpInfo represents the memory dump information
+type DomainMemoryDumpInfo struct {
+	// DumpTimestamp is the time when the memory dump occured
+	DumpTimestamp *metav1.Time `json:"dumpTimestamp,omitempty"`
+	// ClaimName is the name of the pvc the memory was dumped to
+	ClaimName string `json:"claimName,omitempty"`
+	// TargetFileName is the name of the memory dump output
+	TargetFileName string `json:"targetFileName,omitempty"`
 }
 
 // HotplugVolumeStatus represents the hotplug status of the volume
@@ -331,6 +343,12 @@ const (
 	HotplugVolumeDetaching VolumePhase = "Detaching"
 	// HotplugVolumeUnMounted means the volume has been unmounted from the virt-launcer pod.
 	HotplugVolumeUnMounted VolumePhase = "UnMountedFromPod"
+	// MemoryDumpVolumeCompleted means that the requested memory dump was completed and the dump is ready in the volume
+	MemoryDumpVolumeCompleted VolumePhase = "MemoryDumpCompleted"
+	// MemoryDumpVolumeInProgress means that the volume for the memory dump was attached, and now the command is being triggered
+	MemoryDumpVolumeInProgress VolumePhase = "MemoryDumpInProgress"
+	// MemoryDumpVolumeInProgress means that the volume for the memory dump was attached, and now the command is being triggered
+	MemoryDumpVolumeFailed VolumePhase = "MemoryDumpFailed"
 )
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
@@ -2015,6 +2033,8 @@ type VirtualMachineMemoryDumpRequest struct {
 	Timestamp *metav1.Time `json:"timestamp,omitempty"`
 	// FileName represents the name of the output file
 	FileName *string `json:"fileName,omitempty"`
+	// Message is a detailed message about failure of the memory dump
+	Message string `json:"message,omitempty"`
 }
 
 type MemoryDumpPhase string
@@ -2030,6 +2050,8 @@ const (
 	MemoryDumpCompleted MemoryDumpPhase = "Completed"
 	// The memorydump is being unbound
 	MemoryDumpDissociating MemoryDumpPhase = "Dissociating"
+	// The memorydump failed
+	MemoryDumpFailed MemoryDumpPhase = "Failed"
 )
 
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk

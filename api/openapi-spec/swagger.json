@@ -14299,6 +14299,24 @@
      }
     }
    },
+   "v1.DomainMemoryDumpInfo": {
+    "description": "DomainMemoryDumpInfo represents the memory dump information",
+    "type": "object",
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of the pvc the memory was dumped to",
+      "type": "string"
+     },
+     "dumpTimestamp": {
+      "description": "DumpTimestamp is the time when the memory dump occured",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "targetFileName": {
+      "description": "TargetFileName is the name of the memory dump output",
+      "type": "string"
+     }
+    }
+   },
    "v1.DomainSpec": {
     "type": "object",
     "required": [
@@ -15468,6 +15486,15 @@
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
+     }
+    }
+   },
+   "v1.MemoryDumpVolumeSource": {
+    "type": "object",
+    "properties": {
+     "persistentVolumeClaim": {
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the virt launcher",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      }
     }
    },
@@ -17410,6 +17437,10 @@
       "description": "FileName represents the name of the output file",
       "type": "string"
      },
+     "message": {
+      "description": "Message is a detailed message about failure of the memory dump",
+      "type": "string"
+     },
      "phase": {
       "description": "Phase represents the memory dump phase",
       "type": "string"
@@ -17619,6 +17650,10 @@
       "description": "HostDisk represents a disk created on the cluster level",
       "$ref": "#/definitions/v1.HostDisk"
      },
+     "memoryDump": {
+      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+      "$ref": "#/definitions/v1.MemoryDumpVolumeSource"
+     },
      "name": {
       "description": "Volume's name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
@@ -17673,6 +17708,10 @@
      "hotplugVolume": {
       "description": "If the volume is hotplug, this will contain the hotplug status.",
       "$ref": "#/definitions/v1.HotplugVolumeStatus"
+     },
+     "memoryDumpVolume": {
+      "description": "If the volume is memorydump volume, this will contain the memorydump info.",
+      "$ref": "#/definitions/v1.DomainMemoryDumpInfo"
      },
      "message": {
       "description": "Message is a detailed message about the current hotplug volume phase",

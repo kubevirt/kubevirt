@@ -100,6 +100,16 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"persistentVolumeClaimInfo": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
 		"hotplugVolume":             "If the volume is hotplug, this will contain the hotplug status.",
 		"size":                      "Represents the size of the volume",
+		"memoryDumpVolume":          "If the volume is memorydump volume, this will contain the memorydump info.",
+	}
+}
+
+func (DomainMemoryDumpInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "DomainMemoryDumpInfo represents the memory dump information",
+		"dumpTimestamp":  "DumpTimestamp is the time when the memory dump occured",
+		"claimName":      "ClaimName is the name of the pvc the memory was dumped to",
+		"targetFileName": "TargetFileName is the name of the memory dump output",
 	}
 }
 
@@ -598,6 +608,7 @@ func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 		"phase":     "Phase represents the memory dump phase",
 		"timestamp": "Timestamp represents the time the memory dump was completed",
 		"fileName":  "FileName represents the name of the output file",
+		"message":   "Message is a detailed message about failure of the memory dump",
 	}
 }
 
