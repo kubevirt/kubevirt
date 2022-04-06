@@ -86,7 +86,11 @@ $1{{- end}}{{else}} []{{end}}`)
 	// However, when creating a template, we want its value to be something like "{{.InfraReplicas}}", which is not a uint8.
 	// Therefore, the value was substituted for a placeholder above (255). Replacing with the templated value now.
 	if strings.HasPrefix(*infraReplicasFlag, "{{") {
-		cr = strings.Replace(cr, fmt.Sprintf("replicas: %d", infraReplicasPlaceholder), "replicas: "+*infraReplicasFlag, 1)
+		infraReplicasVar := strings.TrimPrefix(*infraReplicasFlag, "{{")
+		infraReplicasVar = strings.TrimSuffix(infraReplicasVar, "}}")
+		re := regexp.MustCompile(`(?m)\n([ \t]+)replicas: ` + fmt.Sprintf("%d", infraReplicasPlaceholder))
+		cr = re.ReplaceAllString(cr, `{{if `+infraReplicasVar+`}}
+${1}replicas: {{`+infraReplicasVar+`}}{{end}}`)
 	}
 
 	fmt.Print(cr)

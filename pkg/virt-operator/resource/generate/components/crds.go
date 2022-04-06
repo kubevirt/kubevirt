@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-
 	"kubevirt.io/api/flavor"
 
 	"kubevirt.io/api/migrations"
@@ -691,10 +689,8 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates 
 		}
 	}
 
-	if infraReplicas != util.DefaultInfraReplicas {
-		cr.Spec.Infra = &virtv1.ComponentConfig{
-			Replicas: &infraReplicas,
-		}
+	cr.Spec.Infra = &virtv1.ComponentConfig{
+		Replicas: &infraReplicas,
 	}
 
 	return cr

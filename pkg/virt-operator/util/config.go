@@ -86,9 +86,6 @@ const (
 	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
-
-	// DefaultInfraReplicas is the default number of replicas for virt-api and virt-controller
-	DefaultInfraReplicas = 2
 )
 
 // DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
