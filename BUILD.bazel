@@ -296,7 +296,7 @@ container_push(
     format = "Docker",
     image = "//cmd/virt-exportserver:virt-exportserver-image",
     registry = "$(container_prefix)",
-    repository = "$(image_prefix)virt-exportserver-image",
+    repository = "$(image_prefix)virt-exportserver",
     tag = "$(container_tag)",
 )
 

@@ -5,6 +5,7 @@ go_library(
     srcs = ["virt-exportserver.go"],
     importpath = "kubevirt.io/kubevirt/cmd/virt-exportserver",
     visibility = ["//visibility:private"],
+    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
 )
 
 load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
