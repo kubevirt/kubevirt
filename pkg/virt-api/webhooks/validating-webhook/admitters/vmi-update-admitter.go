@@ -76,13 +76,24 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
+func getExpectedDisks(newVolumes []v1.Volume) int {
+	numMemoryDumpVolumes := 0
+	for _, volume := range newVolumes {
+		if volume.MemoryDump != nil {
+			numMemoryDumpVolumes = numMemoryDumpVolumes + 1
+		}
+	}
+	return len(newVolumes) - numMemoryDumpVolumes
+}
+
 // admitHotplug compares the old and new volumes and disks, and ensures that they match and are valid.
 func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
-	if len(newVolumes) != len(newDisks) {
+	expectedDisks := getExpectedDisks(newVolumes)
+	if expectedDisks != len(newDisks) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("number of disks (%d) does not equal the number of volumes (%d)", len(newDisks), len(newVolumes)),
+				Message: fmt.Sprintf("number of disks (%d) does not equal the number of volumes (%d)", len(newDisks), expectedDisks),
 			},
 		})
 	}
@@ -124,25 +135,27 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					},
 				})
 			}
-			if _, ok := newDisks[k]; !ok {
-				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-					{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("Volume %s doesn't have a matching disk", k),
-					},
-				})
-			}
-			if !equality.Semantic.DeepEqual(newDisks[k], oldDisks[k]) {
-				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-					{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("hotplug disk %s, changed", k),
-					},
-				})
+			if v.MemoryDump == nil {
+				if _, ok := newDisks[k]; !ok {
+					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Volume %s doesn't have a matching disk", k),
+						},
+					})
+				}
+				if !equality.Semantic.DeepEqual(newDisks[k], oldDisks[k]) {
+					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("hotplug disk %s, changed", k),
+						},
+					})
+				}
 			}
 		} else {
-			// This is a new volume, ensure that the volume is either DV or PVC
-			if v.DataVolume == nil && v.PersistentVolumeClaim == nil {
+			// This is a new volume, ensure that the volume is either DV, PVC or memoryDumpVolume
+			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -150,24 +163,26 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					},
 				})
 			}
-			// Also ensure the matching new disk exists and is of type scsi
-			if _, ok := newDisks[k]; !ok {
-				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-					{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("Disk %s does not exist", k),
-					},
-				})
-			}
-			disk := newDisks[k]
-			if disk.Disk == nil || disk.Disk.Bus != "scsi" {
-				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-					{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("hotplugged Disk %s does not use a scsi bus", k),
-					},
-				})
+			if v.MemoryDump == nil {
+				// Also ensure the matching new disk exists and is of type scsi
+				if _, ok := newDisks[k]; !ok {
+					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Disk %s does not exist", k),
+						},
+					})
+				}
+				disk := newDisks[k]
+				if disk.Disk == nil || disk.Disk.Bus != "scsi" {
+					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("hotplugged Disk %s does not use a scsi bus", k),
+						},
+					})
 
+				}
 			}
 		}
 	}

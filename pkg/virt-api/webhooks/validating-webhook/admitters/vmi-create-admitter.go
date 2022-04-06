@@ -226,6 +226,9 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 
 	// Validate that volumes match disks and filesystems correctly
 	for idx, volume := range spec.Volumes {
+		if volume.MemoryDump != nil {
+			continue
+		}
 		if _, matchingDiskExists := diskAndFilesystemNames[volume.Name]; !matchingDiskExists {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1848,6 +1851,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	// check that we have max 1 instance of below disks
 	serviceAccountVolumeCount := 0
 	downwardMetricVolumeCount := 0
+	memoryDumpVolumeCount := 0
 
 	for idx, volume := range volumes {
 		// verify name is unique
@@ -1921,6 +1925,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		}
 		if volume.DownwardMetrics != nil {
 			downwardMetricVolumeCount++
+			volumeSourceSetCount++
+		}
+		if volume.MemoryDump != nil {
+			memoryDumpVolumeCount++
 			volumeSourceSetCount++
 		}
 
@@ -2126,6 +2134,13 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s must have max one downwardMetric volume set", field.String()),
+			Field:   field.String(),
+		})
+	}
+	if memoryDumpVolumeCount > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have max one memory dump volume set", field.String()),
 			Field:   field.String(),
 		})
 	}
