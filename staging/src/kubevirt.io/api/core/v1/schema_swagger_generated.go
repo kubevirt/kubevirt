@@ -245,6 +245,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
+		"tpm":                        "Whether to emulate a TPM device.\n+optional",
 	}
 }
 
@@ -260,6 +261,10 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 		"name":  "User's defined name for this sound device",
 		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
 	}
+}
+
+func (TPMDevice) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (Input) SwaggerDoc() map[string]string {

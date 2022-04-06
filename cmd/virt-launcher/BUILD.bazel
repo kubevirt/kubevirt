@@ -69,6 +69,7 @@ xattrs(
     capabilities = {
         "/usr/bin/virt-launcher": [
             "cap_net_bind_service",
+            "cap_sys_ptrace",
         ],
     },
     selinux_labels = {
@@ -110,7 +111,7 @@ group_file(
 passwd_entry(
     name = "qemu-user",
     gid = 107,
-    home = "",
+    home = "/home/qemu",
     shell = "/bin/bash",
     uid = 107,
     username = "qemu",
@@ -153,6 +154,15 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+pkg_tar(
+    name = "swtpm-localca-tar",
+    empty_dirs = [
+        "var/lib/swtpm-localca",
+    ],
+    mode = "0750",
+    owner = "107.107",
+)
+
 container_image(
     name = "version-container",
     directory = "/",
@@ -162,12 +172,14 @@ container_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":swtpm-localca-tar",
             "//rpm:launcherbase_aarch64",
         ],
         "//conditions:default": [
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            "swtpm-localca-tar",
             "//rpm:launcherbase_x86_64",
         ],
     }),

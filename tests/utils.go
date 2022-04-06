@@ -210,6 +210,7 @@ const (
 const (
 	capNetRaw         k8sv1.Capability = "NET_RAW"
 	capSysNice        k8sv1.Capability = "SYS_NICE"
+	capSysPTrace      k8sv1.Capability = "SYS_PTRACE"
 	capNetBindService k8sv1.Capability = "NET_BIND_SERVICE"
 )
 
@@ -4414,7 +4415,8 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
 		capNetBindService,
-		capSysNice:
+		capSysNice,
+		capSysPTrace:
 		return true
 	}
 	return false

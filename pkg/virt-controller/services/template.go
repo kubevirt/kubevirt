@@ -86,6 +86,7 @@ const (
 	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
+	CAP_SYS_PTRACE       = "SYS_PTRACE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -1805,20 +1806,25 @@ func haveSlirp(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
-	if util.IsNonRootVMI(vmi) {
-		return []k8sv1.Capability{CAP_NET_BIND_SERVICE}
-	}
-	capabilities := []k8sv1.Capability{}
-	if requireDHCP(vmi) || haveSlirp(vmi) {
+	var capabilities []k8sv1.Capability
+
+	if requireDHCP(vmi) || haveSlirp(vmi) || util.IsNonRootVMI(vmi) {
 		capabilities = append(capabilities, CAP_NET_BIND_SERVICE)
 	}
-	// add a CAP_SYS_NICE capability to allow setting cpu affinity
-	capabilities = append(capabilities, CAP_SYS_NICE)
-	// add CAP_SYS_ADMIN capability to allow virtiofs
-	if util.IsVMIVirtiofsEnabled(vmi) {
-		capabilities = append(capabilities, CAP_SYS_ADMIN)
-		capabilities = append(capabilities, getVirtiofsCapabilities()...)
+	if !util.IsNonRootVMI(vmi) {
+		// add a CAP_SYS_NICE capability to allow setting cpu affinity
+		capabilities = append(capabilities, CAP_SYS_NICE)
+		// add CAP_SYS_ADMIN capability to allow virtiofs
+		if util.IsVMIVirtiofsEnabled(vmi) {
+			capabilities = append(capabilities, CAP_SYS_ADMIN)
+			capabilities = append(capabilities, getVirtiofsCapabilities()...)
+		}
 	}
+	// add CAP_SYS_PTRACE capability needed by libvirt + swtpm
+	// TODO: drop SYS_PTRACE after updating libvirt to a release containing:
+	// https://github.com/libvirt/libvirt/commit/a9c500d2b50c5c041a1bb6ae9724402cf1cec8fe
+	capabilities = append(capabilities, CAP_SYS_PTRACE)
+
 	return capabilities
 }
 
@@ -1931,6 +1937,12 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
 	if util.IsSEVVMI(vmi) {
 		overhead.Add(resource.MustParse("256Mi"))
+	}
+
+	// Having a TPM device will spawn a swtpm process
+	// In `ps`, swtpm has VSZ of 53808 and RSS of 3496, so 53Mi should do
+	if vmi.Spec.Domain.Devices.TPM != nil {
+		overhead.Add(resource.MustParse("53Mi"))
 	}
 
 	return overhead
