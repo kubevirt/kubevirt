@@ -7,6 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
+
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -54,6 +56,11 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 	if flavorSpec != nil {
 		conflicts = append(conflicts, applyCpu(field, flavorSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyMemory(field, flavorSpec, vmiSpec)...)
+	}
+
+	if preferenceSpec != nil {
+		// By design Preferences can't conflict with the VMI so we don't return any
+		applyDevicePreferences(preferenceSpec, vmiSpec)
 	}
 
 	return conflicts
@@ -250,4 +257,122 @@ func applyMemory(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachine
 	}
 
 	return nil
+}
+
+func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+
+	if preferenceSpec.Devices == nil {
+		return
+	}
+
+	// We only want to apply a preference bool when...
+	//
+	// 1. A preference has actually been provided
+	// 2. The preference is true
+	// 3. The user hasn't defined the corresponding attribute already within the VMI
+	//
+	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && *preferenceSpec.Devices.PreferredAutoattachGraphicsDevice && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
+		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.BoolPtr(true)
+	}
+
+	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && *preferenceSpec.Devices.PreferredAutoattachMemBalloon && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
+		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(true)
+	}
+
+	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && *preferenceSpec.Devices.PreferredAutoattachPodInterface && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
+		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.BoolPtr(true)
+	}
+
+	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && *preferenceSpec.Devices.PreferredAutoattachSerialConsole && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
+		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.BoolPtr(true)
+	}
+
+	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && *preferenceSpec.Devices.PreferredUseVirtioTransitional && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
+		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+	}
+
+	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
+	if preferenceSpec.Devices.PreferredDisableHotplug != nil && *preferenceSpec.Devices.PreferredDisableHotplug {
+		vmiSpec.Domain.Devices.DisableHotplug = true
+	}
+
+	if preferenceSpec.Devices.PreferredSoundModel != "" && vmiSpec.Domain.Devices.Sound != nil && vmiSpec.Domain.Devices.Sound.Model == "" {
+		vmiSpec.Domain.Devices.Sound.Model = preferenceSpec.Devices.PreferredSoundModel
+	}
+
+	if preferenceSpec.Devices.PreferredRng != nil && vmiSpec.Domain.Devices.Rng == nil {
+		vmiSpec.Domain.Devices.Rng = preferenceSpec.Devices.PreferredRng.DeepCopy()
+	}
+
+	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && *preferenceSpec.Devices.PreferredBlockMultiQueue && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
+		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.BoolPtr(true)
+	}
+
+	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && *preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
+		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.BoolPtr(true)
+	}
+
+	applyDiskPreferences(preferenceSpec, vmiSpec)
+	applyInterfacePreferences(preferenceSpec, vmiSpec)
+	applyInputPreferences(preferenceSpec, vmiSpec)
+
+}
+
+func applyDiskPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	for diskIndex := range vmiSpec.Domain.Devices.Disks {
+		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
+		if vmiDisk.DiskDevice.Disk != nil {
+			if preferenceSpec.Devices.PreferredDiskBus != "" && vmiDisk.DiskDevice.Disk.Bus == "" {
+				vmiDisk.DiskDevice.Disk.Bus = preferenceSpec.Devices.PreferredDiskBus
+			}
+
+			if preferenceSpec.Devices.PreferredDiskBlockSize != nil && vmiDisk.BlockSize == nil {
+				vmiDisk.BlockSize = preferenceSpec.Devices.PreferredDiskBlockSize.DeepCopy()
+			}
+
+			if preferenceSpec.Devices.PreferredDiskCache != "" && vmiDisk.Cache == "" {
+				vmiDisk.Cache = preferenceSpec.Devices.PreferredDiskCache
+			}
+
+			if preferenceSpec.Devices.PreferredDiskIO != "" && vmiDisk.IO == "" {
+				vmiDisk.IO = preferenceSpec.Devices.PreferredDiskIO
+			}
+
+			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && *preferenceSpec.Devices.PreferredDiskDedicatedIoThread && vmiDisk.DedicatedIOThread == nil {
+				vmiDisk.DedicatedIOThread = pointer.BoolPtr(true)
+			}
+
+		} else if vmiDisk.DiskDevice.CDRom != nil {
+			if preferenceSpec.Devices.PreferredCdromBus != "" && vmiDisk.DiskDevice.CDRom.Bus == "" {
+				vmiDisk.DiskDevice.CDRom.Bus = preferenceSpec.Devices.PreferredCdromBus
+			}
+
+		} else if vmiDisk.DiskDevice.LUN != nil {
+			if preferenceSpec.Devices.PreferredLunBus != "" && vmiDisk.DiskDevice.LUN.Bus == "" {
+				vmiDisk.DiskDevice.LUN.Bus = preferenceSpec.Devices.PreferredLunBus
+			}
+		}
+	}
+}
+
+func applyInterfacePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
+		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
+		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
+			vmiIface.Model = preferenceSpec.Devices.PreferredInterfaceModel
+		}
+	}
+}
+
+func applyInputPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	for inputIndex := range vmiSpec.Domain.Devices.Inputs {
+		vmiInput := &vmiSpec.Domain.Devices.Inputs[inputIndex]
+		if preferenceSpec.Devices.PreferredInputBus != "" && vmiInput.Bus == "" {
+			vmiInput.Bus = preferenceSpec.Devices.PreferredInputBus
+		}
+
+		if preferenceSpec.Devices.PreferredInputType != "" && vmiInput.Type == "" {
+			vmiInput.Type = preferenceSpec.Devices.PreferredInputType
+		}
+	}
 }

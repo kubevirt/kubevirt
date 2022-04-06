@@ -187,6 +187,9 @@ type VirtualMachinePreferenceSpec struct {
 
 	//+optional
 	CPU *CPUPreferences `json:"cpu,omitempty"`
+
+	//+optional
+	Devices *DevicePreferences `json:"devices,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -206,4 +209,115 @@ type CPUPreferences struct {
 	// Defaults to
 	//+optional
 	PreferredCPUTopology PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
+}
+
+// DevicePreferences contains various optional defaults for Devices.
+//
+// +k8s:openapi-gen=true
+type DevicePreferences struct {
+
+	// PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice
+	//
+	// +optional
+	PreferredAutoattachGraphicsDevice *bool `json:"preferredAutoattachGraphicsDevice,omitempty"`
+
+	// PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon
+	//
+	// +optional
+	PreferredAutoattachMemBalloon *bool `json:"preferredAutoattachMemBalloon,omitempty"`
+
+	// PreferredAutoattachPodInterface optionally defines the preferred value of AutoattachPodInterface
+	//
+	// +optional
+	PreferredAutoattachPodInterface *bool `json:"preferredAutoattachPodInterface,omitempty"`
+
+	// PreferredAutoattachSerialConsole optionally defines the preferred value of AutoattachSerialConsole
+	//
+	// +optional
+	PreferredAutoattachSerialConsole *bool `json:"preferredAutoattachSerialConsole,omitempty"`
+
+	// PreferredDisableHotplug optionally defines the preferred value of DisableHotplug
+	//
+	// +optional
+	PreferredDisableHotplug *bool `json:"preferredDisableHotplug,omitempty"`
+
+	// PreferredVirtualGPUOptions optionally defines the preferred value of VirtualGPUOptions
+	//
+	// +optional
+	PreferredVirtualGPUOptions *v1.VGPUOptions `json:"preferredVirtualGPUOptions,omitempty"`
+
+	// PreferredSoundModel optionally defines the preferred model for Sound devices.
+	//
+	// +optional
+	PreferredSoundModel string `json:"preferredSoundModel,omitempty"`
+
+	// PreferredUseVirtioTransitional optionally defines the preferred value of UseVirtioTransitional
+	//
+	// +optional
+	PreferredUseVirtioTransitional *bool `json:"preferredUseVirtioTransitional,omitempty"`
+
+	// PreferredInputBus optionally defines the preferred bus for Input devices.
+	//
+	// +optional
+	PreferredInputBus string `json:"preferredInputBus,omitempty"`
+
+	// PreferredInputType optionally defines the preferred type for Input devices.
+	//
+	// +optional
+	PreferredInputType string `json:"preferredInputType,omitempty"`
+
+	// PreferredDiskBus optionally defines the preferred bus for Disk Disk devices.
+	//
+	// +optional
+	PreferredDiskBus v1.DiskBus `json:"preferredDiskBus,omitempty"`
+
+	// PreferredLunBus optionally defines the preferred bus for Lun Disk devices.
+	//
+	// +optional
+	PreferredLunBus v1.DiskBus `json:"preferredLunBus,omitempty"`
+
+	// PreferredCdromBus optionally defines the preferred bus for Cdrom Disk devices.
+	//
+	// +optional
+	PreferredCdromBus v1.DiskBus `json:"preferredCdromBus,omitempty"`
+
+	// PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.
+	//
+	// +optional
+	PreferredDiskDedicatedIoThread *bool `json:"preferredDiskDedicatedIoThread,omitempty"`
+
+	// PreferredCache optionally defines the DriverCache to be used by Disk devices.
+	//
+	// +optional
+	PreferredDiskCache v1.DriverCache `json:"preferredDiskCache,omitempty"`
+
+	// PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.
+	//
+	// +optional
+	PreferredDiskIO v1.DriverIO `json:"preferredDiskIO,omitempty"`
+
+	// PreferredBlockSize optionally defines the block size of Disk devices.
+	//
+	// +optional
+	PreferredDiskBlockSize *v1.BlockSize `json:"preferredDiskBlockSize,omitempty"`
+
+	// PreferredInterfaceModel optionally defines the preferred model to be used by Interface devices.
+	//
+	// +optional
+	PreferredInterfaceModel string `json:"preferredInterfaceModel,omitempty"`
+
+	// PreferredRng optionally defines the preferred rng device to be used.
+	//
+	// +optional
+	PreferredRng *v1.Rng `json:"preferredRng,omitempty"`
+
+	// PreferredBlockMultiQueue optionally enables the vhost multiqueue feature for virtio disks.
+	//
+	// +optional
+	PreferredBlockMultiQueue *bool `json:"preferredBlockMultiQueue,omitempty"`
+
+	// PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.
+	//
+	// +optional
+	PreferredNetworkInterfaceMultiQueue *bool `json:"preferredNetworkInterfaceMultiQueue,omitempty"`
 }

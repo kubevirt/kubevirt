@@ -493,6 +493,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUFlavor":                                                  schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUPreferences":                                             schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref),
+		"kubevirt.io/api/flavor/v1alpha1.DevicePreferences":                                          schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.MemoryFlavor":                                               schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
@@ -22238,6 +22239,165 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DevicePreferences contains various optional defaults for Devices.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredAutoattachGraphicsDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachMemBalloon": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachPodInterface": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachPodInterface optionally defines the preferred value of AutoattachPodInterface",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredAutoattachSerialConsole": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAutoattachSerialConsole optionally defines the preferred value of AutoattachSerialConsole",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredDisableHotplug": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDisableHotplug optionally defines the preferred value of DisableHotplug",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredVirtualGPUOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredVirtualGPUOptions optionally defines the preferred value of VirtualGPUOptions",
+							Ref:         ref("kubevirt.io/api/core/v1.VGPUOptions"),
+						},
+					},
+					"preferredSoundModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredSoundModel optionally defines the preferred model for Sound devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredUseVirtioTransitional": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseVirtioTransitional optionally defines the preferred value of UseVirtioTransitional",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredInputBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInputBus optionally defines the preferred bus for Input devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredInputType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInputType optionally defines the preferred type for Input devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDiskBus optionally defines the preferred bus for Disk Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredLunBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredLunBus optionally defines the preferred bus for Lun Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredCdromBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCdromBus optionally defines the preferred bus for Cdrom Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskDedicatedIoThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredDiskCache": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredCache optionally defines the DriverCache to be used by Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskIO": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredDiskBlockSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredBlockSize optionally defines the block size of Disk devices.",
+							Ref:         ref("kubevirt.io/api/core/v1.BlockSize"),
+						},
+					},
+					"preferredInterfaceModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInterfaceModel optionally defines the preferred model to be used by Interface devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preferredRng": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredRng optionally defines the preferred rng device to be used.",
+							Ref:         ref("kubevirt.io/api/core/v1.Rng"),
+						},
+					},
+					"preferredBlockMultiQueue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredBlockMultiQueue optionally enables the vhost multiqueue feature for virtio disks.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredNetworkInterfaceMultiQueue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.VGPUOptions"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22663,11 +22823,16 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUPreferences"),
 						},
 					},
+					"devices": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.DevicePreferences"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences"},
 	}
 }
 

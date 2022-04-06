@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -462,6 +463,151 @@ var _ = Describe("Flavor and Preferences", func() {
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory"))
+
+			})
+		})
+
+		// TODO - break this up into smaller more targeted tests
+		Context("Preference.Devices ", func() {
+
+			var userDefinedBlockSize *v1.BlockSize
+
+			BeforeEach(func() {
+
+				userDefinedBlockSize = &v1.BlockSize{
+					Custom: &v1.CustomBlockSize{
+						Logical:  512,
+						Physical: 512,
+					},
+				}
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.BoolPtr(false)
+				vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(false)
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+					v1.Disk{
+						Cache:             v1.CacheWriteBack,
+						IO:                v1.IODefault,
+						DedicatedIOThread: pointer.BoolPtr(false),
+						BlockSize:         userDefinedBlockSize,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusSCSI,
+							},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							CDRom: &v1.CDRomTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							CDRom: &v1.CDRomTarget{},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
+					},
+					v1.Disk{
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{},
+						},
+					},
+				}
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					v1.Input{
+						Bus:  "usb",
+						Type: "tablet",
+					},
+					v1.Input{},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					v1.Interface{
+						Model: "e1000",
+					},
+					v1.Interface{},
+				}
+				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{}
+
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					Devices: &flavorv1alpha1.DevicePreferences{
+						PreferredAutoattachGraphicsDevice:   pointer.BoolPtr(true),
+						PreferredAutoattachMemBalloon:       pointer.BoolPtr(true),
+						PreferredAutoattachPodInterface:     pointer.BoolPtr(true),
+						PreferredAutoattachSerialConsole:    pointer.BoolPtr(true),
+						PreferredDiskDedicatedIoThread:      pointer.BoolPtr(true),
+						PreferredDisableHotplug:             pointer.BoolPtr(true),
+						PreferredUseVirtioTransitional:      pointer.BoolPtr(true),
+						PreferredNetworkInterfaceMultiQueue: pointer.BoolPtr(true),
+						PreferredBlockMultiQueue:            pointer.BoolPtr(true),
+						PreferredDiskBlockSize: &v1.BlockSize{
+							Custom: &v1.CustomBlockSize{
+								Logical:  4096,
+								Physical: 4096,
+							},
+						},
+						PreferredDiskCache:      v1.CacheWriteThrough,
+						PreferredDiskIO:         v1.IONative,
+						PreferredDiskBus:        v1.DiskBusVirtio,
+						PreferredCdromBus:       v1.DiskBusSCSI,
+						PreferredLunBus:         v1.DiskBusSATA,
+						PreferredInputBus:       "virtio",
+						PreferredInputType:      "tablet",
+						PreferredInterfaceModel: "virtio",
+						PreferredSoundModel:     "ac97",
+						PreferredRng:            &v1.Rng{},
+					},
+				}
+
+			})
+
+			It("in full to VMI", func() {
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeFalse())
+				Expect(*vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(BeFalse())
+				Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(v1.CacheWriteBack))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IODefault))
+				Expect(*vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread).To(BeFalse())
+				Expect(*vmi.Spec.Domain.Devices.Disks[0].BlockSize).To(Equal(*userDefinedBlockSize))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusSCSI))
+				Expect(vmi.Spec.Domain.Devices.Disks[2].DiskDevice.CDRom.Bus).To(Equal(v1.DiskBusSATA))
+				Expect(vmi.Spec.Domain.Devices.Disks[4].DiskDevice.LUN.Bus).To(Equal(v1.DiskBusSATA))
+				Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal("usb"))
+				Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal("tablet"))
+				Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("e1000"))
+
+				// Assert that everything that isn't defined in the VM/VMI should use Preferences
+				Expect(*vmi.Spec.Domain.Devices.AutoattachPodInterface).To(Equal(*preferenceSpec.Devices.PreferredAutoattachPodInterface))
+				Expect(*vmi.Spec.Domain.Devices.AutoattachSerialConsole).To(Equal(*preferenceSpec.Devices.PreferredAutoattachSerialConsole))
+				Expect(vmi.Spec.Domain.Devices.DisableHotplug).To(Equal(*preferenceSpec.Devices.PreferredDisableHotplug))
+				Expect(*vmi.Spec.Domain.Devices.UseVirtioTransitional).To(Equal(*preferenceSpec.Devices.PreferredUseVirtioTransitional))
+				Expect(vmi.Spec.Domain.Devices.Disks[1].Cache).To(Equal(preferenceSpec.Devices.PreferredDiskCache))
+				Expect(vmi.Spec.Domain.Devices.Disks[1].IO).To(Equal(preferenceSpec.Devices.PreferredDiskIO))
+				Expect(*vmi.Spec.Domain.Devices.Disks[1].DedicatedIOThread).To(Equal(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread))
+				Expect(*vmi.Spec.Domain.Devices.Disks[1].BlockSize).To(Equal(*preferenceSpec.Devices.PreferredDiskBlockSize))
+				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
+				Expect(vmi.Spec.Domain.Devices.Disks[3].DiskDevice.CDRom.Bus).To(Equal(preferenceSpec.Devices.PreferredCdromBus))
+				Expect(vmi.Spec.Domain.Devices.Disks[5].DiskDevice.LUN.Bus).To(Equal(preferenceSpec.Devices.PreferredLunBus))
+				Expect(vmi.Spec.Domain.Devices.Inputs[1].Bus).To(Equal(preferenceSpec.Devices.PreferredInputBus))
+				Expect(vmi.Spec.Domain.Devices.Inputs[1].Type).To(Equal(preferenceSpec.Devices.PreferredInputType))
+				Expect(vmi.Spec.Domain.Devices.Interfaces[1].Model).To(Equal(preferenceSpec.Devices.PreferredInterfaceModel))
+				Expect(vmi.Spec.Domain.Devices.Sound.Model).To(Equal(preferenceSpec.Devices.PreferredSoundModel))
+				Expect(*vmi.Spec.Domain.Devices.Rng).To(Equal(*preferenceSpec.Devices.PreferredRng))
+				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))
+				Expect(*vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue))
 
 			})
 		})

@@ -82,8 +82,9 @@ func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":    "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
-		"cpu": "+optional",
+		"":        "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
+		"cpu":     "+optional",
+		"devices": "+optional",
 	}
 }
 
@@ -91,5 +92,32 @@ func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "PreferencesCPU\n\n+k8s:openapi-gen=true",
 		"preferredCPUTopology": "Defaults to\n+optional",
+	}
+}
+
+func (DevicePreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                                    "DevicePreferences contains various optional defaults for Devices.\n\n+k8s:openapi-gen=true",
+		"preferredAutoattachGraphicsDevice":   "PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice\n\n+optional",
+		"preferredAutoattachMemBalloon":       "PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon\n\n+optional",
+		"preferredAutoattachPodInterface":     "PreferredAutoattachPodInterface optionally defines the preferred value of AutoattachPodInterface\n\n+optional",
+		"preferredAutoattachSerialConsole":    "PreferredAutoattachSerialConsole optionally defines the preferred value of AutoattachSerialConsole\n\n+optional",
+		"preferredDisableHotplug":             "PreferredDisableHotplug optionally defines the preferred value of DisableHotplug\n\n+optional",
+		"preferredVirtualGPUOptions":          "PreferredVirtualGPUOptions optionally defines the preferred value of VirtualGPUOptions\n\n+optional",
+		"preferredSoundModel":                 "PreferredSoundModel optionally defines the preferred model for Sound devices.\n\n+optional",
+		"preferredUseVirtioTransitional":      "PreferredUseVirtioTransitional optionally defines the preferred value of UseVirtioTransitional\n\n+optional",
+		"preferredInputBus":                   "PreferredInputBus optionally defines the preferred bus for Input devices.\n\n+optional",
+		"preferredInputType":                  "PreferredInputType optionally defines the preferred type for Input devices.\n\n+optional",
+		"preferredDiskBus":                    "PreferredDiskBus optionally defines the preferred bus for Disk Disk devices.\n\n+optional",
+		"preferredLunBus":                     "PreferredLunBus optionally defines the preferred bus for Lun Disk devices.\n\n+optional",
+		"preferredCdromBus":                   "PreferredCdromBus optionally defines the preferred bus for Cdrom Disk devices.\n\n+optional",
+		"preferredDiskDedicatedIoThread":      "PreferredDedicatedIoThread optionally enables dedicated IO threads for Disk devices.\n\n+optional",
+		"preferredDiskCache":                  "PreferredCache optionally defines the DriverCache to be used by Disk devices.\n\n+optional",
+		"preferredDiskIO":                     "PreferredIo optionally defines the QEMU disk IO mode to be used by Disk devices.\n\n+optional",
+		"preferredDiskBlockSize":              "PreferredBlockSize optionally defines the block size of Disk devices.\n\n+optional",
+		"preferredInterfaceModel":             "PreferredInterfaceModel optionally defines the preferred model to be used by Interface devices.\n\n+optional",
+		"preferredRng":                        "PreferredRng optionally defines the preferred rng device to be used.\n\n+optional",
+		"preferredBlockMultiQueue":            "PreferredBlockMultiQueue optionally enables the vhost multiqueue feature for virtio disks.\n\n+optional",
+		"preferredNetworkInterfaceMultiQueue": "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.\n\n+optional",
 	}
 }

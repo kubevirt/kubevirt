@@ -152,12 +152,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			preference := newVirtualMachinePreference()
 			preference.Spec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferSockets
+			preference.Spec.Devices.PreferredDiskBus = v1.DiskBusSATA
+
 			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// Remove any requested resources from the VMI before generating the VM request
-			removeResourcesFromVMI(vmi)
+			// Remove any requested resources from the VMI before generating the VM
+			removeResourcesAndPreferencesFromVMI(vmi)
 
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 
@@ -182,6 +184,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			// Assert we've used sockets as flavorv1alpha1.PreferSockets was requested
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(flavor.Spec.CPU.Guest))
 			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(*flavor.Spec.Memory.Guest))
+
+			// Assert that the correct disk bus is used
+			for diskIndex := range vmi.Spec.Domain.Devices.Disks {
+				if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil {
+					Expect(vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
+				}
+			}
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
@@ -252,13 +261,20 @@ func newVirtualMachinePreference() *flavorv1alpha1.VirtualMachinePreference {
 			Namespace:    util.NamespaceTestDefault,
 		},
 		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
-			CPU: &flavorv1alpha1.CPUPreferences{},
+			CPU:     &flavorv1alpha1.CPUPreferences{},
+			Devices: &flavorv1alpha1.DevicePreferences{},
 		},
 	}
 }
 
-func removeResourcesFromVMI(vmi *v1.VirtualMachineInstance) {
+func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Domain.CPU = nil
 	vmi.Spec.Domain.Memory = nil
 	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
+		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {
+			vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus = ""
+		}
+	}
 }

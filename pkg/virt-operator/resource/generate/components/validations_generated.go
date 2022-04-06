@@ -6918,6 +6918,133 @@ var CRDsValidation map[string]string = map[string]string{
               description: Defaults to
               type: string
           type: object
+        devices:
+          description: DevicePreferences contains various optional defaults for Devices.
+          properties:
+            preferredAutoattachGraphicsDevice:
+              description: PreferredAutoattachGraphicsDevice optionally defines the
+                preferred value of AutoattachGraphicsDevice
+              type: boolean
+            preferredAutoattachMemBalloon:
+              description: PreferredAutoattachMemBalloon optionally defines the preferred
+                value of AutoattachMemBalloon
+              type: boolean
+            preferredAutoattachPodInterface:
+              description: PreferredAutoattachPodInterface optionally defines the
+                preferred value of AutoattachPodInterface
+              type: boolean
+            preferredAutoattachSerialConsole:
+              description: PreferredAutoattachSerialConsole optionally defines the
+                preferred value of AutoattachSerialConsole
+              type: boolean
+            preferredBlockMultiQueue:
+              description: PreferredBlockMultiQueue optionally enables the vhost multiqueue
+                feature for virtio disks.
+              type: boolean
+            preferredCdromBus:
+              description: PreferredCdromBus optionally defines the preferred bus
+                for Cdrom Disk devices.
+              type: string
+            preferredDisableHotplug:
+              description: PreferredDisableHotplug optionally defines the preferred
+                value of DisableHotplug
+              type: boolean
+            preferredDiskBlockSize:
+              description: PreferredBlockSize optionally defines the block size of
+                Disk devices.
+              properties:
+                custom:
+                  description: CustomBlockSize represents the desired logical and
+                    physical block size for a VM disk.
+                  properties:
+                    logical:
+                      type: integer
+                    physical:
+                      type: integer
+                  required:
+                  - logical
+                  - physical
+                  type: object
+                matchVolume:
+                  description: Represents if a feature is enabled or disabled.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+              type: object
+            preferredDiskBus:
+              description: PreferredDiskBus optionally defines the preferred bus for
+                Disk Disk devices.
+              type: string
+            preferredDiskCache:
+              description: PreferredCache optionally defines the DriverCache to be
+                used by Disk devices.
+              type: string
+            preferredDiskDedicatedIoThread:
+              description: PreferredDedicatedIoThread optionally enables dedicated
+                IO threads for Disk devices.
+              type: boolean
+            preferredDiskIO:
+              description: PreferredIo optionally defines the QEMU disk IO mode to
+                be used by Disk devices.
+              type: string
+            preferredInputBus:
+              description: PreferredInputBus optionally defines the preferred bus
+                for Input devices.
+              type: string
+            preferredInputType:
+              description: PreferredInputType optionally defines the preferred type
+                for Input devices.
+              type: string
+            preferredInterfaceModel:
+              description: PreferredInterfaceModel optionally defines the preferred
+                model to be used by Interface devices.
+              type: string
+            preferredLunBus:
+              description: PreferredLunBus optionally defines the preferred bus for
+                Lun Disk devices.
+              type: string
+            preferredNetworkInterfaceMultiQueue:
+              description: PreferredNetworkInterfaceMultiQueue optionally enables
+                the vhost multiqueue feature for virtio interfaces.
+              type: boolean
+            preferredRng:
+              description: PreferredRng optionally defines the preferred rng device
+                to be used.
+              type: object
+            preferredSoundModel:
+              description: PreferredSoundModel optionally defines the preferred model
+                for Sound devices.
+              type: string
+            preferredUseVirtioTransitional:
+              description: PreferredUseVirtioTransitional optionally defines the preferred
+                value of UseVirtioTransitional
+              type: boolean
+            preferredVirtualGPUOptions:
+              description: PreferredVirtualGPUOptions optionally defines the preferred
+                value of VirtualGPUOptions
+              properties:
+                display:
+                  properties:
+                    enabled:
+                      description: Enabled determines if a display addapter backed
+                        by a vGPU should be enabled or disabled on the guest. Defaults
+                        to true.
+                      type: boolean
+                    ramFB:
+                      description: Enables a boot framebuffer, until the guest OS
+                        loads a real GPU driver Defaults to true.
+                      properties:
+                        enabled:
+                          description: Enabled determines if the feature should be
+                            enabled or disabled on the guest. Defaults to true.
+                          type: boolean
+                      type: object
+                  type: object
+              type: object
+          type: object
       type: object
   required:
   - spec
@@ -17695,6 +17822,133 @@ var CRDsValidation map[string]string = map[string]string{
             preferredCPUTopology:
               description: Defaults to
               type: string
+          type: object
+        devices:
+          description: DevicePreferences contains various optional defaults for Devices.
+          properties:
+            preferredAutoattachGraphicsDevice:
+              description: PreferredAutoattachGraphicsDevice optionally defines the
+                preferred value of AutoattachGraphicsDevice
+              type: boolean
+            preferredAutoattachMemBalloon:
+              description: PreferredAutoattachMemBalloon optionally defines the preferred
+                value of AutoattachMemBalloon
+              type: boolean
+            preferredAutoattachPodInterface:
+              description: PreferredAutoattachPodInterface optionally defines the
+                preferred value of AutoattachPodInterface
+              type: boolean
+            preferredAutoattachSerialConsole:
+              description: PreferredAutoattachSerialConsole optionally defines the
+                preferred value of AutoattachSerialConsole
+              type: boolean
+            preferredBlockMultiQueue:
+              description: PreferredBlockMultiQueue optionally enables the vhost multiqueue
+                feature for virtio disks.
+              type: boolean
+            preferredCdromBus:
+              description: PreferredCdromBus optionally defines the preferred bus
+                for Cdrom Disk devices.
+              type: string
+            preferredDisableHotplug:
+              description: PreferredDisableHotplug optionally defines the preferred
+                value of DisableHotplug
+              type: boolean
+            preferredDiskBlockSize:
+              description: PreferredBlockSize optionally defines the block size of
+                Disk devices.
+              properties:
+                custom:
+                  description: CustomBlockSize represents the desired logical and
+                    physical block size for a VM disk.
+                  properties:
+                    logical:
+                      type: integer
+                    physical:
+                      type: integer
+                  required:
+                  - logical
+                  - physical
+                  type: object
+                matchVolume:
+                  description: Represents if a feature is enabled or disabled.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+              type: object
+            preferredDiskBus:
+              description: PreferredDiskBus optionally defines the preferred bus for
+                Disk Disk devices.
+              type: string
+            preferredDiskCache:
+              description: PreferredCache optionally defines the DriverCache to be
+                used by Disk devices.
+              type: string
+            preferredDiskDedicatedIoThread:
+              description: PreferredDedicatedIoThread optionally enables dedicated
+                IO threads for Disk devices.
+              type: boolean
+            preferredDiskIO:
+              description: PreferredIo optionally defines the QEMU disk IO mode to
+                be used by Disk devices.
+              type: string
+            preferredInputBus:
+              description: PreferredInputBus optionally defines the preferred bus
+                for Input devices.
+              type: string
+            preferredInputType:
+              description: PreferredInputType optionally defines the preferred type
+                for Input devices.
+              type: string
+            preferredInterfaceModel:
+              description: PreferredInterfaceModel optionally defines the preferred
+                model to be used by Interface devices.
+              type: string
+            preferredLunBus:
+              description: PreferredLunBus optionally defines the preferred bus for
+                Lun Disk devices.
+              type: string
+            preferredNetworkInterfaceMultiQueue:
+              description: PreferredNetworkInterfaceMultiQueue optionally enables
+                the vhost multiqueue feature for virtio interfaces.
+              type: boolean
+            preferredRng:
+              description: PreferredRng optionally defines the preferred rng device
+                to be used.
+              type: object
+            preferredSoundModel:
+              description: PreferredSoundModel optionally defines the preferred model
+                for Sound devices.
+              type: string
+            preferredUseVirtioTransitional:
+              description: PreferredUseVirtioTransitional optionally defines the preferred
+                value of UseVirtioTransitional
+              type: boolean
+            preferredVirtualGPUOptions:
+              description: PreferredVirtualGPUOptions optionally defines the preferred
+                value of VirtualGPUOptions
+              properties:
+                display:
+                  properties:
+                    enabled:
+                      description: Enabled determines if a display addapter backed
+                        by a vGPU should be enabled or disabled on the guest. Defaults
+                        to true.
+                      type: boolean
+                    ramFB:
+                      description: Enables a boot framebuffer, until the guest OS
+                        loads a real GPU driver Defaults to true.
+                      properties:
+                        enabled:
+                          description: Enabled determines if the feature should be
+                            enabled or disabled on the guest. Defaults to true.
+                          type: boolean
+                      type: object
+                  type: object
+              type: object
           type: object
       type: object
   required:
