@@ -27,6 +27,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -57,6 +59,10 @@ const (
 	initializingReason = "initializing"
 	podReadyReason     = "podReady"
 	podCompletedReason = "podCompleted"
+
+	exportServiceLabel = "export-service"
+
+	exportPrefix	   = "virt-export"
 )
 
 // variable so can be overridden in tests
@@ -199,6 +205,10 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 	log.Log.V(1).Infof("Updating VirtualMachineExport %s/%s", vmExport.Namespace, vmExport.Name)
 	var retry time.Duration
 
+	service, err := ctrl.getOrCreateExportService(vmExport)
+	if err != nil {
+		return 0, err
+	}
 	if ctrl.isSourcePvc(&vmExport.Spec) {
 		pvc, err := ctrl.getPvc(vmExport.Namespace, vmExport.Spec.Source.Name)
 		if err != nil {
@@ -219,27 +229,77 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if err != nil {
 			return 0, err
 		}
-		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod)
+		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod, service)
 	}
 	return retry, nil
 }
 
+func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
+	// TODO: Ensure name is not too long
+	return fmt.Sprintf("%s-%s", exportPrefix, vmExport.Name)
+}
+
+func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {
+	if service, err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Get(context.Background(), ctrl.getExportServiceName(vmExport), metav1.GetOptions{}); err != nil && !errors.IsNotFound(err) {
+		log.Log.V(3).Errorf("error %v", err)
+		return nil, err
+	} else if service != nil && err == nil {
+		return service, nil
+	}
+	return ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), ctrl.createServiceManifest(vmExport), metav1.CreateOptions{})
+}
+
+func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Service {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ctrl.getExportServiceName(vmExport),
+			Namespace: vmExport.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
+					Group:   exportv1.SchemeGroupVersion.Group,
+					Version: exportv1.SchemeGroupVersion.Version,
+					Kind:    "VirtualMachineExport",
+				}),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Protocol: "TCP",
+					Port:     443,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8443,
+					},
+				},
+			},
+			Selector: map[string]string{
+				exportServiceLabel: vmExport.Name,
+			},
+		},
+	}
+	return service
+}
+
 func (ctrl *VMExportController) getOrCreateExporterPod(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
 	manifest := ctrl.createExporterPodManifest(vmExport, pvcs)
-	log.Log.V(1).Infof("Checking if pod exist: %s/%s", manifest.Namespace, manifest.Name)
+	log.Log.V(3).Infof("Checking if pod exist: %s/%s", manifest.Namespace, manifest.Name)
 	if pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Get(context.Background(), manifest.Name, metav1.GetOptions{}); err != nil && !errors.IsNotFound(err) {
-		log.Log.V(1).Errorf("error %v", err)
+		log.Log.V(3).Errorf("error %v", err)
 		return nil, err
 	} else if pod != nil && err == nil {
 		log.Log.V(1).Infof("Found pod %s/%s", pod.Namespace, pod.Name)
 		return pod, nil
 	}
-	log.Log.V(1).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
+	log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
 	return ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
 }
 
 func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim) *corev1.Pod {
-	podSpec := ctrl.TemplateService.RenderExporterManifest(vmExport)
+	labels := make(map[string]string)
+	labels[exportServiceLabel] = vmExport.Name
+	podSpec := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
+	podSpec.ObjectMeta.Labels = labels
 	for i, pvc := range pvcs {
 		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 			podSpec.Spec.Containers[0].VolumeDevices = append(podSpec.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
@@ -265,7 +325,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	return podSpec
 }
 
-func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod) (time.Duration, error) {
+func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service) (time.Duration, error) {
 	var retry time.Duration
 	vmExportCopy := vmExport.DeepCopy()
 	if vmExportCopy.Status == nil {
@@ -304,6 +364,24 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvc), true)
 	}
 
+	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}
+	vmExportCopy.Status.Links.Internal = &exportv1.VirtualMachineExportLink{
+		Volumes: []exportv1.VirtualMachineExportVolume{
+			{
+				Name: pvc.Name,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    fmt.Sprintf("https://%s.%s", vmExport.Namespace, service.Name),
+					},
+					{
+						Format: exportv1.KubeVirtGz,
+						Url:    fmt.Sprintf("https://%s.%s", vmExport.Namespace, service.Name),
+					},
+				},
+			},
+		},
+	}
 	//	updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 	if !equality.Semantic.DeepEqual(vmExport, vmExportCopy) {
 		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
