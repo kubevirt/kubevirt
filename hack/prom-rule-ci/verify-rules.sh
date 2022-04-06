@@ -42,7 +42,7 @@ function unit_test() {
     local tests_file="${2:?}"
 
     ${KUBEVIRT_CRI} run --rm --entrypoint=/bin/promtool \
-        -v "$tests_file":/tmp/rules.test:ro \
+        -v "$tests_file":/tmp/rules.test:Z \
         -v "$target_file":/tmp/rules.verify:ro \
         "$PROM_IMAGE" \
         test rules /tmp/rules.test
