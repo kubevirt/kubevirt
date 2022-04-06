@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -55,6 +56,7 @@ const (
 	pvcNotFoundReason  = "pvcNotFound"
 	pvcBoundReason     = "pvcBound"
 	pvcPendingReason   = "pvcPending"
+	pvcInUseReason     = "pvcInUse"
 	unknownReason      = "unknown"
 	initializingReason = "initializing"
 	podReadyReason     = "podReady"
@@ -62,7 +64,7 @@ const (
 
 	exportServiceLabel = "export-service"
 
-	exportPrefix	   = "virt-export"
+	exportPrefix = "virt-export"
 )
 
 // variable so can be overridden in tests
@@ -79,6 +81,7 @@ type VMExportController struct {
 
 	VMExportInformer cache.SharedIndexInformer
 	PVCInformer      cache.SharedIndexInformer
+	PodInformer      cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
@@ -225,13 +228,34 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 				},
 			})
 		}
-		pod, err := ctrl.getOrCreateExporterPod(vmExport, pvcs)
+		var pod *corev1.Pod
+		inUse, err := ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
-			return 0, err
+			return retry, err
 		}
-		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod, service)
+		if !inUse {
+			pod, err = ctrl.getOrCreateExporterPod(vmExport, pvcs)
+			if err != nil {
+				return 0, err
+			}
+		}
+		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod, service, inUse)
 	}
 	return retry, nil
+}
+
+func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, error) {
+	pvcSet := sets.NewString(pvc.Name)
+	if usedPods, err := watchutil.PodsUsingPVCs(ctrl.PodInformer, pvc.Namespace, pvcSet); err != nil {
+		return false, err
+	} else {
+		for _, pod := range usedPods {
+			if !metav1.IsControlledBy(&pod, vmExport) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
@@ -325,7 +349,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	return podSpec
 }
 
-func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service) (time.Duration, error) {
+func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) (time.Duration, error) {
 	var retry time.Duration
 	vmExportCopy := vmExport.DeepCopy()
 	if vmExportCopy.Status == nil {
@@ -339,7 +363,11 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 	}
 
 	if exporterPod == nil {
-		updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, initializingReason), true)
+		if !pvcInUse {
+			updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, initializingReason), true)
+		} else {
+			updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, pvcInUseReason), true)
+		}
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
 		if exporterPod.Status.Phase == corev1.PodRunning {
