@@ -474,6 +474,18 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							severityAlertLabelKey: "warning",
 						},
 					},
+					{
+						Record: "kubevirt_vmsnapshot_persistentvolumeclaim_labels",
+						Expr:   intstr.FromString("label_replace(label_replace(kube_persistentvolumeclaim_labels{label_restore_kubevirt_io_source_vm_name!='', label_restore_kubevirt_io_source_vm_namespace!=''} == 1, 'vm_namespace', '$1', 'label_restore_kubevirt_io_source_vm_namespace', '(.*)'), 'vm_name', '$1', 'label_restore_kubevirt_io_source_vm_name', '(.*)')"),
+					},
+					{
+						Record: "kubevirt_vmsnapshot_disks_restored_from_source_total",
+						Expr:   intstr.FromString("sum by(vm_name, vm_namespace) (kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
+					},
+					{
+						Record: "kubevirt_vmsnapshot_disks_restored_from_source_bytes",
+						Expr:   intstr.FromString("sum by(vm_name, vm_namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes * on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
+					},
 				},
 			},
 		},
