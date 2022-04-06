@@ -10,7 +10,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	k6tv1 "kubevirt.io/client-go/apis/core/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 )
 
 type Hinter interface {

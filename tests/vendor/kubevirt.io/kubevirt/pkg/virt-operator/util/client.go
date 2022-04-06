@@ -29,7 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/version"
 )
@@ -192,7 +192,7 @@ func SetOperatorVersion(kv *virtv1.KubeVirt) {
 }
 
 func IsServiceMonitorEnabled(clientset kubecli.KubevirtClient) (bool, error) {
-	apis, err := clientset.DiscoveryClient().ServerResources()
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}
@@ -213,7 +213,7 @@ func IsServiceMonitorEnabled(clientset kubecli.KubevirtClient) (bool, error) {
 // IsPrometheusRuleEnabled returns true if prometheusrules cr is defined
 // and false otherwise.
 func IsPrometheusRuleEnabled(clientset kubecli.KubevirtClient) (bool, error) {
-	apis, err := clientset.DiscoveryClient().ServerResources()
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}

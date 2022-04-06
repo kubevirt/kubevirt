@@ -1,6 +1,12 @@
 package helper
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+)
 
 func IsNil(actual interface{}) bool {
 	return actual == nil || (reflect.ValueOf(actual).Kind() == reflect.Ptr && reflect.ValueOf(actual).IsNil())
@@ -44,4 +50,16 @@ func MatchElementsInSlice(actual interface{}, matcher func(actual interface{}) (
 		return success
 	})
 	return success, err
+}
+
+func ToUnstructured(actual interface{}) (*unstructured.Unstructured, error) {
+	if IsNil(actual) {
+		return nil, fmt.Errorf("object does not exist")
+	}
+	actual = ToPointer(actual)
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(actual)
+	if err != nil {
+		return nil, err
+	}
+	return &unstructured.Unstructured{Object: obj}, nil
 }

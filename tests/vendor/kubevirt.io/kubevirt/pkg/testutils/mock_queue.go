@@ -6,14 +6,14 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/util/workqueue"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	v1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -176,19 +176,19 @@ type PodDisruptionBudgetFeeder struct {
 	Source    *framework.FakeControllerSource
 }
 
-func (v *PodDisruptionBudgetFeeder) Add(pdb *v1beta1.PodDisruptionBudget) {
+func (v *PodDisruptionBudgetFeeder) Add(pdb *policyv1.PodDisruptionBudget) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Add(pdb)
 	v.MockQueue.Wait()
 }
 
-func (v *PodDisruptionBudgetFeeder) Modify(pdb *v1beta1.PodDisruptionBudget) {
+func (v *PodDisruptionBudgetFeeder) Modify(pdb *policyv1.PodDisruptionBudget) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Modify(pdb)
 	v.MockQueue.Wait()
 }
 
-func (v *PodDisruptionBudgetFeeder) Delete(pdb *v1beta1.PodDisruptionBudget) {
+func (v *PodDisruptionBudgetFeeder) Delete(pdb *policyv1.PodDisruptionBudget) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Delete(pdb)
 	v.MockQueue.Wait()

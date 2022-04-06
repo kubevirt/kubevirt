@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -22,5 +22,21 @@ go_library(
         "//vendor/golang.org/x/crypto/ssh/knownhosts:go_default_library",
         "//vendor/golang.org/x/term:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "knownhosts_test.go",
+        "ssh_suite_test.go",
+        "wrapped_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/golang.org/x/crypto/ssh:go_default_library",
     ],
 )

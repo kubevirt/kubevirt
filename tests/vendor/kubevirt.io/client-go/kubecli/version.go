@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/version"
 )
@@ -38,7 +38,7 @@ const (
 	ApiGroupName = "/apis/" + v1.SubresourceGroupName
 )
 
-func (k *kubevirt) ServerVersion() *ServerVersion {
+func (k *kubevirt) ServerVersion() ServerVersionInterface {
 	return &ServerVersion{
 		restClient: k.restClient,
 		resource:   "version",

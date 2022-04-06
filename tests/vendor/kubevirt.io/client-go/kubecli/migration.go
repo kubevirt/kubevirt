@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v12 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 func (k *kubevirt) VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface {
@@ -45,23 +45,24 @@ type migration struct {
 }
 
 // Create new VirtualMachineInstanceMigration in the cluster to specified namespace
-func (o *migration) Create(newMigration *v12.VirtualMachineInstanceMigration) (*v12.VirtualMachineInstanceMigration, error) {
-	newMigrationResult := &v12.VirtualMachineInstanceMigration{}
+func (o *migration) Create(newMigration *v1.VirtualMachineInstanceMigration, options *k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	newMigrationResult := &v1.VirtualMachineInstanceMigration{}
 	err := o.restClient.Post().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Body(newMigration).
+		VersionedParams(options, scheme.ParameterCodec).
 		Do(context.Background()).
 		Into(newMigrationResult)
 
-	newMigrationResult.SetGroupVersionKind(v12.VirtualMachineInstanceMigrationGroupVersionKind)
+	newMigrationResult.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return newMigrationResult, err
 }
 
 // Get the VirtualMachineInstanceMigration from the cluster by its name and namespace
-func (o *migration) Get(name string, options *k8smetav1.GetOptions) (*v12.VirtualMachineInstanceMigration, error) {
-	newVm := &v12.VirtualMachineInstanceMigration{}
+func (o *migration) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	newVm := &v1.VirtualMachineInstanceMigration{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -70,14 +71,14 @@ func (o *migration) Get(name string, options *k8smetav1.GetOptions) (*v12.Virtua
 		Do(context.Background()).
 		Into(newVm)
 
-	newVm.SetGroupVersionKind(v12.VirtualMachineInstanceMigrationGroupVersionKind)
+	newVm.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return newVm, err
 }
 
 // Update the VirtualMachineInstanceMigration instance in the cluster in given namespace
-func (o *migration) Update(migration *v12.VirtualMachineInstanceMigration) (*v12.VirtualMachineInstanceMigration, error) {
-	updatedVm := &v12.VirtualMachineInstanceMigration{}
+func (o *migration) Update(migration *v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error) {
+	updatedVm := &v1.VirtualMachineInstanceMigration{}
 	err := o.restClient.Put().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -86,7 +87,7 @@ func (o *migration) Update(migration *v12.VirtualMachineInstanceMigration) (*v12
 		Do(context.Background()).
 		Into(updatedVm)
 
-	updatedVm.SetGroupVersionKind(v12.VirtualMachineInstanceMigrationGroupVersionKind)
+	updatedVm.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return updatedVm, err
 }
@@ -105,8 +106,8 @@ func (o *migration) Delete(name string, options *k8smetav1.DeleteOptions) error 
 }
 
 // List all VirtualMachineInstanceMigrations in given namespace
-func (o *migration) List(options *k8smetav1.ListOptions) (*v12.VirtualMachineInstanceMigrationList, error) {
-	newVmList := &v12.VirtualMachineInstanceMigrationList{}
+func (o *migration) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error) {
+	newVmList := &v1.VirtualMachineInstanceMigrationList{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -115,14 +116,14 @@ func (o *migration) List(options *k8smetav1.ListOptions) (*v12.VirtualMachineIns
 		Into(newVmList)
 
 	for _, migration := range newVmList.Items {
-		migration.SetGroupVersionKind(v12.VirtualMachineInstanceMigrationGroupVersionKind)
+		migration.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	}
 
 	return newVmList, err
 }
 
-func (v *migration) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v12.VirtualMachineInstanceMigration, err error) {
-	result = &v12.VirtualMachineInstanceMigration{}
+func (v *migration) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result = &v1.VirtualMachineInstanceMigration{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -134,8 +135,8 @@ func (v *migration) Patch(name string, pt types.PatchType, data []byte, subresou
 	return result, err
 }
 
-func (v *migration) PatchStatus(name string, pt types.PatchType, data []byte) (result *v12.VirtualMachineInstanceMigration, err error) {
-	result = &v12.VirtualMachineInstanceMigration{}
+func (v *migration) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result = &v1.VirtualMachineInstanceMigration{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -147,8 +148,8 @@ func (v *migration) PatchStatus(name string, pt types.PatchType, data []byte) (r
 	return
 }
 
-func (v *migration) UpdateStatus(vmi *v12.VirtualMachineInstanceMigration) (result *v12.VirtualMachineInstanceMigration, err error) {
-	result = &v12.VirtualMachineInstanceMigration{}
+func (v *migration) UpdateStatus(vmi *v1.VirtualMachineInstanceMigration) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result = &v1.VirtualMachineInstanceMigration{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
@@ -157,6 +158,6 @@ func (v *migration) UpdateStatus(vmi *v12.VirtualMachineInstanceMigration) (resu
 		Body(vmi).
 		Do(context.Background()).
 		Into(result)
-	result.SetGroupVersionKind(v12.VirtualMachineInstanceMigrationGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	return
 }

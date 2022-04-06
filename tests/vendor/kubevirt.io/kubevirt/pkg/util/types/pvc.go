@@ -26,7 +26,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -35,17 +35,17 @@ func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) 
 		return nil, exists, false, err
 	}
 	if pvc, ok := obj.(*k8sv1.PersistentVolumeClaim); ok {
-		return obj.(*k8sv1.PersistentVolumeClaim), true, isPVCBlock(pvc), nil
+		return obj.(*k8sv1.PersistentVolumeClaim), true, IsPVCBlock(pvc.Spec.VolumeMode), nil
 	}
 	return nil, false, false, fmt.Errorf("this is not a PVC! %v", obj)
 }
 
-func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
+func IsPVCBlock(volumeMode *k8sv1.PersistentVolumeMode) bool {
 	// We do not need to consider the data in a PersistentVolume (as of Kubernetes 1.9)
 	// If a PVC does not specify VolumeMode and the PV specifies VolumeMode = Block
 	// the claim will not be bound. So for the sake of a boolean answer, if the PVC's
 	// VolumeMode is Block, that unambiguously answers the question
-	return pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
+	return volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock
 }
 
 func HasSharedAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {

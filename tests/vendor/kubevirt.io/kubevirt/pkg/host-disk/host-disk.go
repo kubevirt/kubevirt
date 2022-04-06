@@ -32,7 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/types"
 )
@@ -72,41 +72,76 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 
 	for i := range vmi.Spec.Volumes {
 		volume := vmi.Spec.Volumes[i]
-		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
-			// If a PVC is used in a Filesystem (passthough), it should not be mapped as a HostDisk and a image file should
-			// not be created.
-			if _, isPassthoughFSVolume := passthoughFSVolumes[volume.Name]; isPassthoughFSVolume {
-				log.Log.V(4).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volume.Name)
+		volumeSource := &vmi.Spec.Volumes[i].VolumeSource
+		if volumeSource.PersistentVolumeClaim != nil {
+			if shouldSkipVolumeSource(passthoughFSVolumes, hotplugVolumes, pvcVolume, volume.Name) {
 				continue
 			}
 
-			if hotplugVolumes[volume.Name] {
-				log.Log.V(4).Infof("this volume %s is hotplugged, will not be replaced by HostDisk", volume.Name)
-				continue
-			}
-
-			volumeStatus, ok := pvcVolume[volume.Name]
-			if !ok ||
-				volumeStatus.PersistentVolumeClaimInfo.VolumeMode == nil ||
-				*volumeStatus.PersistentVolumeClaimInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
-
-				// This is not a disk on a file system, so skip it.
-				continue
-			}
-
-			isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
-			file := getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img")
-			volumeSource.HostDisk = &v1.HostDisk{
-				Path:     file,
-				Type:     v1.HostDiskExistsOrCreate,
-				Capacity: volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage],
-				Shared:   &isShared,
+			err := replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			if err != nil {
+				return err
 			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
 		}
+		if volumeSource.DataVolume != nil && volumeSource.DataVolume.Name != "" {
+			if shouldSkipVolumeSource(passthoughFSVolumes, hotplugVolumes, pvcVolume, volume.Name) {
+				continue
+			}
+
+			err := replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			if err != nil {
+				return err
+			}
+			// PersistenVolumeClaim is replaced by HostDisk
+			volumeSource.DataVolume = nil
+		}
 	}
 	return nil
+}
+
+func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVolume map[string]v1.VolumeStatus) error {
+	volumeStatus := pvcVolume[volumeName]
+	isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
+	file := getPVCDiskImgPath(volumeName, "disk.img")
+	capacity := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
+	// The host-disk must be 1MiB-aligned. If the volume specifies a misaligned size, shrink it down to the nearest multiple of 1MiB
+	size := util.AlignImageSizeTo1MiB(capacity.Value(), log.Log.V(2))
+	if size == 0 {
+		return fmt.Errorf("the size for volume %s is too low, must be at least 1MiB", volumeName)
+	}
+	capacity.Set(size)
+	volumeSource.HostDisk = &v1.HostDisk{
+		Path:     file,
+		Type:     v1.HostDiskExistsOrCreate,
+		Capacity: capacity,
+		Shared:   &isShared,
+	}
+
+	return nil
+}
+
+func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolumes map[string]bool, pvcVolume map[string]v1.VolumeStatus, volumeName string) bool {
+	// If a PVC is used in a Filesystem (passthough), it should not be mapped as a HostDisk and a image file should
+	// not be created.
+	if _, isPassthoughFSVolume := passthoughFSVolumes[volumeName]; isPassthoughFSVolume {
+		log.Log.V(4).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volumeName)
+		return true
+	}
+
+	if hotplugVolumes[volumeName] {
+		log.Log.V(4).Infof("this volume %s is hotplugged, will not be replaced by HostDisk", volumeName)
+		return true
+	}
+
+	volumeStatus, ok := pvcVolume[volumeName]
+	if !ok || types.IsPVCBlock(volumeStatus.PersistentVolumeClaimInfo.VolumeMode) {
+
+		// This is not a disk on a file system, so skip it.
+		return true
+	}
+	return false
 }
 
 func dirBytesAvailable(path string, reserve uint64) (uint64, error) {

@@ -45,8 +45,8 @@ import (
 
 	cdiClientset "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -60,6 +60,7 @@ const (
 
 	uploadRequestAnnotation         = "cdi.kubevirt.io/storage.upload.target"
 	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
+	contentTypeAnnotation           = "cdi.kubevirt.io/storage.contentType"
 
 	uploadReadyWaitInterval = 2 * time.Second
 
@@ -83,6 +84,7 @@ var (
 	pvcSize        string
 	storageClass   string
 	imagePath      string
+	archivePath    string
 	accessMode     string
 
 	uploadPodWaitSecs uint
@@ -90,6 +92,7 @@ var (
 	noCreate          bool
 	createPVC         bool
 	forceBind         bool
+	archiveUpload     bool
 )
 
 // HTTPClientCreator is a function that creates http clients
@@ -136,9 +139,9 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&size, "size", "", "The size of the DataVolume to create (ex. 10Gi, 500Mi).")
 	cmd.Flags().StringVar(&storageClass, "storage-class", "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, "access-mode", "", "The access mode for the PVC.")
-	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default Filesystem).")
+	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default is the storageProfile default. for archive upload default is filesystem).")
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
-	cmd.MarkFlagRequired("image-path")
+	cmd.Flags().StringVar(&archivePath, "archive-path", "", "Path to the local archive.")
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
 	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
@@ -160,7 +163,10 @@ func usage() string {
   {{ProgramName}} image-upload pvc fedora-pvc --no-create --image-path=/images/fedora30.qcow2
 
   # Upload to a DataVolume with explicit URL to CDI Upload Proxy
-  {{ProgramName}} image-upload dv fedora-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2`
+  {{ProgramName}} image-upload dv fedora-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
+
+  # Upload a local disk archive to a newly created DataVolume:
+  {{ProgramName}} image-upload dv fedora-dv --size=10Gi --archive-path=/images/fedora30.tar`
 	return usage
 }
 
@@ -188,6 +194,19 @@ func parseArgs(args []string) error {
 		return nil
 	}
 
+	archiveUpload = false
+	if imagePath == "" && archivePath == "" {
+		return fmt.Errorf("either image-path or archive-path most be provided")
+	} else if imagePath != "" && archivePath != "" {
+		return fmt.Errorf("cannot handle both image-path and archive-path, provide only one")
+	} else if archivePath != "" {
+		archiveUpload = true
+		imagePath = archivePath
+		if blockVolume {
+			return fmt.Errorf("In archive upload the volume mode should always be filesystem")
+		}
+	}
+
 	if len(args) != 2 {
 		return fmt.Errorf("expecting two args")
 	}
@@ -210,8 +229,8 @@ func (c *command) run(args []string) error {
 	if err := parseArgs(args); err != nil {
 		return err
 	}
-	// #nosec G304 No risk for path injection as this funtion exectues with
-	// the same previliges as those of virtctl user who supplies imagePath
+	// #nosec G304 No risk for path injection as this function executes with
+	// the same privileges as those of virtctl user who supplies imagePath
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return err
@@ -228,7 +247,7 @@ func (c *command) run(args []string) error {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
-	pvc, err := getAndValidateUploadPVC(virtClient, namespace, name, noCreate)
+	pvc, err := getAndValidateUploadPVC(virtClient, namespace, name, noCreate, archiveUpload)
 	if err != nil {
 		if !(k8serrors.IsNotFound(err) && !noCreate) {
 			return err
@@ -241,12 +260,12 @@ func (c *command) run(args []string) error {
 		var obj metav1.Object
 
 		if createPVC {
-			obj, err = createUploadPVC(virtClient, namespace, name, size, storageClass, accessMode, blockVolume)
+			obj, err = createUploadPVC(virtClient, namespace, name, size, storageClass, accessMode, blockVolume, archiveUpload)
 			if err != nil {
 				return err
 			}
 		} else {
-			obj, err = createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, blockVolume)
+			obj, err = createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, blockVolume, archiveUpload)
 			if err != nil {
 				return err
 			}
@@ -445,7 +464,7 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 			return false, err
 		}
 
-		if dv.Status.Phase == cdiv1.WaitForFirstConsumer {
+		if dv.Status.Phase == cdiv1.WaitForFirstConsumer && !forceBind {
 			return false, fmt.Errorf("cannot upload to DataVolume in WaitForFirstConsumer state, make sure the PVC is Bound")
 		}
 		// TODO: can check Condition/Event here to provide user with some error messages
@@ -480,7 +499,7 @@ func waitUploadServerReady(client kubernetes.Interface, namespace, name string, 
 			return false, err
 		}
 
-		// upload controler sets this to true when uploadserver pod is ready to receive data
+		// upload controller sets this to true when uploadserver pod is ready to receive data
 		podReady := pvc.Annotations[PodReadyAnnotation]
 		done, _ := strconv.ParseBool(podReady)
 
@@ -506,7 +525,7 @@ func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name s
 			return false, err
 		}
 
-		// upload controler sets this to true when uploadserver pod is ready to receive data
+		// upload controller sets this to true when uploadserver pod is ready to receive data
 		podPhase := pvc.Annotations[PodPhaseAnnotation]
 
 		if podPhase == string(v1.PodSucceeded) {
@@ -519,7 +538,7 @@ func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name s
 	return err
 }
 
-func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume bool) (*cdiv1.DataVolume, error) {
+func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*cdiv1.DataVolume, error) {
 	pvcSpec, err := createStorageSpec(client, size, storageClass, accessMode, blockVolume)
 	if err != nil {
 		return nil, err
@@ -528,6 +547,11 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 	annotations := map[string]string{}
 	if forceBind {
 		annotations[forceImmediateBindingAnnotation] = ""
+	}
+
+	contentType := cdiv1.DataVolumeKubeVirt
+	if archiveUpload {
+		contentType = cdiv1.DataVolumeArchive
 	}
 
 	dv := &cdiv1.DataVolume{
@@ -540,7 +564,8 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 			Source: &cdiv1.DataVolumeSource{
 				Upload: &cdiv1.DataVolumeSourceUpload{},
 			},
-			Storage: pvcSpec,
+			ContentType: contentType,
+			Storage:     pvcSpec,
 		},
 	}
 
@@ -585,15 +610,22 @@ func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, access
 	return spec, nil
 }
 
-func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume bool) (*v1.PersistentVolumeClaim, error) {
+func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
 	pvcSpec, err := createPVCSpec(size, storageClass, accessMode, blockVolume)
 	if err != nil {
 		return nil, err
 	}
 
+	contentType := string(cdiv1.DataVolumeKubeVirt)
+	if archiveUpload {
+		contentType = string(cdiv1.DataVolumeArchive)
+	}
+
 	annotations := map[string]string{
 		uploadRequestAnnotation: "",
+		contentTypeAnnotation:   contentType,
 	}
+
 	if forceBind {
 		annotations[forceImmediateBindingAnnotation] = ""
 	}
@@ -668,7 +700,7 @@ func ensurePVCSupportsUpload(client kubernetes.Interface, pvc *v1.PersistentVolu
 	return pvc, nil
 }
 
-func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name string, shouldExist bool) (*v1.PersistentVolumeClaim, error) {
+func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name string, shouldExist, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
 	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		fmt.Printf("PVC %s/%s not found \n", namespace, name)
@@ -699,6 +731,15 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 
 	if !shouldExist && !isUploadPVC {
 		return nil, fmt.Errorf("PVC %s not available for upload", name)
+	}
+
+	// for PVCs that exist and the user wants to upload archive
+	// the pvc has to have the contentType archive annotation
+	if archiveUpload {
+		contentType, found := pvc.Annotations[contentTypeAnnotation]
+		if !found || contentType != string(cdiv1.DataVolumeArchive) {
+			return nil, fmt.Errorf("PVC %s doesn't have archive contentType annotation", name)
+		}
 	}
 
 	return pvc, nil

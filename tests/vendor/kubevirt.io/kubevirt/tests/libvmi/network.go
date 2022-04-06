@@ -20,8 +20,10 @@
 package libvmi
 
 import (
-	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
+	kvirtv1 "kubevirt.io/api/core/v1"
 )
+
+const DefaultInterfaceName = "default"
 
 // WithInterface adds a Domain Device Interface.
 func WithInterface(iface kvirtv1.Interface) Option {
@@ -50,13 +52,24 @@ func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interfa
 	}
 }
 
-// InterfaceDeviceWithBridgeBinding returns an Interface named "default" with bridge binding.
-func InterfaceDeviceWithBridgeBinding() kvirtv1.Interface {
+// InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
+func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	return kvirtv1.Interface{
-		Name: "default",
+		Name: name,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Bridge: &kvirtv1.InterfaceBridge{},
 		},
+	}
+}
+
+// InterfaceDeviceWithSlirpBinding returns an Interface with SLIRP binding.
+func InterfaceDeviceWithSlirpBinding(name string, ports ...kvirtv1.Port) kvirtv1.Interface {
+	return kvirtv1.Interface{
+		Name: name,
+		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
+			Slirp: &kvirtv1.InterfaceSlirp{},
+		},
+		Ports: ports,
 	}
 }
 
@@ -76,13 +89,13 @@ func InterfaceWithMac(iface *kvirtv1.Interface, macAddress string) *kvirtv1.Inte
 	return iface
 }
 
-// MultusNetwork returns a Network with the given name
-func MultusNetwork(networkName string) *kvirtv1.Network {
+// MultusNetwork returns a Network with the given name, associated to the given nad
+func MultusNetwork(name, nadName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
-		Name: networkName,
+		Name: name,
 		NetworkSource: kvirtv1.NetworkSource{
 			Multus: &kvirtv1.MultusNetwork{
-				NetworkName: networkName,
+				NetworkName: nadName,
 			},
 		},
 	}

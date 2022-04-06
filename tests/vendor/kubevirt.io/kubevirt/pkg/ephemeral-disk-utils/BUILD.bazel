@@ -2,10 +2,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["utils.go"],
+    srcs = [
+        "generated_mock_utils.go",
+        "utils.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/virt-launcher/virtwrap/api:go_default_library"],
+    deps = [
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+    ],
 )
 
 go_test(
@@ -17,7 +23,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

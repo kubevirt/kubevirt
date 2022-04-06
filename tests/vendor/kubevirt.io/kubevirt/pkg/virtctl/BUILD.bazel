@@ -16,6 +16,7 @@ go_library(
         "//pkg/virtctl/imageupload:go_default_library",
         "//pkg/virtctl/pause:go_default_library",
         "//pkg/virtctl/portforward:go_default_library",
+        "//pkg/virtctl/softreboot:go_default_library",
         "//pkg/virtctl/ssh:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//pkg/virtctl/usbredir:go_default_library",
@@ -26,6 +27,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],
 )
 
@@ -38,7 +40,7 @@ go_test(
     deps = [
         ":go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

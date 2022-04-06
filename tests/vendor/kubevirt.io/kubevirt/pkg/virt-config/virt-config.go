@@ -27,7 +27,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 const (
@@ -64,7 +64,7 @@ const (
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
-	DefaultDiskVerificationMemoryLimitMBytes        = 1200
+	DefaultDiskVerificationMemoryLimitMBytes        = 1500
 	DefaultVirtAPILogVerbosity                      = 2
 	DefaultVirtControllerLogVerbosity               = 2
 	DefaultVirtHandlerLogVerbosity                  = 2
@@ -209,10 +209,38 @@ func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
 }
 
-func (c *ClusterConfig) GetDesiredMDEVTypes(nodeName string) []string {
+func canSelectNode(nodeSelector map[string]string, node *k8sv1.Node) bool {
+	for key, val := range nodeSelector {
+		labelValue, exist := node.Labels[key]
+		if !exist || val != labelValue {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 	mdevTypesConf := c.GetConfig().MediatedDevicesConfiguration
 	if mdevTypesConf == nil {
 		return []string{}
+	}
+	nodeMdevConf := mdevTypesConf.NodeMediatedDeviceTypes
+	if nodeMdevConf != nil {
+		mdevTypesMap := make(map[string]struct{})
+		for _, nodeConfig := range nodeMdevConf {
+			if canSelectNode(nodeConfig.NodeSelector, node) {
+				for _, mdevType := range nodeConfig.MediatedDevicesTypes {
+					mdevTypesMap[mdevType] = struct{}{}
+				}
+			}
+		}
+		if len(mdevTypesMap) != 0 {
+			mdevTypesList := []string{}
+			for mdevType, _ := range mdevTypesMap {
+				mdevTypesList = append(mdevTypesList, mdevType)
+			}
+			return mdevTypesList
+		}
 	}
 	return mdevTypesConf.MediatedDevicesTypes
 }

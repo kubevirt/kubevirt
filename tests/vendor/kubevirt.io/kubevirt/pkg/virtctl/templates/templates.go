@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
@@ -57,7 +57,7 @@ func OptionsUsageTemplate() string {
 func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if len(args) != n {
-			fmt.Printf("fatal: Number of input parameters is incorrect, %s accepts %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
+			fmt.Fprintf(os.Stderr, "fatal: Number of input parameters is incorrect, %s accepts %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
 			cmd.Help()
 			return errors.New("argument validation failed")
 		}

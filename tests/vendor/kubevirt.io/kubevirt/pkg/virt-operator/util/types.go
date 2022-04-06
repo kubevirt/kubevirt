@@ -22,7 +22,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -83,7 +83,7 @@ func IsStoreEmpty(store cache.Store) bool {
 }
 
 func IsManagedByOperator(labels map[string]string) bool {
-	if v, ok := labels[v1.ManagedByLabel]; ok && v == v1.ManagedByLabelOperatorValue {
+	if v, ok := labels[v1.ManagedByLabel]; ok && (v == v1.ManagedByLabelOperatorValue || v == v1.ManagedByLabelOperatorOldValue) {
 		return true
 	}
 	return false

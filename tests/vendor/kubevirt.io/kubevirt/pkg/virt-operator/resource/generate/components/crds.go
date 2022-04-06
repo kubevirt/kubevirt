@@ -22,20 +22,31 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
+	"kubevirt.io/api/flavor"
+
+	"kubevirt.io/api/migrations"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
-	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
-	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	virtv1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
 const (
-	creationTimestampJSONPath = ".metadata.creationTimestamp"
-	errorMessageJSONPath      = ".status.error.message"
+	creationTimestampJSONPath  = ".metadata.creationTimestamp"
+	errorMessageJSONPath       = ".status.error.message"
+	phaseJSONPath              = ".status.phase"
+	preserveUnknownFieldsFalse = false
 )
 
 var (
@@ -45,9 +56,10 @@ var (
 	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
 	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
-	PreserveUnknownFieldsFalse       = false
+	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -78,7 +90,7 @@ func addFieldsToAllVersions(crd *extv1.CustomResourceDefinition, fields ...inter
 func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomResourceDefinitionVersion) error {
 	name := crd.Spec.Names.Singular
 
-	crd.Spec.PreserveUnknownFields = PreserveUnknownFieldsFalse
+	crd.Spec.PreserveUnknownFields = preserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
 	if !ok {
 		return nil
@@ -144,7 +156,7 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
-		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 		{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 		{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
 		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
@@ -287,9 +299,16 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 			},
 		},
 	}
-	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
-		Status: &extv1.CustomResourceSubresourceStatus{},
-	})
+	err := addFieldsToAllVersions(crd,
+		[]extv1.CustomResourceColumnDefinition{
+			{Name: "Phase", Type: "string", JSONPath: phaseJSONPath,
+				Description: "The current phase of VM instance migration"},
+			{Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
+				Description: "The name of the VMI to perform the migration on"},
+		}, &extv1.CustomResourceSubresources{
+			Status: &extv1.CustomResourceSubresourceStatus{},
+		})
+
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +355,7 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
-		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 	}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{},
 	})
@@ -345,6 +364,37 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 
 	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = VIRTUALMACHINEPOOL
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: poolv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    poolv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinepools",
+			Singular:   "virtualmachinepool",
+			Kind:       "VirtualMachinePool",
+			ShortNames: []string{"vmpool", "vmpools"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
@@ -377,7 +427,7 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
-		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
 		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
@@ -479,8 +529,8 @@ func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: flavorv1alpha1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachineflavors",
-			Singular:   "virtualmachineflavor",
+			Plural:     flavor.PluralResourceName,
+			Singular:   flavor.SingularResourceName,
 			ShortNames: []string{"vmflavor", "vmflavors"},
 			Kind:       "VirtualMachineFlavor",
 			Categories: []string{"all"},
@@ -506,8 +556,8 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: flavorv1alpha1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachineclusterflavors",
-			Singular:   "virtualmachineclusterflavor",
+			Plural:     flavor.ClusterPluralResourceName,
+			Singular:   flavor.ClusterSingularResourceName,
 			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
 			Kind:       "VirtualMachineClusterFlavor",
 			Categories: []string{"all"},
@@ -526,8 +576,45 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	return crd, nil
 }
 
+func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = MIGRATIONPOLICY
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: migrationsv1.MigrationPolicyKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    migrationsv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.ClusterScoped,
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   migrations.ResourceMigrationPolicies,
+			Singular: "migrationpolicy",
+			Kind:     migrationsv1.MigrationPolicyKind.Kind,
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
 // Used by manifest generation
-func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string) *virtv1.KubeVirt {
+func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string, infraReplicas uint8) *virtv1.KubeVirt {
 	cr := &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.GroupVersion.String(),
@@ -547,6 +634,12 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates 
 			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
 				FeatureGates: strings.Split(featureGates, ","),
 			},
+		}
+	}
+
+	if infraReplicas != util.DefaultInfraReplicas {
+		cr.Spec.Infra = &virtv1.ComponentConfig{
+			Replicas: &infraReplicas,
 		}
 	}
 

@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v12 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
@@ -147,10 +148,14 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v12.ApiStorageVersion, namespace, resource, name, subresource)
+	u.Path = path.Join(
+		u.Path,
+		fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v1.ApiStorageVersion, namespace, resource, name, subresource),
+	)
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
+		Header: map[string][]string{},
 	}
 
 	return req, nil
@@ -235,9 +240,9 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 
 func (v *vmis) Freeze(name string, unfreezeTimeout time.Duration) error {
 	log.Log.Infof("Freeze VMI %s", name)
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "freeze")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "freeze")
 
-	freezeUnfreezeTimeout := &v12.FreezeUnfreezeTimeout{
+	freezeUnfreezeTimeout := &v1.FreezeUnfreezeTimeout{
 		UnfreezeTimeout: &metav1.Duration{
 			Duration: unfreezeTimeout,
 		},
@@ -253,22 +258,36 @@ func (v *vmis) Freeze(name string, unfreezeTimeout time.Duration) error {
 
 func (v *vmis) Unfreeze(name string) error {
 	log.Log.Infof("Unfreeze VMI %s", name)
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "unfreeze")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unfreeze")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Pause(name string) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "pause")
+func (v *vmis) SoftReboot(name string) error {
+	log.Log.Infof("SoftReboot VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "softreboot")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Unpause(name string) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "unpause")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+func (v *vmis) Pause(name string, pauseOptions *v1.PauseOptions) error {
+	body, err := json.Marshal(pauseOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v12.VirtualMachineInstance, err error) {
-	vmi = &v12.VirtualMachineInstance{}
+func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
+	body, err := json.Marshal(unpauseOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+}
+
+func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
+	vmi = &v1.VirtualMachineInstance{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -276,12 +295,12 @@ func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v12.Virtual
 		VersionedParams(options, scheme.ParameterCodec).
 		Do(context.Background()).
 		Into(vmi)
-	vmi.SetGroupVersionKind(v12.VirtualMachineInstanceGroupVersionKind)
+	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vmis) List(options *k8smetav1.ListOptions) (vmiList *v12.VirtualMachineInstanceList, err error) {
-	vmiList = &v12.VirtualMachineInstanceList{}
+func (v *vmis) List(options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
+	vmiList = &v1.VirtualMachineInstanceList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -289,26 +308,26 @@ func (v *vmis) List(options *k8smetav1.ListOptions) (vmiList *v12.VirtualMachine
 		Do(context.Background()).
 		Into(vmiList)
 	for _, vmi := range vmiList.Items {
-		vmi.SetGroupVersionKind(v12.VirtualMachineInstanceGroupVersionKind)
+		vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}
 
 	return
 }
 
-func (v *vmis) Create(vmi *v12.VirtualMachineInstance) (result *v12.VirtualMachineInstance, err error) {
-	result = &v12.VirtualMachineInstance{}
+func (v *vmis) Create(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
 		Do(context.Background()).
 		Into(result)
-	result.SetGroupVersionKind(v12.VirtualMachineInstanceGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vmis) Update(vmi *v12.VirtualMachineInstance) (result *v12.VirtualMachineInstance, err error) {
-	result = &v12.VirtualMachineInstance{}
+func (v *vmis) Update(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
@@ -316,7 +335,7 @@ func (v *vmis) Update(vmi *v12.VirtualMachineInstance) (result *v12.VirtualMachi
 		Body(vmi).
 		Do(context.Background()).
 		Into(result)
-	result.SetGroupVersionKind(v12.VirtualMachineInstanceGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
@@ -330,13 +349,14 @@ func (v *vmis) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Error()
 }
 
-func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v12.VirtualMachineInstance, err error) {
-	result = &v12.VirtualMachineInstance{}
+func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource(subresources...).
 		Name(name).
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Body(data).
 		Do(context.Background()).
 		Into(result)
@@ -384,9 +404,9 @@ func enrichError(httpErr error, resp *http.Response) error {
 	return httpErr
 }
 
-func (v *vmis) GuestOsInfo(name string) (v12.VirtualMachineInstanceGuestAgentInfo, error) {
-	guestInfo := v12.VirtualMachineInstanceGuestAgentInfo{}
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "guestosinfo")
+func (v *vmis) GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "guestosinfo")
 
 	// WORKAROUND:
 	// When doing v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(guestInfo)
@@ -418,22 +438,22 @@ func (v *vmis) GuestOsInfo(name string) (v12.VirtualMachineInstanceGuestAgentInf
 	return guestInfo, err
 }
 
-func (v *vmis) UserList(name string) (v12.VirtualMachineInstanceGuestOSUserList, error) {
-	userList := v12.VirtualMachineInstanceGuestOSUserList{}
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "userlist")
+func (v *vmis) UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error) {
+	userList := v1.VirtualMachineInstanceGuestOSUserList{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "userlist")
 	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&userList)
 	return userList, err
 }
 
-func (v *vmis) FilesystemList(name string) (v12.VirtualMachineInstanceFileSystemList, error) {
-	fsList := v12.VirtualMachineInstanceFileSystemList{}
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "filesystemlist")
+func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error) {
+	fsList := v1.VirtualMachineInstanceFileSystemList{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "filesystemlist")
 	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&fsList)
 	return fsList, err
 }
 
-func (v *vmis) AddVolume(name string, addVolumeOptions *v12.AddVolumeOptions) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "addvolume")
+func (v *vmis) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 
 	JSON, err := json.Marshal(addVolumeOptions)
 
@@ -444,8 +464,8 @@ func (v *vmis) AddVolume(name string, addVolumeOptions *v12.AddVolumeOptions) er
 	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
-func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v12.RemoveVolumeOptions) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "removevolume")
+func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
 

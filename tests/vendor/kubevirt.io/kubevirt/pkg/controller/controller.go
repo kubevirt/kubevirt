@@ -35,9 +35,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -124,6 +124,14 @@ func VirtualMachineInstanceKeys(vmis []*v1.VirtualMachineInstance) []string {
 	keys := []string{}
 	for _, vmi := range vmis {
 		keys = append(keys, VirtualMachineInstanceKey(vmi))
+	}
+	return keys
+}
+
+func VirtualMachineKeys(vms []*v1.VirtualMachine) []string {
+	keys := []string{}
+	for _, vm := range vms {
+		keys = append(keys, VirtualMachineKey(vm))
 	}
 	return keys
 }

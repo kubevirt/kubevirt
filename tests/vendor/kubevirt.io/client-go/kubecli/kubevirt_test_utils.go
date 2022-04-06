@@ -3,10 +3,12 @@ package kubecli
 import (
 	"errors"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v12 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 // GetMockKubevirtClientFromClientConfig, MockKubevirtClientInstance are used to create a mechanism
@@ -32,42 +34,54 @@ func GetInvalidKubevirtClientFromClientConfig(cmdConfig clientcmd.ClientConfig) 
 	return nil, errors.New("invalid fake client")
 }
 
-func NewMinimalMigration(name string) *v12.VirtualMachineInstanceMigration {
-	return &v12.VirtualMachineInstanceMigration{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstanceMigration"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalMigration(name string) *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceMigration"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewMinimalVM(name string) *v12.VirtualMachine {
-	return &v12.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalVM(name string) *v1.VirtualMachine {
+	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewMigrationList(migrations ...v12.VirtualMachineInstanceMigration) *v12.VirtualMachineInstanceMigrationList {
-	return &v12.VirtualMachineInstanceMigrationList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstanceMigrationList"}, Items: migrations}
+func NewMigrationList(migrations ...v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigrationList {
+	return &v1.VirtualMachineInstanceMigrationList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceMigrationList"}, Items: migrations}
 }
 
-func NewVMList(vms ...v12.VirtualMachine) *v12.VirtualMachineList {
-	return &v12.VirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineList"}, Items: vms}
+func NewVMList(vms ...v1.VirtualMachine) *v1.VirtualMachineList {
+	return &v1.VirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineList"}, Items: vms}
 }
 
-func NewVirtualMachineInstanceReplicaSetList(rss ...v12.VirtualMachineInstanceReplicaSet) *v12.VirtualMachineInstanceReplicaSetList {
-	return &v12.VirtualMachineInstanceReplicaSetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSetList"}, Items: rss}
+func NewVirtualMachineInstanceReplicaSetList(rss ...v1.VirtualMachineInstanceReplicaSet) *v1.VirtualMachineInstanceReplicaSetList {
+	return &v1.VirtualMachineInstanceReplicaSetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSetList"}, Items: rss}
 }
 
-func NewMinimalVirtualMachineInstanceReplicaSet(name string) *v12.VirtualMachineInstanceReplicaSet {
-	return &v12.VirtualMachineInstanceReplicaSet{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSet"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalVirtualMachineInstanceReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
+	return &v1.VirtualMachineInstanceReplicaSet{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSet"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewMinimalKubeVirt(name string) *v12.KubeVirt {
-	return &v12.KubeVirt{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "KubeVirt"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalKubeVirt(name string) *v1.KubeVirt {
+	return &v1.KubeVirt{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "KubeVirt"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewKubeVirtList(kubevirts ...v12.KubeVirt) *v12.KubeVirtList {
-	return &v12.KubeVirtList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "KubeVirtList"}, Items: kubevirts}
+func NewKubeVirtList(kubevirts ...v1.KubeVirt) *v1.KubeVirtList {
+	return &v1.KubeVirtList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "KubeVirtList"}, Items: kubevirts}
 }
 
-func NewVirtualMachineInstancePresetList(rss ...v12.VirtualMachineInstancePreset) *v12.VirtualMachineInstancePresetList {
-	return &v12.VirtualMachineInstancePresetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstancePresetList"}, Items: rss}
+func NewVirtualMachineInstancePresetList(rss ...v1.VirtualMachineInstancePreset) *v1.VirtualMachineInstancePresetList {
+	return &v1.VirtualMachineInstancePresetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstancePresetList"}, Items: rss}
 }
 
-func NewMinimalVirtualMachineInstancePreset(name string) *v12.VirtualMachineInstancePreset {
-	return &v12.VirtualMachineInstancePreset{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "VirtualMachineInstancePreset"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalVirtualMachineInstancePreset(name string) *v1.VirtualMachineInstancePreset {
+	return &v1.VirtualMachineInstancePreset{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstancePreset"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
+func NewMinimalMigrationPolicy(name string) *v1alpha1.MigrationPolicy {
+	return &v1alpha1.MigrationPolicy{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyKind.Kind},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: name,
+		},
+	}
+}
+
+func NewMinimalMigrationPolicyList(policies ...v1alpha1.MigrationPolicy) *v1alpha1.MigrationPolicyList {
+	return &v1alpha1.MigrationPolicyList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyListKind.Kind}, Items: policies}
 }

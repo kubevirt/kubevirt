@@ -20,7 +20,7 @@
 package libvmi
 
 import (
-	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
+	kvirtv1 "kubevirt.io/api/core/v1"
 )
 
 // WithContainerImage specifies the name of the container image to be used.

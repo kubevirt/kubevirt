@@ -9,12 +9,16 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/framework/checks",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util/cluster:go_default_library",
         "//pkg/virt-config:go_default_library",
-        "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/util:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )

@@ -14,7 +14,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -154,7 +154,7 @@ func NewCACertSecret(operatorNamespace string) *k8sv1.Secret {
 				v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 			},
 		},
-		Type: "Opaque",
+		Type: k8sv1.SecretTypeTLS,
 	}
 }
 
@@ -189,7 +189,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
-			Type: "Opaque",
+			Type: k8sv1.SecretTypeTLS,
 		},
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -203,7 +203,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
-			Type: "Opaque",
+			Type: k8sv1.SecretTypeTLS,
 		},
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -217,7 +217,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
-			Type: "Opaque",
+			Type: k8sv1.SecretTypeTLS,
 		},
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -231,7 +231,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
-			Type: "Opaque",
+			Type: k8sv1.SecretTypeTLS,
 		},
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -245,7 +245,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
-			Type: "Opaque",
+			Type: k8sv1.SecretTypeTLS,
 		},
 	}
 	return secrets

@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 // GetControllerOf returns the controllerRef if controllee has a controller,

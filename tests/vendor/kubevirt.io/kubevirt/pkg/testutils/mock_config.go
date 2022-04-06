@@ -3,47 +3,26 @@ package testutils
 import (
 	"runtime"
 
-	v1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
-	KVv1 "kubevirt.io/client-go/apis/core/v1"
+	KVv1 "kubevirt.io/api/core/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
-	configMapName = "kubevirt-config"
-	namespace     = "kubevirt"
+	namespace = "kubevirt"
 )
 
-func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
-	return NewFakeClusterConfigWithCPUArch(cfgMap, runtime.GOARCH)
-}
-
-func NewFakeClusterConfigWithCPUArch(cfgMap *v1.ConfigMap, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
-	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
-	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
-
-	if cfgMap != nil {
-		copy := copy(cfgMap)
-		configMapInformer.GetStore().Add(copy)
-	}
-
-	AddDataVolumeAPI(crdInformer)
-
-	return virtconfig.NewClusterConfigWithCPUArch(configMapInformer, crdInformer, kubeVirtInformer, namespace, CPUArch), configMapInformer, crdInformer, kubeVirtInformer
-}
-
-func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	return NewFakeClusterConfigUsingKVWithCPUArch(kv, runtime.GOARCH)
 }
 
-func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	kv.ResourceVersion = rand.String(10)
-	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
+	kv.Status.Phase = "Deployed"
 	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
 
@@ -51,10 +30,10 @@ func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfigWithCPUArch(configMapInformer, crdInformer, kubeVirtInformer, namespace, CPUArch), configMapInformer, crdInformer, kubeVirtInformer
+	return virtconfig.NewClusterConfigWithCPUArch(crdInformer, kubeVirtInformer, namespace, CPUArch), crdInformer, kubeVirtInformer
 }
 
-func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	kv := &KVv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt",
@@ -92,27 +71,12 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	})
 }
 
-func UpdateFakeClusterConfig(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
-	copy := copy(cfgMap)
-	configMapInformer.GetStore().Update(copy)
-}
-
 func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer, kv *KVv1.KubeVirt) {
-	copy := kv.DeepCopy()
-	copy.ResourceVersion = rand.String(10)
-	copy.Name = "kubevirt"
-	copy.Namespace = "kubevirt"
+	clone := kv.DeepCopy()
+	clone.ResourceVersion = rand.String(10)
+	clone.Name = "kubevirt"
+	clone.Namespace = "kubevirt"
+	clone.Status.Phase = "Deployed"
 
-	kubeVirtInformer.GetStore().Update(copy)
-}
-
-func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {
-	copy := cfgMap.DeepCopy()
-	copy.ObjectMeta = metav1.ObjectMeta{
-		Namespace: namespace,
-		Name:      configMapName,
-		// Change the resource version, or the config will not be updated
-		ResourceVersion: rand.String(10),
-	}
-	return copy
+	kubeVirtInformer.GetStore().Update(clone)
 }

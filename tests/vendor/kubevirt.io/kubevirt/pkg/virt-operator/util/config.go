@@ -33,7 +33,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	clientutil "kubevirt.io/client-go/util"
 )
 
@@ -65,13 +65,17 @@ const (
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesWorkloadUpdatesEnabled = "WorkloadUpdatesEnabled"
 
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
+
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
 	// lookup keys in AdditionalProperties
-	ImagePrefixKey    = "imagePrefix"
-	ProductNameKey    = "productName"
-	ProductVersionKey = "productVersion"
+	ImagePrefixKey      = "imagePrefix"
+	ProductNameKey      = "productName"
+	ProductComponentKey = "productComponent"
+	ProductVersionKey   = "productVersion"
 
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
@@ -79,6 +83,9 @@ const (
 	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
+
+	// DefaultInfraReplicas is the default number of replicas for virt-api and virt-controller
+	DefaultInfraReplicas = 2
 )
 
 // DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
@@ -148,6 +155,10 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	additionalProperties := getKVMapFromSpec(kv.Spec)
 	if len(kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) > 0 {
 		additionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled] = ""
+	}
+	if kv.Spec.Configuration.MigrationConfiguration != nil &&
+		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
+		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
@@ -410,6 +421,15 @@ func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
 	return enabled
 }
 
+func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
+	value, enabled := c.AdditionalProperties[AdditionalPropertiesMigrationNetwork]
+	if enabled {
+		return &value
+	} else {
+		return nil
+	}
+}
+
 func (c *KubeVirtDeploymentConfig) GetMonitorNamespaces() []string {
 	p := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
 	if p == "" {
@@ -433,6 +453,10 @@ func (c *KubeVirtDeploymentConfig) GetNamespace() string {
 func (c *KubeVirtDeploymentConfig) GetVerbosity() string {
 	// not configurable yet
 	return "2"
+}
+
+func (c *KubeVirtDeploymentConfig) GetProductComponent() string {
+	return c.AdditionalProperties[ProductComponentKey]
 }
 
 func (c *KubeVirtDeploymentConfig) GetProductName() string {

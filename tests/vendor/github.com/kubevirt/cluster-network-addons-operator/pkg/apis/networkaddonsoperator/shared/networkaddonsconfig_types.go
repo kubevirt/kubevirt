@@ -1,26 +1,26 @@
 package shared
 
 import (
+	ocpv1 "github.com/openshift/api/config/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NetworkAddonsConfigSpec defines the desired state of NetworkAddonsConfig
-// +k8s:openapi-gen=true
 type NetworkAddonsConfigSpec struct {
-	Multus                 *Multus                 `json:"multus,omitempty"`
-	LinuxBridge            *LinuxBridge            `json:"linuxBridge,omitempty"`
-	Ovs                    *Ovs                    `json:"ovs,omitempty"`
-	KubeMacPool            *KubeMacPool            `json:"kubeMacPool,omitempty"`
-	ImagePullPolicy        corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
-	NMState                *NMState                `json:"nmstate,omitempty"`
-	MacvtapCni             *MacvtapCni             `json:"macvtap,omitempty"`
-	SelfSignConfiguration  *SelfSignConfiguration  `json:"selfSignConfiguration,omitempty"`
-	PlacementConfiguration *PlacementConfiguration `json:"placementConfiguration,omitempty"`
+	Multus                 *Multus                   `json:"multus,omitempty"`
+	LinuxBridge            *LinuxBridge              `json:"linuxBridge,omitempty"`
+	Ovs                    *Ovs                      `json:"ovs,omitempty"`
+	KubeMacPool            *KubeMacPool              `json:"kubeMacPool,omitempty"`
+	ImagePullPolicy        corev1.PullPolicy         `json:"imagePullPolicy,omitempty"`
+	NMState                *NMState                  `json:"nmstate,omitempty"`
+	MacvtapCni             *MacvtapCni               `json:"macvtap,omitempty"`
+	SelfSignConfiguration  *SelfSignConfiguration    `json:"selfSignConfiguration,omitempty"`
+	PlacementConfiguration *PlacementConfiguration   `json:"placementConfiguration,omitempty"`
+	TLSSecurityProfile     *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
-// +k8s:openapi-gen=true
 // SelfSignConfiguration defines self sign configuration
 type SelfSignConfiguration struct {
 	// CARotateInterval defines duration for CA expiration
@@ -33,16 +33,14 @@ type SelfSignConfiguration struct {
 	CertOverlapInterval string `json:"certOverlapInterval,omitempty"`
 }
 
-// +k8s:openapi-gen=true
 // PlacementConfiguration defines node placement configuration
 type PlacementConfiguration struct {
-	// Infra defines placement configuration for master nodes
+	// Infra defines placement configuration for control-plane nodes
 	Infra *Placement `json:"infra,omitempty"`
 	// Workloads defines placement configuration for worker nodes
 	Workloads *Placement `json:"workloads,omitempty"`
 }
 
-// +k8s:openapi-gen=true
 type Placement struct {
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Affinity     corev1.Affinity     `json:"affinity,omitempty"`
@@ -50,23 +48,18 @@ type Placement struct {
 }
 
 // Multus plugin enables attaching multiple network interfaces to Pods in Kubernetes
-// +k8s:openapi-gen=true
 type Multus struct{}
 
 // LinuxBridge plugin allows users to create a bridge and add the host and the container to it
-// +k8s:openapi-gen=true
 type LinuxBridge struct{}
 
 // Ovs plugin allows users to define Kubernetes networks on top of Open vSwitch bridges available on nodes
-// +k8s:openapi-gen=true
 type Ovs struct{}
 
 // NMState is a declarative node network configuration driven through Kubernetes API
-// +k8s:openapi-gen=true
 type NMState struct{}
 
 // KubeMacPool plugin manages MAC allocation to Pods and VMs in Kubernetes
-// +k8s:openapi-gen=true
 type KubeMacPool struct {
 	// RangeStart defines the first mac in range
 	RangeStart string `json:"rangeStart,omitempty"`
@@ -75,11 +68,9 @@ type KubeMacPool struct {
 }
 
 // MacvtapCni plugin allows users to define Kubernetes networks on top of existing host interfaces
-// +k8s:openapi-gen=true
 type MacvtapCni struct{}
 
 // NetworkAddonsConfigStatus defines the observed state of NetworkAddonsConfig
-// +k8s:openapi-gen=true
 type NetworkAddonsConfigStatus struct {
 	OperatorVersion string                   `json:"operatorVersion,omitempty"`
 	ObservedVersion string                   `json:"observedVersion,omitempty"`

@@ -110,7 +110,7 @@ func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, time
 // NewHelloWorldJob takes a DNS entry or an IP and a port which it will use to create a job
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
-func NewHelloWorldJob(host string, port string) *batchv1.Job {
+func NewHelloWorldJobTCP(host string, port string) *batchv1.Job {
 	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)
 	return newHelloWorldJob(check)
 }

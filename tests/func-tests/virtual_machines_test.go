@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -12,7 +12,7 @@ import (
 	kvtutil "kubevirt.io/kubevirt/tests/util"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
-	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 

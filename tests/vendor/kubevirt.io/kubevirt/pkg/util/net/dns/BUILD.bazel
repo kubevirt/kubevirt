@@ -1,29 +1,12 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "resolveconf.go",
-        "sanitize.go",
-    ],
+    srcs = ["sanitize.go"],
     importpath = "kubevirt.io/kubevirt/pkg/util/net/dns",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "dns_suite_test.go",
-        "resolveconf_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

@@ -32,10 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 type BaseControllerRefManager struct {
@@ -56,10 +56,39 @@ func (m *BaseControllerRefManager) CanAdopt() error {
 	return m.canAdoptErr
 }
 
-// ClaimObject tries to take ownership of an object for this controller.
+func (m *BaseControllerRefManager) isOwned(obj metav1.Object) bool {
+
+	controllerRef := metav1.GetControllerOf(obj)
+	if controllerRef == nil {
+		// no ownership
+		return false
+	}
+	if controllerRef.UID != m.Controller.GetUID() {
+		// Owned by someone else.
+		return false
+	}
+
+	return true
+}
+
+func (m *BaseControllerRefManager) isOwnedByOther(obj metav1.Object) bool {
+
+	controllerRef := metav1.GetControllerOf(obj)
+	if controllerRef == nil {
+		// no ownership
+		return false
+	}
+	if controllerRef.UID != m.Controller.GetUID() {
+		// Owned by someone else.
+		return true
+	}
+
+	return false
+}
+
+// ReleaseDetachedObject tries to take release ownership of an object for this controller.
 //
 // It will reconcile the following:
-//   * Adopt orphans if the match function returns true.
 //   * Release owned objects if the match function returns false.
 //
 // A non-nil error is returned if some form of reconciliation was attempted and
@@ -71,21 +100,16 @@ func (m *BaseControllerRefManager) CanAdopt() error {
 // own the object.
 //
 // No reconciliation will be attempted if the controller is being deleted.
-func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(metav1.Object) bool, adopt, release func(metav1.Object) error) (bool, error) {
-	controllerRef := metav1.GetControllerOf(obj)
-	if controllerRef != nil {
-		if controllerRef.UID != m.Controller.GetUID() {
-			// Owned by someone else. Ignore.
-			return false, nil
-		}
-		if match(obj) {
-			// We already own it and the selector matches.
-			// Return true (successfully claimed) before checking deletion timestamp.
-			// We're still allowed to claim things we already own while being deleted
-			// because doing so requires taking no actions.
-			return true, nil
-		}
-		// Owned by us but selector doesn't match.
+//
+// Returns
+// True - if controller maintains ownership of object
+// False - if controller releases or has no ownership of object
+// err - if release fails.
+func (m *BaseControllerRefManager) ReleaseDetachedObject(obj metav1.Object, match func(metav1.Object) bool, release func(metav1.Object) error) (bool, error) {
+	isOwned := m.isOwned(obj)
+
+	// Remove ownership when object is owned and selector does not match.
+	if isOwned && !match(obj) {
 		// Try to release, unless we're being deleted.
 		if m.Controller.GetDeletionTimestamp() != nil {
 			return false, nil
@@ -103,27 +127,68 @@ func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(met
 		return false, nil
 	}
 
-	// It's an orphan.
-	if m.Controller.GetDeletionTimestamp() != nil || !match(obj) {
-		// Ignore if we're being deleted or selector doesn't match.
-		return false, nil
-	}
-	if obj.GetDeletionTimestamp() != nil {
-		// Ignore if the object is being deleted
-		return false, nil
-	}
-	// Selector matches. Try to adopt.
-	if err := adopt(obj); err != nil {
-		// If the object no longer exists, ignore the error.
-		if errors.IsNotFound(err) {
+	return isOwned, nil
+}
+
+// ClaimObject tries to take ownership of an object for this controller.
+//
+// It will reconcile the following:
+//   * Adopt orphans if the match function returns true.
+//   * Release owned objects if the match function returns false.
+//
+// A non-nil error is returned if some form of reconciliation was attempted and
+// failed. Usually, controllers should try again later in case reconciliation
+// is still needed.
+//
+// If the error is nil, either the reconciliation succeeded, or no
+// reconciliation was necessary. The returned boolean indicates whether you now
+// own the object.
+//
+// No reconciliation will be attempted if the controller is being deleted.
+func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(metav1.Object) bool, adopt, release func(metav1.Object) error) (bool, error) {
+
+	owned := m.isOwned(obj)
+	ownedByOther := m.isOwnedByOther(obj)
+	matched := match(obj)
+
+	if owned && matched {
+		// already owned and matched.
+		return true, nil
+	} else if owned && !matched {
+		// owned, but selector doesn't match, so release if possible
+		isStillOwned, err := m.ReleaseDetachedObject(obj, match, release)
+		if err != nil {
+			return isStillOwned, err
+		}
+
+		return isStillOwned, nil
+	} else if !owned && !ownedByOther && matched {
+		// Not owned by anyone, but matches our selector, so adopt the orphan.
+
+		if m.Controller.GetDeletionTimestamp() != nil || !matched {
+			// Ignore if we're being deleted or selector doesn't match.
 			return false, nil
 		}
-		// Either someone else claimed it first, or there was a transient error.
-		// The controller should requeue and try again if it's still orphaned.
-		return false, err
+		if obj.GetDeletionTimestamp() != nil {
+			// Ignore if the object is being deleted
+			return false, nil
+		}
+		// Selector matches. Try to adopt.
+		if err := adopt(obj); err != nil {
+			// If the object no longer exists, ignore the error.
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			// Either someone else claimed it first, or there was a transient error.
+			// The controller should requeue and try again if it's still orphaned.
+			return false, err
+		}
+		// Successfully adopted.
+		return true, nil
+	} else {
+		// not owned or matched and can not be claimed
+		return false, nil
 	}
-	// Successfully adopted.
-	return true, nil
 }
 
 type VirtualMachineControllerRefManager struct {
@@ -211,6 +276,46 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineInstances(vmis [
 		}
 	}
 	return claimed, utilerrors.NewAggregate(errlist)
+}
+
+// ReleaseDetachVirtualMachines removes ownership of detached VMs.
+//
+// It will reconcile the following:
+//   * Release owned objects if the selector no longer matches.
+//
+// List of Owned VMs is returned.
+func (m *VirtualMachineControllerRefManager) ReleaseDetachedVirtualMachines(vms []*virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) ([]*virtv1.VirtualMachine, error) {
+	var owned []*virtv1.VirtualMachine
+	var errlist []error
+
+	match := func(obj metav1.Object) bool {
+		vm := obj.(*virtv1.VirtualMachine)
+		// Check selector first so filters only run on potentially matching VirtualMachines.
+		if !m.Selector.Matches(labels.Set(vm.Labels)) {
+			return false
+		}
+		for _, filter := range filters {
+			if !filter(vm) {
+				return false
+			}
+		}
+		return true
+	}
+	release := func(obj metav1.Object) error {
+		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachine))
+	}
+
+	for _, vm := range vms {
+		isOwner, err := m.ReleaseDetachedObject(vm, match, release)
+		if err != nil {
+			errlist = append(errlist, err)
+			continue
+		}
+		if isOwner {
+			owned = append(owned, vm)
+		}
+	}
+	return owned, utilerrors.NewAggregate(errlist)
 }
 
 // ClaimMatchedDataVolumes tries to take ownership of a list of DataVolumes.
@@ -314,7 +419,7 @@ func (m *VirtualMachineControllerRefManager) AdoptVirtualMachineInstance(vmi *vi
 		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
 		m.Controller.GetName(), m.Controller.GetUID(), vmi.UID)
-	return m.virtualMachineControl.PatchVirtualMachine(vmi.Namespace, vmi.Name, []byte(addControllerPatch))
+	return m.virtualMachineControl.PatchVirtualMachineInstance(vmi.Namespace, vmi.Name, []byte(addControllerPatch))
 }
 
 // ReleaseVirtualMachineInstance sends a patch to free the virtual machine from the control of the controller.
@@ -324,7 +429,7 @@ func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachineInstance(vmi *
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
 	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)
-	err := m.virtualMachineControl.PatchVirtualMachine(vmi.Namespace, vmi.Name, []byte(deleteOwnerRefPatch))
+	err := m.virtualMachineControl.PatchVirtualMachineInstance(vmi.Namespace, vmi.Name, []byte(deleteOwnerRefPatch))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// If the vmi no longer exists, ignore it.
@@ -337,6 +442,49 @@ func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachineInstance(vmi *
 			// In both cases, the error can be ignored.
 
 			// TODO: If the vmi has owner references, but none of them
+			// has the owner.UID, server will silently ignore the patch.
+			// Investigate why.
+			return nil
+		}
+	}
+	return err
+}
+
+// AdoptVirtualMachine sends a patch to take control of the vm. It returns the error if
+// the patching fails.
+func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.VirtualMachine) error {
+	if err := m.CanAdopt(); err != nil {
+		return fmt.Errorf("can't adopt VirtualMachine %v/%v (%v): %v", vm.Namespace, vm.Name, vm.UID, err)
+	}
+	// Note that ValidateOwnerReferences() will reject this patch if another
+	// OwnerReference exists with controller=true.
+	addControllerPatch := fmt.Sprintf(
+		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
+		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
+		m.Controller.GetName(), m.Controller.GetUID(), vm.UID)
+	return m.virtualMachineControl.PatchVirtualMachine(vm.Namespace, vm.Name, []byte(addControllerPatch))
+}
+
+// ReleaseVirtualMachine sends a patch to free the virtual machine from the control of the controller.
+// It returns the error if the patching fails. 404 and 422 errors are ignored.
+func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vm *virtv1.VirtualMachine) error {
+	log.Log.V(2).Object(vm).Infof("patching vm to remove its controllerRef to %s/%s:%s",
+		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
+	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
+	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)
+	err := m.virtualMachineControl.PatchVirtualMachine(vm.Namespace, vm.Name, []byte(deleteOwnerRefPatch))
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// If the vm no longer exists, ignore it.
+			return nil
+		}
+		if errors.IsInvalid(err) {
+			// Invalid error will be returned in two cases: 1. the vm
+			// has no owner reference, 2. the uid of the vm doesn't
+			// match, which means the vm is deleted and then recreated.
+			// In both cases, the error can be ignored.
+
+			// TODO: If the vm has owner references, but none of them
 			// has the owner.UID, server will silently ignore the patch.
 			// Investigate why.
 			return nil
@@ -390,6 +538,7 @@ func (m *VirtualMachineControllerRefManager) ReleaseDataVolume(dataVolume *cdiv1
 
 type VirtualMachineControlInterface interface {
 	PatchVirtualMachine(namespace, name string, data []byte) error
+	PatchVirtualMachineInstance(namespace, name string, data []byte) error
 	PatchDataVolume(namespace, name string, data []byte) error
 }
 
@@ -397,9 +546,15 @@ type RealVirtualMachineControl struct {
 	Clientset kubecli.KubevirtClient
 }
 
+func (r RealVirtualMachineControl) PatchVirtualMachineInstance(namespace, name string, data []byte) error {
+	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
+	_, err := r.Clientset.VirtualMachineInstance(namespace).Patch(name, types.MergePatchType, data, &metav1.PatchOptions{})
+	return err
+}
+
 func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
-	_, err := r.Clientset.VirtualMachineInstance(namespace).Patch(name, types.MergePatchType, data)
+	_, err := r.Clientset.VirtualMachine(namespace).Patch(name, types.MergePatchType, data, &metav1.PatchOptions{})
 	return err
 }
 

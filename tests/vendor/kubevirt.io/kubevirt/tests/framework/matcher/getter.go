@@ -3,13 +3,14 @@ package matcher
 import (
 	"context"
 
+	k8sv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // ThisPod fetches the latest state of the pod. If the object does not exist, nil is returned.
@@ -28,6 +29,8 @@ func ThisPodWith(namespace string, name string) func() (*v1.Pod, error) {
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "Pod"
 		return
 	}
 }
@@ -100,6 +103,8 @@ func ThisDVWith(namespace string, name string) func() (*v1beta1.DataVolume, erro
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "DataVolume"
 		return
 	}
 }
@@ -120,6 +125,8 @@ func ThisPVCWith(namespace string, name string) func() (*v1.PersistentVolumeClai
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "PersistentVolumeClaim"
 		return
 	}
 }
@@ -140,6 +147,23 @@ func ThisMigrationWith(namespace string, name string) func() (*virtv1.VirtualMac
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
+		return
+	}
+}
+
+// ThisDeploymentWith fetches the latest state of the Deployment based on namespace and name. If the object does not exist, nil is returned.
+func ThisDeploymentWith(namespace string, name string) func() (*k8sv1.Deployment, error) {
+	return func() (p *k8sv1.Deployment, err error) {
+		virtClient, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			return nil, err
+		}
+		p, err = virtClient.AppsV1().Deployments(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		p.Kind = "Deployment"
 		return
 	}
 }

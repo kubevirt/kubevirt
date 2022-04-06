@@ -25,9 +25,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	GroupNameSecurity = "security.openshift.io"
+	serviceAccountFmt = "%s:%s:%s"
+)
 const OperatorServiceAccountName = "kubevirt-operator"
 
 // Used for manifest generation only, not by the operator itself
@@ -65,7 +69,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 	// (you can't create rules with permissions you don't have yourself)
 	operatorRole := &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -175,7 +179,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"rbac.authorization.k8s.io",
+					VersionName,
 				},
 				Resources: []string{
 					"clusterroles",
@@ -211,7 +215,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"security.openshift.io",
+					GroupNameSecurity,
 				},
 				Resources: []string{
 					"securitycontextconstraints",
@@ -225,7 +229,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"security.openshift.io",
+					GroupNameSecurity,
 				},
 				Resources: []string{
 					"securitycontextconstraints",
@@ -241,7 +245,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"security.openshift.io",
+					GroupNameSecurity,
 				},
 				Resources: []string{
 					"securitycontextconstraints",
@@ -306,6 +310,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/removevolume",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
+					"virtualmachineinstances/softreboot",
 				},
 				Verbs: []string{
 					"update",
@@ -390,7 +395,7 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -400,7 +405,7 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: VersionName,
 			Kind:     "ClusterRole",
 			Name:     OperatorServiceAccountName,
 		},
@@ -417,7 +422,7 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -428,7 +433,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: VersionName,
 			Kind:     "Role",
 			Name:     OperatorServiceAccountName,
 		},
@@ -446,7 +451,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 func NewOperatorRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -497,10 +502,10 @@ func GetKubevirtComponentsServiceAccounts(namespace string) map[string]bool {
 	usermap := make(map[string]bool)
 
 	prefix := "system:serviceaccount"
-	usermap[fmt.Sprintf("%s:%s:%s", prefix, namespace, HandlerServiceAccountName)] = true
-	usermap[fmt.Sprintf("%s:%s:%s", prefix, namespace, ApiServiceAccountName)] = true
-	usermap[fmt.Sprintf("%s:%s:%s", prefix, namespace, ControllerServiceAccountName)] = true
-	usermap[fmt.Sprintf("%s:%s:%s", prefix, namespace, OperatorServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, HandlerServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, ApiServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, ControllerServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, OperatorServiceAccountName)] = true
 
 	return usermap
 }

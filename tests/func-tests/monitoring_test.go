@@ -16,7 +16,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/flags"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	promApi "github.com/prometheus/client_golang/api"

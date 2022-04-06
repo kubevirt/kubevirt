@@ -8,6 +8,9 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // Authentication specifies cluster-wide settings for authentication (like OAuth and
 // webhook token authenticators). The canonical name of an instance is `cluster`.
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type Authentication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -56,6 +59,12 @@ type AuthenticationSpec struct {
 	// serviceAccountIssuer is the identifier of the bound service account token
 	// issuer.
 	// The default is https://kubernetes.default.svc
+	// WARNING: Updating this field will result in the invalidation of
+	// all bound tokens with the previous issuer value. Unless the
+	// holder of a bound token has explicit support for a change in
+	// issuer, they will not request a new bound token until pod
+	// restart or until their existing token exceeds 80% of its
+	// duration.
 	// +optional
 	ServiceAccountIssuer string `json:"serviceAccountIssuer"`
 }
@@ -82,6 +91,8 @@ type AuthenticationStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type AuthenticationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

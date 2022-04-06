@@ -22,7 +22,7 @@ package istio
 import (
 	"strings"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 func ProxyInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {

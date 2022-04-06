@@ -30,7 +30,6 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -47,26 +46,6 @@ const (
 	// latency/pod at the scale of 3000 pods over 100 nodes.
 	ExpectationsTimeout = 5 * time.Minute
 )
-
-var UpdateTaintBackoff = wait.Backoff{
-	Steps:    5,
-	Duration: 100 * time.Millisecond,
-	Jitter:   1.0,
-}
-
-type ResyncPeriodFunc func() time.Duration
-
-// Returns 0 for resyncPeriod in case resyncing is not needed.
-func NoResyncPeriodFunc() time.Duration {
-	return 0
-}
-
-// StaticResyncPeriodFunc returns the resync period specified
-func StaticResyncPeriodFunc(resyncPeriod time.Duration) ResyncPeriodFunc {
-	return func() time.Duration {
-		return resyncPeriod
-	}
-}
 
 // Expectations are a way for controllers to tell the controller manager what they expect. eg:
 //	ControllerExpectations: {

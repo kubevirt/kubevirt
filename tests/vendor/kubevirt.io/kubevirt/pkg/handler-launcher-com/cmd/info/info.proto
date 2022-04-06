@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package kubevirt.cmd.info;
+option go_package = "info";
+
+service CmdInfo {
+  rpc Info (CmdInfoRequest) returns (CmdInfoResponse) {}
+}
+
+message CmdInfoRequest {}
+
+message CmdInfoResponse {
+  repeated uint32 supportedCmdVersions = 1;
+}

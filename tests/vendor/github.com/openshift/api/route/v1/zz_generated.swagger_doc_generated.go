@@ -12,7 +12,7 @@ package v1
 
 // AUTO-GENERATED FUNCTIONS START HERE
 var map_Route = map[string]string{
-	"":       "A route allows developers to expose services through an HTTP(S) aware load balancing and proxy layer via a public DNS entry. The route may further specify TLS options and a certificate, or specify a public CNAME that the router should also accept for HTTP and HTTPS traffic. An administrator typically configures their router to be visible outside the cluster firewall, and may also add additional security, caching, or traffic controls on the service content. Routers usually talk directly to the service endpoints.\n\nOnce a route is created, the `host` field may not be changed. Generally, routers use the oldest route with a given host when resolving conflicts.\n\nRouters are subject to additional customization and may support additional controls via the annotations field.\n\nBecause administrators may configure multiple routers, the route status field is used to return information to clients about the names and states of the route under each router. If a client chooses a duplicate name, for instance, the route status conditions are used to indicate the route cannot be chosen.\n\nTo enable HTTP/2 ALPN on a route it requires a custom (non-wildcard) certificate. This prevents connection coalescing by clients, notably web browsers. We do not support HTTP/2 ALPN on routes that use the default certificate because of the risk of connection re-use/coalescing. Routes that do not have their own custom certificate will not be HTTP/2 ALPN-enabled on either the frontend or the backend.",
+	"":       "A route allows developers to expose services through an HTTP(S) aware load balancing and proxy layer via a public DNS entry. The route may further specify TLS options and a certificate, or specify a public CNAME that the router should also accept for HTTP and HTTPS traffic. An administrator typically configures their router to be visible outside the cluster firewall, and may also add additional security, caching, or traffic controls on the service content. Routers usually talk directly to the service endpoints.\n\nOnce a route is created, the `host` field may not be changed. Generally, routers use the oldest route with a given host when resolving conflicts.\n\nRouters are subject to additional customization and may support additional controls via the annotations field.\n\nBecause administrators may configure multiple routers, the route status field is used to return information to clients about the names and states of the route under each router. If a client chooses a duplicate name, for instance, the route status conditions are used to indicate the route cannot be chosen.\n\nTo enable HTTP/2 ALPN on a route it requires a custom (non-wildcard) certificate. This prevents connection coalescing by clients, notably web browsers. We do not support HTTP/2 ALPN on routes that use the default certificate because of the risk of connection re-use/coalescing. Routes that do not have their own custom certificate will not be HTTP/2 ALPN-enabled on either the frontend or the backend.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"spec":   "spec is the desired state of the route",
 	"status": "status is the current state of the route",
 }
@@ -36,7 +36,7 @@ func (RouteIngress) SwaggerDoc() map[string]string {
 
 var map_RouteIngressCondition = map[string]string{
 	"":                   "RouteIngressCondition contains details for the current condition of this route on a particular router.",
-	"type":               "Type is the type of the condition. Currently only Ready.",
+	"type":               "Type is the type of the condition. Currently only Admitted.",
 	"status":             "Status is the status of the condition. Can be True, False, Unknown.",
 	"reason":             "(brief) reason for the condition's last transition, and is usually a machine and human readable constant",
 	"message":            "Human readable message indicating details about last transition.",
@@ -48,7 +48,7 @@ func (RouteIngressCondition) SwaggerDoc() map[string]string {
 }
 
 var map_RouteList = map[string]string{
-	"":      "RouteList is a collection of Routes.",
+	"":      "RouteList is a collection of Routes.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"items": "items is a list of routes",
 }
 
@@ -114,7 +114,7 @@ func (RouterShard) SwaggerDoc() map[string]string {
 var map_TLSConfig = map[string]string{
 	"":                              "TLSConfig defines config used to secure a route and provide termination",
 	"termination":                   "termination indicates termination type.\n\n* edge - TLS termination is done by the router and http is used to communicate with the backend (default) * passthrough - Traffic is sent straight to the destination without the router providing TLS termination * reencrypt - TLS termination is done by the router and https is used to communicate with the backend",
-	"certificate":                   "certificate provides certificate contents",
+	"certificate":                   "certificate provides certificate contents. This should be a single serving certificate, not a certificate chain. Do not include a CA certificate.",
 	"key":                           "key provides key file contents",
 	"caCertificate":                 "caCertificate provides the cert authority certificate contents",
 	"destinationCACertificate":      "destinationCACertificate provides the contents of the ca certificate of the final destination.  When using reencrypt termination this file should be provided in order to have routers use it for health checks on the secure connection. If this field is not specified, the router may provide its own destination CA and perform hostname validation using the short service name (service.namespace.svc), which allows infrastructure generated certificates to automatically verify.",

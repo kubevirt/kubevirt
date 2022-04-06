@@ -25,7 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -59,12 +59,12 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 				continue
 			}
 
-			if !podIsUpToDate(pod, kv) {
+			if !PodIsUpToDate(pod, kv) {
 				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate.", daemonset.Name)
 				return false
 			}
 
-			if podIsReady(pod) {
+			if PodIsReady(pod) {
 				podsReady++
 			}
 		}
@@ -75,7 +75,7 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 		return false
 	}
 
-	return true
+	return podsReady == daemonset.Status.DesiredNumberScheduled
 }
 
 func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
@@ -105,12 +105,12 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 				continue
 			}
 
-			if !podIsUpToDate(pod, kv) {
+			if !PodIsUpToDate(pod, kv) {
 				log.Log.Infof("Deployment %v waiting for out of date pods to terminate.", deployment.Name)
 				return false
 			}
 
-			if podIsReady(pod) {
+			if PodIsReady(pod) {
 				podsReady++
 			}
 		}
@@ -121,6 +121,16 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 		return false
 	}
 	return true
+}
+
+func DaemonSetIsUpToDate(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) bool {
+	version := kv.Status.TargetKubeVirtVersion
+	registry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	return daemonSet.Annotations[v1.InstallStrategyVersionAnnotation] == version &&
+		daemonSet.Annotations[v1.InstallStrategyRegistryAnnotation] == registry &&
+		daemonSet.Annotations[v1.InstallStrategyIdentifierAnnotation] == id
 }
 
 func podIsRunning(pod *k8sv1.Pod) bool {
@@ -134,7 +144,7 @@ func podHasNamePrefix(pod *k8sv1.Pod, namePrefix string) bool {
 	return false
 }
 
-func podIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
+func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
 	if pod.Annotations == nil {
 		return false
 	}
@@ -157,7 +167,7 @@ func podIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
 	return true
 }
 
-func podIsReady(pod *k8sv1.Pod) bool {
+func PodIsReady(pod *k8sv1.Pod) bool {
 	if pod.Status.Phase != k8sv1.PodRunning {
 		return false
 	}
@@ -167,4 +177,19 @@ func podIsReady(pod *k8sv1.Pod) bool {
 		}
 	}
 	return true
+}
+
+func PodIsCrashLooping(pod *k8sv1.Pod) bool {
+	haveContainersCrashed := func(cs []k8sv1.ContainerStatus) bool {
+		for i := range cs {
+			if cs[i].State.Terminated != nil ||
+				cs[i].LastTerminationState.Terminated != nil ||
+				cs[i].RestartCount > 0 {
+				return true
+			}
+		}
+		return false
+	}
+
+	return haveContainersCrashed(pod.Status.ContainerStatuses)
 }

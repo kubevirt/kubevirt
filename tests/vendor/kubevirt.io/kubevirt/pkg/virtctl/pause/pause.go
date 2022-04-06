@@ -29,7 +29,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	kubevirtV1 "kubevirt.io/client-go/apis/core/v1"
+	kubevirtV1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -42,6 +42,10 @@ const (
 	ARG_VM_LONG     = "virtualmachine"
 	ARG_VMI_SHORT   = "vmi"
 	ARG_VMI_LONG    = "virtualmachineinstance"
+)
+
+var (
+	dryRun bool
 )
 
 func NewPauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -61,6 +65,7 @@ Second argument is the name of the resource.`,
 			return c.Run(args)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -82,6 +87,7 @@ Second argument is the name of the resource.`,
 			return c.Run(args)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -110,6 +116,11 @@ func (vc *VirtCommand) Run(args []string) error {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
+	var dryRunOption []string
+	if dryRun {
+		fmt.Println("Dry Run execution")
+		dryRunOption = []string{v1.DryRunAll}
+	}
 	switch vc.command {
 	case COMMAND_PAUSE:
 		switch resourceType {
@@ -119,7 +130,7 @@ func (vc *VirtCommand) Run(args []string) error {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
 			vmiName := vm.Name
-			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName)
+			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				if errors.IsNotFound(err) {
 					runningStrategy, err := vm.RunStrategy()
@@ -134,13 +145,14 @@ func (vc *VirtCommand) Run(args []string) error {
 				}
 				return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
 			}
-			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.command)
+			printLog(vmiName, vc.command)
+
 		case ARG_VMI_LONG, ARG_VMI_SHORT:
-			err = virtClient.VirtualMachineInstance(namespace).Pause(resourceName)
+			err = virtClient.VirtualMachineInstance(namespace).Pause(resourceName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", resourceName, err)
 			}
-			fmt.Printf("VMI %s was scheduled to %s\n", resourceName, vc.command)
+			printLog(resourceName, vc.command)
 		}
 	case COMMAND_UNPAUSE:
 		switch resourceType {
@@ -150,18 +162,22 @@ func (vc *VirtCommand) Run(args []string) error {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
 			vmiName := vm.Name
-			err = virtClient.VirtualMachineInstance(namespace).Unpause(vmiName)
+			err = virtClient.VirtualMachineInstance(namespace).Unpause(vmiName, &kubevirtV1.UnpauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", vmiName, err)
 			}
-			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.command)
+			printLog(vmiName, vc.command)
 		case ARG_VMI_LONG, ARG_VMI_SHORT:
-			err = virtClient.VirtualMachineInstance(namespace).Unpause(resourceName)
+			err = virtClient.VirtualMachineInstance(namespace).Unpause(resourceName, &kubevirtV1.UnpauseOptions{DryRun: dryRunOption})
 			if err != nil {
 				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", resourceName, err)
 			}
-			fmt.Printf("VMI %s was scheduled to %s\n", resourceName, vc.command)
+			printLog(resourceName, vc.command)
 		}
 	}
 	return nil
+}
+
+func printLog(resource string, command string) (int, error) {
+	return fmt.Printf("VMI %s was scheduled to %s\n", resource, command)
 }

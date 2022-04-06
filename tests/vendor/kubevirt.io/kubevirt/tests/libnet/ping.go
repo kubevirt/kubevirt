@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/utils/net"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/tests/console"
 )
 

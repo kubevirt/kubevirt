@@ -24,8 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/pointer"
 
-	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
+	kvirtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 // Option represents an action that enables an option.
@@ -98,6 +100,28 @@ func WithNodeSelectorFor(node *k8sv1.Node) Option {
 			vmi.Spec.NodeSelector = map[string]string{}
 		}
 		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = node.Name
+	}
+}
+
+// WithUefi configures EFI bootloader and SecureBoot.
+func WithUefi(secureBoot bool) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Firmware = &v1.Firmware{
+			Bootloader: &v1.Bootloader{
+				EFI: &v1.EFI{
+					SecureBoot: pointer.BoolPtr(secureBoot),
+				},
+			},
+		}
+	}
+}
+
+// WithSEV adds `launchSecurity` with `sev`.
+func WithSEV() Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			SEV: &v1.SEV{},
+		}
 	}
 }
 

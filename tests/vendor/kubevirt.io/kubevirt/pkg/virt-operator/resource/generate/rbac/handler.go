@@ -25,7 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations"
 )
 
 const HandlerServiceAccountName = "kubevirt-handler"
@@ -59,7 +60,7 @@ func newHandlerServiceAccount(namespace string) *corev1.ServiceAccount {
 func newHandlerClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -144,6 +145,17 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					migrations.GroupName,
+				},
+				Resources: []string{
+					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
@@ -151,7 +163,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -178,7 +190,7 @@ func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 func newHandlerRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -207,7 +219,7 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 func newHandlerRoleBinding(namespace string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
+			APIVersion: VersionNamev1,
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{

@@ -26,12 +26,12 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
@@ -71,17 +71,18 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 	return err
 }
 
-// SafeExpectBatch runs the batch from `expected` connecting to a VMI's console and
-// wait `timeout` for the batch to return, it also check that the sended commands arrives to console checking.
+// SafeExpectBatch runs the batch from `expected`, connecting to a VMI's console and
+// waiting `wait` seconds for the batch to return.
+// It validates that the commands arrive to the console.
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
 func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	_, err := SafeExpectBatchWithResponse(vmi, expected, wait)
 	return err
 }
 
-// SafeExpectBatchWithResponse runs the batch from `expected` connecting to a VMI's console and
-// wait `timeout` for the batch to return with a response.
-// It includes a safety check which validates that the commands arrive to the console.
+// SafeExpectBatchWithResponse runs the batch from `expected`, connecting to a VMI's console and
+// waiting `wait` seconds for the batch to return with a response.
+// It validates that the commands arrive to the console.
 // NOTE: This functions inherits limitations from `ExpectBatchWithValidatedSend`, refer to it for more information.
 func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) ([]expect.BatchRes, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -101,8 +102,8 @@ func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expe
 	return resp, err
 }
 
-// RunCommand runs the command line from `command connecting to an already logged in console at vmi
-// and wait `timeout` for command to return.
+// RunCommand runs the command line from `command` connecting to an already logged in console at vmi
+// and waiting `timeout` for command to return.
 // NOTE: The safer version `ExpectBatchWithValidatedSend` is not used here since it does not support cases.
 func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
 	err := ExpectBatch(vmi, []expect.Batcher{

@@ -8,6 +8,9 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // Network holds cluster-wide information about Network. The canonical name is `cluster`. It is used to configure the desired network configuration, such as: IP address pools for services/pod IPs, network plugin, etc.
 // Please view network.spec for an explanation on what applies when configuring this resource.
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type Network struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -76,6 +79,9 @@ type NetworkStatus struct {
 
 	// ClusterNetworkMTU is the MTU for inter-pod networking.
 	ClusterNetworkMTU int `json:"clusterNetworkMTU,omitempty"`
+
+	// Migration contains the cluster network migration configuration.
+	Migration *NetworkMigration `json:"migration,omitempty"`
 }
 
 // ClusterNetworkEntry is a contiguous block of IP addresses from which pod IPs
@@ -125,9 +131,47 @@ type ExternalIPPolicy struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type NetworkList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Network `json:"items"`
+}
+
+// NetworkMigration represents the cluster network configuration.
+type NetworkMigration struct {
+	// NetworkType is the target plugin that is to be deployed.
+	// Currently supported values are: OpenShiftSDN, OVNKubernetes
+	// +kubebuilder:validation:Enum={"OpenShiftSDN","OVNKubernetes"}
+	// +optional
+	NetworkType string `json:"networkType,omitempty"`
+
+	// MTU contains the MTU migration configuration.
+	// +optional
+	MTU *MTUMigration `json:"mtu,omitempty"`
+}
+
+// MTUMigration contains infomation about MTU migration.
+type MTUMigration struct {
+	// Network contains MTU migration configuration for the default network.
+	// +optional
+	Network *MTUMigrationValues `json:"network,omitempty"`
+
+	// Machine contains MTU migration configuration for the machine's uplink.
+	// +optional
+	Machine *MTUMigrationValues `json:"machine,omitempty"`
+}
+
+// MTUMigrationValues contains the values for a MTU migration.
+type MTUMigrationValues struct {
+	// To is the MTU to migrate to.
+	// +kubebuilder:validation:Minimum=0
+	To *uint32 `json:"to"`
+
+	// From is the MTU to migrate from.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	From *uint32 `json:"from,omitempty"`
 }

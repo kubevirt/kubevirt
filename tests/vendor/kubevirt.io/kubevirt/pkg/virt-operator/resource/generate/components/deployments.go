@@ -20,17 +20,18 @@ package components
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	virtv1 "kubevirt.io/client-go/apis/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -44,6 +45,8 @@ const (
 
 	kubevirtLabelKey              = "kubevirt.io"
 	kubernetesHostnameTopologyKey = "kubernetes.io/hostname"
+
+	portName = "--port"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -112,7 +115,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(podName string, imageName string, repository string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(podName string, imageName string, repository string, version string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
 
 	version = AddVersionSeparatorPrefix(version)
 
@@ -121,9 +124,6 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 			Labels: map[string]string{
 				virtv1.AppLabel:    podName,
 				prometheusLabelKey: prometheusLabelValue,
-			},
-			Annotations: map[string]string{
-				"scheduler.alpha.kubernetes.io/critical-pod": "",
 			},
 			Name: podName,
 		},
@@ -147,6 +147,10 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 
 	if productName != "" {
 		podTemplateSpec.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productName
+	}
+
+	if productComponent != "" {
+		podTemplateSpec.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
 	if envVars != nil && len(*envVars) != 0 {
@@ -194,9 +198,9 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, secretVolumeMount)
 }
 
-func newBaseDeployment(deploymentName string, imageName string, namespace string, repository string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
+func newBaseDeployment(deploymentName string, imageName string, namespace string, repository string, version string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, pullPolicy, podAffinity, envVars)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, pullPolicy, podAffinity, envVars)
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +237,10 @@ func newBaseDeployment(deploymentName string, imageName string, namespace string
 		deployment.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productName
 	}
 
+	if productComponent != "" {
+		deployment.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
+	}
+
 	return deployment, nil
 }
 
@@ -260,12 +268,12 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtAPIName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, pullPolicy, podAntiAffinity, env)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, pullPolicy, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +291,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		VirtAPIName,
-		"--port",
+		portName,
 		"8443",
 		"--console-server-port",
 		"8186",
@@ -304,14 +312,14 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		},
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
 					IntVal: 8443,
 				},
-				Path: "/apis/subresources.kubevirt.io/" + virtv1.SubresourceGroupVersions[0].Version + "/healthz",
+				Path: path.Join("/apis/subresources.kubevirt.io", virtv1.SubresourceGroupVersions[0].Version, "healthz"),
 			},
 		},
 		InitialDelaySeconds: 15,
@@ -328,12 +336,12 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, productName string, productVersion string, productComponent string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, pullPolicy, podAntiAffinity, env)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, productComponent, pullPolicy, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +359,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		VirtControllerName,
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
-		"--port",
+		portName,
 		"8443",
 		"-v",
 		verbosity,
@@ -365,7 +373,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 8,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -379,7 +387,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		TimeoutSeconds:      10,
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -442,10 +450,8 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						virtv1.AppLabel:    VirtOperatorName,
+						virtv1.AppName:     VirtOperatorName,
 						prometheusLabelKey: prometheusLabelValue,
-					},
-					Annotations: map[string]string{
-						"scheduler.alpha.kubernetes.io/critical-pod": "",
 					},
 					Name: VirtOperatorName,
 				},
@@ -461,7 +467,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								VirtOperatorName,
-								"--port",
+								portName,
 								"8443",
 								"-v",
 								verbosity,
@@ -479,7 +485,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 								},
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Scheme: corev1.URISchemeHTTPS,
 										Port: intstr.IntOrString{
@@ -591,11 +597,14 @@ func AddVersionSeparatorPrefix(version string) string {
 	return version
 }
 
-func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *v1beta1.PodDisruptionBudget {
+func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv1.PodDisruptionBudget {
 	pdbName := deployment.Name + "-pdb"
-	minAvailable := intstr.FromInt(int(1))
+	minAvailable := intstr.FromInt(1)
+	if deployment.Spec.Replicas != nil {
+		minAvailable = intstr.FromInt(int(*deployment.Spec.Replicas - 1))
+	}
 	selector := deployment.Spec.Selector.DeepCopy()
-	podDisruptionBudget := &v1beta1.PodDisruptionBudget{
+	podDisruptionBudget := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: deployment.Namespace,
 			Name:      pdbName,
@@ -603,7 +612,7 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *v1beta1
 				virtv1.AppLabel: pdbName,
 			},
 		},
-		Spec: v1beta1.PodDisruptionBudgetSpec{
+		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector:     selector,
 		},

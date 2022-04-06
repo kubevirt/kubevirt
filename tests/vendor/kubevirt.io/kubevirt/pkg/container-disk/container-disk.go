@@ -35,7 +35,7 @@ import (
 
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 )

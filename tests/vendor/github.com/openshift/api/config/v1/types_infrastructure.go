@@ -8,6 +8,9 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // +kubebuilder:subresource:status
 
 // Infrastructure holds cluster-wide information about Infrastructure.  The canonical name is `cluster`
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type Infrastructure struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -77,10 +80,51 @@ type InfrastructureStatus struct {
 	// like kubelets, to contact the Kubernetes API server using the
 	// infrastructure provider rather than Kubernetes networking.
 	APIServerInternalURL string `json:"apiServerInternalURI"`
+
+	// controlPlaneTopology expresses the expectations for operands that normally run on control nodes.
+	// The default is 'HighlyAvailable', which represents the behavior operators have in a "normal" cluster.
+	// The 'SingleReplica' mode will be used in single-node deployments
+	// and the operators should not configure the operand for highly-available operation
+	// The 'External' mode indicates that the control plane is hosted externally to the cluster and that
+	// its components are not visible within the cluster.
+	// +kubebuilder:default=HighlyAvailable
+	// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica;External
+	ControlPlaneTopology TopologyMode `json:"controlPlaneTopology"`
+
+	// infrastructureTopology expresses the expectations for infrastructure services that do not run on control
+	// plane nodes, usually indicated by a node selector for a `role` value
+	// other than `master`.
+	// The default is 'HighlyAvailable', which represents the behavior operators have in a "normal" cluster.
+	// The 'SingleReplica' mode will be used in single-node deployments
+	// and the operators should not configure the operand for highly-available operation
+	// NOTE: External topology mode is not applicable for this field.
+	// +kubebuilder:default=HighlyAvailable
+	// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica
+	InfrastructureTopology TopologyMode `json:"infrastructureTopology"`
 }
 
+// TopologyMode defines the topology mode of the control/infra nodes.
+// NOTE: Enum validation is specified in each field that uses this type,
+// given that External value is not applicable to the InfrastructureTopology
+// field.
+type TopologyMode string
+
+const (
+	// "HighlyAvailable" is for operators to configure high-availability as much as possible.
+	HighlyAvailableTopologyMode TopologyMode = "HighlyAvailable"
+
+	// "SingleReplica" is for operators to avoid spending resources for high-availability purpose.
+	SingleReplicaTopologyMode TopologyMode = "SingleReplica"
+
+	// "External" indicates that the component is running externally to the cluster. When specified
+	// as the control plane topology, operators should avoid scheduling workloads to masters or assume
+	// that any of the control plane components such as kubernetes API server or etcd are visible within
+	// the cluster.
+	ExternalTopologyMode TopologyMode = "External"
+)
+
 // PlatformType is a specific supported infrastructure provider.
-// +kubebuilder:validation:Enum="";AWS;Azure;BareMetal;GCP;Libvirt;OpenStack;None;VSphere;oVirt;IBMCloud;KubeVirt
+// +kubebuilder:validation:Enum="";AWS;Azure;BareMetal;GCP;Libvirt;OpenStack;None;VSphere;oVirt;IBMCloud;KubeVirt;EquinixMetal;PowerVS;AlibabaCloud;Nutanix
 type PlatformType string
 
 const (
@@ -116,6 +160,18 @@ const (
 
 	// KubevirtPlatformType represents KubeVirt/Openshift Virtualization infrastructure.
 	KubevirtPlatformType PlatformType = "KubeVirt"
+
+	// EquinixMetalPlatformType represents Equinix Metal infrastructure.
+	EquinixMetalPlatformType PlatformType = "EquinixMetal"
+
+	// PowerVSPlatformType represents IBM Power Systems Virtual Servers infrastructure.
+	PowerVSPlatformType PlatformType = "PowerVS"
+
+	// AlibabaCloudPlatformType represents Alibaba Cloud infrastructure.
+	AlibabaCloudPlatformType PlatformType = "AlibabaCloud"
+
+	// NutanixPlatformType represents Nutanix infrastructure.
+	NutanixPlatformType PlatformType = "Nutanix"
 )
 
 // IBMCloudProviderType is a specific supported IBM Cloud provider cluster type
@@ -127,6 +183,10 @@ const (
 
 	// VPC means that the IBM Cloud cluster is using VPC infrastructure
 	IBMCloudProviderTypeVPC IBMCloudProviderType = "VPC"
+
+	// IBMCloudProviderTypeUPI means that the IBM Cloud cluster is using user provided infrastructure.
+	// This is utilized in IBM Cloud Satellite environments.
+	IBMCloudProviderTypeUPI IBMCloudProviderType = "UPI"
 )
 
 // PlatformSpec holds the desired state specific to the underlying infrastructure provider
@@ -138,9 +198,9 @@ type PlatformSpec struct {
 	// balancers, dynamic volume provisioning, machine creation and deletion, and
 	// other integrations are enabled. If None, no infrastructure automation is
 	// enabled. Allowed values are "AWS", "Azure", "BareMetal", "GCP", "Libvirt",
-	// "OpenStack", "VSphere", "oVirt", "KubeVirt" and "None". Individual components may not support
-	// all platforms, and must handle unrecognized platforms as None if they do
-	// not support that platform.
+	// "OpenStack", "VSphere", "oVirt", "KubeVirt", "EquinixMetal", "PowerVS",
+	// "AlibabaCloud", "Nutanix" and "None". Individual components may not support all platforms,
+	// and must handle unrecognized platforms as None if they do not support that platform.
 	//
 	// +unionDiscriminator
 	Type PlatformType `json:"type"`
@@ -180,6 +240,22 @@ type PlatformSpec struct {
 	// Kubevirt contains settings specific to the kubevirt infrastructure provider.
 	// +optional
 	Kubevirt *KubevirtPlatformSpec `json:"kubevirt,omitempty"`
+
+	// EquinixMetal contains settings specific to the Equinix Metal infrastructure provider.
+	// +optional
+	EquinixMetal *EquinixMetalPlatformSpec `json:"equinixMetal,omitempty"`
+
+	// PowerVS contains settings specific to the IBM Power Systems Virtual Servers infrastructure provider.
+	// +optional
+	PowerVS *PowerVSPlatformSpec `json:"powervs,omitempty"`
+
+	// AlibabaCloud contains settings specific to the Alibaba Cloud infrastructure provider.
+	// +optional
+	AlibabaCloud *AlibabaCloudPlatformSpec `json:"alibabaCloud,omitempty"`
+
+	// Nutanix contains settings specific to the Nutanix infrastructure provider.
+	// +optional
+	Nutanix *NutanixPlatformSpec `json:"nutanix,omitempty"`
 }
 
 // PlatformStatus holds the current status specific to the underlying infrastructure provider
@@ -191,9 +267,9 @@ type PlatformStatus struct {
 	// balancers, dynamic volume provisioning, machine creation and deletion, and
 	// other integrations are enabled. If None, no infrastructure automation is
 	// enabled. Allowed values are "AWS", "Azure", "BareMetal", "GCP", "Libvirt",
-	// "OpenStack", "VSphere", "oVirt", and "None". Individual components may not support
-	// all platforms, and must handle unrecognized platforms as None if they do
-	// not support that platform.
+	// "OpenStack", "VSphere", "oVirt", "EquinixMetal", "PowerVS", "AlibabaCloud", "Nutanix" and "None".
+	// Individual components may not support all platforms, and must handle
+	// unrecognized platforms as None if they do not support that platform.
 	//
 	// This value will be synced with to the `status.platform` and `status.platformStatus.type`.
 	// Currently this value cannot be changed once set.
@@ -234,6 +310,22 @@ type PlatformStatus struct {
 	// Kubevirt contains settings specific to the kubevirt infrastructure provider.
 	// +optional
 	Kubevirt *KubevirtPlatformStatus `json:"kubevirt,omitempty"`
+
+	// EquinixMetal contains settings specific to the Equinix Metal infrastructure provider.
+	// +optional
+	EquinixMetal *EquinixMetalPlatformStatus `json:"equinixMetal,omitempty"`
+
+	// PowerVS contains settings specific to the Power Systems Virtual Servers infrastructure provider.
+	// +optional
+	PowerVS *PowerVSPlatformStatus `json:"powervs,omitempty"`
+
+	// AlibabaCloud contains settings specific to the Alibaba Cloud infrastructure provider.
+	// +optional
+	AlibabaCloud *AlibabaCloudPlatformStatus `json:"alibabaCloud,omitempty"`
+
+	// Nutanix contains settings specific to the Nutanix infrastructure provider.
+	// +optional
+	Nutanix *NutanixPlatformStatus `json:"nutanix,omitempty"`
 }
 
 // AWSServiceEndpoint store the configuration of a custom url to
@@ -274,6 +366,34 @@ type AWSPlatformStatus struct {
 	// There must be only one ServiceEndpoint for a service.
 	// +optional
 	ServiceEndpoints []AWSServiceEndpoint `json:"serviceEndpoints,omitempty"`
+
+	// resourceTags is a list of additional tags to apply to AWS resources created for the cluster.
+	// See https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html for information on tagging AWS resources.
+	// AWS supports a maximum of 50 tags per resource. OpenShift reserves 25 tags for its use, leaving 25 tags
+	// available for the user.
+	// +kubebuilder:validation:MaxItems=25
+	// +optional
+	ResourceTags []AWSResourceTag `json:"resourceTags,omitempty"`
+}
+
+// AWSResourceTag is a tag to apply to AWS resources created for the cluster.
+type AWSResourceTag struct {
+	// key is the key of the tag
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:Pattern=`^[0-9A-Za-z_.:/=+-@]+$`
+	// +required
+	Key string `json:"key"`
+	// value is the value of the tag.
+	// Some AWS service do not support empty values. Since tags are added to resources in many services, the
+	// length of the tag value must meet the requirements of all services.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^[0-9A-Za-z_.:/=+-@]+$`
+	// +required
+	Value string `json:"value"`
 }
 
 // AzurePlatformSpec holds the desired state of the Azure infrastructure provider.
@@ -295,10 +415,14 @@ type AzurePlatformStatus struct {
 	// If empty, the value is equal to `AzurePublicCloud`.
 	// +optional
 	CloudName AzureCloudEnvironment `json:"cloudName,omitempty"`
+
+	// armEndpoint specifies a URL to use for resource management in non-soverign clouds such as Azure Stack.
+	// +optional
+	ARMEndpoint string `json:"armEndpoint,omitempty"`
 }
 
 // AzureCloudEnvironment is the name of the Azure cloud environment
-// +kubebuilder:validation:Enum="";AzurePublicCloud;AzureUSGovernmentCloud;AzureChinaCloud;AzureGermanCloud
+// +kubebuilder:validation:Enum="";AzurePublicCloud;AzureUSGovernmentCloud;AzureChinaCloud;AzureGermanCloud;AzureStackCloud
 type AzureCloudEnvironment string
 
 const (
@@ -313,6 +437,9 @@ const (
 
 	// AzureGermanCloud is the Azure cloud environment used in Germany.
 	AzureGermanCloud AzureCloudEnvironment = "AzureGermanCloud"
+
+	// AzureStackCloud is the Azure cloud environment used at the edge and on premises.
+	AzureStackCloud AzureCloudEnvironment = "AzureStackCloud"
 )
 
 // GCPPlatformSpec holds the desired state of the Google Cloud Platform infrastructure provider.
@@ -443,6 +570,10 @@ type IBMCloudPlatformStatus struct {
 
 	// ProviderType indicates the type of cluster that was created
 	ProviderType IBMCloudProviderType `json:"providerType,omitempty"`
+
+	// CISInstanceCRN is the CRN of the Cloud Internet Services instance managing
+	// the DNS zone for the cluster's base domain
+	CISInstanceCRN string `json:"cisInstanceCRN,omitempty"`
 }
 
 // KubevirtPlatformSpec holds the desired state of the kubevirt infrastructure provider.
@@ -462,9 +593,139 @@ type KubevirtPlatformStatus struct {
 	IngressIP string `json:"ingressIP,omitempty"`
 }
 
+// EquinixMetalPlatformSpec holds the desired state of the Equinix Metal infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type EquinixMetalPlatformSpec struct{}
+
+// EquinixMetalPlatformStatus holds the current status of the Equinix Metal infrastructure provider.
+type EquinixMetalPlatformStatus struct {
+	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
+	// by components inside the cluster, like kubelets using the infrastructure rather
+	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
+	// points to. It is the IP for a self-hosted load balancer in front of the API servers.
+	APIServerInternalIP string `json:"apiServerInternalIP,omitempty"`
+
+	// ingressIP is an external IP which routes to the default ingress controller.
+	// The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+	IngressIP string `json:"ingressIP,omitempty"`
+}
+
+// PowervsServiceEndpoint stores the configuration of a custom url to
+// override existing defaults of PowerVS Services.
+type PowerVSServiceEndpoint struct {
+	// name is the name of the Power VS service.
+	// Few of the services are
+	// IAM - https://cloud.ibm.com/apidocs/iam-identity-token-api
+	// ResourceController - https://cloud.ibm.com/apidocs/resource-controller/resource-controller
+	// Power Cloud - https://cloud.ibm.com/apidocs/power-cloud
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[a-z0-9-]+$`
+	Name string `json:"name"`
+
+	// url is fully qualified URI with scheme https, that overrides the default generated
+	// endpoint for a client.
+	// This must be provided and cannot be empty.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:Pattern=`^https://`
+	URL string `json:"url"`
+}
+
+// PowerVSPlatformSpec holds the desired state of the IBM Power Systems Virtual Servers infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type PowerVSPlatformSpec struct {
+	// serviceEndpoints is a list of custom endpoints which will override the default
+	// service endpoints of a Power VS service.
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	ServiceEndpoints []PowerVSServiceEndpoint `json:"serviceEndpoints,omitempty"`
+}
+
+// PowerVSPlatformStatus holds the current status of the IBM Power Systems Virtual Servers infrastrucutre provider.
+type PowerVSPlatformStatus struct {
+	// region holds the default Power VS region for new Power VS resources created by the cluster.
+	Region string `json:"region"`
+
+	// zone holds the default zone for the new Power VS resources created by the cluster.
+	// Note: Currently only single-zone OCP clusters are supported
+	Zone string `json:"zone"`
+
+	// serviceEndpoints is a list of custom endpoints which will override the default
+	// service endpoints of a Power VS service.
+	// +optional
+	ServiceEndpoints []PowerVSServiceEndpoint `json:"serviceEndpoints,omitempty"`
+
+	// CISInstanceCRN is the CRN of the Cloud Internet Services instance managing
+	// the DNS zone for the cluster's base domain
+	CISInstanceCRN string `json:"cisInstanceCRN,omitempty"`
+}
+
+// AlibabaCloudPlatformSpec holds the desired state of the Alibaba Cloud infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type AlibabaCloudPlatformSpec struct{}
+
+// AlibabaCloudPlatformStatus holds the current status of the Alibaba Cloud infrastructure provider.
+type AlibabaCloudPlatformStatus struct {
+	// region specifies the region for Alibaba Cloud resources created for the cluster.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[0-9A-Za-z-]+$`
+	// +required
+	Region string `json:"region"`
+	// resourceGroupID is the ID of the resource group for the cluster.
+	// +kubebuilder:validation:Pattern=`^(rg-[0-9A-Za-z]+)?$`
+	// +optional
+	ResourceGroupID string `json:"resourceGroupID,omitempty"`
+	// resourceTags is a list of additional tags to apply to Alibaba Cloud resources created for the cluster.
+	// +kubebuilder:validation:MaxItems=20
+	// +listType=map
+	// +listMapKey=key
+	// +optional
+	ResourceTags []AlibabaCloudResourceTag `json:"resourceTags,omitempty"`
+}
+
+// AlibabaCloudResourceTag is the set of tags to add to apply to resources.
+type AlibabaCloudResourceTag struct {
+	// key is the key of the tag.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	// +required
+	Key string `json:"key"`
+	// value is the value of the tag.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	// +required
+	Value string `json:"value"`
+}
+
+// NutanixPlatformSpec holds the desired state of the Nutanix infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type NutanixPlatformSpec struct{}
+
+// NutanixPlatformStatus holds the current status of the Nutanix infrastructure provider.
+type NutanixPlatformStatus struct {
+	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
+	// by components inside the cluster, like kubelets using the infrastructure rather
+	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
+	// points to. It is the IP for a self-hosted load balancer in front of the API servers.
+	APIServerInternalIP string `json:"apiServerInternalIP,omitempty"`
+
+	// ingressIP is an external IP which routes to the default ingress controller.
+	// The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+	IngressIP string `json:"ingressIP,omitempty"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // InfrastructureList is
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type InfrastructureList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

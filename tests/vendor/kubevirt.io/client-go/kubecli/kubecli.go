@@ -25,6 +25,8 @@ import (
 	"os"
 	"sync"
 
+	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
+
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -39,8 +41,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/client-go/apis/core"
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/api/core"
+	v1 "kubevirt.io/api/core/v1"
 
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
@@ -191,6 +193,11 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	migrationsClient, err := migrationsv1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -205,6 +212,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		prometheusClient,
 		snapshotClient,
 		dynamicClient,
+		migrationsClient,
 		coreClient,
 	}, nil
 }
@@ -346,6 +354,11 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	migrationsClient, err := migrationsv1.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -360,6 +373,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		prometheusClient,
 		snapshotClient,
 		dynamicClient,
+		migrationsClient,
 		coreClient,
 	}, nil
 }

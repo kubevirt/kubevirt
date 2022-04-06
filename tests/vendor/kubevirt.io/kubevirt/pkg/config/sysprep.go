@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -47,20 +47,20 @@ func sysprepVolumeHasContents(sysprepVolume *v1.SysprepSource) bool {
 }
 
 // Explained here: https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-automation-overview
-const sysprepFileName = "autounattend.xml"
+const autounattendFilename = "autounattend.xml"
+const unattendFilename = "unattend.xml"
 
-func validateAutounattendPresence(dirPath string) error {
+func validateUnattendPresence(dirPath string) error {
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
-		return fmt.Errorf("Error validating %s presence: %w", sysprepFileName, err)
+		return fmt.Errorf("Error validating that %s or %s have been provided: %w", autounattendFilename, unattendFilename, err)
 	}
 	for _, file := range files {
-		if strings.ToLower(file.Name()) == sysprepFileName {
+		if f := strings.ToLower(file.Name()); f == autounattendFilename || f == unattendFilename {
 			return nil
 		}
 	}
-
-	return fmt.Errorf("Sysprep drive should contain %s, but it was not found", sysprepFileName)
+	return fmt.Errorf("Sysprep drive should contain %s or %s but neither were found.", autounattendFilename, unattendFilename)
 }
 
 // CreateSysprepDisks creates Sysprep iso disks which are attached to vmis from either ConfigMap or Secret as a source
@@ -86,7 +86,7 @@ func shouldCreateSysprepDisk(volumeSysprep *v1.SysprepSource) bool {
 
 func createSysprepDisk(volumeName string, size int64) error {
 	sysprepSourcePath := GetSysprepSourcePath(volumeName)
-	if err := validateAutounattendPresence(sysprepSourcePath); err != nil {
+	if err := validateUnattendPresence(sysprepSourcePath); err != nil {
 		return err
 	}
 	filesPath, err := getFilesLayout(sysprepSourcePath)

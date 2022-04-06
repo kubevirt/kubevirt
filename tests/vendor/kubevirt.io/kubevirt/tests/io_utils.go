@@ -21,9 +21,11 @@ package tests
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -31,11 +33,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
+)
+
+const (
+	UsrBinVirtChroot = "/usr/bin/virt-chroot"
+	Mount            = "--mount"
+	Proc1NsMnt       = "/proc/1/ns/mnt"
 )
 
 func NodeNameWithHandler() string {
@@ -69,42 +77,59 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 
 func CreateErrorDisk(nodeName string) (address string, device string) {
 	By("Creating error disk")
-	args := []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "scsi_debug", "opts=2", "every_nth=4"}
+	return CreateSCSIDisk(nodeName, []string{"opts=2", "every_nth=4"})
+}
+
+// CreateSCSIDisk creates a SCSI disk using the scsi_debug module. This function should be used only to check SCSI disk functionalities and not for creating a filesystem or any data. The disk is stored in ram and it isn't suitable for storing large amount of data.
+func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
+	args := []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
+	args = append(args, opts...)
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
-	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/bin/lsscsi"}
-	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to find out address of  faulty disk")
-
-	// Example output
-	// [2:0:0:0]    cd/dvd  QEMU     QEMU DVD-ROM     2.5+  /dev/sr0
-	// [6:0:0:0]    disk    Linux    scsi_debug       0190  /dev/sda
-	lines := strings.Split(stdout, "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "scsi_debug") {
-			line = strings.TrimSpace(line)
-			disk := strings.Split(line, " ")
-			address = disk[0]
-			address = address[1 : len(address)-1]
-			device = disk[len(disk)-1]
-			break
+	EventuallyWithOffset(1, func() error {
+		args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/bin/lsscsi"}
+		stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+		if err != nil {
+			return err
 		}
-	}
+
+		// Example output
+		// [2:0:0:0]    cd/dvd  QEMU     QEMU DVD-ROM     2.5+  /dev/sr0
+		// [6:0:0:0]    disk    Linux    scsi_debug       0190  /dev/sda
+		lines := strings.Split(stdout, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "scsi_debug") {
+				line = strings.TrimSpace(line)
+				disk := strings.Split(line, " ")
+				address = disk[0]
+				address = address[1 : len(address)-1]
+				device = disk[len(disk)-1]
+				break
+			}
+		}
+
+		if !filepath.IsAbs(device) {
+			return fmt.Errorf("Device path extracted from lsscsi is not populated: %s", device)
+		}
+
+		return nil
+	}, 20*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 
 	return address, device
 }
 
-func RemoveErrorDisk(nodeName, address string) {
-	By("Removing error disk")
+func RemoveSCSIDisk(nodeName, address string) {
+	By("Removing scsi disk")
 	args := []string{"/usr/bin/echo", "1", ">", fmt.Sprintf("/proc/1/root/sys/class/scsi_device/%s/device/delete", address)}
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable faulty disk")
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 
-	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
+	args = []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
 	_, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable faulty disk")
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 }
+
 func FixErrorDevice(nodeName string) {
 	args := []string{"/usr/bin/bash", "-c", "echo 0 > /proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
 	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
@@ -161,6 +186,10 @@ func CreateFaultyDisk(nodeName, deviceName string) {
 }
 
 func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
+	return CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, "faulty-disks", "ioerrorpvc", "ioerrorpvc")
+}
+
+func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return nil, nil, err
@@ -168,7 +197,6 @@ func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*core
 
 	size := resource.MustParse("1Gi")
 	volumeMode := corev1.PersistentVolumeBlock
-	storageClass := "faulty-disks"
 
 	affinity := corev1.VolumeNodeAffinity{
 		Required: &corev1.NodeSelector{
@@ -187,7 +215,7 @@ func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*core
 	}
 	pv := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "ioerrorpv",
+			GenerateName: pvName,
 		},
 		Spec: corev1.PersistentVolumeSpec{
 			Capacity:         map[corev1.ResourceName]resource.Quantity{corev1.ResourceStorage: size},
@@ -209,7 +237,7 @@ func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*core
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "ioerrorpvc",
+			GenerateName: pvcName,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeMode:       &volumeMode,

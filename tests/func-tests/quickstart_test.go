@@ -5,7 +5,7 @@ import (
 	"flag"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
