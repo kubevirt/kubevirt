@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -791,13 +792,15 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	return volumeStatus, needsRefresh
 }
 
-func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) (bool, error) {
+	// used by unit test
 	hasHotplug := false
 
 	if domain == nil {
-		return hasHotplug
+		return hasHotplug, nil
 	}
 
+	var err error
 	if len(vmi.Status.VolumeStatus) > 0 {
 		diskDeviceMap := make(map[string]string)
 		for _, disk := range domain.Spec.Devices.Disks {
@@ -811,12 +814,21 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		newStatuses := make([]v1.VolumeStatus, 0)
 		needsRefresh := false
 		for _, volumeStatus := range vmi.Status.VolumeStatus {
+			tmpNeedsRefresh := false
 			if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
 				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 			}
 			if volumeStatus.HotplugVolume != nil {
 				hasHotplug = true
-				volumeStatus, needsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+				volumeStatus, tmpNeedsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+				needsRefresh = needsRefresh || tmpNeedsRefresh
+			}
+			if volumeStatus.MemoryDumpVolume != nil {
+				volumeStatus, tmpNeedsRefresh, err = d.updateMemoryDumpInfo(vmi, volumeStatus)
+				if err != nil {
+					return hasHotplug, err
+				}
+				needsRefresh = needsRefresh || tmpNeedsRefresh
 			}
 			newStatuses = append(newStatuses, volumeStatus)
 			newStatusMap[volumeStatus.Name] = volumeStatus
@@ -830,7 +842,7 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		d.generateEventsForVolumeStatusChange(vmi, newStatusMap)
 		vmi.Status.VolumeStatus = newStatuses
 	}
-	return hasHotplug
+	return hasHotplug, nil
 }
 
 func (d *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -998,6 +1010,45 @@ func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
+func dumpTargetFile(volName string) string {
+	targetFileName := fmt.Sprintf("%s-%s.memory.dump", volName, time.Now().Format("20060102-150405"))
+	return targetFileName
+}
+
+func (d *VirtualMachineController) updateMemoryDumpInfo(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus) (v1.VolumeStatus, bool, error) {
+	needsRefresh := false
+	switch volumeStatus.Phase {
+	case v1.HotplugVolumeMounted:
+		needsRefresh = true
+		log.Log.Object(vmi).V(3).Infof("Memory dump volume %s attached, marking it in progress", volumeStatus.Name)
+		volumeStatus.Phase = v1.MemoryDumpVolumeInProgress
+		volumeStatus.Message = fmt.Sprintf("Memory dump Volume %s is attached, getting memory dump", volumeStatus.Name)
+		volumeStatus.Reason = VolumeMountedToPodReason
+		volumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(volumeStatus.Name)
+		fmt.Println(volumeStatus)
+		if _, err := d.getMemoryDump(vmi, volumeStatus); err != nil {
+			return volumeStatus, needsRefresh, err
+		}
+	case v1.MemoryDumpVolumeInProgress:
+		needsRefresh = true
+		completed, err := d.getMemoryDump(vmi, volumeStatus)
+		// swallow the err - only show it on the volume status
+		if err != nil {
+			volumeStatus.Message = fmt.Sprintf("Memory dump to pvc %s failed: %v", volumeStatus.Name, err)
+			volumeStatus.Phase = v1.MemoryDumpVolumeFailed
+		} else if completed {
+			log.Log.Object(vmi).V(3).Infof("Marking memory dump to volume %s has completed", volumeStatus.Name)
+			volumeStatus.Phase = v1.MemoryDumpVolumeCompleted
+			volumeStatus.Message = fmt.Sprintf("Memory dump to Volume %s has completed successfully", volumeStatus.Name)
+			volumeStatus.Reason = VolumeReadyReason
+			now := metav1.NewTime(time.Now())
+			volumeStatus.MemoryDumpVolume.DumpTimestamp = &now
+		}
+	}
+
+	return volumeStatus, needsRefresh, nil
+}
+
 func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
 	if domain == nil || domain.Status.FSFreezeStatus.Status == "" {
@@ -1100,7 +1151,10 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	d.updateIsoSizeStatus(vmi)
 	d.setMigrationProgressStatus(vmi, domain)
 	d.updateGuestInfoFromDomain(vmi, domain)
-	d.updateVolumeStatusesFromDomain(vmi, domain)
+	_, err = d.updateVolumeStatusesFromDomain(vmi, domain)
+	if err != nil {
+		return err
+	}
 	d.updateFSFreezeStatus(vmi, domain)
 	err = d.netStat.UpdateStatus(vmi, domain)
 	if err != nil {
@@ -2615,6 +2669,32 @@ func (d *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 	}
 
 	return nil
+}
+
+func memoryDumpPath(volumeStatus v1.VolumeStatus) string {
+	target := hotplugdisk.GetVolumeMountDir(volumeStatus.Name)
+	dumpPath := filepath.Join(target, volumeStatus.MemoryDumpVolume.TargetFileName)
+	return dumpPath
+}
+
+func (d *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus) (bool, error) {
+	const errMsgPrefix = "failed to getting memory dump"
+
+	completed := false
+	if volumeStatus.MemoryDumpVolume != nil {
+		client, err := d.getVerifiedLauncherClient(vmi)
+		if err != nil {
+			return completed, fmt.Errorf("%s: %v", errMsgPrefix, err)
+		}
+
+		log.Log.V(3).Object(vmi).Info("sending memory dump command")
+		completed, err = client.VirtualMachineMemoryDump(vmi, memoryDumpPath(volumeStatus))
+		if err != nil {
+			return completed, fmt.Errorf("%s: %v", errMsgPrefix, err)
+		}
+	}
+
+	return completed, nil
 }
 
 func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domainExists bool) error {
