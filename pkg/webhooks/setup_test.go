@@ -3,7 +3,7 @@ package webhooks
 import (
 	"os"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"

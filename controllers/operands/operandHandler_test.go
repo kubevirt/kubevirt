@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	corev1 "k8s.io/api/core/v1"

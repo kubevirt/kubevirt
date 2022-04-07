@@ -3,7 +3,7 @@ package operands
 import (
 	"errors"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"

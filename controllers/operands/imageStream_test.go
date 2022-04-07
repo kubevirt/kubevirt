@@ -3,7 +3,7 @@ package operands
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	imagev1 "github.com/openshift/api/image/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"

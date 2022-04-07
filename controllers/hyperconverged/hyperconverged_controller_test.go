@@ -6,15 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"time"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
@@ -30,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
@@ -53,32 +50,9 @@ const (
 
 var _ = Describe("HyperconvergedController", func() {
 
-	var (
-		testFilesLocation = getTestFilesLocation() + "/upgradePatches"
-		destFile          string
-	)
+	_ = os.Setenv(hcoutil.OperatorConditionNameEnvVar, "OPERATOR_CONDITION")
 
 	getClusterInfo := hcoutil.GetClusterInfo
-
-	BeforeSuite(func() {
-		hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-			return &commonTestUtils.ClusterInfoMock{}
-		}
-
-		wd, _ := os.Getwd()
-		destFile = path.Join(wd, "upgradePatches.json")
-		err := commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))
-		Expect(err).ToNot(HaveOccurred())
-
-	})
-
-	AfterSuite(func() {
-		hcoutil.GetClusterInfo = getClusterInfo
-		err := os.Remove(destFile)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	_ = os.Setenv(hcoutil.OperatorConditionNameEnvVar, "OPERATOR_CONDITION")
 
 	Describe("Reconcile HyperConverged", func() {
 		Context("HCO Lifecycle", func() {

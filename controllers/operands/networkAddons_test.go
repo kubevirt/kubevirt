@@ -7,8 +7,7 @@ import (
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -464,7 +463,7 @@ var _ = Describe("CNA Operand", func() {
 			annotationValue   string
 			ovsDeployExpected bool
 		}
-		table.DescribeTable("when reconciling ovs-cni", func(o ovsAnnotationParams) {
+		DescribeTable("when reconciling ovs-cni", func(o ovsAnnotationParams) {
 			hcoOVSConfig := commonTestUtils.NewHco()
 			hcoOVSConfig.Annotations = map[string]string{}
 
@@ -494,17 +493,17 @@ var _ = Describe("CNA Operand", func() {
 				Expect(existingResource.Spec.Ovs).To(BeNil(), "Ovs spec should not be added")
 			}
 		},
-			table.Entry("should have ovs if deployOVS annotation is set to true", ovsAnnotationParams{
+			Entry("should have ovs if deployOVS annotation is set to true", ovsAnnotationParams{
 				annotationExists:  true,
 				annotationValue:   "true",
 				ovsDeployExpected: true,
 			}),
-			table.Entry("should not have ovs if deployOVS annotation is not set to true", ovsAnnotationParams{
+			Entry("should not have ovs if deployOVS annotation is not set to true", ovsAnnotationParams{
 				annotationExists:  true,
 				annotationValue:   "false",
 				ovsDeployExpected: false,
 			}),
-			table.Entry("should not have ovs if deployOVS annotation does not exist", ovsAnnotationParams{
+			Entry("should not have ovs if deployOVS annotation does not exist", ovsAnnotationParams{
 				annotationExists:  false,
 				annotationValue:   "",
 				ovsDeployExpected: false,

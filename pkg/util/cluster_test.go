@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	corev1 "k8s.io/api/core/v1"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -20,8 +18,6 @@ import (
 
 var _ = Describe("test clusterInfo", func() {
 	var (
-		origIsVarSet   bool
-		origVar        string
 		clusterVersion = &openshiftconfigv1.ClusterVersion{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "version",
@@ -68,18 +64,6 @@ var _ = Describe("test clusterInfo", func() {
 
 	testScheme := scheme.Scheme
 	Expect(openshiftconfigv1.Install(testScheme)).ToNot(HaveOccurred())
-
-	BeforeSuite(func() {
-		origVar, origIsVarSet = os.LookupEnv(OperatorConditionNameEnvVar)
-	})
-
-	AfterSuite(func() {
-		if origIsVarSet {
-			os.Setenv(OperatorConditionNameEnvVar, origVar)
-		} else {
-			os.Unsetenv(OperatorConditionNameEnvVar)
-		}
-	})
 
 	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("clusterInfo_test")
 

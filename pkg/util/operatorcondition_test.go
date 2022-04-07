@@ -2,10 +2,10 @@ package util
 
 import (
 	"context"
+	"os"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	operatorsapiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	"github.com/operator-framework/operator-lib/conditions"
@@ -82,9 +82,27 @@ var _ = Describe("OperatorCondition", func() {
 })
 
 func TestOperatorCondition(t *testing.T) {
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OperatorCondition Suite")
 }
+
+var (
+	origIsVarSet bool
+	origVar      string
+
+	_ = BeforeSuite(func() {
+		origVar, origIsVarSet = os.LookupEnv(OperatorConditionNameEnvVar)
+	})
+
+	_ = AfterSuite(func() {
+		if origIsVarSet {
+			os.Setenv(OperatorConditionNameEnvVar, origVar)
+		} else {
+			os.Unsetenv(OperatorConditionNameEnvVar)
+		}
+	})
+)
 
 type OpCondFactoryMock struct {
 	Client client.Client

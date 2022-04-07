@@ -7,7 +7,7 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	consolev1 "github.com/openshift/api/console/v1"
