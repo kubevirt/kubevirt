@@ -1773,13 +1773,19 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:  vmExport.Name,
-					Image: t.exporterImage,
-					Command: []string{
-						"/bin/sh", "-c",
-						"/usr/bin/tail -f /dev/null",
-					},
+					Name:            vmExport.Name,
+					Image:           t.exporterImage,
 					ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
+					Env: []k8sv1.EnvVar{
+						{
+							Name: "POD_NAME",
+							ValueFrom: &k8sv1.EnvVarSource{
+								FieldRef: &k8sv1.ObjectFieldSelector{
+									FieldPath: "metadata.name",
+								},
+							},
+						},
+					},
 				},
 			},
 		},

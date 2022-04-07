@@ -18,7 +18,8 @@ func (VirtualMachineExportList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
+		"":               "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
+		"tokenSecretRef": "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
 	}
 }
 
@@ -26,7 +27,6 @@ func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
 		"phase":      "+optional",
-		"token":      "+optional",
 		"links":      "+optional",
 		"conditions": "+optional\n+listType=atomic",
 	}

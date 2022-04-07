@@ -364,7 +364,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 		"--exporter-image",
-		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+		"ghcr.io/mhenriks/virt-exportserver:exportfun",
 		portName,
 		"8443",
 		"-v",
