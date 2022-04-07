@@ -116,6 +116,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	container := &pod.Containers[0]
 	container.Command = []string{
 		VirtHandlerName,
+	}
+	container.Args = []string{
 		"--port",
 		"8443",
 		"--hostname-override",
