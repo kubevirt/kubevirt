@@ -41,6 +41,7 @@ aliases:
       - xpivarc
       - marceloamaral
       - vasiliy-ul
+      - iholder-redhat
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
