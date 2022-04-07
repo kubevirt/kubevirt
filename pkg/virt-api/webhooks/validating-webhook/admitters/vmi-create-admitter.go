@@ -2401,7 +2401,6 @@ func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes
 				Field:   field.Child("kernelArgs").String(),
 			})
 		}
-
 		return
 	}
 
