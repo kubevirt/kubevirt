@@ -239,21 +239,21 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 			}
 			caps := *container.SecurityContext.Capabilities
 			if checks.HasFeature(virtconfig.NonRoot) {
-				Expect(caps.Add).To(HaveLen(1), fmt.Sprintf("Expecting to found \"NET_BIND_SERVICE\". Found capabilities %s", caps.Add))
-				Expect(caps.Add[0]).To(Equal(k8sv1.Capability("NET_BIND_SERVICE")))
+				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE and SYS_PTRACE", caps.Add))
+				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_PTRACE")))
 			} else {
-				Expect(caps.Add).To(HaveLen(2), fmt.Sprintf("Found capabilities %s, expecting SYS_NICE and NET_BIND_SERVICE ", caps.Add))
-				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE")))
+				Expect(caps.Add).To(HaveLen(3), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE, SYS_NICE and SYS_PTRACE", caps.Add))
+				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE"), k8sv1.Capability("SYS_PTRACE")))
 			}
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
-			for _, cap := range caps.Add {
-				Expect(tests.IsLauncherCapabilityValid(cap)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
+			for _, capa := range caps.Add {
+				Expect(tests.IsLauncherCapabilityValid(capa)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
 			}
 			By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
 			Expect(caps.Drop).To(HaveLen(1))
-			for _, cap := range caps.Drop {
-				Expect(tests.IsLauncherCapabilityDropped(cap)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
+			for _, capa := range caps.Drop {
+				Expect(tests.IsLauncherCapabilityDropped(capa)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
 			}
 		})
 	})

@@ -577,6 +577,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
+	_true := true
 	_false := false
 	vmi.Spec = v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
@@ -590,6 +591,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 					VAPIC:     &v1.FeatureState{},
 					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
+				SMM: &v1.FeatureState{},
 			},
 			Clock: &v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
@@ -600,7 +602,12 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 					Hyperv: &v1.HypervTimer{},
 				},
 			},
-			Firmware: &v1.Firmware{UUID: firmware},
+			Firmware: &v1.Firmware{
+				UUID: firmware,
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{SecureBoot: &_true},
+				},
+			},
 			Resources: v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
@@ -608,6 +615,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 			},
 			Devices: v1.Devices{
 				Interfaces: []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()},
+				TPM:        &v1.TPMDevice{},
 			},
 		},
 		Networks: []v1.Network{*v1.DefaultPodNetwork()},

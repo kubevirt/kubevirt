@@ -453,6 +453,9 @@ type Devices struct {
 	// Whether to emulate a sound device.
 	// +optional
 	Sound *SoundDevice `json:"sound,omitempty"`
+	// Whether to emulate a TPM device.
+	// +optional
+	TPM *TPMDevice `json:"tpm,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -480,6 +483,8 @@ type SoundDevice struct {
 	// +optional
 	Model string `json:"model,omitempty"`
 }
+
+type TPMDevice struct{}
 
 type Input struct {
 	// Bus indicates the bus of input device to emulate.

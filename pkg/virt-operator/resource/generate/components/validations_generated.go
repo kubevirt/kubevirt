@@ -5286,6 +5286,9 @@ var CRDsValidation map[string]string = map[string]string{
                           required:
                           - name
                           type: object
+                        tpm:
+                          description: Whether to emulate a TPM device.
+                          type: object
                         useVirtioTransitional:
                           description: Fall back to legacy virtio 0.9 support if virtio
                             bus is selected on devices. This is helpful for old machines
@@ -8523,6 +8526,9 @@ var CRDsValidation map[string]string = map[string]string{
                   required:
                   - name
                   type: object
+                tpm:
+                  description: Whether to emulate a TPM device.
+                  type: object
                 useVirtioTransitional:
                   description: Fall back to legacy virtio 0.9 support if virtio bus
                     is selected on devices. This is helpful for old machines like
@@ -10644,6 +10650,9 @@ var CRDsValidation map[string]string = map[string]string{
                   required:
                   - name
                   type: object
+                tpm:
+                  description: Whether to emulate a TPM device.
+                  type: object
                 useVirtioTransitional:
                   description: Fall back to legacy virtio 0.9 support if virtio bus
                     is selected on devices. This is helpful for old machines like
@@ -12726,6 +12735,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: string
                           required:
                           - name
+                          type: object
+                        tpm:
+                          description: Whether to emulate a TPM device.
                           type: object
                         useVirtioTransitional:
                           description: Fall back to legacy virtio 0.9 support if virtio
@@ -16355,6 +16367,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: string
                                   required:
                                   - name
+                                  type: object
+                                tpm:
+                                  description: Whether to emulate a TPM device.
                                   type: object
                                 useVirtioTransitional:
                                   description: Fall back to legacy virtio 0.9 support
@@ -20354,6 +20369,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    tpm:
+                                      description: Whether to emulate a TPM device.
                                       type: object
                                     useVirtioTransitional:
                                       description: Fall back to legacy virtio 0.9

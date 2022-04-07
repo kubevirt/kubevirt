@@ -128,11 +128,11 @@ http_file(
 
 http_archive(
     name = "bazeldnf",
-    sha256 = "6a2af09c6a598a3c4e4fec9af78334fbec2b3c16473f4e2c692fe2e567dc6f56",
-    strip_prefix = "bazeldnf-0.5.1",
+    sha256 = "c37709d05ad7eae4d32d7a525f098fd026483ada5e11cdf84d47028222796605",
+    strip_prefix = "bazeldnf-0.5.2",
     urls = [
-        "https://github.com/rmohr/bazeldnf/archive/v0.5.1.tar.gz",
-        "https://storage.googleapis.com/builddeps/6a2af09c6a598a3c4e4fec9af78334fbec2b3c16473f4e2c692fe2e567dc6f56",
+        "https://github.com/rmohr/bazeldnf/archive/v0.5.2.tar.gz",
+        "https://storage.googleapis.com/builddeps/c37709d05ad7eae4d32d7a525f098fd026483ada5e11cdf84d47028222796605",
     ],
 )
 
@@ -333,9 +333,9 @@ container_pull(
 
 container_pull(
     name = "fedora_with_test_tooling_aarch64",
-    digest = "sha256:9ec3e137bff093597d192f5a4e346f25b614c3a94216b857de0e3d75b68bfb17",
+    digest = "sha256:9b1371260c05086a24ac9effdbedca9759c885ea8db93de7f0339df3bcd5a5c3",
     registry = "quay.io",
-    repository = "kubevirt/fedora-with-test-tooling",
+    repository = "kubevirtci/fedora-with-test-tooling",
 )
 
 container_pull(
