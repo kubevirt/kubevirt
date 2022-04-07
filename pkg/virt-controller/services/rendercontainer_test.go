@@ -6,6 +6,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -214,6 +215,26 @@ var _ = Describe("Container spec renderer", func() {
 			Entry("with an input argument", "do-stuff"),
 		)
 	})
+
+	Context("vmi with probes", func() {
+		Context("readiness probe", func() {
+			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
+				probe := dummyProbe()
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithReadinessProbe(
+					vmiWithReadinessProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).ReadinessProbe).To(Equal(probeWithDelay(probe)))
+			})
+		})
+
+		Context("liveness probe", func() {
+			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
+				probe := dummyProbe()
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+					vmiWithLivenessProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).LivenessProbe).To(Equal(probeWithDelay(probe)))
+			})
+		})
+	})
 })
 
 func vmiWithInterfaceWithPortAllowList(ifaceName string, ports ...v1.Port) *v1.VirtualMachineInstance {
@@ -296,5 +317,56 @@ func vmPortToContainerPort(vmiPort v1.Port) k8sv1.ContainerPort {
 		Name:          vmiPort.Name,
 		ContainerPort: vmiPort.Port,
 		Protocol:      k8sv1.Protocol(protocol),
+	}
+}
+
+func dummyProbe() *v1.Probe {
+	return &v1.Probe{
+		Handler:             v1.Handler{HTTPGet: httpHandler()},
+		InitialDelaySeconds: 2,
+		TimeoutSeconds:      3,
+		PeriodSeconds:       4,
+		SuccessThreshold:    100,
+		FailureThreshold:    200,
+	}
+}
+
+func httpHandler() *k8sv1.HTTPGetAction {
+	return &k8sv1.HTTPGetAction{
+		Path:        "1234",
+		Port:        intstr.IntOrString{},
+		Host:        "1234",
+		Scheme:      "1234",
+		HTTPHeaders: nil,
+	}
+}
+
+func vmiWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
+	vmi := simplestVMI()
+	vmi.Spec.ReadinessProbe = probe
+	return vmi
+}
+
+func vmiWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
+	vmi := simplestVMI()
+	vmi.Spec.LivenessProbe = probe
+	return vmi
+}
+
+func probeWithDelay(probe *v1.Probe) *k8sv1.Probe {
+	if probe == nil {
+		return nil
+	}
+	return &k8sv1.Probe{
+		InitialDelaySeconds: probe.InitialDelaySeconds + 10,
+		TimeoutSeconds:      probe.TimeoutSeconds,
+		PeriodSeconds:       probe.PeriodSeconds,
+		SuccessThreshold:    probe.SuccessThreshold,
+		FailureThreshold:    probe.FailureThreshold,
+		ProbeHandler: k8sv1.ProbeHandler{
+			Exec:      probe.Exec,
+			HTTPGet:   probe.HTTPGet,
+			TCPSocket: probe.TCPSocket,
+		},
 	}
 }

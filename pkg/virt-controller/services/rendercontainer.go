@@ -113,6 +113,22 @@ func WithArgs(args []string) Option {
 	}
 }
 
+func WithLivelinessProbe(vmi *v1.VirtualMachineInstance) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
+		renderer.liveninessProbe = copyProbe(vmi.Spec.LivenessProbe)
+		updateLivenessProbe(vmi, renderer.liveninessProbe)
+	}
+}
+
+func WithReadinessProbe(vmi *v1.VirtualMachineInstance) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
+		renderer.readinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
+		updateReadinessProbe(vmi, renderer.readinessProbe)
+	}
+}
+
 func xdgEnvironmentVariables() []k8sv1.EnvVar {
 	const varRun = "/var/run"
 	return []k8sv1.EnvVar{

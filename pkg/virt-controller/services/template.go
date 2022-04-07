@@ -1148,22 +1148,17 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if t.IsPPC64() {
 		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
 	}
+	if vmi.Spec.ReadinessProbe != nil {
+		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))
+	}
+
+	if vmi.Spec.LivenessProbe != nil {
+		computeContainerOpts = append(computeContainerOpts, WithLivelinessProbe(vmi))
+	}
 
 	const computeContainerName = "compute"
 	compute := NewContainerSpecRenderer(
 		computeContainerName, t.launcherImage, imagePullPolicy, computeContainerOpts...).Render(command)
-
-	if vmi.Spec.ReadinessProbe != nil {
-		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
-		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		updateReadinessProbe(vmi, compute.ReadinessProbe)
-	}
-
-	if vmi.Spec.LivenessProbe != nil {
-		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
-		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		updateLivenessProbe(vmi, compute.LivenessProbe)
-	}
 
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
