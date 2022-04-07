@@ -9,6 +9,7 @@ go_library(
         "guestfs.go",
         "hotplug.go",
         "imageupload.go",
+        "memorydump.go",
         "restore.go",
         "snapshot.go",
         "storage.go",
