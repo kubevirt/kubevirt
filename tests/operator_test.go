@@ -1248,19 +1248,20 @@ spec:
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
-						{
-							Name:  envVarDeploymentKeyToUpdate,
-							Value: "value",
-						},
-					}
+					vc.Spec.Template.Spec.Containers[0].Env = append(vc.Spec.Template.Spec.Containers[0].Env, k8sv1.EnvVar{
+						Name:  envVarDeploymentKeyToUpdate,
+						Value: "value",
+					})
 
 					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 						vc, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
 						return err
 					})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
+					Expect(vc.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{
+						Name:  envVarDeploymentKeyToUpdate,
+						Value: "value",
+					}))
 				},
 
 				func() runtime.Object {
