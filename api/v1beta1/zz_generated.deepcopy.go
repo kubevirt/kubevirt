@@ -315,11 +315,6 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(LogVerbosityConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.TektonPipelinesNamespace != nil {
-		in, out := &in.TektonPipelinesNamespace, &out.TektonPipelinesNamespace
-		*out = new(string)
-		**out = **in
-	}
 	if in.TLSSecurityProfile != nil {
 		in, out := &in.TLSSecurityProfile, &out.TLSSecurityProfile
 		*out = new(v1.TLSSecurityProfile)

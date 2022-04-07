@@ -13,7 +13,6 @@ var projectNames = []*projectName{
 	{"CDI", "containerized-data-importer"},
 	{"NETWORK_ADDONS", "cluster-network-addons-operator"},
 	{"SSP", "ssp-operator"},
-	{"TTO", "tto-operator"},
 	{"NMO", "node-maintenance-operator"},
 	{"HPPO", "hostpath-provisioner-operator"},
 	{"HPP", "hostpath-provisioner"},

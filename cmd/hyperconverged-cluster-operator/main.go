@@ -45,7 +45,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -64,7 +63,6 @@ var (
 		cdiv1beta1.AddToScheme,
 		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
-		ttov1alpha1.AddToScheme,
 		csvv1alpha1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
 		consolev1.Install,
@@ -192,7 +190,6 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				&cdiv1beta1.CDI{}:                      {},
 				&networkaddonsv1.NetworkAddonsConfig{}: {},
 				&sspv1beta1.SSP{}:                      {},
-				&ttov1alpha1.TektonTasks{}:             {},
 				&schedulingv1.PriorityClass{}: {
 					Label: labels.SelectorFromSet(labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}),
 				},

@@ -73,7 +73,6 @@ function get_current_versions {
     ["CDI"]=""
     ["NETWORK_ADDONS"]=""
     ["SSP"]=""
-    ["TTO"]=""
     ["NMO"]=""
     ["HPPO"]=""
     ["HPP"]=""
@@ -90,7 +89,6 @@ function get_updated_versions {
     ["CDI"]="kubevirt/containerized-data-importer"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
     ["SSP"]="kubevirt/ssp-operator"
-    ["TTO"]="kubevirt/tekton-tasks-operator"
     ["NMO"]="kubevirt/node-maintenance-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
@@ -101,7 +99,6 @@ function get_updated_versions {
     ["CDI"]="kubevirt.io/containerized-data-importer-api"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
     ["SSP"]="kubevirt.io/ssp-operator"
-    ["TTO"]="kubevirt/tekton-tasks-operator"
   )
 
   UPDATED_VERSIONS=()

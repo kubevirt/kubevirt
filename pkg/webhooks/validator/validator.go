@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -186,13 +185,6 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 
 	case *sspv1beta1.SSP:
 		required, _, err := operands.NewSSP(hc)
-		if err != nil {
-			return err
-		}
-		required.Spec.DeepCopyInto(&existing.Spec)
-
-	case *ttov1alpha1.TektonTasks:
-		required := operands.NewTTO(hc)
 		if err != nil {
 			return err
 		}

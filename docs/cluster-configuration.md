@@ -159,15 +159,6 @@ the [dataImportCronTemplates field](#configure-custom-golden-images), even if th
 
 **Default**: `true`
 
-### deployTektonTaskResources Feature Gate
-Set the `deployTektonTaskResources` feature gate to true to allow Tekton Tasks operator (TTO) to deploy its resources. TTO will 
-deploy example pipelines and cluster tasks which enables tekton to work with VMs, datavolumes and common-templates.
-
-**Note**: Once `deployTektonTaskResources` is set to true, TTO will not delete deployed resources if `deployTektonTaskResources` is 
-reverted back to false.
-
-**Default**: `false`
-
 ### Feature Gates Example
 
 ```yaml
@@ -182,7 +173,6 @@ spec:
     withHostPassthroughCPU: true
     sriovLiveMigration: true
     enableCommonBootImageImport: true
-    deployTektonTaskResources: true
 ```
 
 ## Live Migration Configurations
@@ -530,17 +520,6 @@ metadata:
   name: kubevirt-hyperconverged
 spec:
   commonTemplatesNamespace: kubevirt
-```
-
-## Tekton Pipelines namespace
-User can specify namespace in which example pipelines will be deployed.
-```yaml
-apiVersion: hco.kubevirt.io/v1beta1
-kind: HyperConverged
-metadata:
-  name: kubevirt-hyperconverged
-spec:
-  tektonPipelinesNamespace: kubevirt
 ```
 
 ## Enable eventual launcher updates by default

@@ -51,7 +51,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false}
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -134,11 +134,6 @@ type HyperConvergedSpec struct {
 	// the value - the higher the log verbosity.
 	// +optional
 	LogVerbosityConfig *LogVerbosityConfiguration `json:"logVerbosityConfig,omitempty"`
-
-	// TektonPipelinesNamespace defines namespace in which example pipelines will
-	// be deployed.
-	// +optional
-	TektonPipelinesNamespace *string `json:"tektonPipelinesNamespace,omitempty"`
 
 	// TLSSecurityProfile specifies the settings for TLS connections to be propagated to all kubevirt-hyperconverged components.
 	// If unset, the hyperconverged cluster operator will consume the value set on the APIServer CR on OCP/OKD or Intermediate if on vanilla k8s.
@@ -264,11 +259,6 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=true
 	EnableCommonBootImageImport bool `json:"enableCommonBootImageImport"`
-
-	// deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator
-	// +optional
-	// +kubebuilder:default=false
-	DeployTektonTaskResources bool `json:"deployTektonTaskResources"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -511,7 +501,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

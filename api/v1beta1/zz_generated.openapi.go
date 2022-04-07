@@ -215,14 +215,6 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
-					"deployTektonTaskResources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -411,13 +403,6 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 						SchemaProps: spec.SchemaProps{
 							Description: "LogVerbosityConfig configures the verbosity level of Kubevirt's different components. The higher the value - the higher the log verbosity.",
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LogVerbosityConfiguration"),
-						},
-					},
-					"tektonPipelinesNamespace": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TektonPipelinesNamespace defines namespace in which example pipelines will be deployed.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 					"tlsSecurityProfile": {

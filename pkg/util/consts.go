@@ -12,7 +12,6 @@ const (
 	CdiVersionEnvV         = "CDI_VERSION"
 	CnaoVersionEnvV        = "NETWORK_ADDONS_VERSION"
 	SspVersionEnvV         = "SSP_VERSION"
-	TtoVersionEnvV         = "TTO_VERSION"
 	NmoVersionEnvV         = "NMO_VERSION"
 	HppoVersionEnvV        = "HPPO_VERSION"
 	KvUiPluginImageEnvV    = "KV_CONSOLE_PLUGIN_IMAGE"
@@ -76,5 +75,4 @@ const (
 	AppComponentMonitoring AppComponent = "monitoring"
 	AppComponentSchedule   AppComponent = "schedule"
 	AppComponentDeployment AppComponent = "deployment"
-	AppComponentTekton     AppComponent = "tekton"
 )

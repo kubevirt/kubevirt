@@ -61,8 +61,6 @@ spec:
           value: v0.74.0
         - name: SSP_VERSION
           value: v0.13.2
-        - name: TTO_VERSION
-          value: v0.2.1
         - name: NMO_VERSION
           value: v0.11.3
         - name: HPPO_VERSION
@@ -501,80 +499,6 @@ spec:
           - key: tls.key
             path: apiserver.key
           secretName: ssp-operator-service-cert
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: tekton
-    app.kubernetes.io/part-of: hyperconverged-cluster
-    app.kubernetes.io/version: 1.7.0
-    name: tekton-tasks-operator
-  name: tekton-tasks-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      control-plane: tekton-tasks-operator
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: tekton
-        app.kubernetes.io/part-of: hyperconverged-cluster
-        app.kubernetes.io/version: 1.7.0
-        control-plane: tekton-tasks-operator
-        name: tekton-tasks-operator
-        prometheus.kubevirt.io: "true"
-      namespace: kubevirt-hyperconverged
-    spec:
-      containers:
-      - args:
-        - --leader-elect
-        command:
-        - /manager
-        env:
-        - name: OPERATOR_VERSION
-          value: v0.2.1
-        - name: CLEANUP_VM_IMG
-        - name: COPY_TEMPLATE_IMG
-        - name: CREATE_DATAVOLUME_IMG
-        - name: CREATE_VM_IMG
-        - name: DISK_VIRT_CUSTOMIZE_IMG
-        - name: DISK_VIRT_SYSPREP_IMG
-        - name: MODIFY_VM_TEMPLATE_IMG
-        - name: WAIT_FOR_VMI_STATUS_IMG
-        - name: OPERATOR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: quay.io/kubevirt/tekton-tasks-operator@sha256:14377460de6d1c2685e191270f03d309d800a38d9da6db6e71b31bc0ba01692c
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        name: manager
-        ports:
-        - containerPort: 8443
-          name: metrics
-          protocol: TCP
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        resources:
-          requests:
-            cpu: 100m
-            memory: 150Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-      priorityClassName: system-cluster-critical
-      serviceAccountName: tekton-tasks-operator
-      terminationGracePeriodSeconds: 10
 ---
 apiVersion: apps/v1
 kind: Deployment
