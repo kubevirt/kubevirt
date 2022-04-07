@@ -10,7 +10,6 @@ on:
       - 'images/**'
       - 'automation/**'
       - 'cluster/**'
-      - 'tests/**'
 jobs:
   build_push:
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
