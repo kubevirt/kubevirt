@@ -20,4 +20,8 @@ ARTIFACTS_FOLDER=${PREFIX}/${JOB_NAME}/${LATEST_BUILD}/${SUFFIX}
 for f in "${filelist[@]}"
 do
    curl "${ARTIFACTS_FOLDER}/${f}" -f -s -o "${graphs_files_dir}/${f}"
+   if [ "$(grep -c "<\!doctype html>" "${graphs_files_dir}/${f}" )" -ge 1 ]; then
+	echo "Got a placeholder HTML file from a failed nightly execution, aborting..."
+	exit 1
+   fi
 done
