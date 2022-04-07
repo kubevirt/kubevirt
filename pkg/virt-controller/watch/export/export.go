@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -38,14 +39,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	exportv1 "kubevirt.io/api/export/v1alpha1"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
@@ -69,8 +66,9 @@ const (
 
 	exportPrefix = "virt-export"
 
-	blockVolumeMountPath = "/dev/export-block%d"
-	fileSystemMountPath  = "/volumes/export-fs%d"
+	blockVolumeMountPath = "/dev/export-volumes"
+	fileSystemMountPath  = "/export-volumes"
+	urlBasePath          = "/volumes"
 
 	// annContentType is an annotation on a PVC indicating the content type. This is populated by CDI.
 	annContentType = "cdi.kubevirt.io/storage.contentType"
@@ -419,29 +417,34 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	labels[exportServiceLabel] = vmExport.Name
 	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
 	podManifest.ObjectMeta.Labels = labels
+	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsUser: &[]int64{0}[0],
+	}
 	for i, pvc := range pvcs {
+		var mountPoint string
 		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
-			// podSpec.Spec.Containers[0].VolumeDevices = append(podSpec.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
-			// 	Name:       pvc.Name,
-			// 	DevicePath: fmt.Sprintf(blockVolumeMountPath, i),
-			// })
+			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, pvc.Name)
+			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
+				Name:       pvc.Name,
+				DevicePath: mountPoint,
+			})
 		} else {
+			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, pvc.Name)
 			podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 				Name:      pvc.Name,
 				ReadOnly:  true,
-				MountPath: fmt.Sprintf(fileSystemMountPath, i),
-			})
-			// TODO should be outside else
-			podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-				Name: pvc.Name,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: pvc.Name,
-					},
-				},
+				MountPath: mountPoint,
 			})
 		}
-		ctrl.addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i)
+		ctrl.addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint)
+		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
+			Name: pvc.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.Name,
+				},
+			},
+		})
 	}
 
 	// Add token and certs ENV variables
@@ -475,45 +478,42 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 		Name:      ctrl.getExportSecretName(vmExport),
 		MountPath: "/cert",
-	},corev1.VolumeMount{
+	}, corev1.VolumeMount{
 		Name:      vmExport.Spec.TokenSecretRef,
 		MountPath: "/token",
 	})
 	return podManifest
 }
 
-func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int) {
+func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string) {
+	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
+		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
+		Value: mountPoint,
+	})
 	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
-		// exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-		// 	Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
-		// 	Value: fmt.Sprintf(blockVolumeMountPath, index),
-		// }, corev1.EnvVar{
-		// 	Name:  fmt.Sprintf("VOLUME%d_EXPORT_IMAGE_ARCHIVE", index),
-		// 	Value: fmt.Sprintf("/volumes/export-block%d/disk.gz", index),
-		// }, corev1.EnvVar{
-		// 	Name:  fmt.Sprintf("VOLUME%d_EXPORT_IMAGE", index),
-		// 	Value: fmt.Sprintf("/volumes/export-block%d/disk.img", index),
-		// })
-	} else {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-			Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
-			Value: fmt.Sprintf(fileSystemMountPath, index),
+			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
+			Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img", urlBasePath, pvc.Name)),
+		}, corev1.EnvVar{
+			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
+			Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img.gz", urlBasePath, pvc.Name)),
 		})
+	} else {
 		if ctrl.isKubevirtContentType(pvc) {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_IMAGE_ARCHIVE_URI", index),
-				Value: filepath.Join(fmt.Sprintf(fileSystemMountPath, index), "disk.gz"),
+				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
+				Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img", urlBasePath, pvc.Name)),
 			}, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_IMAGE_URI", index),
-				Value: filepath.Join(fmt.Sprintf(fileSystemMountPath, index), "disk.img"),
+				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
+				Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img.gz", urlBasePath, pvc.Name)),
 			})
 		} else {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_ARCHIVE_URI", index),
-				Value: filepath.Join(fmt.Sprintf(fileSystemMountPath, index), "dir.tar.gz"),
+				Value: filepath.Join(fmt.Sprintf("%s/%s/disk.tar.gz", urlBasePath, pvc.Name)),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_DIR_URI", index),
-				Value: filepath.Join(fmt.Sprintf(fileSystemMountPath, index), "dir") + "/",
+				Value: filepath.Join(fmt.Sprintf("%s/%s/dir", urlBasePath, pvc.Name)) + "/",
 			})
 		}
 	}
