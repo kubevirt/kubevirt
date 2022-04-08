@@ -40,10 +40,6 @@ digraph component {
 		"deployment/cdi-uploadproxy" [label="deployment/cdi-uploadproxy"]
 		"deployment/hostpath-provisioner-operator" [label="deployment/hostpath-provisioner-operator"]
 	}
-	subgraph cluster_tekton {
-		fontname="Courier-Bold" fontsize=42 group=tekton label=tekton rank=same style=dashed
-		"deployment/tekton-tasks-operator" [label="deployment/tekton-tasks-operator"]
-	}
 	subgraph cluster_templating {
 		fontname="Courier-Bold" fontsize=42 group=templating label=templating rank=same style=dashed
 		"deployment/virt-template-validator" [label="deployment/virt-template-validator"]
@@ -57,7 +53,6 @@ digraph component {
 	"deployment/hco-operator" -> "NetworkAddonsConfig/cluster"
 	"NetworkAddonsConfig/cluster" -> "SSP/ssp-kubevirt-hyperconverged"
 	"SSP/ssp-kubevirt-hyperconverged" -> "CDI/cdi-kubevirt-hyperconverged"
-	"CDI/cdi-kubevirt-hyperconverged" -> "deployment/tekton-tasks-operator"
-	"deployment/tekton-tasks-operator" -> "deployment/virt-template-validator"
+	"CDI/cdi-kubevirt-hyperconverged" -> "deployment/virt-template-validator"
 	"deployment/virt-template-validator" -> "HyperConverged/kubevirt-hyperconverged"
 }
