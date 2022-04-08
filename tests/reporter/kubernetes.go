@@ -168,6 +168,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logVMs(virtCli)
 	r.logDVs(virtCli)
 	r.logDeployments(virtCli)
+	r.logDaemonsets(virtCli)
 
 	r.logAuditLogs(virtCli, nodesDir, nodesWithVirtLauncher, since)
 	r.logDMESG(virtCli, nodesDir, nodesWithVirtLauncher, since)
@@ -697,6 +698,16 @@ func (r *KubernetesReporter) logDeployments(virtCli kubecli.KubevirtClient) {
 	}
 
 	r.logObjects(virtCli, deployments, "deployments")
+}
+
+func (r *KubernetesReporter) logDaemonsets(virtCli kubecli.KubevirtClient) {
+	daemonsets, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch daemonsets: %v\n", err)
+		return
+	}
+
+	r.logObjects(virtCli, daemonsets, "daemonsets")
 }
 
 func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
