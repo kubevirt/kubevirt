@@ -22,12 +22,15 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
+	"time"
 
 	"kubevirt.io/client-go/log"
 )
@@ -47,6 +50,8 @@ type volumeInfo struct {
 	path       string
 	archiveURI string
 	dirURI     string
+	rawURI     string
+	rawGzURI   string
 }
 
 func (vi volumeInfo) getHandlers() map[string]http.Handler {
@@ -56,6 +61,30 @@ func (vi volumeInfo) getHandlers() map[string]http.Handler {
 	}
 	if vi.dirURI != "" {
 		result[vi.dirURI] = dirHandler(vi.dirURI, vi.path)
+	}
+	if vi.rawURI != "" {
+		fi, err := os.Stat(vi.path)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error statting %s", vi.path)
+		} else {
+			if fi.IsDir() {
+				result[vi.rawURI] = fileHandler(path.Join(vi.path, "disk.img"))
+			} else {
+				result[vi.rawURI] = fileHandler(vi.path)
+			}
+		}
+	}
+	if vi.rawGzURI != "" {
+		fi, err := os.Stat(vi.path)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error statting %s", vi.path)
+		} else {
+			if fi.IsDir() {
+				result[vi.rawGzURI] = gzipHandler(path.Join(vi.path, "disk.img"))
+			} else {
+				result[vi.rawGzURI] = gzipHandler(vi.path)
+			}
+		}
 	}
 	return result
 }
@@ -134,8 +163,13 @@ func getTokenHeader(r *http.Request) (token string) {
 	return
 }
 
-func tokenChecker(token string, nextHandler http.Handler) http.Handler {
+func tokenChecker(nextHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := getToken()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		for _, tok := range []string{getTokenQueryParam(r), getTokenHeader(r)} {
 			if tok == token {
 				nextHandler.ServeHTTP(w, r)
@@ -165,8 +199,39 @@ func archiveHandler(mountPoint string) http.Handler {
 	})
 }
 
+func gzipHandler(filePath string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		f, err := os.Open(filePath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error opening %s", filePath)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		gzipReader := pipeToGzip(f)
+		defer gzipReader.Close()
+		n, err := io.Copy(w, gzipReader)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing response body")
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
+}
+
 func dirHandler(uri, mountPoint string) http.Handler {
 	return http.StripPrefix(uri, http.FileServer(http.Dir(mountPoint)))
+}
+
+func fileHandler(file string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f, err := os.Open(file)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		http.ServeContent(w, r, "disk.img", time.Time{}, f)
+	})
 }
 
 func getCert() (certFile, keyFile string) {
@@ -178,18 +243,18 @@ func getCert() (certFile, keyFile string) {
 	return
 }
 
-func getToken() string {
+func getToken() (string, error) {
 	tokenFile := os.Getenv("TOKEN_FILE")
 	if tokenFile == "" {
-		panic("token missing")
+		return "", fmt.Errorf("no token file set")
 	}
 
 	content, err := ioutil.ReadFile(tokenFile)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	return string(content)
+	return string(content), nil
 }
 
 func getVolumeInfo() []volumeInfo {
@@ -202,6 +267,8 @@ func getVolumeInfo() []volumeInfo {
 				path:       kv[1],
 				archiveURI: os.Getenv(envPrefix + "_EXPORT_ARCHIVE_URI"),
 				dirURI:     os.Getenv(envPrefix + "_EXPORT_DIR_URI"),
+				rawURI:     os.Getenv(envPrefix + "_EXPORT_RAW_URI"),
+				rawGzURI:   os.Getenv(envPrefix + "_EXPORT_RAW_GZIP_URI"),
 			}
 			result = append(result, vi)
 		}
@@ -214,14 +281,13 @@ func main() {
 	log.Log.Info("Starting export server")
 
 	certFile, keyFile := getCert()
-	token := getToken()
 	volumeInfo := getVolumeInfo()
 
 	mux := http.NewServeMux()
 	for _, vi := range volumeInfo {
 		for path, handler := range vi.getHandlers() {
 			log.Log.Infof("Handling path %s\n", path)
-			mux.Handle(path, tokenChecker(token, handler))
+			mux.Handle(path, tokenChecker(handler))
 		}
 	}
 
