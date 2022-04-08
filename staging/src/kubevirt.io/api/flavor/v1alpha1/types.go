@@ -190,6 +190,9 @@ type VirtualMachinePreferenceSpec struct {
 
 	//+optional
 	Devices *DevicePreferences `json:"devices,omitempty"`
+
+	//+optional
+	Features *FeaturePreferences `json:"features,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -320,4 +323,40 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredNetworkInterfaceMultiQueue *bool `json:"preferredNetworkInterfaceMultiQueue,omitempty"`
+}
+
+// FeaturePreferences contains various optional defaults for Features.
+//
+// +k8s:openapi-gen=true
+type FeaturePreferences struct {
+
+	// PreferredAcpi optionally enables the ACPI feature
+	//
+	// +optional
+	PreferredAcpi *v1.FeatureState `json:"preferredAcpi,omitempty"`
+
+	// PreferredApic optionally enables and configures the APIC feature
+	//
+	// +optional
+	PreferredApic *v1.FeatureAPIC `json:"preferredApic,omitempty"`
+
+	// PreferredHyperv optionally enables and configures HyperV features
+	//
+	// +optional
+	PreferredHyperv *v1.FeatureHyperv `json:"preferredHyperv,omitempty"`
+
+	// PreferredKvm optionally enables and configures KVM features
+	//
+	// +optional
+	PreferredKvm *v1.FeatureKVM `json:"preferredKvm,omitempty"`
+
+	// PreferredPvspinlock optionally enables the Pvspinlock feature
+	//
+	// +optional
+	PreferredPvspinlock *v1.FeatureState `json:"preferredPvspinlock,omitempty"`
+
+	// PreferredSmm optionally enables the SMM feature
+	//
+	// +optional
+	PreferredSmm *v1.FeatureState `json:"preferredSmm,omitempty"`
 }

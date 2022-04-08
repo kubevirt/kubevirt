@@ -494,6 +494,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.CPUFlavor":                                                  schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUPreferences":                                             schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.DevicePreferences":                                          schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref),
+		"kubevirt.io/api/flavor/v1alpha1.FeaturePreferences":                                         schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.MemoryFlavor":                                               schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
@@ -22398,6 +22399,57 @@ func schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref common.Referenc
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FeaturePreferences contains various optional defaults for Features.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredAcpi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredAcpi optionally enables the ACPI feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+					"preferredApic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredApic optionally enables and configures the APIC feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureAPIC"),
+						},
+					},
+					"preferredHyperv": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredHyperv optionally enables and configures HyperV features",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureHyperv"),
+						},
+					},
+					"preferredKvm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredKvm optionally enables and configures KVM features",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureKVM"),
+						},
+					},
+					"preferredPvspinlock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredPvspinlock optionally enables the Pvspinlock feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+					"preferredSmm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredSmm optionally enables the SMM feature",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22828,11 +22880,16 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.DevicePreferences"),
 						},
 					},
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.FeaturePreferences"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences"},
 	}
 }
 

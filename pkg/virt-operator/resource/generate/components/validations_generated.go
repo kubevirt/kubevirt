@@ -7045,6 +7045,201 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
           type: object
+        features:
+          description: FeaturePreferences contains various optional defaults for Features.
+          properties:
+            preferredAcpi:
+              description: PreferredAcpi optionally enables the ACPI feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+              type: object
+            preferredApic:
+              description: PreferredApic optionally enables and configures the APIC
+                feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+                endOfInterrupt:
+                  description: EndOfInterrupt enables the end of interrupt notification
+                    in the guest. Defaults to false.
+                  type: boolean
+              type: object
+            preferredHyperv:
+              description: PreferredHyperv optionally enables and configures HyperV
+                features
+              properties:
+                evmcs:
+                  description: EVMCS Speeds up L2 vmexits, but disables other virtualization
+                    features. Requires vapic. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                frequencies:
+                  description: Frequencies improves the TSC clock source handling
+                    for Hyper-V on KVM. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                ipi:
+                  description: IPI improves performances in overcommited environments.
+                    Requires vpindex. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                reenlightenment:
+                  description: Reenlightenment enables the notifications on TSC frequency
+                    changes. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                relaxed:
+                  description: Relaxed instructs the guest OS to disable watchdog
+                    timeouts. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                reset:
+                  description: Reset enables Hyperv reboot/reset for the vmi. Requires
+                    synic. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                runtime:
+                  description: Runtime improves the time accounting to improve scheduling
+                    in the guest. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                spinlocks:
+                  description: Spinlocks allows to configure the spinlock retry attempts.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                    spinlocks:
+                      description: Retries indicates the number of retries. Must be
+                        a value greater or equal 4096. Defaults to 4096.
+                      format: int32
+                      type: integer
+                  type: object
+                synic:
+                  description: SyNIC enables the Synthetic Interrupt Controller. Defaults
+                    to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                synictimer:
+                  description: SyNICTimer enables Synthetic Interrupt Controller Timers,
+                    reducing CPU load. Defaults to the machine type setting.
+                  properties:
+                    direct:
+                      description: Represents if a feature is enabled or disabled.
+                      properties:
+                        enabled:
+                          description: Enabled determines if the feature should be
+                            enabled or disabled on the guest. Defaults to true.
+                          type: boolean
+                      type: object
+                    enabled:
+                      type: boolean
+                  type: object
+                tlbflush:
+                  description: TLBFlush improves performances in overcommited environments.
+                    Requires vpindex. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                vapic:
+                  description: VAPIC improves the paravirtualized handling of interrupts.
+                    Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                vendorid:
+                  description: VendorID allows setting the hypervisor vendor id. Defaults
+                    to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                    vendorid:
+                      description: VendorID sets the hypervisor vendor id, visible
+                        to the vmi. String up to twelve characters.
+                      type: string
+                  type: object
+                vpindex:
+                  description: VPIndex enables the Virtual Processor Index to help
+                    windows identifying virtual processors. Defaults to the machine
+                    type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+              type: object
+            preferredKvm:
+              description: PreferredKvm optionally enables and configures KVM features
+              properties:
+                hidden:
+                  description: Hide the KVM hypervisor from standard MSR based discovery.
+                    Defaults to false
+                  type: boolean
+              type: object
+            preferredPvspinlock:
+              description: PreferredPvspinlock optionally enables the Pvspinlock feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+              type: object
+            preferredSmm:
+              description: PreferredSmm optionally enables the SMM feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+              type: object
+          type: object
       type: object
   required:
   - spec
@@ -17948,6 +18143,201 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+              type: object
+          type: object
+        features:
+          description: FeaturePreferences contains various optional defaults for Features.
+          properties:
+            preferredAcpi:
+              description: PreferredAcpi optionally enables the ACPI feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+              type: object
+            preferredApic:
+              description: PreferredApic optionally enables and configures the APIC
+                feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+                endOfInterrupt:
+                  description: EndOfInterrupt enables the end of interrupt notification
+                    in the guest. Defaults to false.
+                  type: boolean
+              type: object
+            preferredHyperv:
+              description: PreferredHyperv optionally enables and configures HyperV
+                features
+              properties:
+                evmcs:
+                  description: EVMCS Speeds up L2 vmexits, but disables other virtualization
+                    features. Requires vapic. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                frequencies:
+                  description: Frequencies improves the TSC clock source handling
+                    for Hyper-V on KVM. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                ipi:
+                  description: IPI improves performances in overcommited environments.
+                    Requires vpindex. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                reenlightenment:
+                  description: Reenlightenment enables the notifications on TSC frequency
+                    changes. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                relaxed:
+                  description: Relaxed instructs the guest OS to disable watchdog
+                    timeouts. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                reset:
+                  description: Reset enables Hyperv reboot/reset for the vmi. Requires
+                    synic. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                runtime:
+                  description: Runtime improves the time accounting to improve scheduling
+                    in the guest. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                spinlocks:
+                  description: Spinlocks allows to configure the spinlock retry attempts.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                    spinlocks:
+                      description: Retries indicates the number of retries. Must be
+                        a value greater or equal 4096. Defaults to 4096.
+                      format: int32
+                      type: integer
+                  type: object
+                synic:
+                  description: SyNIC enables the Synthetic Interrupt Controller. Defaults
+                    to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                synictimer:
+                  description: SyNICTimer enables Synthetic Interrupt Controller Timers,
+                    reducing CPU load. Defaults to the machine type setting.
+                  properties:
+                    direct:
+                      description: Represents if a feature is enabled or disabled.
+                      properties:
+                        enabled:
+                          description: Enabled determines if the feature should be
+                            enabled or disabled on the guest. Defaults to true.
+                          type: boolean
+                      type: object
+                    enabled:
+                      type: boolean
+                  type: object
+                tlbflush:
+                  description: TLBFlush improves performances in overcommited environments.
+                    Requires vpindex. Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                vapic:
+                  description: VAPIC improves the paravirtualized handling of interrupts.
+                    Defaults to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+                vendorid:
+                  description: VendorID allows setting the hypervisor vendor id. Defaults
+                    to the machine type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                    vendorid:
+                      description: VendorID sets the hypervisor vendor id, visible
+                        to the vmi. String up to twelve characters.
+                      type: string
+                  type: object
+                vpindex:
+                  description: VPIndex enables the Virtual Processor Index to help
+                    windows identifying virtual processors. Defaults to the machine
+                    type setting.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled
+                        or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
+              type: object
+            preferredKvm:
+              description: PreferredKvm optionally enables and configures KVM features
+              properties:
+                hidden:
+                  description: Hide the KVM hypervisor from standard MSR based discovery.
+                    Defaults to false
+                  type: boolean
+              type: object
+            preferredPvspinlock:
+              description: PreferredPvspinlock optionally enables the Pvspinlock feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
+              type: object
+            preferredSmm:
+              description: PreferredSmm optionally enables the SMM feature
+              properties:
+                enabled:
+                  description: Enabled determines if the feature should be enabled
+                    or disabled on the guest. Defaults to true.
+                  type: boolean
               type: object
           type: object
       type: object

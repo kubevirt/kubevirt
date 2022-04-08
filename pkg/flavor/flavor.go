@@ -11,6 +11,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	apiflavor "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
@@ -61,6 +62,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 	if preferenceSpec != nil {
 		// By design Preferences can't conflict with the VMI so we don't return any
 		applyDevicePreferences(preferenceSpec, vmiSpec)
+		applyFeaturePreferences(preferenceSpec, vmiSpec)
 	}
 
 	return conflicts
@@ -380,4 +382,42 @@ func applyInputPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferen
 			vmiInput.Type = preferenceSpec.Devices.PreferredInputType
 		}
 	}
+}
+
+func applyFeaturePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+
+	if preferenceSpec.Features == nil {
+		return
+	}
+
+	if vmiSpec.Domain.Features == nil {
+		vmiSpec.Domain.Features = &v1.Features{}
+	}
+
+	// FIXME vmiSpec.Domain.Features.ACPI isn't a FeatureState pointer so just overwrite if we have a preference for now.
+	if preferenceSpec.Features.PreferredAcpi != nil {
+		vmiSpec.Domain.Features.ACPI = *preferenceSpec.Features.PreferredAcpi.DeepCopy()
+	}
+
+	if preferenceSpec.Features.PreferredApic != nil && vmiSpec.Domain.Features.APIC == nil {
+		vmiSpec.Domain.Features.APIC = preferenceSpec.Features.PreferredApic.DeepCopy()
+	}
+
+	//TODO Allow finer grain control of HyperV feature flags
+	if preferenceSpec.Features.PreferredHyperv != nil && vmiSpec.Domain.Features.Hyperv == nil {
+		vmiSpec.Domain.Features.Hyperv = preferenceSpec.Features.PreferredHyperv.DeepCopy()
+	}
+
+	if preferenceSpec.Features.PreferredKvm != nil && vmiSpec.Domain.Features.KVM == nil {
+		vmiSpec.Domain.Features.KVM = preferenceSpec.Features.PreferredKvm.DeepCopy()
+	}
+
+	if preferenceSpec.Features.PreferredPvspinlock != nil && vmiSpec.Domain.Features.Pvspinlock == nil {
+		vmiSpec.Domain.Features.Pvspinlock = preferenceSpec.Features.PreferredPvspinlock.DeepCopy()
+	}
+
+	if preferenceSpec.Features.PreferredSmm != nil && vmiSpec.Domain.Features.SMM == nil {
+		vmiSpec.Domain.Features.SMM = preferenceSpec.Features.PreferredSmm.DeepCopy()
+	}
+
 }

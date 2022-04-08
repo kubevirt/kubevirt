@@ -17756,6 +17756,36 @@
      }
     }
    },
+   "v1alpha1.FeaturePreferences": {
+    "description": "FeaturePreferences contains various optional defaults for Features.",
+    "type": "object",
+    "properties": {
+     "preferredAcpi": {
+      "description": "PreferredAcpi optionally enables the ACPI feature",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "preferredApic": {
+      "description": "PreferredApic optionally enables and configures the APIC feature",
+      "$ref": "#/definitions/v1.FeatureAPIC"
+     },
+     "preferredHyperv": {
+      "description": "PreferredHyperv optionally enables and configures HyperV features",
+      "$ref": "#/definitions/v1.FeatureHyperv"
+     },
+     "preferredKvm": {
+      "description": "PreferredKvm optionally enables and configures KVM features",
+      "$ref": "#/definitions/v1.FeatureKVM"
+     },
+     "preferredPvspinlock": {
+      "description": "PreferredPvspinlock optionally enables the Pvspinlock feature",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "preferredSmm": {
+      "description": "PreferredSmm optionally enables the SMM feature",
+      "$ref": "#/definitions/v1.FeatureState"
+     }
+    }
+   },
    "v1alpha1.MemoryFlavor": {
     "description": "FlavorMemory",
     "type": "object",
@@ -18257,6 +18287,9 @@
      },
      "devices": {
       "$ref": "#/definitions/v1alpha1.DevicePreferences"
+     },
+     "features": {
+      "$ref": "#/definitions/v1alpha1.FeaturePreferences"
      }
     }
    },

@@ -622,5 +622,63 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 		})
+
+		Context("Preference.Features ", func() {
+
+			BeforeEach(func() {
+				spinLockRetries := uint32(32)
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					Features: &flavorv1alpha1.FeaturePreferences{
+						PreferredAcpi: &v1.FeatureState{},
+						PreferredApic: &v1.FeatureAPIC{
+							Enabled:        pointer.Bool(true),
+							EndOfInterrupt: false,
+						},
+						PreferredHyperv: &v1.FeatureHyperv{
+							Relaxed: &v1.FeatureState{},
+							VAPIC:   &v1.FeatureState{},
+							Spinlocks: &v1.FeatureSpinlocks{
+								Enabled: pointer.Bool(true),
+								Retries: &spinLockRetries,
+							},
+							VPIndex: &v1.FeatureState{},
+							Runtime: &v1.FeatureState{},
+							SyNIC:   &v1.FeatureState{},
+							SyNICTimer: &v1.SyNICTimer{
+								Enabled: pointer.Bool(true),
+								Direct:  &v1.FeatureState{},
+							},
+							Reset: &v1.FeatureState{},
+							VendorID: &v1.FeatureVendorID{
+								Enabled:  pointer.Bool(true),
+								VendorID: "1234",
+							},
+							Frequencies:     &v1.FeatureState{},
+							Reenlightenment: &v1.FeatureState{},
+							TLBFlush:        &v1.FeatureState{},
+							IPI:             &v1.FeatureState{},
+							EVMCS:           &v1.FeatureState{},
+						},
+						PreferredKvm: &v1.FeatureKVM{
+							Hidden: true,
+						},
+						PreferredPvspinlock: &v1.FeatureState{},
+						PreferredSmm:        &v1.FeatureState{},
+					},
+				}
+			})
+
+			It("in full to VMI", func() {
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(vmi.Spec.Domain.Features.ACPI).To(Equal(*preferenceSpec.Features.PreferredAcpi))
+				Expect(*vmi.Spec.Domain.Features.APIC).To(Equal(*preferenceSpec.Features.PreferredApic))
+				Expect(*vmi.Spec.Domain.Features.Hyperv).To(Equal(*preferenceSpec.Features.PreferredHyperv))
+				Expect(*vmi.Spec.Domain.Features.KVM).To(Equal(*preferenceSpec.Features.PreferredKvm))
+				Expect(*vmi.Spec.Domain.Features.Pvspinlock).To(Equal(*preferenceSpec.Features.PreferredPvspinlock))
+				Expect(*vmi.Spec.Domain.Features.SMM).To(Equal(*preferenceSpec.Features.PreferredSmm))
+			})
+		})
 	})
 })

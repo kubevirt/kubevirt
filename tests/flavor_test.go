@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
@@ -153,6 +154,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preference := newVirtualMachinePreference()
 			preference.Spec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferSockets
 			preference.Spec.Devices.PreferredDiskBus = v1.DiskBusSATA
+			preference.Spec.Features.PreferredHyperv = &v1.FeatureHyperv{
+				VAPIC: &v1.FeatureState{
+					Enabled: pointer.Bool(true),
+				},
+				Relaxed: &v1.FeatureState{
+					Enabled: pointer.Bool(true),
+				},
+			}
 
 			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -191,6 +200,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Expect(vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
 				}
 			}
+
+			// Assert that the correct features are enabled
+			Expect(*vmi.Spec.Domain.Features.Hyperv).To(Equal(*preference.Spec.Features.PreferredHyperv))
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
@@ -261,8 +273,9 @@ func newVirtualMachinePreference() *flavorv1alpha1.VirtualMachinePreference {
 			Namespace:    util.NamespaceTestDefault,
 		},
 		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
-			CPU:     &flavorv1alpha1.CPUPreferences{},
-			Devices: &flavorv1alpha1.DevicePreferences{},
+			CPU:      &flavorv1alpha1.CPUPreferences{},
+			Devices:  &flavorv1alpha1.DevicePreferences{},
+			Features: &flavorv1alpha1.FeaturePreferences{},
 		},
 	}
 }
@@ -271,6 +284,7 @@ func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Domain.CPU = nil
 	vmi.Spec.Domain.Memory = nil
 	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+	vmi.Spec.Domain.Features = &v1.Features{}
 
 	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
 		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {

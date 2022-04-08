@@ -82,9 +82,10 @@ func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
-		"cpu":     "+optional",
-		"devices": "+optional",
+		"":         "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
+		"cpu":      "+optional",
+		"devices":  "+optional",
+		"features": "+optional",
 	}
 }
 
@@ -119,5 +120,17 @@ func (DevicePreferences) SwaggerDoc() map[string]string {
 		"preferredRng":                        "PreferredRng optionally defines the preferred rng device to be used.\n\n+optional",
 		"preferredBlockMultiQueue":            "PreferredBlockMultiQueue optionally enables the vhost multiqueue feature for virtio disks.\n\n+optional",
 		"preferredNetworkInterfaceMultiQueue": "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.\n\n+optional",
+	}
+}
+
+func (FeaturePreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                    "FeaturePreferences contains various optional defaults for Features.\n\n+k8s:openapi-gen=true",
+		"preferredAcpi":       "PreferredAcpi optionally enables the ACPI feature\n\n+optional",
+		"preferredApic":       "PreferredApic optionally enables and configures the APIC feature\n\n+optional",
+		"preferredHyperv":     "PreferredHyperv optionally enables and configures HyperV features\n\n+optional",
+		"preferredKvm":        "PreferredKvm optionally enables and configures KVM features\n\n+optional",
+		"preferredPvspinlock": "PreferredPvspinlock optionally enables the Pvspinlock feature\n\n+optional",
+		"preferredSmm":        "PreferredSmm optionally enables the SMM feature\n\n+optional",
 	}
 }
