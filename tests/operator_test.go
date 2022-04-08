@@ -697,7 +697,6 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		}
 
 		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -1452,7 +1451,16 @@ spec:
 				Skip("Skip operator update test when operator manifest path isn't configured")
 			}
 
-			migratableVMIs := generateMigratableVMIs(2)
+			// This test should run fine on single-node setups as long as no VM is created pre-update
+			createVMs := true
+			if !checks.HasLiveMigration() || !checks.HasAtLeastTwoNodes() {
+				createVMs = false
+			}
+
+			var migratableVMIs []*v1.VirtualMachineInstance
+			if createVMs {
+				migratableVMIs = generateMigratableVMIs(2)
+			}
 			launcherSha := getVirtLauncherSha()
 			if !flags.SkipShasumCheck {
 				Expect(launcherSha).ToNot(Equal(""))
@@ -1545,8 +1553,12 @@ spec:
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
 
-			generatePreviousVersionVmYamls(previousUtilityRegistry, previousUtilityTag)
-			generatePreviousVersionVmsnapshotYamls()
+			if createVMs {
+				generatePreviousVersionVmYamls(previousUtilityRegistry, previousUtilityTag)
+				generatePreviousVersionVmsnapshotYamls()
+			} else {
+				Expect(vmYamls).To(BeEmpty())
+			}
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
 				// NOTE: using kubectl to post yaml directly
@@ -1735,11 +1747,13 @@ spec:
 			By("Verifying all migratable vmi workloads are updated via live migration")
 			verifyVMIsUpdated(migratableVMIs, launcherSha)
 
-			By("Verifying that a once migrated VMI after an update can be migrated again")
-			vmi := migratableVMIs[0]
-			migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewRandomMigration(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
+			if len(migratableVMIs) > 0 {
+				By("Verifying that a once migrated VMI after an update can be migrated again")
+				vmi := migratableVMIs[0]
+				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewRandomMigration(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
+			}
 
 			By("Deleting migratable VMIs")
 			deleteAllVMIs(migratableVMIs)
@@ -1759,8 +1773,11 @@ spec:
 
 			// This ensures that we can remove kubevirt while workloads are running
 			By("Starting some vmis")
-			vmis := generateMigratableVMIs(2)
-			startAllVMIs(vmis)
+			var vmis []*v1.VirtualMachineInstance
+			if checks.HasLiveMigration() && checks.HasAtLeastTwoNodes() {
+				vmis = generateMigratableVMIs(2)
+				startAllVMIs(vmis)
+			}
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -1927,7 +1944,10 @@ spec:
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			vmis := generateMigratableVMIs(2)
+			var vmis []*v1.VirtualMachineInstance
+			if checks.HasLiveMigration() && checks.HasAtLeastTwoNodes() {
+				vmis = generateMigratableVMIs(2)
+			}
 			vmisNonMigratable := generateNonMigratableVMIs(2)
 
 			allPodsAreReady(originalKv)
@@ -2536,13 +2556,11 @@ spec:
 			patchKvInfra(infra, true, "infra replica count can't be 0")
 		})
 		It("should dynamically adjust virt- pod count and PDBs", func() {
-			for _, replicas := range []uint8{3, 1, 2} { // End with 2 so cluster is back to normal
+			for _, replicas := range []uint8{3, 1, 2} {
 				By(fmt.Sprintf("Setting the replica count in kvInfra to %d", replicas))
 				var infra *v1.ComponentConfig
-				if replicas != 2 { // Ensure that nil infra brings us back to 2 replicas
-					infra = &v1.ComponentConfig{
-						Replicas: &replicas,
-					}
+				infra = &v1.ComponentConfig{
+					Replicas: &replicas,
 				}
 				patchKvInfra(infra, false, "")
 
