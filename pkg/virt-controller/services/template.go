@@ -525,10 +525,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		privileged = true
 	}
 
-	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
-	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
-	}
+	gracePeriodSeconds := gracePeriodInSeconds(vmi)
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "ephemeral-disks",
@@ -1475,6 +1472,13 @@ func sidecarVolumeMount() k8sv1.VolumeMount {
 		Name:      hookSidecarSocks,
 		MountPath: hooks.HookSocketsSharedDirectory,
 	}
+}
+
+func gracePeriodInSeconds(vmi *v1.VirtualMachineInstance) int64 {
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		return *vmi.Spec.TerminationGracePeriodSeconds
+	}
+	return v1.DefaultGracePeriodSeconds
 }
 
 func sidecarContainerName(i int) string {
