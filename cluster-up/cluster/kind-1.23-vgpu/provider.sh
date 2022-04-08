@@ -19,6 +19,18 @@ function set_kind_params() {
     export KUBECTL_PATH="${KUBECTL_PATH:-/bin/kubectl}"
 }
 
+function configure_registry_proxy() {
+    [ "$CI" != "true" ] && return
+
+    echo "Configuring cluster nodes to work with CI mirror-proxy..."
+
+    local -r ci_proxy_hostname="docker-mirror-proxy.kubevirt-prow.svc"
+    local -r kind_binary_path="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind"
+    local -r configure_registry_proxy_script="${KUBEVIRTCI_PATH}/cluster/kind/configure-registry-proxy.sh"
+
+    KIND_BIN="$kind_binary_path" PROXY_HOSTNAME="$ci_proxy_hostname" $configure_registry_proxy_script
+}
+
 function up() {
     # load the vfio_mdev module
     /usr/sbin/modprobe vfio_mdev
@@ -32,6 +44,8 @@ function up() {
     _add_worker_kubeadm_config_patch
     _add_worker_extra_mounts
     kind_up
+
+    configure_registry_proxy
 
     # remove the rancher.io kind default storageClass
     _kubectl delete sc standard
