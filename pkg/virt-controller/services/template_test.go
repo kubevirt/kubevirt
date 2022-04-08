@@ -1120,7 +1120,12 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 
-				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/var/run/kubevirt/sockets"))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+					ContainElement(
+						kubev1.VolumeMount{
+							Name:      "sockets",
+							MountPath: "/var/run/kubevirt/sockets"},
+					))
 
 				Expect(pod.Spec.Volumes[1].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
 
@@ -1948,7 +1953,12 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+					ContainElement(
+						kubev1.VolumeMount{
+							Name:      "hugepages",
+							MountPath: "/dev/hugepages"},
+					))
 			},
 				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 223),
 				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 223),

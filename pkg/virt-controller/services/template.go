@@ -472,9 +472,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	nodeSelector := map[string]string{}
 
-	var volumes []k8sv1.Volume
+	volumeRenderer := NewVolumeRenderer(t.ephemeralDiskDir, t.containerDiskDir, t.virtShareDir)
+	volumes := volumeRenderer.Volumes()
 	var volumeDevices []k8sv1.VolumeDevice
-	var volumeMounts []k8sv1.VolumeMount
+	volumeMounts := volumeRenderer.Mounts()
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	var userId int64 = util.RootUser
@@ -484,28 +485,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if nonRoot {
 		userId = util.NonRootUID
 	}
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "private",
-		MountPath: util.VirtPrivateDir,
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "private",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "public",
-		MountPath: util.VirtShareDir,
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "public",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
 
 	hotplugVolumes := make(map[string]bool)
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
@@ -527,17 +506,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	gracePeriodSeconds := gracePeriodInSeconds(vmi)
 
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "ephemeral-disks",
-		MountPath: t.ephemeralDiskDir,
-	})
-
 	prop := k8sv1.MountPropagationHostToContainer
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:             containerDisks,
-		MountPath:        t.containerDiskDir,
-		MountPropagation: &prop,
-	})
 	if !vmi.Spec.Domain.Devices.DisableHotplug {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:             hotplugDisks,
@@ -545,23 +514,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			MountPropagation: &prop,
 		})
 	}
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "libvirt-runtime",
-		MountPath: "/var/run/libvirt",
-	})
-
-	// virt-launcher cmd socket dir
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "sockets",
-		MountPath: filepath.Join(t.virtShareDir, "sockets"),
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "sockets",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
 
 	serviceAccountName := ""
 

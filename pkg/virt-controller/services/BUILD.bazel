@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "multus_annotations.go",
         "rendercontainer.go",
+        "rendervolumes.go",
         "template.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/services",
