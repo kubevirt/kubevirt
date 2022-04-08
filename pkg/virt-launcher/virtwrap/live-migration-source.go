@@ -396,7 +396,6 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 }
 
 func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
-
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
 	}
@@ -409,13 +408,7 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 		return nil
 	}
 
-	err = l.asyncMigrate(vmi, options)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
-		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-		return err
-	}
-
+	go l.migrate(vmi, options)
 	return nil
 }
 
@@ -609,35 +602,22 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 }
 
 func (m *migrationMonitor) isMigrationPostCopy(domSpec *api.DomainSpec) bool {
-
-	if domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
-		return true
-	}
-
-	return false
+	return domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy
 }
 
-func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64, domSpec *api.DomainSpec) bool {
+func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
 	}
 
-	if elapsed/int64(time.Second) > m.acceptableCompletionTime {
-		return true
-	}
-
-	return false
+	return elapsed/int64(time.Second) > m.acceptableCompletionTime
 }
 
-func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64, domSpec *api.DomainSpec) bool {
-	if m.shouldTriggerTimeout(elapsed, domSpec) && m.options.AllowPostCopy {
-
-		return true
-	}
-	return false
+func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64) bool {
+	return m.shouldTriggerTimeout(elapsed) && m.options.AllowPostCopy
 }
 
-func (m *migrationMonitor) isMigrationProgressing(domainSpec *api.DomainSpec) bool {
+func (m *migrationMonitor) isMigrationProgressing() bool {
 	logger := log.Log.Object(m.vmi)
 
 	now := time.Now().UTC().UnixNano()
@@ -729,7 +709,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 		// If we were to abort the migration due to a timeout while in post copy,
 		// then it would result in that active state being lost.
 
-	case m.shouldTriggerPostCopy(elapsed, domainSpec):
+	case m.shouldTriggerPostCopy(elapsed):
 		logger.Info("Starting post copy mode for migration")
 		// if a migration has stalled too long, post copy will be
 		// triggered when allowPostCopy is enabled
@@ -745,7 +725,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 			return nil
 		}
 
-	case !m.isMigrationProgressing(domainSpec):
+	case !m.isMigrationProgressing():
 		// check if the migration is still progressing
 		// a stuck migration will get terminated when post copy
 		// isn't enabled
@@ -760,7 +740,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 		aborted.message = fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay)
 		aborted.abortStatus = v1.MigrationAbortSucceeded
 		return aborted
-	case m.shouldTriggerTimeout(elapsed, domainSpec):
+	case m.shouldTriggerTimeout(elapsed):
 		// check the overall migration time
 		// if the total migration time exceeds an acceptable
 		// limit, then the migration will get aborted, but
@@ -782,16 +762,12 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 }
 
 func (m *migrationMonitor) hasMigrationErr() error {
-
 	select {
 	case err := <-m.migrationErr:
-		if err != nil {
-			return err
-		}
+		return err
 	default:
+		return nil
 	}
-
-	return nil
 }
 
 func (m *migrationMonitor) startMonitor() {
@@ -894,7 +870,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 }
 
 func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
-	return (vmi.Status.MigrationMethod == v1.BlockMigration)
+	return vmi.Status.MigrationMethod == v1.BlockMigration
 }
 
 func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec) (*libvirt.DomainMigrateParameters, error) {
@@ -1011,40 +987,35 @@ func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
 	return shouldFail
 }
 
-func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+	if shouldImmediatelyFailMigration(vmi) {
+		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
+		l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+		return
+	}
 
-	// get connection proxies for tunnelling migration through virt-handler
-	go func() {
-		if shouldImmediatelyFailMigration(vmi) {
-			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
-			return
-		}
+	migrationErrorChan := make(chan error, 1)
+	defer close(migrationErrorChan)
 
-		migrationErrorChan := make(chan error, 1)
-		defer close(migrationErrorChan)
+	log.Log.Object(vmi).Infof("Initiating live migration.")
+	if options.UnsafeMigration {
+		log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
+	}
 
-		log.Log.Object(vmi).Infof("Initiating live migration.")
-		if options.UnsafeMigration {
-			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
-		}
+	// From here on out, any error encountered must be sent to the
+	// migrationError channel which is processed by the liveMigrationMonitor
+	// go routine.
+	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
+	go monitor.startMonitor()
 
-		// From here on out, any error encountered must be sent to the
-		// migrationError channel which is processed by the liveMigrationMonitor
-		// go routine.
-		monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
-		go monitor.startMonitor()
+	err := l.migrateHelper(vmi, options)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
+		migrationErrorChan <- err
+		return
+	}
 
-		err := l.migrateHelper(vmi, options)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
-			migrationErrorChan <- err
-			return
-		}
-
-		log.Log.Object(vmi).Infof("Live migration succeeded.")
-	}()
-	return nil
+	log.Log.Object(vmi).Infof("Live migration succeeded.")
 }
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, mode v1.MigrationMode) error {
