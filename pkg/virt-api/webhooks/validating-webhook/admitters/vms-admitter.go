@@ -180,16 +180,7 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 		return nil
 	}
 
-	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: vm.Spec.Template.ObjectMeta,
-		Spec:       vm.Spec.Template.Spec,
-	}
-	conflicts := admitter.FlavorMethods.ApplyToVmi(
-		k8sfield.NewPath("spec", "template", "spec"),
-		flavorProfile,
-		vm,
-		vmi,
-	)
+	conflicts := admitter.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorProfile, &vm.Spec.Template.Spec)
 	if len(conflicts) == 0 {
 		return nil
 	}
