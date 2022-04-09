@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 )
 
@@ -83,6 +84,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	if newKV.Spec.Infra != nil {
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
+	}
+
+	if len(newKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) > 0 {
+		results = append(results, validateWorkloadUpdateMethods(&currKV.Spec, &newKV.Spec)...)
 	}
 
 	return validating_webhooks.NewAdmissionResponse(results)
@@ -307,5 +312,44 @@ func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
 		})
 	}
 
+	return statuses
+}
+
+func validateWorkloadUpdateMethods(oldKVSpec, newKVSpec *v1.KubeVirtSpec) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	isLiveMigrateMethodEnabled := func(kvSpec *v1.KubeVirtSpec) bool {
+		for _, method := range kvSpec.WorkloadUpdateStrategy.WorkloadUpdateMethods {
+			if method == v1.WorkloadUpdateMethodLiveMigrate {
+				return true
+			}
+		}
+		return false
+	}
+
+	isLiveMigrationFGEnabled := func(kvSpec *v1.KubeVirtSpec) bool {
+		if newKVSpec.Configuration.DeveloperConfiguration != nil {
+			for _, fg := range newKVSpec.Configuration.DeveloperConfiguration.FeatureGates {
+				if fg == virtconfig.LiveMigrationGate {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// do not return an error if the misconfiguration was already there, otherwise
+	// we risk to block any operation on the KV CR right from the start if the
+	// CR got created this way.
+	if isLiveMigrateMethodEnabled(oldKVSpec) && !isLiveMigrationFGEnabled(oldKVSpec) {
+		return statuses
+	}
+
+	if isLiveMigrateMethodEnabled(newKVSpec) && !isLiveMigrationFGEnabled(newKVSpec) {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "the LiveMigration feature gate must be enabled to have LiveMigrate as a workload update method",
+		})
+	}
 	return statuses
 }
