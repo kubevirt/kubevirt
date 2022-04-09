@@ -98,7 +98,7 @@ function get_updated_versions {
     ["KUBEVIRT"]="kubevirt.io/api"
     ["CDI"]="kubevirt.io/containerized-data-importer-api"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
-    ["SSP"]="kubevirt.io/ssp-operator"
+    ["SSP"]="kubevirt.io/ssp-operator/api"
   )
 
   UPDATED_VERSIONS=()

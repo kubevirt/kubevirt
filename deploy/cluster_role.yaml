@@ -1586,6 +1586,15 @@ metadata:
   name: ssp-operator
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -1757,6 +1766,8 @@ rules:
   - monitoring.coreos.com
   resources:
   - prometheusrules
+  - servicemonitors
+  - services
   verbs:
   - create
   - delete
@@ -1784,6 +1795,20 @@ rules:
   - clusterroles
   - rolebindings
   - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io/v1
+  resources:
+  - role
+  - rolebinding
+  - serviceaccount
   verbs:
   - create
   - delete
