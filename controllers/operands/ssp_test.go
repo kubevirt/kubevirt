@@ -22,8 +22,11 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
+	// TODO: remove this once SSP will also consume kubevirt.io/controller-lifecycle-operator-sdk v2.0.4
+	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
 var _ = Describe("SSP Operands", func() {
@@ -94,9 +97,9 @@ var _ = Describe("SSP Operands", func() {
 
 			replicas := int32(defaultTemplateValidatorReplicas * 2) // non-default value
 			existingResource.Spec.TemplateValidator.Replicas = &replicas
-			existingResource.Spec.NodeLabeller.Placement = &lifecycleapi.NodePlacement{
+			existingResource.Spec.NodeLabeller.Placement = (*api.NodePlacement)(&lifecycleapi.NodePlacement{
 				NodeSelector: map[string]string{"foo": "bar"},
-			}
+			})
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
@@ -155,8 +158,9 @@ var _ = Describe("SSP Operands", func() {
 
 				Expect(existingResource.Spec.NodeLabeller.Placement).To(BeZero())
 				Expect(existingResource.Spec.TemplateValidator.Placement).To(BeZero())
-				Expect(*foundResource.Spec.NodeLabeller.Placement).To(Equal(*hco.Spec.Workloads.NodePlacement))
-				Expect(*foundResource.Spec.TemplateValidator.Placement).To(Equal(*hco.Spec.Infra.NodePlacement))
+				// TODO: replace BeEquivalentTo with BeEqual once SSP will consume kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
+				Expect(*foundResource.Spec.NodeLabeller.Placement).To(BeEquivalentTo(*hco.Spec.Workloads.NodePlacement))
+				Expect(*foundResource.Spec.TemplateValidator.Placement).To(BeEquivalentTo(*hco.Spec.Infra.NodePlacement))
 				Expect(req.Conditions).To(BeEmpty())
 			})
 

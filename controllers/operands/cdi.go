@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+
 	log "github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
@@ -136,12 +138,14 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		}
 	}
 
+	// TODO: remove this cast once CDI will also consume kubevirt.io/controller-lifecycle-operator-sdk v2.0.4
 	if hc.Spec.Infra.NodePlacement != nil {
-		hc.Spec.Infra.NodePlacement.DeepCopyInto(&spec.Infra)
+		hc.Spec.Infra.NodePlacement.DeepCopyInto((*sdkapi.NodePlacement)(&spec.Infra))
 	}
 
+	// TODO: remove this cast once CDI will also consume kubevirt.io/controller-lifecycle-operator-sdk v2.0.4
 	if hc.Spec.Workloads.NodePlacement != nil {
-		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
+		hc.Spec.Workloads.NodePlacement.DeepCopyInto((*sdkapi.NodePlacement)(&spec.Workloads))
 	}
 
 	certConfig := hc.Spec.CertConfig

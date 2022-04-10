@@ -30,7 +30,9 @@ require (
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	kubevirt.io/api v0.51.0
 	kubevirt.io/containerized-data-importer-api v1.46.0
+	// Remove this once SSP will also consume v0.2.4
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.3
+	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 	kubevirt.io/ssp-operator/api v0.14.1
 	sigs.k8s.io/controller-runtime v0.11.1
 	sigs.k8s.io/controller-tools v0.8.0
