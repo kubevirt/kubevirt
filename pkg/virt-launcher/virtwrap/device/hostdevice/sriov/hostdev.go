@@ -47,23 +47,27 @@ func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMet
 			AliasPrefix:  sriov.AliasPrefix,
 			Name:         iface.Name,
 			ResourceName: iface.Name,
-			DecorateHook: func(hostDevice *api.HostDevice) error {
-				if guestPCIAddress := iface.PciAddress; guestPCIAddress != "" {
-					addr, err := device.NewPciAddressField(guestPCIAddress)
-					if err != nil {
-						return fmt.Errorf("failed to interpret the guest PCI address: %v", err)
-					}
-					hostDevice.Address = addr
-				}
-
-				if iface.BootOrder != nil {
-					hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-				}
-				return nil
-			},
+			DecorateHook: newDecorateHook(iface),
 		})
 	}
 	return hostDevicesMetaData
+}
+
+func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error {
+	return func(hostDevice *api.HostDevice) error {
+		if guestPCIAddress := iface.PciAddress; guestPCIAddress != "" {
+			addr, err := device.NewPciAddressField(guestPCIAddress)
+			if err != nil {
+				return fmt.Errorf("failed to interpret the guest PCI address: %v", err)
+			}
+			hostDevice.Address = addr
+		}
+
+		if iface.BootOrder != nil {
+			hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+		}
+		return nil
+	}
 }
 
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
