@@ -1103,7 +1103,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}, http.StatusConflict, true, false),
 		)
 
-		DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatch string, expectError bool) {
+		DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatch string, expectError bool, removeReq bool) {
 
 			vm := newMinimalVM(request.PathParameter("name"))
 			vm.Namespace = k8smetav1.NamespaceDefault
@@ -1112,7 +1112,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vm.Status.MemoryDumpRequest = existingMemDumpReq
 			}
 
-			patch, err := generateVMMemoryDumpRequestPatch(vm, memDumpReq)
+			patch, err := generateVMMemoryDumpRequestPatch(vm, memDumpReq, removeReq)
 			if expectError {
 				Expect(err).ToNot(BeNil())
 			} else {
@@ -1129,7 +1129,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				nil,
 				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
-				false),
+				false, false),
 			Entry("add memory dump request to the same vol after completed",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
@@ -1140,7 +1140,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Phase:     v1.MemoryDumpCompleted,
 				},
 				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Completed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
-				false),
+				false, false),
 			Entry("add memory dump request to the same vol after previous failed",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
@@ -1151,7 +1151,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Phase:     v1.MemoryDumpFailed,
 				},
 				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Failed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
-				false),
+				false, false),
 			Entry("add memory dump request to the same vol while memory dump in progress should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
@@ -1162,7 +1162,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Phase:     v1.MemoryDumpInProgress,
 				},
 				"",
-				true),
+				true, false),
 			Entry("add memory dump request to a different vol while another exists should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol2",
@@ -1173,7 +1173,45 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Phase:     v1.MemoryDumpCompleted,
 				},
 				"",
-				true),
+				true, false),
+			Entry("add memory dump request to the same vol while it is being dissociated should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpAssociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpDissociating,
+				},
+				"",
+				true, false),
+			Entry("remove memory dump request to already removed memory dump should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					Phase: v1.MemoryDumpDissociating,
+				},
+				nil,
+				"",
+				true, true),
+			Entry("remove memory dump request to memory dump in progress should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					Phase: v1.MemoryDumpDissociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpInProgress,
+				},
+				"",
+				true, true),
+			Entry("remove memory dump request to completed memory dump should succeed",
+				&v1.VirtualMachineMemoryDumpRequest{
+					Phase: v1.MemoryDumpDissociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpCompleted,
+				},
+				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Completed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Dissociating\"}}]",
+				false, true),
 		)
 	})
 

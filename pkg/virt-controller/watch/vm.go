@@ -620,7 +620,7 @@ func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachi
 }
 
 func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if vm.Status.MemoryDumpRequest == nil || vmi == nil || vmi.DeletionTimestamp != nil || !vmi.IsRunning() {
+	if vm.Status.MemoryDumpRequest == nil {
 		return nil
 	}
 
@@ -632,6 +632,9 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 	}
 	switch vm.Status.MemoryDumpRequest.Phase {
 	case virtv1.MemoryDumpAssociating:
+		if vmi == nil || vmi.DeletionTimestamp != nil || !vmi.IsRunning() {
+			return nil
+		}
 		// When in state associating we want to add the memory dump pvc
 		// as a volume in the vm and in the vmi to trigger the mount
 		// to virt launcher and the memory dump
@@ -654,6 +657,8 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 			log.Log.Object(vmi).V(1).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
 			return err
 		}
+	case virtv1.MemoryDumpDissociating:
+		vm.Spec.Template.Spec = *removeMemoryDumpVolumeFromVMISpec(&vm.Spec.Template.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
 	return nil
@@ -2150,6 +2155,7 @@ func (c *VMController) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 		for _, volume := range vm.Spec.Template.Spec.Volumes {
 			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
 				updatedMemoryDumpReq.Phase = virtv1.MemoryDumpInProgress
+				break
 			}
 		}
 	case virtv1.MemoryDumpInProgress:
@@ -2183,6 +2189,20 @@ func (c *VMController) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 			}
 		}
 		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpCompleted
+	case virtv1.MemoryDumpDissociating:
+		// Remove the memory dump request once the memory dump
+		// is not in the list of vm volumes
+		found := false
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			updatedMemoryDumpReq = nil
+		}
+
 	}
 
 	vm.Status.MemoryDumpRequest = updatedMemoryDumpReq

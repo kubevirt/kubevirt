@@ -467,6 +467,14 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
+		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("removememorydump")).
+			To(subresourceApp.RemoveMemoryDumpVMRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation(version.Version+"RemoveMemoryDump").
+			Doc("Remove memory dump association.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning

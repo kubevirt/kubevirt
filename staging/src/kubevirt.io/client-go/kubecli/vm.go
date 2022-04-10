@@ -239,6 +239,12 @@ func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryD
 	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
+func (v *vm) RemoveMemoryDump(name string) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removememorydump")
+
+	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+}
+
 func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 

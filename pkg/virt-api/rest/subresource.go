@@ -1274,6 +1274,9 @@ func addMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.Virtu
 		if vm.Status.MemoryDumpRequest.ClaimName != claimName {
 			return fmt.Errorf("can't request memory dump for pvc [%s] while pvc [%s] is still bound as the memory dump pvc", claimName, vm.Status.MemoryDumpRequest.ClaimName)
 		}
+		if vm.Status.MemoryDumpRequest.Phase == v1.MemoryDumpDissociating {
+			return fmt.Errorf("can't dump memory for pvc [%s] a remove memory dump request is in progress", claimName)
+		}
 		if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted && vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpFailed {
 			return fmt.Errorf("memory dump request for pvc [%s] already in progress", claimName)
 		}
@@ -1282,12 +1285,32 @@ func addMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.Virtu
 	return nil
 }
 
-func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) (string, error) {
+func removeMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) error {
+	if vm.Status.MemoryDumpRequest == nil {
+		return fmt.Errorf("can't remove memory dump association for vm %s, no association found", vm.Name)
+	}
+
+	claimName := vm.Status.MemoryDumpRequest.ClaimName
+	if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
+		return fmt.Errorf("memory dump request for pvc [%s] is still in progress, need to wait for it to complete", claimName)
+	}
+	memoryDumpReq.ClaimName = claimName
+	vmCopy.Status.MemoryDumpRequest = memoryDumpReq
+	return nil
+}
+
+func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) (string, error) {
 	verb := getMemoryDumpPatchVerb(vm.Status.MemoryDumpRequest)
 	vmCopy := vm.DeepCopy()
 
-	if err := addMemoryDumpRequest(vm, vmCopy, memoryDumpReq); err != nil {
-		return "", err
+	if !removeRequest {
+		if err := addMemoryDumpRequest(vm, vmCopy, memoryDumpReq); err != nil {
+			return "", err
+		}
+	} else {
+		if err := removeMemoryDumpRequest(vm, vmCopy, memoryDumpReq); err != nil {
+			return "", err
+		}
 	}
 
 	oldJson, err := json.Marshal(vm.Status.MemoryDumpRequest)
@@ -1306,21 +1329,24 @@ func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.V
 	return patch, nil
 }
 
-func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
+func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) *errors.StatusError {
 	vm, statErr := app.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
 	}
-	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
-	if statErr != nil {
-		return statErr
+	// VMI doesn't have to run to remove the memory dump association
+	if !removeRequest {
+		vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
+		if statErr != nil {
+			return statErr
+		}
+
+		if !vmi.IsRunning() {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
+		}
 	}
 
-	if !vmi.IsRunning() {
-		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
-	}
-
-	patch, err := generateVMMemoryDumpRequestPatch(vm, memoryDumpReq)
+	patch, err := generateVMMemoryDumpRequestPatch(vm, memoryDumpReq, removeRequest)
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
 	}
@@ -1370,7 +1396,24 @@ func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Reques
 		writeError(errors.NewBadRequest("MemoryDumpRequest requires phase to be set as `Associating`"), response)
 		return
 	}
-	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, memoryDumpReq); err != nil {
+	isRemoveRequest := false
+	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, memoryDumpReq, isRemoveRequest); err != nil {
+		writeError(err, response)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	removeReq := &v1.VirtualMachineMemoryDumpRequest{
+		Phase: v1.MemoryDumpDissociating,
+	}
+	isRemoveRequest := true
+	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, removeReq, isRemoveRequest); err != nil {
 		writeError(err, response)
 		return
 	}
