@@ -60,7 +60,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine",
-	Labels{"rfe_id:1177", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:1177", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var err error
@@ -78,7 +78,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		Context("An invalid VirtualMachine given", func() {
 
-			It("[test_id:1518]should be rejected on POST", Labels{"test_id:1518"}, func() {
+			It("[test_id:1518]should be rejected on POST", Label("test_id:1518"), func() {
 				vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 				template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 				newVM := tests.NewRandomVirtualMachine(template, false)
@@ -99,7 +99,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 			})
-			It("[test_id:1519]should reject POST if validation webhoook deems the spec is invalid", Labels{"test_id:1519"}, func() {
+			It("[test_id:1519]should reject POST if validation webhoook deems the spec is invalid", Label("test_id:1519"), func() {
 				vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 				template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 				// Add a disk that doesn't map to a volume.
@@ -126,7 +126,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 
-		Context("[Serial]A mutated VirtualMachine given", Labels{"Serial"}, func() {
+		Context("[Serial]A mutated VirtualMachine given", Label("Serial"), func() {
 
 			var testingMachineType string = "pc-q35-2.7"
 
@@ -151,7 +151,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return newVM
 			}
 
-			It("[test_id:3312]should set the default MachineType when created without explicit value", Labels{"test_id:3312"}, func() {
+			It("[test_id:3312]should set the default MachineType when created without explicit value", Label("test_id:3312"), func() {
 				By("Creating VirtualMachine")
 				template, _ := newVirtualMachineInstanceWithContainerDisk()
 				template.Spec.Domain.Machine = nil
@@ -163,7 +163,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(createdVM.Spec.Template.Spec.Domain.Machine.Type).To(Equal(testingMachineType))
 			})
 
-			It("[test_id:3311]should keep the supplied MachineType when created", Labels{"test_id:3311"}, func() {
+			It("[test_id:3311]should keep the supplied MachineType when created", Label("test_id:3311"), func() {
 				By("Creating VirtualMachine")
 				explicitMachineType := "pc-q35-3.0"
 				template, _ := newVirtualMachineInstanceWithContainerDisk()
@@ -352,7 +352,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Entry("float type", "2.2", "2222222.2"),
 			)
 
-			It("[test_id:3161]should carry annotations to VMI", Labels{"test_id:3161"}, func() {
+			It("[test_id:3161]should carry annotations to VMI", Label("test_id:3161"), func() {
 				annotations := map[string]string{
 					"testannotation": "test",
 				}
@@ -380,7 +380,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 300*time.Second, 1*time.Second).Should(HaveKeyWithValue("testannotation", "test"), "VM should start normally.")
 			})
 
-			It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", Labels{"test_id:3162"}, func() {
+			It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", Label("test_id:3162"), func() {
 				annotations := map[string]string{
 					"kubevirt.io/test":   "test",
 					"kubernetes.io/test": "test",
@@ -411,7 +411,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
 			})
 
-			DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", Labels{"test_id:1520"}, func(createTemplate vmiBuilder) {
+			DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", Label("test_id:1520"), func(createTemplate vmiBuilder) {
 				template, dv := createTemplate()
 				defer deleteDataVolume(dv)
 				newVM := createVirtualMachine(true, template)
@@ -422,11 +422,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
 			},
 				Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-				Entry("[Serial][storage-req]with Filesystem Disk", Labels{"Serial", "storage-req"}, newVirtualMachineInstanceWithFileDisk),
-				Entry("[Serial][storage-req]with Block Disk", Labels{"Serial", "storage-req"}, newVirtualMachineInstanceWithBlockDisk),
+				Entry("[Serial][storage-req]with Filesystem Disk", Label("Serial", "storage-req"), newVirtualMachineInstanceWithFileDisk),
+				Entry("[Serial][storage-req]with Block Disk", Label("Serial", "storage-req"), newVirtualMachineInstanceWithBlockDisk),
 			)
 
-			DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", Labels{"test_id:1521"}, func(createTemplate vmiBuilder) {
+			DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", Label("test_id:1521"), func(createTemplate vmiBuilder) {
 				template, dv := createTemplate()
 				defer deleteDataVolume(dv)
 				newVM := createVirtualMachine(true, template)
@@ -440,11 +440,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 			},
 				Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-				Entry("[Serial][storage-req]with Filesystem Disk", Labels{"Serial", "storage-req"}, newVirtualMachineInstanceWithFileDisk),
-				Entry("[Serial][storage-req]with Block Disk", Labels{"Serial", "storage-req"}, newVirtualMachineInstanceWithBlockDisk),
+				Entry("[Serial][storage-req]with Filesystem Disk", Label("Serial", "storage-req"), newVirtualMachineInstanceWithFileDisk),
+				Entry("[Serial][storage-req]with Block Disk", Label("Serial", "storage-req"), newVirtualMachineInstanceWithBlockDisk),
 			)
 
-			It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", Labels{"test_id:1522"}, func() {
+			It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", Label("test_id:1522"), func() {
 				newVM := newVirtualMachine(true)
 
 				By("Getting owner references")
@@ -476,7 +476,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:1523]should recreate VirtualMachineInstance if it gets deleted", Labels{"test_id:1523"}, func() {
+			It("[test_id:1523]should recreate VirtualMachineInstance if it gets deleted", Label("test_id:1523"), func() {
 				newVM := startVM(newVirtualMachine(false))
 
 				currentVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
@@ -496,7 +496,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
-			It("[test_id:1524]should recreate VirtualMachineInstance if the VirtualMachineInstance's pod gets deleted", Labels{"test_id:1524"}, func() {
+			It("[test_id:1524]should recreate VirtualMachineInstance if the VirtualMachineInstance's pod gets deleted", Label("test_id:1524"), func() {
 				var firstVMI *v1.VirtualMachineInstance
 				var curVMI *v1.VirtualMachineInstance
 				var err error
@@ -556,7 +556,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(pod.Name).ToNot(Equal(firstPod.Name))
 			})
 
-			DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", Labels{"test_id:1525"}, func(createTemplate vmiBuilder) {
+			DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", Label("test_id:1525"), func(createTemplate vmiBuilder) {
 				template, dv := createTemplate()
 				defer deleteDataVolume(dv)
 				vm := createVirtualMachine(false, template)
@@ -564,11 +564,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				stopVM(vm)
 			},
 				Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-				Entry("[Serial][storage-req]with Filesystem Disk", Labels{"Serial", "storage-req"}, newVirtualMachineInstanceWithFileDisk),
-				Entry("[Serial][storage-req]with Block Disk", Labels{"Serial", "storage-req"}, newVirtualMachineInstanceWithBlockDisk),
+				Entry("[Serial][storage-req]with Filesystem Disk", Label("Serial", "storage-req"), newVirtualMachineInstanceWithFileDisk),
+				Entry("[Serial][storage-req]with Block Disk", Label("Serial", "storage-req"), newVirtualMachineInstanceWithBlockDisk),
 			)
 
-			It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", Labels{"test_id:1526"}, func() {
+			It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", Label("test_id:1526"), func() {
 				vm := newVirtualMachine(false)
 				// Start and stop VirtualMachineInstance multiple times
 				for i := 0; i < 5; i++ {
@@ -578,7 +578,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}
 			})
 
-			It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", Labels{"test_id:1527"}, func() {
+			It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", Label("test_id:1527"), func() {
 				newVM := newVirtualMachine(true)
 
 				Eventually(func() bool {
@@ -619,7 +619,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 			})
 
-			It("[test_id:1528]should survive guest shutdown, multiple times", Labels{"test_id:1528"}, func() {
+			It("[test_id:1528]should survive guest shutdown, multiple times", Label("test_id:1528"), func() {
 				By("Creating new VM, not running")
 				newVM := newVirtualMachine(false)
 				newVM = startVM(newVM)
@@ -636,8 +636,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return vmi.Status.Phase == v1.Running
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
-				By("Obtaining the serial console")
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+					By("Obtaining the serial console")
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 					By("Guest shutdown")
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -750,7 +750,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(vmRevision.Spec).To(Equal(vmCpy.Spec))
 			})
 
-			It("[test_id:4645]should set the Ready condition on VM", Labels{"test_id:4645"}, func() {
+			It("[test_id:4645]should set the Ready condition on VM", Label("test_id:4645"), func() {
 				vm := newVirtualMachine(false)
 
 				vmReadyConditionStatus := func() k8sv1.ConditionStatus {
@@ -793,21 +793,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
 					Should(Equal(v1.VirtualMachineStatusUnschedulable))
 			},
-				Entry("[test_id:6867]with unsatisfiable resource requirements", Labels{"test_id:6867"}, func(vmi *v1.VirtualMachineInstance) {
+				Entry("[test_id:6867]with unsatisfiable resource requirements", Label("test_id:6867"), func(vmi *v1.VirtualMachineInstance) {
 					vmi.Spec.Domain.Resources.Requests = corev1.ResourceList{
 						// This may stop working sometime around 2040
 						corev1.ResourceMemory: resource.MustParse("1Ei"),
 						corev1.ResourceCPU:    resource.MustParse("1M"),
 					}
 				}),
-				Entry("[test_id:6868]with unsatisfiable scheduling constraints", Labels{"test_id:6868"}, func(vmi *v1.VirtualMachineInstance) {
+				Entry("[test_id:6868]with unsatisfiable scheduling constraints", Label("test_id:6868"), func(vmi *v1.VirtualMachineInstance) {
 					vmi.Spec.NodeSelector = map[string]string{
 						"node-label": "that-doesnt-exist",
 					}
 				}),
 			)
 
-			It("[test_id:6869]should report an error status when image pull error occurs", Labels{"test_id:6869"}, func() {
+			It("[test_id:6869]should report an error status when image pull error occurs", Label("test_id:6869"), func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
 
 				vm := createVirtualMachine(true, vmi)
@@ -856,9 +856,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				),
 			)
 
-			It("[test_id:7679]should report an error status when data volume error occurs", Labels{"test_id:7679"}, func() {
+			It("[test_id:7679]should report an error status when data volume error occurs", Label("test_id:7679"), func() {
 				By("Verifying that required StorageClass is configured")
-			storageClassName := libstorage.Config.StorageRWOFileSystem
+				storageClassName := libstorage.Config.StorageRWOFileSystem
 
 				_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
@@ -886,7 +886,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("Using virtctl interface", func() {
-				It("[test_id:1529]should start a VirtualMachineInstance once", Labels{"test_id:1529"}, func() {
+				It("[test_id:1529]should start a VirtualMachineInstance once", Label("test_id:1529"), func() {
 					By("getting a VM")
 					newVM := newVirtualMachine(false)
 
@@ -914,7 +914,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err.Error()).To(Equal(fmt.Sprintf(`Error starting VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is already running`, newVM.Name)))
 				})
 
-				It("[test_id:1530]should stop a VirtualMachineInstance once", Labels{"test_id:1530"}, func() {
+				It("[test_id:1530]should stop a VirtualMachineInstance once", Label("test_id:1530"), func() {
 					By("getting a VM")
 					newVM := newVirtualMachine(true)
 
@@ -949,7 +949,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
 				})
 
-				It("[test_id:6310]should start a VirtualMachineInstance in paused state", Labels{"test_id:6310"}, func() {
+				It("[test_id:6310]should start a VirtualMachineInstance in paused state", Label("test_id:6310"), func() {
 					By("getting a VM")
 					newVM := newVirtualMachine(false)
 
@@ -974,7 +974,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})
 
-				It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", Labels{"test_id:3007"}, func() {
+				It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", Label("test_id:3007"), func() {
 
 					By("getting a VM with high TerminationGracePeriod")
 					newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
@@ -1075,7 +1075,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				Context("Using RunStrategyAlways", func() {
-					It("[test_id:3163]should stop a running VM", Labels{"test_id:3163"}, func() {
+					It("[test_id:3163]should stop a running VM", Label("test_id:3163"), func() {
 						By("creating a VM with RunStrategyAlways")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
@@ -1102,9 +1102,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 						Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
 						Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
-				})
+					})
 
-					It("[test_id:3164]should restart a running VM", Labels{"test_id:3164"}, func() {
+					It("[test_id:3164]should restart a running VM", Label("test_id:3164"), func() {
 						By("creating a VM with RunStrategyAlways")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
@@ -1153,7 +1153,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							"New VMI was created, but StateChangeRequest was never cleared")
 					})
 
-					It("[test_id:3165]should restart a succeeded VMI", Labels{"test_id:3165"}, func() {
+					It("[test_id:3165]should restart a succeeded VMI", Label("test_id:3165"), func() {
 						By("creating a VM with RunStategyRunning")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
@@ -1167,7 +1167,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+						Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 						By("Issuing a poweroff command from inside VM")
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1196,7 +1196,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					})
 
-					It("[test_id:4119]should migrate a running VM", Labels{"test_id:4119"}, func() {
+					It("[test_id:4119]should migrate a running VM", Label("test_id:4119"), func() {
 						nodes := util.GetAllSchedulableNodes(virtClient)
 						if len(nodes.Items) < 2 {
 							Skip("Migration tests require at least 2 nodes")
@@ -1223,7 +1223,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						}, 240*time.Second, 1*time.Second).Should(BeTrue())
 					})
 
-					It("[test_id:7743]should not migrate a running vm if dry-run option is passed", Labels{"test_id:7743"}, func() {
+					It("[test_id:7743]should not migrate a running vm if dry-run option is passed", Label("test_id:7743"), func() {
 						nodes := util.GetAllSchedulableNodes(virtClient)
 						if len(nodes.Items) < 2 {
 							Skip("Migration tests require at least 2 nodes")
@@ -1251,7 +1251,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				Context("Using RunStrategyRerunOnFailure", func() {
-					It("[test_id:2186] should stop a running VM", Labels{"test_id:2186"}, func() {
+					It("[test_id:2186] should stop a running VM", Label("test_id:2186"), func() {
 						By("creating a VM with RunStrategyRerunOnFailure")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
@@ -1283,7 +1283,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
 					})
 
-					It("[test_id:2187] should restart a running VM", Labels{"test_id:2187"}, func() {
+					It("[test_id:2187] should restart a running VM", Label("test_id:2187"), func() {
 						By("creating a VM with RunStrategyRerunOnFailure")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
@@ -1335,7 +1335,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							"New VMI was created, but StateChangeRequest was never cleared")
 					})
 
-					It("[test_id:2188] should not remove a succeeded VMI", Labels{"test_id:2188"}, func() {
+					It("[test_id:2188] should not remove a succeeded VMI", Label("test_id:2188"), func() {
 						By("creating a VM with RunStrategyRerunOnFailure")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
@@ -1348,7 +1348,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
 
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+						Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 						By("Issuing a poweroff command from inside VM")
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1388,7 +1388,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				Context("Using RunStrategyHalted", func() {
-					It("[test_id:2037] should start a stopped VM", Labels{"test_id:2037"}, func() {
+					It("[test_id:2037] should start a stopped VM", Label("test_id:2037"), func() {
 						By("creating a VM with RunStrategyHalted")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
 
@@ -1413,7 +1413,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				Context("Using RunStrategyOnce", func() {
-					It("[Serial] Should leave a failed VMI", Labels{"Serial"}, func() {
+					It("[Serial] Should leave a failed VMI", Label("Serial"), func() {
 						By("creating a VM with RunStrategyOnce")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
@@ -1463,9 +1463,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							return virtualMachine.Status.Ready
 						}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 						By("Issuing a poweroff command from inside VM")
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1496,7 +1496,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				Context("Using RunStrategyManual", func() {
-					It("[test_id:2036] should start", Labels{"test_id:2036"}, func() {
+					It("[test_id:2036] should start", Label("test_id:2036"), func() {
 						By("creating a VM with RunStrategyManual")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -1519,7 +1519,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
 					})
 
-					It("[test_id:2189] should stop", Labels{"test_id:2189"}, func() {
+					It("[test_id:2189] should stop", Label("test_id:2189"), func() {
 						By("creating a VM with RunStrategyManual")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -1558,7 +1558,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						}, 30*time.Second, time.Second).Should(BeTrue())
 					})
 
-					It("[test_id:6311]should start in paused state", Labels{"test_id:6311"}, func() {
+					It("[test_id:6311]should start in paused state", Label("test_id:6311"), func() {
 						By("creating a VM with RunStrategyManual")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -1583,7 +1583,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						}, 240*time.Second, 1*time.Second).Should(BeTrue())
 					})
 
-					It("[test_id:2035] should restart", Labels{"test_id:2035"}, func() {
+					It("[test_id:2035] should restart", Label("test_id:2035"), func() {
 						By("creating a VM with RunStrategyManual")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -1676,7 +1676,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							"New VMI was created, but StateChangeRequest was never cleared")
 					})
 
-					It("[test_id:2190] should not remove a succeeded VMI", Labels{"test_id:2190"}, func() {
+					It("[test_id:2190] should not remove a succeeded VMI", Label("test_id:2190"), func() {
 						By("creating a VM with RunStrategyManual")
 						virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -1694,7 +1694,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+						Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 						By("Issuing a poweroff command from inside VM")
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1786,14 +1786,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							Eventually(Expect(launcherPod.Status.Phase).To(Equal(k8sv1.PodFailed)), 160*time.Second, 1*time.Second).Should(BeTrue())
 						}
 					},
-						Entry("[test_id:7164]VMI launcher pod should fail", Labels{"test_id:7164"}, "false"),
-						Entry("[test_id:6993]VMI launcher pod compute container should keep running", Labels{"test_id:6993"}, "true"),
+						Entry("[test_id:7164]VMI launcher pod should fail", Label("test_id:7164"), "false"),
+						Entry("[test_id:6993]VMI launcher pod compute container should keep running", Label("test_id:6993"), "true"),
 					)
 				})
 			})
 		})
 
-		Context("[rfe_id:273]with oc/kubectl", Labels{"rfe_id:273"}, func() {
+		Context("[rfe_id:273]with oc/kubectl", Label("rfe_id:273"), func() {
 			var vmi *v1.VirtualMachineInstance
 			var err error
 			var vmJson string
@@ -1812,7 +1812,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vmRunningRe = regexp.MustCompile("Phase.*Running")
 			})
 
-			It("[test_id:243][posneg:negative]should create VM only once", Labels{"test_id:243", "posneg:negative"}, func() {
+			It("[test_id:243][posneg:negative]should create VM only once", Label("test_id:243", "posneg:negative"), func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -1835,7 +1835,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
 			})
 
-			DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", Labels{"release-blocker", "test_id:299"}, func(version string) {
+			DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", Label("release-blocker", "test_id:299"), func(version string) {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -1872,7 +1872,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
 			)
 
-			It("[test_id:264]should create and delete via command line", Labels{"test_id:264"}, func() {
+			It("[test_id:264]should create and delete via command line", Label("test_id:264"), func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				thisVm := tests.NewRandomVirtualMachine(vmi, false)
 
@@ -1910,7 +1910,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("should not change anything if dry-run option is passed", func() {
-				It("[test_id:7530]in start command", Labels{"test_id:7530"}, func() {
+				It("[test_id:7530]in start command", Label("test_id:7530"), func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					thisVm := tests.NewRandomVirtualMachine(vmi, false)
 
@@ -1985,10 +1985,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				},
 
 					Entry("[test_id:7529]with no other flags"),
-					Entry("[test_id:7604]with grace period", Labels{"test_id:7604"}, "--grace-period=10", "--force"),
+					Entry("[test_id:7604]with grace period", Label("test_id:7604"), "--grace-period=10", "--force"),
 				)
 
-				It("[test_id:7528]in restart command", Labels{"test_id:7528"}, func() {
+				It("[test_id:7528]in restart command", Label("test_id:7528"), func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					thisVm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -2027,7 +2027,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 			})
 
-			It("[test_id:232]should create same manifest twice via command line", Labels{"test_id:232"}, func() {
+			It("[test_id:232]should create same manifest twice via command line", Label("test_id:232"), func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				thisVm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -2056,7 +2056,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				waitForVMIStart(virtClient, vmi)
 			})
 
-			It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", Labels{"test_id:233", "posneg:negative"}, func() {
+			It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", Label("test_id:233", "posneg:negative"), func() {
 				vmi := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Creating VM with DataVolumeTemplate entry with k8s client binary")
@@ -2094,7 +2094,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 					})
 
-					It("[test_id:2839]should create VM via command line", Labels{"test_id:2839"}, func() {
+					It("[test_id:2839]should create VM via command line", Label("test_id:2839"), func() {
 						vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 						vm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -2120,7 +2120,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 					})
 
-					It("[test_id:2914]should create VM via command line", Labels{"test_id:2914"}, func() {
+					It("[test_id:2914]should create VM via command line", Label("test_id:2914"), func() {
 						vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 						vm := tests.NewRandomVirtualMachine(vmi, true)
 

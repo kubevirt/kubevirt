@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]oc/kubectl integration", Label("sig-compute"), func() {
 	var (
 		k8sClient, result string
 		err               error
@@ -33,7 +33,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, f
 		tests.BeforeTestCleanup()
 	})
 
-	DescribeTable("[test_id:3812]explain vm/vmi", Labels{"test_id:3812"}, func(resource string) {
+	DescribeTable("[test_id:3812]explain vm/vmi", Label("test_id:3812"), func(resource string) {
 		output, stderr, err := clientcmd.RunCommand(k8sClient, "explain", resource)
 		// kubectl will not find resource for the first time this command is issued
 		if err != nil {
@@ -46,15 +46,15 @@ var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, f
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 		Expect(output).To(ContainSubstring("status	<Object>"))
 	},
-		Entry("[test_id:3810]explain vm", Labels{"test_id:3810"}, "vm"),
-		Entry("[test_id:3811]explain vmi", Labels{"test_id:3811"}, "vmi"),
-		Entry("[test_id:5178]explain vmim", Labels{"test_id:5178"}, "vmim"),
-		Entry("[test_id:5179]explain kv", Labels{"test_id:5179"}, "kv"),
-		Entry("[test_id:5180]explain vmsnapshot", Labels{"test_id:5180"}, "vmsnapshot"),
-		Entry("[test_id:5181]explain vmsnapshotcontent", Labels{"test_id:5181"}, "vmsnapshotcontent"),
+		Entry("[test_id:3810]explain vm", Label("test_id:3810"), "vm"),
+		Entry("[test_id:3811]explain vmi", Label("test_id:3811"), "vmi"),
+		Entry("[test_id:5178]explain vmim", Label("test_id:5178"), "vmim"),
+		Entry("[test_id:5179]explain kv", Label("test_id:5179"), "kv"),
+		Entry("[test_id:5180]explain vmsnapshot", Label("test_id:5180"), "vmsnapshot"),
+		Entry("[test_id:5181]explain vmsnapshotcontent", Label("test_id:5181"), "vmsnapshotcontent"),
 	)
 
-	It("[test_id:5182]vmipreset have validation", Labels{"test_id:5182"}, func() {
+	It("[test_id:5182]vmipreset have validation", Label("test_id:5182"), func() {
 		output, _, err := clientcmd.RunCommand(k8sClient, "explain", "vmipreset")
 		if err != nil {
 			output, _, err = clientcmd.RunCommand(k8sClient, "explain", "vmipreset")
@@ -66,7 +66,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, f
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 	})
 
-	It("[test_id:5183]vmirs have validation", Labels{"test_id:5183"}, func() {
+	It("[test_id:5183]vmirs have validation", Label("test_id:5183"), func() {
 		output, _, err := clientcmd.RunCommand(k8sClient, "explain", "vmirs")
 		if err != nil {
 			output, _, err = clientcmd.RunCommand(k8sClient, "explain", "vmirs")
@@ -78,7 +78,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, f
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 	})
 
-	Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", Labels{"rfe_id:3423", "vendor:cnv-qe@redhat.com", "level:component"}, func() {
+	Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", Label("rfe_id:3423", "vendor:cnv-qe@redhat.com", "level:component"), func() {
 		var (
 			virtCli kubecli.KubevirtClient
 			vm      *v1.VirtualMachine
@@ -115,8 +115,8 @@ var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, f
 			// Name will be there in all the cases, so verify name
 			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 		},
-			Entry("[test_id:3464]virtualmachine", Labels{"test_id:3464"}, "get", "vm", []string{"NAME", "AGE", "STATUS", "READY"}),
-			Entry("[test_id:3465]virtualmachineinstance", Labels{"test_id:3465"}, "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY"}),
+			Entry("[test_id:3464]virtualmachine", Label("test_id:3464"), "get", "vm", []string{"NAME", "AGE", "STATUS", "READY"}),
+			Entry("[test_id:3465]virtualmachineinstance", Label("test_id:3465"), "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY"}),
 		)
 
 		DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
@@ -140,8 +140,8 @@ var _ = Describe("[sig-compute]oc/kubectl integration", Labels{"sig-compute"}, f
 			Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
 
 		},
-			Entry("[test_id:3468]virtualmachine", Labels{"test_id:3468"}, "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "READY"}, 1, "True"),
-			Entry("[test_id:3466]virtualmachineinstance", Labels{"test_id:3466"}, "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
+			Entry("[test_id:3468]virtualmachine", Label("test_id:3468"), "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "READY"}, 1, "True"),
+			Entry("[test_id:3466]virtualmachineinstance", Label("test_id:3466"), "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 		)
 
 	})

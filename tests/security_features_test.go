@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-compute"}, func() {
+var _ = Describe("[Serial][sig-compute]SecurityFeatures", Label("Serial", "sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -77,7 +77,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-
 				vmi.Spec.Networks = []v1.Network{}
 			})
 
-			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", Labels{"test_id:2953"}, func() {
+			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", Label("test_id:2953"), func() {
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -89,7 +89,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-
 				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(Equal(&k8sv1.SELinuxOptions{Type: "container_t"}))
 			})
 
-			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", Labels{"test_id:2895"}, func() {
+			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", Label("test_id:2895"), func() {
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -107,7 +107,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-
 				Expect(*container.SecurityContext.Privileged).To(BeFalse())
 			})
 
-			It("[test_id:4297]Make sure qemu processes are MCS constrained", Labels{"test_id:4297"}, func() {
+			It("[test_id:4297]Make sure qemu processes are MCS constrained", Label("test_id:4297"), func() {
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -140,7 +140,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-
 
 		Context("With selinuxLauncherType defined as spc_t", func() {
 
-			It("[test_id:3787]Should honor custom SELinux type for virt-launcher", Labels{"test_id:3787"}, func() {
+			It("[test_id:3787]Should honor custom SELinux type for virt-launcher", Label("test_id:3787"), func() {
 				config := kubevirtConfiguration.DeepCopy()
 				superPrivilegedType := "spc_t"
 				config.SELinuxLauncherType = superPrivilegedType
@@ -170,7 +170,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-
 
 		Context("With selinuxLauncherType defined as virt_launcher.process", func() {
 
-			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", Labels{"test_id:4298"}, func() {
+			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", Label("test_id:4298"), func() {
 				config := kubevirtConfiguration.DeepCopy()
 				launcherType := "virt_launcher.process"
 				config.SELinuxLauncherType = launcherType
@@ -217,7 +217,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Labels{"Serial", "sig-
 		var container k8sv1.Container
 		var vmi *v1.VirtualMachineInstance
 
-		It("[test_id:4300]has precisely the documented extra capabilities relative to a regular user pod", Labels{"test_id:4300"}, func() {
+		It("[test_id:4300]has precisely the documented extra capabilities relative to a regular user pod", Label("test_id:4300"), func() {
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Starting a New VMI")

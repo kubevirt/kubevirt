@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]IgnitionData",
-	Labels{"rfe_id:151", "crit:high", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:151", "crit:high", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var err error
@@ -66,11 +66,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		}
 
 		Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance",
-			Labels{"rfe_id:151", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:151", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with IgnitionData annotation", func() {
 					Context("with injected data", func() {
-						It("[test_id:1616]should have injected data under firmware directory", Labels{"test_id:1616"}, func() {
+						It("[test_id:1616]should have injected data under firmware directory", Label("test_id:1616"), func() {
 							vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 
 							ignitionData := "ignition injected"

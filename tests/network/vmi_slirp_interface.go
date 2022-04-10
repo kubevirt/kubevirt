@@ -159,7 +159,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 		)
 
-		DescribeTable("[outside_connectivity]should be able to communicate with the outside world", Labels{"outside_connectivity"}, func(vmiRef **v1.VirtualMachineInstance) {
+		DescribeTable("[outside_connectivity]should be able to communicate with the outside world", Label("outside_connectivity"), func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -183,7 +183,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 		)
 	})
 
-	Context("[Serial]slirp is the default interface", Labels{"Serial"}, func() {
+	Context("[Serial]slirp is the default interface", Label("Serial"), func() {
 		BeforeEach(func() {
 			setSlirpEnabled(false)
 			setDefaultNetworkInterface("slirp")

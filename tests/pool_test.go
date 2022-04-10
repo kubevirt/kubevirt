@@ -43,7 +43,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[sig-compute]VirtualMachinePool", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]VirtualMachinePool", Label("sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -127,15 +127,15 @@ var _ = Describe("[sig-compute]VirtualMachinePool", Labels{"sig-compute"}, func(
 		return createVirtualMachinePool(newPoolFromVMI(libvmi.NewCirros()))
 	}
 
-	DescribeTable("[Serial]pool should scale", Labels{"Serial"}, func(startScale int, stopScale int) {
+	DescribeTable("[Serial]pool should scale", Label("Serial"), func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, int32(startScale))
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))
 		doScale(newPool.ObjectMeta.Name, int32(0))
 
 	},
-		Entry("[QUARANTINE]to three, to two and then to zero replicas", Labels{"QUARANTINE"}, 3, 2),
-		Entry("[QUARANTINE]to five, to six and then to zero replicas", Labels{"QUARANTINE"}, 5, 6),
+		Entry("[QUARANTINE]to three, to two and then to zero replicas", Label("QUARANTINE"), 3, 2),
+		Entry("[QUARANTINE]to five, to six and then to zero replicas", Label("QUARANTINE"), 5, 6),
 	)
 
 	It("should be rejected on POST if spec is invalid", func() {

@@ -42,7 +42,7 @@ const (
 	diskName   = "disk0"
 )
 
-var _ = SIGDescribe("[Serial]K8s IO events", Labels{"Serial"}, func() {
+var _ = SIGDescribe("[Serial]K8s IO events", Label("Serial"), func() {
 	var (
 		nodeName   string
 		virtClient kubecli.KubevirtClient
@@ -77,7 +77,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Labels{"Serial"}, func() {
 		err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
-	It("[test_id:6225]Should catch the IO error event", Labels{"test_id:6225"}, func() {
+	It("[test_id:6225]Should catch the IO error event", Label("test_id:6225"), func() {
 		By("Creating VMI with faulty disk")
 		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 		Eventually(func() error {

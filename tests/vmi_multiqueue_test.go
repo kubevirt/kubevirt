@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[sig-compute]MultiQueue", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]MultiQueue", Label("sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -59,7 +59,7 @@ var _ = Describe("[sig-compute]MultiQueue", Labels{"sig-compute"}, func() {
 			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 
-		It("[test_id:4599]should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", Labels{"test_id:4599"}, func() {
+		It("[test_id:4599]should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", Label("test_id:4599"), func() {
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
@@ -80,7 +80,7 @@ var _ = Describe("[sig-compute]MultiQueue", Labels{"sig-compute"}, func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 		})
 
-		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", Labels{"test_id:959", "rfe_id:2065"}, func() {
+		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", Label("test_id:959", "rfe_id:2065"), func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),

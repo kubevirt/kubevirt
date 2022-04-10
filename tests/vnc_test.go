@@ -47,7 +47,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC",
-	Labels{"rfe_id:127", "crit:medium", "arm64", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:127", "crit:medium", "arm64", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var err error
@@ -55,7 +55,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 		var vmi *v1.VirtualMachineInstance
 
 		Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance",
-			Labels{"rfe_id:127", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:127", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				BeforeEach(func() {
 					virtClient, err = kubecli.GetKubevirtClient()
@@ -123,7 +123,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 						}
 					}
 
-					It("[test_id:1611]should allow accessing the VNC device multiple times", Labels{"test_id:1611"}, func() {
+					It("[test_id:1611]should allow accessing the VNC device multiple times", Label("test_id:1611"), func() {
 
 						for i := 0; i < 10; i++ {
 							vncConnect()
@@ -132,7 +132,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 				})
 
 				DescribeTable("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]should upgrade websocket connection which look like coming from a browser",
-					Labels{"rfe_id:127", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+					Label("rfe_id:127", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 					func(subresource string) {
 						config, err := kubecli.GetKubevirtClientConfig()
 						Expect(err).ToNot(HaveOccurred())
@@ -154,11 +154,11 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 						Expect(err).ToNot(HaveOccurred())
 						Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
 					},
-					Entry("[test_id:1612]for vnc", Labels{"test_id:1612"}, "vnc"),
-					Entry("[test_id:1613]for serial console", Labels{"test_id:1613"}, "console"),
+					Entry("[test_id:1612]for vnc", Label("test_id:1612"), "vnc"),
+					Entry("[test_id:1613]for serial console", Label("test_id:1613"), "console"),
 				)
 
-				It("[test_id:1614]should upgrade websocket connections without a subprotocol given", Labels{"test_id:1614"}, func() {
+				It("[test_id:1614]should upgrade websocket connections without a subprotocol given", Label("test_id:1614"), func() {
 					config, err := kubecli.GetKubevirtClientConfig()
 					Expect(err).ToNot(HaveOccurred())
 					// If no subprotocol is given, we still want to upgrade to be backward compatible
@@ -172,7 +172,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					Expect(err).ToNot(HaveOccurred())
 				})
 
-				It("[test_id:4272]should connect to vnc with --proxy-only flag", Labels{"test_id:4272"}, func() {
+				It("[test_id:4272]should connect to vnc with --proxy-only flag", Label("test_id:4272"), func() {
 
 					By("Invoking virtctl vnc with --proxy-only")
 					proxyOnlyCommand := clientcmd.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
@@ -210,7 +210,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
 				})
 
-				It("[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", Labels{"test_id:5274"}, func() {
+				It("[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", Label("test_id:5274"), func() {
 					testPort := "33333"
 
 					By("Invoking virtctl vnc with --proxy-only")

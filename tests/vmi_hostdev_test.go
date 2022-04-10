@@ -25,7 +25,7 @@ const (
 	failedDeleteVMI = "Failed to delete VMI"
 )
 
-var _ = Describe("[Serial][sig-compute]HostDevices", Labels{"Serial", "sig-compute"}, func() {
+var _ = Describe("[Serial][sig-compute]HostDevices", Label("Serial", "sig-compute"), func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient

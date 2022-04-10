@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]Subresource Api", Label("sig-compute"), func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient
@@ -56,7 +56,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization",
-		Labels{"rfe_id:1195", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:1195", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			var resource string
 			BeforeEach(func() {
@@ -67,39 +67,39 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 			})
 
 			Context("with correct permissions", func() {
-				It("[test_id:3170]should be allowed to access subresource endpoint", Labels{"test_id:3170"}, func() {
+				It("[test_id:3170]should be allowed to access subresource endpoint", Label("test_id:3170"), func() {
 					testClientJob(virtCli, true, resource)
 				})
 			})
 			Context("Without permissions", func() {
-				It("[test_id:3171]should not be able to access subresource endpoint", Labels{"test_id:3171"}, func() {
+				It("[test_id:3171]should not be able to access subresource endpoint", Label("test_id:3171"), func() {
 					testClientJob(virtCli, false, resource)
 				})
 			})
 		})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Version Command",
-		Labels{"rfe_id:1195", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:1195", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			resource := "version"
 
 			Context("with authenticated user", func() {
-				It("[test_id:3172]should be allowed to access subresource version endpoint", Labels{"test_id:3172"}, func() {
+				It("[test_id:3172]should be allowed to access subresource version endpoint", Label("test_id:3172"), func() {
 					testClientJob(virtCli, true, resource)
 				})
 			})
 			Context("Without permissions", func() {
-				It("[test_id:3173]should be able to access subresource version endpoint", Labels{"test_id:3173"}, func() {
+				It("[test_id:3173]should be able to access subresource version endpoint", Label("test_id:3173"), func() {
 					testClientJob(virtCli, false, resource)
 				})
 			})
 		})
 
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource",
-		Labels{"rfe_id:1177", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:1177", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			Context("with a restart endpoint", func() {
-				It("[test_id:1304] should restart a VM", Labels{"test_id:1304"}, func() {
+				It("[test_id:1304] should restart a VM", Label("test_id:1304"), func() {
 					vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 					Expect(err).NotTo(HaveOccurred())
@@ -121,7 +121,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 					}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 				})
 
-				It("[test_id:1305][posneg:negative] should return an error when VM is not running", Labels{"test_id:1305", "posneg:negative"}, func() {
+				It("[test_id:1305][posneg:negative] should return an error when VM is not running", Label("test_id:1305", "posneg:negative"), func() {
 					vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 					vm, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 					Expect(err).NotTo(HaveOccurred())
@@ -130,7 +130,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", Labels{"test_id:2265", "posneg:negative"}, func() {
+				It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", Label("test_id:2265", "posneg:negative"), func() {
 					vmi := tests.NewRandomVMI()
 					tests.RunVMIAndExpectLaunch(vmi, 60)
 
@@ -140,7 +140,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 			})
 
 			Context("With manual RunStrategy", func() {
-				It("[test_id:3174]Should not restart when VM is not running", Labels{"test_id:3174"}, func() {
+				It("[test_id:3174]Should not restart when VM is not running", Label("test_id:3174"), func() {
 					vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 					vm.Spec.RunStrategy = &manual
 					vm.Spec.Running = nil
@@ -154,7 +154,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("[test_id:3175]Should restart when VM is running", Labels{"test_id:3175"}, func() {
+				It("[test_id:3175]Should restart when VM is running", Label("test_id:3175"), func() {
 					vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 					vm.Spec.RunStrategy = &manual
 					vm.Spec.Running = nil
@@ -194,7 +194,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 			})
 
 			Context("With RunStrategy RerunOnFailure", func() {
-				It("[test_id:3176]Should restart the VM", Labels{"test_id:3176"}, func() {
+				It("[test_id:3176]Should restart the VM", Label("test_id:3176"), func() {
 					vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 					vm.Spec.RunStrategy = &restartOnError
 					vm.Spec.Running = nil
@@ -231,9 +231,9 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 		})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources",
-		Labels{"rfe_id:1195", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:1195", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
-			It("[test_id:3177]should be aggregated into the apiserver openapi spec", Labels{"test_id:3177"}, func() {
+			It("[test_id:3177]should be aggregated into the apiserver openapi spec", Label("test_id:3177"), func() {
 				Eventually(func() string {
 					spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred())
@@ -265,14 +265,14 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
 			})
 
-			It("[test_id:7476]Freeze without guest agent", Labels{"test_id:7476"}, func() {
+			It("[test_id:7476]Freeze without guest agent", Label("test_id:7476"), func() {
 				expectedErr := "Internal error occurred"
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			})
 
-			It("[test_id:7477]Unfreeze without guest agent", Labels{"test_id:7477"}, func() {
+			It("[test_id:7477]Unfreeze without guest agent", Label("test_id:7477"), func() {
 				expectedErr := "Internal error occurred"
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
 				Expect(err).ToNot(BeNil())
@@ -310,7 +310,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 				}, 30*time.Second, 2*time.Second).Should(BeTrue())
 			}
 
-			It("[test_id:7479]Freeze Unfreeze should succeed", Labels{"test_id:7479"}, func() {
+			It("[test_id:7479]Freeze Unfreeze should succeed", Label("test_id:7479"), func() {
 				By("Freezing VMI")
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
 				Expect(err).ToNot(HaveOccurred())
@@ -324,7 +324,7 @@ var _ = Describe("[sig-compute]Subresource Api", Labels{"sig-compute"}, func() {
 				waitVMIFSFreezeStatus("")
 			})
 
-			It("[test_id:7480]Multi Freeze Unfreeze calls should succeed", Labels{"test_id:7480"}, func() {
+			It("[test_id:7480]Multi Freeze Unfreeze calls should succeed", Label("test_id:7480"), func() {
 				for i := 0; i < 5; i++ {
 					By("Freezing VMI")
 					err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)

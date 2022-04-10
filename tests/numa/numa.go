@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute][Serial]NUMA", Labels{"sig-compute", "Serial"}, func() {
+var _ = Describe("[sig-compute][Serial]NUMA", Label("sig-compute", "Serial"), func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
@@ -36,7 +36,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Labels{"sig-compute", "Serial"}, f
 		tests.BeforeTestCleanup()
 	})
 
-	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", Labels{"test_id:7299"}, func() {
+	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", Label("test_id:7299"), func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error

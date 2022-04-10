@@ -56,7 +56,7 @@ func withNodeAffinityTo(label string, value string) libvmi.Option {
 }
 
 var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console",
-	Labels{"rfe_id:127", "posneg:negative", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:127", "posneg:negative", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var virtClient kubecli.KubevirtClient
@@ -79,12 +79,12 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		}
 
 		Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance",
-			Labels{"rfe_id:127", "posneg:negative", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:127", "posneg:negative", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with a serial console", func() {
 					Context("with a cirros image", func() {
 
-						It("[test_id:1588]should return that we are running cirros", Labels{"test_id:1588"}, func() {
+						It("[test_id:1588]should return that we are running cirros", Label("test_id:1588"), func() {
 							vmi := libvmi.NewCirros()
 							vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 							expectConsoleOutput(
@@ -95,7 +95,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					})
 
 					Context("with a fedora image", func() {
-						It("[sig-compute][test_id:1589]should return that we are running fedora", Labels{"sig-compute", "test_id:1589"}, func() {
+						It("[sig-compute][test_id:1589]should return that we are running fedora", Label("sig-compute", "test_id:1589"), func() {
 							vmi := libvmi.NewFedora()
 							vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 							expectConsoleOutput(
@@ -123,12 +123,12 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 							vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
 							expectConsoleOutput(vmi, "login")
 						},
-							Entry("[test_id:4637][storage-req]with Filesystem Disk", Labels{"test_id:4637", "storage-req"}, newVirtualMachineInstanceWithAlpineFileDisk),
-							Entry("[test_id:4638][storage-req]with Block Disk", Labels{"test_id:4638", "storage-req"}, newVirtualMachineInstanceWithAlpineBlockDisk),
+							Entry("[test_id:4637][storage-req]with Filesystem Disk", Label("test_id:4637", "storage-req"), newVirtualMachineInstanceWithAlpineFileDisk),
+							Entry("[test_id:4638][storage-req]with Block Disk", Label("test_id:4638", "storage-req"), newVirtualMachineInstanceWithAlpineBlockDisk),
 						)
 					})
 
-					It("[test_id:1590]should be able to reconnect to console multiple times", Labels{"test_id:1590"}, func() {
+					It("[test_id:1590]should be able to reconnect to console multiple times", Label("test_id:1590"), func() {
 						vmi := libvmi.NewAlpine()
 						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -137,7 +137,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 						}
 					})
 
-					It("[test_id:1591]should close console connection when new console connection is opened", Labels{"test_id:1591"}, func() {
+					It("[test_id:1591]should close console connection when new console connection is opened", Label("test_id:1591"), func() {
 						vmi := libvmi.NewAlpine()
 						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -162,7 +162,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 						expectConsoleOutput(vmi, "login")
 					})
 
-					It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", Labels{"test_id:1592"}, func() {
+					It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", Label("test_id:1592"), func() {
 						vmi := libvmi.NewAlpine()
 						By("Creating a new VirtualMachineInstance")
 						vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -173,7 +173,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 						Expect(err).ToNot(HaveOccurred())
 					})
 
-					It("[test_id:1593]should not be connected if scheduled to non-existing host", Labels{"test_id:1593"}, func() {
+					It("[test_id:1593]should not be connected if scheduled to non-existing host", Label("test_id:1593"), func() {
 						vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
 
 						By("Creating a new VirtualMachineInstance")
@@ -188,7 +188,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 				Context("without a serial console", func() {
 
-					It("[test_id:4118]should run but not be connectable via the serial console", Labels{"test_id:4118"}, func() {
+					It("[test_id:4118]should run but not be connectable via the serial console", Label("test_id:4118"), func() {
 						vmi := libvmi.NewAlpine()
 						f := false
 						vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f

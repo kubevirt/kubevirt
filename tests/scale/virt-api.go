@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute] virt-api scaling", func() {
+var _ = Describe("[sig-compute] virt-api scaling", Label("sig-compute"), func() {
 
 	var virtClient kubecli.KubevirtClient
 

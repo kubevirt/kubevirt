@@ -53,7 +53,7 @@ const (
 )
 
 var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience",
-	Labels{"Serial", "ref_id:2717", "sig-compute"},
+	Label("Serial", "ref_id:2717", "sig-compute"),
 	func() {
 
 		var err error
@@ -197,9 +197,9 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 					}
 				}
 			},
-				Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods", Labels{"test_id:2830"},
+				Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods", Label("test_id:2830"),
 					"virt-controller", multiReplica, "no error occurred on evict of last virt-controller pod"),
-				Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods", Labels{"test_id:2799"},
+				Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods", Label("test_id:2799"),
 					"virt-api", multiReplica, "no error occurred on evict of last virt-api pod"),
 				Entry("eviction of single-replica virt-controller pod should succeed",
 					"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"),
@@ -212,7 +212,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 			When("control plane pods are running", func() {
 
-				It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", Labels{"test_id:2806"}, func() {
+				It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", Label("test_id:2806"), func() {
 					// Single replica deployments do not create PDBs
 					checks.SkipIfSingleReplica(virtCli)
 

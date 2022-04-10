@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[sig-compute]Controller devices", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]Controller devices", Label("sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

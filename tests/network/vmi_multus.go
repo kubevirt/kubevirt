@@ -85,7 +85,7 @@ const (
 	bridge10MacSpoofCheck = false
 )
 
-var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
+var _ = SIGDescribe("[Serial]Multus", Label("Serial"), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -185,49 +185,49 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 	}
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.",
-		Labels{"rfe_id:694", "crit:medium", "vendor:cnv-qe@redhat.com"},
-			func() {
-		const ptpGateway = ptpSubnetIP1
-		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
-			BeforeEach(func() {
-				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
-			})
-			It("[test_id:1751]should create a virtual machine with one interface", Labels{"test_id:1751"}, func() {
-				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := libvmi.NewAlpine()
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-				detachedVMI.Spec.Networks = []v1.Network{
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
-					}},
-				}
+		Label("rfe_id:694", "crit:medium", "vendor:cnv-qe@redhat.com"),
+		func() {
+			const ptpGateway = ptpSubnetIP1
+			Context("VirtualMachineInstance with cni ptp plugin interface", func() {
+				BeforeEach(func() {
+					libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+				})
+				It("[test_id:1751]should create a virtual machine with one interface", Label("test_id:1751"), func() {
+					By("checking virtual machine instance can ping using ptp cni plugin")
+					detachedVMI := libvmi.NewAlpine()
+					detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+					detachedVMI.Spec.Networks = []v1.Network{
+						{Name: "ptp", NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
+						}},
+					}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
+					detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+					Expect(err).ToNot(HaveOccurred())
+					tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 					Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 				})
 
-			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", Labels{"test_id:1752"}, func() {
-				checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
-				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := libvmi.NewAlpine()
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-				detachedVMI.Spec.Networks = []v1.Network{
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, ptpConf2)},
-					}},
-				}
+				It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", Label("test_id:1752"), func() {
+					checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
+					By("checking virtual machine instance can ping using ptp cni plugin")
+					detachedVMI := libvmi.NewAlpine()
+					detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+					detachedVMI.Spec.Networks = []v1.Network{
+						{Name: "ptp", NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, ptpConf2)},
+						}},
+					}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
+					detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+					Expect(err).ToNot(HaveOccurred())
+					tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 					Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 				})
 
-				It("[test_id:1753]should create a virtual machine with two interfaces", Labels{"test_id:1753"}, func() {
+				It("[test_id:1753]should create a virtual machine with two interfaces", Label("test_id:1753"), func() {
 					By("checking virtual machine instance can ping using ptp cni plugin")
 					detachedVMI := libvmi.NewCirros()
 
@@ -241,9 +241,9 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 						}},
 					}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
+					detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+					Expect(err).ToNot(HaveOccurred())
+					tests.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
 
 					cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
 					err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
@@ -264,22 +264,22 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 				})
 			})
 
-		Context("VirtualMachineInstance with multus network as default network", func() {
-			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", Labels{"test_id:1751"}, func() {
-				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
-				detachedVMI := libvmi.NewAlpine()
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-				detachedVMI.Spec.Networks = []v1.Network{
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: fmt.Sprintf("%s/%s", util.NamespaceTestDefault, ptpConf1),
-							Default:     true,
-						}}},
-				}
+			Context("VirtualMachineInstance with multus network as default network", func() {
+				It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", Label("test_id:1751"), func() {
+					libnet.SkipWhenClusterNotSupportIpv4(virtClient)
+					detachedVMI := libvmi.NewAlpine()
+					detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+					detachedVMI.Spec.Networks = []v1.Network{
+						{Name: "ptp", NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{
+								NetworkName: fmt.Sprintf("%s/%s", util.NamespaceTestDefault, ptpConf1),
+								Default:     true,
+							}}},
+					}
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
+					detachedVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
+					Expect(err).ToNot(HaveOccurred())
+					tests.WaitUntilVMIReady(detachedVMI, libnet.WithAlpineConfig(console.LoginToAlpine))
 
 					By("checking virtual machine instance can ping using ptp cni plugin")
 					Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
@@ -302,7 +302,7 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 			})
 
 			Context("VirtualMachineInstance with cni ptp plugin interface with custom MAC address", func() {
-				It("[test_id:1705]should configure valid custom MAC address on ptp interface when using tuning plugin", Labels{"test_id:1705"}, func() {
+				It("[test_id:1705]should configure valid custom MAC address on ptp interface when using tuning plugin", Label("test_id:1705"), func() {
 					customMacAddress := "50:00:00:00:90:0d"
 					ptpInterface := v1.Interface{
 						Name: "ptp",
@@ -322,11 +322,11 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 					interfaces := []v1.Interface{ptpInterface}
 					networks := []v1.Network{ptpNetwork}
 
-				By("Creating a VM with custom MAC address on its ptp interface.")
-				interfaces[0].MacAddress = customMacAddress
+					By("Creating a VM with custom MAC address on its ptp interface.")
+					interfaces[0].MacAddress = customMacAddress
 
-				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+					vmiOne := createVMIOnNode(interfaces, networks)
+					tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 					By("Configuring static IP address to ptp interface.")
 					Expect(configInterface(vmiOne, "eth0", ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
@@ -388,12 +388,12 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 					By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
 					Expect(checkInterface(vmiOne, ifaceName)).To(Succeed())
 
-				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
-				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
-				Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
-				ipAddr := ""
-				if staticIPVm2 != "" {
-					ipAddr, err = libnet.CidrToIP(staticIPVm2)
+					Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
+					By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
+					Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
+					ipAddr := ""
+					if staticIPVm2 != "" {
+						ipAddr, err = libnet.CidrToIP(staticIPVm2)
 					} else {
 						const secondaryNetworkIndex = 1
 						ipAddr, err = getIfaceIPByNetworkName(vmiTwo.Name, networks[secondaryNetworkIndex].Name)
@@ -404,15 +404,15 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 					By("ping between virtual machines")
 					Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
 				},
-					Entry("[test_id:1577]with secondary network only", Labels{"test_id:1577"}, []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
-					Entry("[test_id:1578]with default network and secondary network", Labels{"test_id:1578"}, []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
+					Entry("[test_id:1577]with secondary network only", Label("test_id:1577"), []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
+					Entry("[test_id:1578]with default network and secondary network", Label("test_id:1578"), []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
 					Entry("with default network and secondary network with IPAM", []v1.Interface{defaultInterface, linuxBridgeInterfaceWithIPAM}, []v1.Network{defaultNetwork, linuxBridgeWithIPAMNetwork}, "eth1", "", ""),
 				)
 			})
 
 			Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
 				customMacAddress := "50:00:00:00:90:0d"
-				It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", Labels{"test_id:676"}, func() {
+				It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", Label("test_id:676"), func() {
 					By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 					vmiTwo := libvmi.NewFedora(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -459,7 +459,7 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 			})
 
 			Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
-				It("[test_id:1756]should report all interfaces in Status", Labels{"test_id:1756"}, func() {
+				It("[test_id:1756]should report all interfaces in Status", Label("test_id:1756"), func() {
 					interfaces := []v1.Interface{
 						defaultInterface,
 						linuxBridgeInterface,
@@ -534,7 +534,7 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 
 			Context("VirtualMachineInstance with invalid MAC address", func() {
 
-				It("[test_id:1713]should failed to start with invalid MAC address", Labels{"test_id:1713"}, func() {
+				It("[test_id:1713]should failed to start with invalid MAC address", Label("test_id:1713"), func() {
 					By("Start VMI")
 					linuxBridgeIfIdx := 1
 
@@ -623,11 +623,11 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 		})
 
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition",
-		Labels{"rfe_id:1758", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:1758", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			Context("with qemu guest agent", func() {
 
-				It("[test_id:1757] should report guest interfaces in VMI status", Labels{"test_id:1757"}, func() {
+				It("[test_id:1757] should report guest interfaces in VMI status", Label("test_id:1757"), func() {
 					interfaces := []v1.Interface{
 						defaultInterface,
 						linuxBridgeInterface,
@@ -670,14 +670,14 @@ var _ = SIGDescribe("[Serial]Multus", Labels{"Serial"}, func() {
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, agentVMI)
 
-				getOptions := &metav1.GetOptions{}
-				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
-					if err != nil {
-						return nil
-					}
-					return updatedVmi.Status.Interfaces
-				}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
+					getOptions := &metav1.GetOptions{}
+					Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+						updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+						if err != nil {
+							return nil
+						}
+						return updatedVmi.Status.Interfaces
+					}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
 
 					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					Expect(err).ToNot(HaveOccurred())

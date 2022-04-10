@@ -77,7 +77,7 @@ func includesIpv4(ipFamily ipFamily) bool {
 }
 
 var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose",
-	Labels{"rfe_id:253", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+	Label("rfe_id:253", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 	func() {
 
 		var virtClient kubecli.KubevirtClient
@@ -166,13 +166,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			}
 		}
 
-	Context("Expose service on a VM", func() {
-		var tcpVM *v1.VirtualMachineInstance
-		BeforeEach(func() {
-			tcpVM = newLabeledVMI("vm")
-			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
-			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", libnet.WithAlpineConfig(console.LoginToAlpine), false)
-		})
+		Context("Expose service on a VM", func() {
+			var tcpVM *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				tcpVM = newLabeledVMI("vm")
+				tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
+				tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", libnet.WithAlpineConfig(console.LoginToAlpine), false)
+			})
 
 			Context("Expose ClusterIP service", func() {
 				const servicePort = "27017"
@@ -190,7 +190,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				})
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
@@ -207,7 +207,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						By(iteratingClusterIPs)
 						runJobsAgainstService(svc, tcpVM.Namespace, tests.NewHelloWorldJobTCP)
 					},
-					Entry("[test_id:1531] over default IPv4 IP family", Labels{"test_id:1531"}, ipv4),
+					Entry("[test_id:1531] over default IPv4 IP family", Label("test_id:1531"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -260,7 +260,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						Expect(endpoints.Subsets[0].Addresses).To(HaveLen(numOfIps))
 					}, isDualStack)
 				},
-					Entry("[test_id:1532] over default IPv4 IP family", Labels{"test_id:1532"}, ipv4),
+					Entry("[test_id:1532] over default IPv4 IP family", Label("test_id:1532"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -304,7 +304,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-3", Port: 82, Protocol: "UDP"}))
 					Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-4", Port: 1500, Protocol: "UDP"}))
 				},
-					Entry("[test_id:1533] over default IPv4 IP family", Labels{"test_id:1533"}, ipv4),
+					Entry("[test_id:1533] over default IPv4 IP family", Label("test_id:1533"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -382,7 +382,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				})
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
@@ -428,7 +428,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 							}
 						}
 					},
-					Entry("[test_id:1534] over default IPv4 IP family", Labels{"test_id:1534"}, ipv4),
+					Entry("[test_id:1534] over default IPv4 IP family", Label("test_id:1534"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -436,13 +436,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 		})
 
-	Context("Expose UDP service on a VMI", func() {
-		var udpVM *v1.VirtualMachineInstance
-		BeforeEach(func() {
-			udpVM = newLabeledVMI("udp-vm")
-			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
-			tests.GenerateHelloWorldServer(udpVM, testPort, "udp", libnet.WithAlpineConfig(console.LoginToAlpine), false)
-		})
+		Context("Expose UDP service on a VMI", func() {
+			var udpVM *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				udpVM = newLabeledVMI("udp-vm")
+				udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
+				tests.GenerateHelloWorldServer(udpVM, testPort, "udp", libnet.WithAlpineConfig(console.LoginToAlpine), false)
+			})
 
 			Context("Expose ClusterIP UDP service", func() {
 				const servicePort = "28017"
@@ -461,7 +461,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				})
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
@@ -478,7 +478,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						By(iteratingClusterIPs)
 						runJobsAgainstService(svc, udpVM.Namespace, tests.NewHelloWorldJobUDP)
 					},
-					Entry("[test_id:1535] over default IPv4 IP family", Labels{"test_id:1535"}, ipv4),
+					Entry("[test_id:1535] over default IPv4 IP family", Label("test_id:1535"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -503,7 +503,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				})
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
@@ -556,7 +556,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 							}
 						}
 					},
-					Entry("[test_id:1536] over default IPv4 IP family", Labels{"test_id:1536"}, ipv4),
+					Entry("[test_id:1536] over default IPv4 IP family", Label("test_id:1536"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -613,7 +613,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				})
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmirsExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmirsExposeArgs)
@@ -630,7 +630,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						By(iteratingClusterIPs)
 						runJobsAgainstService(svc, vmrs.Namespace, tests.NewHelloWorldJobTCP)
 					},
-					Entry("[test_id:1537] over default IPv4 IP family", Labels{"test_id:1537"}, ipv4),
+					Entry("[test_id:1537] over default IPv4 IP family", Label("test_id:1537"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
@@ -677,15 +677,15 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				return vm, err
 			}
 
-		startVMWithServer := func(virtClient kubecli.KubevirtClient, protocol string, port int) *v1.VirtualMachineInstance {
-			By("Calling the start command on the stopped VM")
-			vmi := startVMIFromVMTemplate(virtClient, vm.GetName(), vm.GetNamespace())
-			if vmi == nil {
-				return nil
+			startVMWithServer := func(virtClient kubecli.KubevirtClient, protocol string, port int) *v1.VirtualMachineInstance {
+				By("Calling the start command on the stopped VM")
+				vmi := startVMIFromVMTemplate(virtClient, vm.GetName(), vm.GetNamespace())
+				if vmi == nil {
+					return nil
+				}
+				tests.GenerateHelloWorldServer(vmi, port, protocol, libnet.WithAlpineConfig(console.LoginToAlpine), false)
+				return vmi
 			}
-			tests.GenerateHelloWorldServer(vmi, port, protocol, libnet.WithAlpineConfig(console.LoginToAlpine), false)
-			return vmi
-		}
 
 			Context("Expose a VM as a ClusterIP service.", func() {
 				var serviceName string
@@ -704,7 +704,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				})
 
 				DescribeTable("[label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
@@ -726,14 +726,14 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						By(iteratingClusterIPs)
 						runJobsAgainstService(svc, vm.Namespace, tests.NewHelloWorldJobTCP, tests.NewHelloWorldJobHTTP)
 					},
-					Entry("[test_id:1538] over default IPv4 IP family", Labels{"test_id:1538"}, ipv4),
+					Entry("[test_id:1538] over default IPv4 IP family", Label("test_id:1538"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
 				)
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(ipFamily ipFamily) {
 						skipIfNotSupportedCluster(ipFamily)
 						vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
@@ -777,21 +777,21 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 							return vmi.Status.Phase == v1.Running && newUId
 						}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
-				By("Creating a TCP server on the VM.")
-				tests.GenerateHelloWorldServer(vmi, testPort, "tcp", libnet.WithAlpineConfig(console.LoginToAlpine), false)
+						By("Creating a TCP server on the VM.")
+						tests.GenerateHelloWorldServer(vmi, testPort, "tcp", libnet.WithAlpineConfig(console.LoginToAlpine), false)
 
 						By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 						By(iteratingClusterIPs)
 						runJobsAgainstService(svc, vmObj.Namespace, tests.NewHelloWorldJobTCP)
 					},
-					Entry("[test_id:345] over default IPv4 IP family", Labels{"test_id:345"}, ipv4),
+					Entry("[test_id:345] over default IPv4 IP family", Label("test_id:345"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),
 				)
 
 				DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.",
-					Labels{"label:masquerade_binding_connectivity"},
+					Label("label:masquerade_binding_connectivity"),
 					func(svcIpFamily ipFamily) {
 						skipIfNotSupportedCluster(svcIpFamily)
 						vmExposeArgs = appendIpFamilyToExposeArgs(svcIpFamily, vmExposeArgs)
@@ -884,7 +884,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						By("Waiting for the job to report a failed connection attempt.")
 						Expect(tests.WaitForJobToFail(job, 240*time.Second)).To(Succeed())
 					},
-					Entry("[test_id:343] over default IPv4 IP family", Labels{"test_id:343"}, ipv4),
+					Entry("[test_id:343] over default IPv4 IP family", Label("test_id:343"), ipv4),
 					Entry(overIPv6Family, ipv6),
 					Entry(overDualStackIPv4, dualIPv4Primary),
 					Entry(overDualStackIPv6, dualIPv6Primary),

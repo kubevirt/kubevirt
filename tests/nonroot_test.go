@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-compute]NonRoot feature", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]NonRoot feature", Label("sig-compute"), func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
@@ -46,10 +46,10 @@ var _ = Describe("[sig-compute]NonRoot feature", Labels{"sig-compute"}, func() {
 		Expect(err.Error()).To(And(ContainSubstring(feature), ContainSubstring("nonroot")))
 
 	},
-		Entry("[test_id:7127]VirtioFS", Labels{"test_id:7127"}, virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
+		Entry("[test_id:7127]VirtioFS", Label("test_id:7127"), virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
 	)
 
-	Context("[verify-nonroot] NonRoot feature", Labels{"verify-nonroot"}, func() {
+	Context("[verify-nonroot] NonRoot feature", Label("verify-nonroot"), func() {
 		It("Fails if can't be tested", func() {
 			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
 

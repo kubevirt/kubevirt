@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = Describe("[Serial][sig-compute]MediatedDevices", Labels{"Serial", "sig-compute"}, func() {
+var _ = Describe("[Serial][sig-compute]MediatedDevices", Label("Serial", "sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -134,7 +134,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Labels{"Serial", "sig-c
 			cleanupConfiguredMdevs()
 		})
 
-		It("[QUARANTINE]Should successfully passthrough a mediated device", func() {
+		It("[QUARANTINE]Should successfully passthrough a mediated device", Label("QUARANTINE"), func() {
 
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -194,7 +194,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Labels{"Serial", "sig-c
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
 		})
-		It("[QUARANTINE]Should override default mdev configuration on a specific node", func() {
+		It("[QUARANTINE]Should override default mdev configuration on a specific node", Label("QUARANTINE"), func() {
 			newDesiredMdevTypeName := "nvidia-223"
 			newExpectedInstancesNum := 8
 			By("Creating a configuration for mediated devices")

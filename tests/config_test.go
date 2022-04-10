@@ -41,7 +41,7 @@ import (
 )
 
 var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config",
-	Labels{"Serial", "rfe_id:899", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("Serial", "rfe_id:899", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var virtClient kubecli.KubevirtClient
@@ -103,7 +103,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					tests.DeleteConfigMap(configMapName)
 				})
 
-				It("[test_id:782]Should be the fs layout the same for a pod and vmi", Labels{"test_id:782"}, func() {
+				It("[test_id:782]Should be the fs layout the same for a pod and vmi", Label("test_id:782"), func() {
 					expectedOutput := "value1value2value3"
 
 					By("Running VMI")
@@ -163,7 +163,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					configMaps = nil
 				})
 
-				It("[test_id:783]Should start VMI with multiple ConfigMaps", Labels{"test_id:783"}, func() {
+				It("[test_id:783]Should start VMI with multiple ConfigMaps", Label("test_id:783"), func() {
 					vmi := tests.NewRandomVMIWithConfigMap(configMaps[0])
 					tests.AddConfigMapDisk(vmi, configMaps[1], configMaps[1])
 					tests.AddConfigMapDisk(vmi, configMaps[2], configMaps[2])
@@ -197,7 +197,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					tests.DeleteSecret(secretName)
 				})
 
-				It("[test_id:779]Should be the fs layout the same for a pod and vmi", Labels{"test_id:779"}, func() {
+				It("[test_id:779]Should be the fs layout the same for a pod and vmi", Label("test_id:779"), func() {
 					expectedOutput := "adminredhat"
 
 					By("Running VMI")
@@ -256,7 +256,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					secrets = nil
 				})
 
-				It("[test_id:780]Should start VMI with multiple Secrets", Labels{"test_id:780"}, func() {
+				It("[test_id:780]Should start VMI with multiple Secrets", Label("test_id:780"), func() {
 					vmi := tests.NewRandomVMIWithSecret(secrets[0])
 					tests.AddSecretDisk(vmi, secrets[1], secrets[1])
 					tests.AddSecretDisk(vmi, secrets[2], secrets[2])
@@ -272,7 +272,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			serviceAccountPath := config.ServiceAccountSourceDir
 
-			It("[test_id:998]Should be the namespace and token the same for a pod and vmi", Labels{"test_id:998"}, func() {
+			It("[test_id:998]Should be the namespace and token the same for a pod and vmi", Label("test_id:998"), func() {
 				By("Running VMI")
 				vmi := tests.NewRandomVMIWithServiceAccount("default")
 				tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -358,7 +358,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					tests.DeleteSecret(secretName)
 				})
 
-				It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", Labels{"test_id:786"}, func() {
+				It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", Label("test_id:786"), func() {
 					expectedOutputCfgMap := "value1value2value3"
 					expectedOutputSecret := "adminredhat"
 
@@ -395,8 +395,8 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					Expect(err).To(BeNil())
 					Expect(podOutputCfgMap).To(Equal(expectedOutputCfgMap), "Expected %s to Equal value1value2value3", podOutputCfgMap)
 
-				By("Checking mounted ConfigMap image")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+					By("Checking mounted ConfigMap image")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						// mount ConfigMap image
@@ -478,7 +478,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					tests.DeleteSecret(secretName)
 				})
 
-				It("[test_id:778]Should be the fs layout the same for a pod and vmi", Labels{"test_id:778"}, func() {
+				It("[test_id:778]Should be the fs layout the same for a pod and vmi", Label("test_id:778"), func() {
 					expectedPrivateKey := string(privateKeyBytes)
 					expectedPublicKey := string(publicKeyBytes)
 
@@ -515,8 +515,8 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					Expect(err).To(BeNil())
 					Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match genereated one.")
 
-				By("Checking mounted secrets sshkeys image")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+					By("Checking mounted secrets sshkeys image")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						// mount iso Secret image
@@ -544,7 +544,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			testLabelVal := "downwardAPIValue"
 			expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
 
-			It("[test_id:790]Should be the namespace and token the same for a pod and vmi", Labels{"test_id:790"}, func() {
+			It("[test_id:790]Should be the namespace and token the same for a pod and vmi", Label("test_id:790"), func() {
 				By("Running VMI")
 				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				//Add the testing label to the VMI

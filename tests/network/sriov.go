@@ -62,7 +62,7 @@ const (
 	sriovnetLinkEnabled = "sriov-linked"
 )
 
-var _ = Describe("[Serial]SRIOV", func() {
+var _ = Describe("[Serial]SRIOV", Label("Serial"), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -351,7 +351,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
 			})
 
-			It("[test_id:1754]should create a virtual machine with sriov interface", func() {
+			It("[test_id:1754]should create a virtual machine with sriov interface", Label("test_id:1754"), func() {
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
@@ -369,7 +369,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				// it's hard to match them.
 			})
 
-			It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
+			It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", Label("test_id:1754"), func() {
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Annotations = map[string]string{
 					v1.PlacePCIDevicesOnRootComplex: "true",
@@ -396,7 +396,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 			})
 
-			It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
+			It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", Label("test_id:3959"), func() {
 				checks.SkipTestIfNoCPUManager()
 				// In addition to verifying that we can start a VMI with CPU pinning
 				// this also tests if we've correctly calculated the overhead for VFIO devices.
@@ -416,7 +416,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				By("checking virtual machine instance has two interfaces")
 				checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
 			})
-			It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
+			It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", Label("test_id:3985"), func() {
 				const mac = "de:ad:00:00:be:ef"
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
@@ -514,7 +514,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
 			})
 
-			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
+			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", Label("test_id:1755"), func() {
 				sriovNetworks := []string{sriovnet1, sriovnet2}
 				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
@@ -543,7 +543,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					To(Succeed(), shouldCreateNetwork)
 			})
 
-			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
+			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", Label("test_id:3956"), func() {
 				cidrA := "192.168.1.1/24"
 				cidrB := "192.168.1.2/24"
 				ipA, err := libnet.CidrToIP(cidrA)
@@ -562,7 +562,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				}, 15*time.Second, time.Second).Should(Succeed())
 			})
 
-			It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
+			It("[test_id:3957]should connect to another machine with sriov interface over IPv6", Label("test_id:3957"), func() {
 				vmi1CIDR := "fc00::1/64"
 				vmi2CIDR := "fc00::2/64"
 				vmi1IP, err := libnet.CidrToIP(vmi1CIDR)

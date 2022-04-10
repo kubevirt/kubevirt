@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial][sig-compute]VMIDefaults", Labels{"Serial", "sig-compute"}, func() {
+var _ = Describe("[Serial][sig-compute]VMIDefaults", Label("Serial", "sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -76,7 +76,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Labels{"Serial", "sig-compu
 			}
 		})
 
-		It("[test_id:4115]Should be applied to VMIs", Labels{"test_id:4115"}, func() {
+		It("[test_id:4115]Should be applied to VMIs", Label("test_id:4115"), func() {
 			// create the VMI first
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -108,7 +108,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Labels{"Serial", "sig-compu
 			tests.UpdateKubeVirtConfigValueAndWait(kvConfiguration)
 		})
 
-		It("[test_id:4556]Should be present in domain", Labels{"test_id:4556"}, func() {
+		It("[test_id:4556]Should be present in domain", Label("test_id:4556"), func() {
 			By("Creating a virtual machine")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -157,7 +157,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Labels{"Serial", "sig-compu
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be memballoon device")
 			Expect(*domain.Devices.Ballooning).To(Equal(expected))
 		},
-			Entry("[test_id:4557]with period 12", Labels{"test_id:4557"}, uint32(12), api.MemBalloon{
+			Entry("[test_id:4557]with period 12", Label("test_id:4557"), uint32(12), api.MemBalloon{
 				Model: "virtio-non-transitional",
 				Stats: &api.Stats{
 					Period: 12,
@@ -170,7 +170,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Labels{"Serial", "sig-compu
 					Function: "0x0",
 				},
 			}),
-			Entry("[test_id:4558]with period 0", Labels{"test_id:4558"}, uint32(0), api.MemBalloon{
+			Entry("[test_id:4558]with period 0", Label("test_id:4558"), uint32(0), api.MemBalloon{
 				Model: "virtio-non-transitional",
 				Address: &api.Address{
 					Type:     "pci",
@@ -182,7 +182,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Labels{"Serial", "sig-compu
 			}),
 		)
 
-		It("[test_id:4559]Should not be present in domain ", Labels{"test_id:4559"}, func() {
+		It("[test_id:4559]Should not be present in domain ", Label("test_id:4559"), func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
 			f := false
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &f

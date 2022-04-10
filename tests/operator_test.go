@@ -92,7 +92,7 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
-var _ = Describe("[Serial][sig-operator]Operator", Labels{"Serial", "sig-operator"}, func() {
+var _ = Describe("[Serial][sig-operator]Operator", Label("Serial", "sig-operator"), func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
@@ -1090,14 +1090,14 @@ spec:
 		verifyOperatorWebhookCertificate()
 	})
 
-	It("[test_id:1746]should have created and available condition", Labels{"test_id:1746"}, func() {
+	It("[test_id:1746]should have created and available condition", Label("test_id:1746"), func() {
 		kv := util2.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
 		waitForKv(kv)
 	})
 
-	Describe("[Serial]should reconcile components", Labels{"Serial"}, func() {
+	Describe("[Serial]should reconcile components", Label("Serial"), func() {
 
 		deploymentName := "virt-controller"
 		daemonSetName := "virt-handler"
@@ -1286,7 +1286,7 @@ spec:
 				}),
 		)
 
-		It("[test_id:6309] checking updating service is reverted to original state", Labels{"test_id:6309"}, func() {
+		It("[test_id:6309] checking updating service is reverted to original state", Label("test_id:6309"), func() {
 			service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1317,9 +1317,9 @@ spec:
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM",
-		Labels{"rfe_id:2291", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2291", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
-			It("[test_id:3144]using virt-launcher with a shasum", Labels{"test_id:3144"}, func() {
+			It("[test_id:3144]using virt-launcher with a shasum", Label("test_id:3144"), func() {
 
 				if flags.SkipShasumCheck {
 					Skip("Cannot currently test shasums, skipping")
@@ -1342,7 +1342,7 @@ spec:
 			})
 		})
 
-	Describe("[test_id:6987]should apply component configuration", Labels{"test_id:6987"}, func() {
+	Describe("[test_id:6987]should apply component configuration", Label("test_id:6987"), func() {
 
 		It("test VirtualMachineInstancesPerNode", func() {
 			newVirtualMachineInstancesPerNode := 10
@@ -1373,7 +1373,7 @@ spec:
 		})
 	})
 
-	Describe("[test_id:4744]should apply component customization", Labels{"test_id:4744", "Serial"}, func() {
+	Describe("[test_id:4744]should apply component customization", Label("test_id:4744", "Serial"), func() {
 
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"
@@ -1434,7 +1434,7 @@ spec:
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt",
-		Labels{"rfe_id:2291", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2291", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			runStrategyHalted := v1.RunStrategyHalted
 
@@ -1443,7 +1443,7 @@ spec:
 			// Updating KubeVirt to the target tested code
 			// Ensuring VM/VMI is still operational after the update from previous release.
 			DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release",
-				Labels{"release-blocker", "test_id:3145"}, func(updateOperator bool) {
+				Label("release-blocker", "test_id:3145"), func(updateOperator bool) {
 					if !tests.HasCDI() {
 						Skip("Skip update test when CDI is not present")
 					}
@@ -1636,19 +1636,19 @@ spec:
 							}, 120*time.Second, 3*time.Second).Should(BeTrue())
 						}
 
-				By(fmt.Sprintf("Connecting to %s's console", vmYaml.vmName))
-				// This is in an eventually loop because it's possible for the
-				// subresource endpoint routing to fail temporarily right after a deployment
-				// completes while we wait for the kubernetes apiserver to detect our
-				// subresource api server is online and ready to serve requests.
-				Eventually(func() error {
-					vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if err := console.LoginToCirros(vmi); err != nil {
-						return err
-					}
-					return nil
-				}, 60*time.Second, 1*time.Second).Should(BeNil())
+						By(fmt.Sprintf("Connecting to %s's console", vmYaml.vmName))
+						// This is in an eventually loop because it's possible for the
+						// subresource endpoint routing to fail temporarily right after a deployment
+						// completes while we wait for the kubernetes apiserver to detect our
+						// subresource api server is online and ready to serve requests.
+						Eventually(func() error {
+							vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							if err := console.LoginToCirros(vmi); err != nil {
+								return err
+							}
+							return nil
+						}, 60*time.Second, 1*time.Second).Should(BeNil())
 
 						By("Stopping VM with virtctl")
 						stopFn := clientcmd.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
@@ -1753,9 +1753,9 @@ spec:
 		})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management",
-		Labels{"rfe_id:2291", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2291", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
-			It("[test_id:3146]should be able to delete and re-create kubevirt install", Labels{"test_id:3146"}, func() {
+			It("[test_id:3146]should be able to delete and re-create kubevirt install", Label("test_id:3146"), func() {
 				allPodsAreReady(originalKv)
 				sanityCheckDeploymentsExist()
 
@@ -1797,9 +1797,9 @@ spec:
 			})
 
 			Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist",
-				Labels{"rfe_id:3578", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+				Label("rfe_id:3578", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"),
 				func() {
-					It("[test_id:3683]should be blocked if a workload exists", Labels{"test_id:3683"}, func() {
+					It("[test_id:3683]should be blocked if a workload exists", Label("test_id:3683"), func() {
 						allPodsAreReady(originalKv)
 						sanityCheckDeploymentsExist()
 
@@ -1821,7 +1821,7 @@ spec:
 					})
 				})
 
-			It("[test_id:3148]should be able to create kubevirt install with custom image tag", Labels{"test_id:3148"}, func() {
+			It("[test_id:3148]should be able to create kubevirt install with custom image tag", Label("test_id:3148"), func() {
 
 				if flags.KubeVirtVersionTagAlt == "" {
 					Skip("Skip operator custom image tag test because alt tag is not present")
@@ -1860,7 +1860,7 @@ spec:
 			})
 
 			// this test ensures that we can deal with image prefixes in case they are not used for tests already
-			It("[test_id:3149]should be able to create kubevirt install with image prefix", Labels{"test_id:3149"}, func() {
+			It("[test_id:3149]should be able to create kubevirt install with image prefix", Label("test_id:3149"), func() {
 
 				if flags.ImagePrefixAlt == "" {
 					Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
@@ -1926,7 +1926,7 @@ spec:
 				allPodsAreReady(kv)
 			})
 
-			It("[test_id:3150]should be able to update kubevirt install with custom image tag", Labels{"test_id:3150"}, func() {
+			It("[test_id:3150]should be able to update kubevirt install with custom image tag", Label("test_id:3150"), func() {
 				if flags.KubeVirtVersionTagAlt == "" {
 					Skip("Skip operator custom image tag test because alt tag is not present")
 				}
@@ -1997,7 +1997,7 @@ spec:
 			// NOTE - this test verifies new operators can grab the leader election lease
 			// during operator updates. The only way the new infrastructure is deployed
 			// is if the update operator is capable of getting the lease.
-			It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", Labels{"test_id:3151"}, func() {
+			It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", Label("test_id:3151"), func() {
 
 				if flags.KubeVirtVersionTagAlt == "" {
 					Skip("Skip operator custom image tag test because alt tag is not present")
@@ -2035,7 +2035,7 @@ spec:
 				allPodsAreReady(kv)
 			})
 
-			It("[test_id:3152]should fail if KV object already exists", Labels{"test_id:3152"}, func() {
+			It("[test_id:3152]should fail if KV object already exists", Label("test_id:3152"), func() {
 
 				newKv := copyOriginalKv()
 				newKv.Name = "someother-kubevirt"
@@ -2068,13 +2068,13 @@ spec:
 				deleteAllKvAndWait(true)
 			})
 
-			It("[test_id:4612]should create non-namespaces resources without owner references", Labels{"test_id:4612"}, func() {
+			It("[test_id:4612]should create non-namespaces resources without owner references", Label("test_id:4612"), func() {
 				crd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 			})
 
-			It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", Labels{"test_id:4613"}, func() {
+			It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", Label("test_id:4613"), func() {
 				By("getting existing resource to reference")
 				cm, err := virtClient.CoreV1().ConfigMaps(originalKv.Namespace).Get(context.Background(), "kubevirt-ca", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2116,7 +2116,7 @@ spec:
 				Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 			})
 
-			It("[test_id:5010]should be able to update product related labels of kubevirt install", Labels{"test_id:5010"}, func() {
+			It("[test_id:5010]should be able to update product related labels of kubevirt install", Label("test_id:5010"), func() {
 				productName := "kubevirt-test"
 				productVersion := "0.0.0"
 				productComponent := "kubevirt-component"
@@ -2149,7 +2149,7 @@ spec:
 			})
 
 			Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster",
-				Labels{"rfe_id:2897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+				Label("rfe_id:2897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 				func() {
 
 					BeforeEach(func() {
@@ -2158,7 +2158,7 @@ spec:
 						}
 					})
 
-					It("[test_id:2910]Should have kubevirt SCCs created", Labels{"test_id:2910"}, func() {
+					It("[test_id:2910]Should have kubevirt SCCs created", Label("test_id:2910"), func() {
 						const OpenShiftSCCLabel = "openshift.io/scc"
 						var expectedSCCs, sccs []string
 
@@ -2206,7 +2206,7 @@ spec:
 		})
 
 	Describe("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]Dynamic feature detection",
-		Labels{"rfe_id:2897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			var vm *v1.VirtualMachine
@@ -2227,11 +2227,11 @@ spec:
 				}
 			})
 
-		It("[test_id:3153]Ensure infra can handle dynamically detecting DataVolume Support", Labels{"test_id:3153"}, func() {
-			if !libstorage.HasDataVolumeCRD() {
-				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
-			}
-			checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
+			It("[test_id:3153]Ensure infra can handle dynamically detecting DataVolume Support", Label("test_id:3153"), func() {
+				if !libstorage.HasDataVolumeCRD() {
+					Skip("Can't test DataVolume support when DataVolume CRD isn't present")
+				}
+				checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 				// This tests starting infrastructure with and without the DataVolumes feature gate
 				vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util2.NamespaceTestDefault)
@@ -2287,7 +2287,7 @@ spec:
 		})
 
 	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled",
-		Labels{"rfe_id:2897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			BeforeEach(func() {
@@ -2296,7 +2296,7 @@ spec:
 				}
 			})
 
-			It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", Labels{"test_id:3154"}, func() {
+			It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", Label("test_id:3154"), func() {
 				rbacClient := virtClient.RbacV1()
 
 				By("Checking that Role for ServiceMonitor doesn't exist")
@@ -2320,7 +2320,7 @@ spec:
 			}
 		})
 
-		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", Labels{"test_id:4614"}, func() {
+		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", Label("test_id:4614"), func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
 			prometheusRule, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -2341,7 +2341,7 @@ spec:
 			}
 		})
 
-		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", Labels{"test_id:4615"}, func() {
+		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", Label("test_id:4615"), func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
 			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
@@ -2349,7 +2349,7 @@ spec:
 	})
 
 	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled",
-		Labels{"rfe_id:2937", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2937", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			BeforeEach(func() {
@@ -2358,7 +2358,7 @@ spec:
 				}
 			})
 
-			It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", Labels{"test_id:2936"}, func() {
+			It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", Label("test_id:2936"), func() {
 				coreClient := virtClient.CoreV1()
 
 				// we don't know when the prometheus toolchain will pick up our config, so we retry plenty of times
@@ -2391,7 +2391,7 @@ spec:
 				}, 90*time.Second, 3*time.Second).Should(ContainSubstring(flags.KubeVirtInstallNamespace), "Prometheus should be monitoring KubeVirt")
 			})
 
-			It("[test_id:4616]Should patch our namespace labels with openshift.io/cluster-monitoring=true", Labels{"test_id:4616"}, func() {
+			It("[test_id:4616]Should patch our namespace labels with openshift.io/cluster-monitoring=true", Label("test_id:4616"), func() {
 				By("Inspecting the labels on our namespace")
 				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), flags.KubeVirtInstallNamespace, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2401,7 +2401,7 @@ spec:
 			})
 		})
 
-	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", Labels{"test_id:4617"}, func() {
+	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", Label("test_id:4617"), func() {
 		By("removing registration metadata")
 		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.VirtApiCertSecretName, types.JSONPatchType, patchData, metav1.PatchOptions{})
@@ -2436,8 +2436,8 @@ spec:
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 	})
 
-	Context("[rfe_id:4356]Node Placement", Labels{"rfe_id:4356"}, func() {
-		It("[test_id:4927]should dynamically update infra config", Labels{"test_id:4927"}, func() {
+	Context("[rfe_id:4356]Node Placement", Label("rfe_id:4356"), func() {
+		It("[test_id:4927]should dynamically update infra config", Label("test_id:4927"), func() {
 			// This label shouldn't exist, but this isn't harmful
 			// existing/running deployments will not be torn down until
 			// new ones are stood up (and the new ones will get stuck in scheduling)
@@ -2464,7 +2464,7 @@ spec:
 			patchKvInfra(nil, false, "")
 		})
 
-		It("[test_id:4928]should dynamically update workloads config", Labels{"test_id:4928"}, func() {
+		It("[test_id:4928]should dynamically update workloads config", Label("test_id:4928"), func() {
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
 			workloads := v1.ComponentConfig{
@@ -2516,7 +2516,7 @@ spec:
 			patchKvWorkloads(&incorrectWorkload, true, errMsg)
 		})
 
-		It("[test_id:8235]should check if kubevirt components have linux node selector", Labels{"test_id:8235"}, func() {
+		It("[test_id:8235]should check if kubevirt components have linux node selector", Label("test_id:8235"), func() {
 			By("Listing only kubevirt components")
 			labelReq, err := labels.NewRequirement("app.kubernetes.io/component", selection.In, []string{"kubevirt"})
 
@@ -2676,30 +2676,30 @@ spec:
 			}
 		})
 
-		It("[test_id:6257]should accept valid cert rotation parameters", Labels{"test_id:6257"}, func() {
+		It("[test_id:6257]should accept valid cert rotation parameters", Label("test_id:6257"), func() {
 			kv := copyOriginalKv()
 			patchKvCertConfig(kv.Name, certConfig)
 		})
 
-		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", Labels{"test_id:6258"}, func() {
+		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", Label("test_id:6258"), func() {
 			kv := copyOriginalKv()
 			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
-		It("[test_id:6259]should reject CA expires before rotation", Labels{"test_id:6259"}, func() {
+		It("[test_id:6259]should reject CA expires before rotation", Label("test_id:6259"), func() {
 			kv := copyOriginalKv()
 			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
-		It("[test_id:6260]should reject Cert expires before rotation", Labels{"test_id:6260"}, func() {
+		It("[test_id:6260]should reject Cert expires before rotation", Label("test_id:6260"), func() {
 			kv := copyOriginalKv()
 			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
-		It("[test_id:6261]should reject Cert rotates after CA expires", Labels{"test_id:6261"}, func() {
+		It("[test_id:6261]should reject Cert rotates after CA expires", Label("test_id:6261"), func() {
 			kv := copyOriginalKv()
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}

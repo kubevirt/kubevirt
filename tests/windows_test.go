@@ -119,7 +119,7 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 
 }
 
-var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"Serial", "sig-compute"}, func() {
+var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Label("Serial", "sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -137,13 +137,13 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	It("[test_id:487]should succeed to start a vmi", Labels{"test_id:487"}, func() {
+	It("[test_id:487]should succeed to start a vmi", Label("test_id:487"), func() {
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 	})
 
-	It("[test_id:488]should succeed to stop a running vmi", Labels{"test_id:488"}, func() {
+	It("[test_id:488]should succeed to stop a running vmi", Label("test_id:488"), func() {
 		By("Starting the vmi")
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
@@ -178,7 +178,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Context("[ref_id:139]VMI is created", Labels{"ref_id:139"}, func() {
+		Context("[ref_id:139]VMI is created", Label("ref_id:139"), func() {
 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
@@ -189,7 +189,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
 
-			It("[test_id:240]should have correct UUID", Labels{"test_id:240"}, func() {
+			It("[test_id:240]should have correct UUID", Label("test_id:240"), func() {
 				command := append(cli, "wmic csproduct get \"UUID\"")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
@@ -205,7 +205,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 				Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
 			})
 
-			It("[test_id:3159]should have default masquerade IP", Labels{"test_id:3159"}, func() {
+			It("[test_id:3159]should have default masquerade IP", Label("test_id:3159"), func() {
 				command := append(cli, "ipconfig /all")
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
@@ -222,7 +222,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 				Expect(output).Should(ContainSubstring("10.0.2.2"))
 			})
 
-			It("[test_id:3160]should have the domain set properly", Labels{"test_id:3160"}, func() {
+			It("[test_id:3160]should have the domain set properly", Label("test_id:3160"), func() {
 				searchDomain := getPodSearchDomain(windowsVMI)
 				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
@@ -309,7 +309,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 		})
 	})
 
-	Context("[ref_id:142]with kubectl command", Labels{"ref_id:142"}, func() {
+	Context("[ref_id:142]with kubectl command", Label("ref_id:142"), func() {
 		var yamlFile string
 		BeforeEach(func() {
 			clientcmd.SkipIfNoCmd("kubectl")
@@ -317,7 +317,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:223]should succeed to start a vmi", Labels{"test_id:223"}, func() {
+		It("[test_id:223]should succeed to start a vmi", Label("test_id:223"), func() {
 			By("Starting the vmi via kubectl command")
 			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
@@ -325,7 +325,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Labels{"
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 		})
 
-		It("[test_id:239]should succeed to stop a vmi", Labels{"test_id:239"}, func() {
+		It("[test_id:239]should succeed to stop a vmi", Label("test_id:239"), func() {
 			By("Starting the vmi via kubectl command")
 			_, _, err = clientcmd.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())

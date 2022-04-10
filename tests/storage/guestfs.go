@@ -34,7 +34,7 @@ func (f *fakeAttacher) closeChannel() {
 	f.done <- true
 }
 
-var _ = SIGDescribe("[rfe_id:6364][Serial]Guestfs", Labels{"rfe_id:6364", "Serial"}, func() {
+var _ = SIGDescribe("[rfe_id:6364][Serial]Guestfs", Label("rfe_id:6364", "Serial"), func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		pvcClaim   string
@@ -127,7 +127,7 @@ var _ = SIGDescribe("[rfe_id:6364][Serial]Guestfs", Labels{"rfe_id:6364", "Seria
 		})
 
 		It("[posneg:positive][test_id:6480]Should successfully run guestfs command on a filesystem-based PVC",
-			Labels{"posneg:positive", "test_id:6480"},
+			Label("posneg:positive", "test_id:6480"),
 			func() {
 				f := createFakeAttacher()
 				defer f.closeChannel()
@@ -147,7 +147,7 @@ var _ = SIGDescribe("[rfe_id:6364][Serial]Guestfs", Labels{"rfe_id:6364", "Seria
 			})
 
 		It("[posneg:negative][test_id:6480]Should fail to run the guestfs command on a PVC in use",
-			Labels{"posneg:negative", "test_id:6480"},
+			Label("posneg:negative", "test_id:6480"),
 			func() {
 				f := createFakeAttacher()
 				defer f.closeChannel()
@@ -161,7 +161,7 @@ var _ = SIGDescribe("[rfe_id:6364][Serial]Guestfs", Labels{"rfe_id:6364", "Seria
 			})
 
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC",
-			Labels{"posneg:positive", "test_id:6479"},
+			Label("posneg:positive", "test_id:6479"),
 			func() {
 				f := createFakeAttacher()
 				defer f.closeChannel()

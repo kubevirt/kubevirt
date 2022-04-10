@@ -37,7 +37,7 @@ import (
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound",
-	Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var err error
@@ -52,7 +52,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support",
-			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				BeforeEach(func() {
 					vmi, err = createSoundVMI(virtClient, "test-model-empty")
@@ -66,7 +66,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			})
 
 		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ich9 sound support",
-			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				BeforeEach(func() {
 					vmi, err = createSoundVMI(virtClient, "ich9")
@@ -81,7 +81,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			})
 
 		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with ac97 sound support",
-			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				BeforeEach(func() {
 					vmi, err = createSoundVMI(virtClient, "ac97")
@@ -96,7 +96,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			})
 
 		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support",
-			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				It("should fail to create VMI with unsupported sound device", func() {
 					vmi, err = createSoundVMI(virtClient, "ich7")

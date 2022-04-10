@@ -51,7 +51,7 @@ var helloMessageRemote = []byte{
 }
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection",
-	Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"}, func() {
+	Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"), func() {
 
 		var err error
 		var virtClient kubecli.KubevirtClient
@@ -64,7 +64,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance without usbredir support",
-			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 
 				var vmi *v1.VirtualMachineInstance
@@ -82,7 +82,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			})
 
 		Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support",
-			Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 
 				var vmi *v1.VirtualMachineInstance

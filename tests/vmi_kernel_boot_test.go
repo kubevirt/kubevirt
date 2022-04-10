@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
-var _ = Describe("[sig-compute]VMI with external kernel boot", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]VMI with external kernel boot", Label("sig-compute"), func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
@@ -53,7 +53,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", Labels{"sig-compu
 	})
 
 	Context("with external alpine-based kernel & initrd images", func() {
-		It("[test_id:7748]ensure successful boot", Labels{"test_id:7748"}, func() {
+		It("[test_id:7748]ensure successful boot", Label("test_id:7748"), func() {
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", Labels{"sig-compu
 
 	Context("with illegal definition ensure rejection of", func() {
 
-		It("[test_id:7750]VMI defined without an image", Labels{"test_id:7750"}, func() {
+		It("[test_id:7750]VMI defined without an image", Label("test_id:7750"), func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
@@ -112,7 +112,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", Labels{"sig-compu
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
 		})
 
-		It("[test_id:7751]VMI defined with image but without initrd & kernel paths", Labels{"test_id:7751"}, func() {
+		It("[test_id:7751]VMI defined with image but without initrd & kernel paths", Label("test_id:7751"), func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""

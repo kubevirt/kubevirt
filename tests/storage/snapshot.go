@@ -39,7 +39,7 @@ const (
 	operationComplete        = "Operation complete"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, func() {
+var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Label("Serial"), func() {
 
 	var (
 		err        error
@@ -220,11 +220,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 			}
 		}
 
-		It("[test_id:4609]should successfully create a snapshot", Labels{"test_id:4609"}, func() {
+		It("[test_id:4609]should successfully create a snapshot", Label("test_id:4609"), func() {
 			createAndVerifyVMSnapshot(vm)
 		})
 
-		It("[test_id:4610]create a snapshot when VM is running should succeed", Labels{"test_id:4610"}, func() {
+		It("[test_id:4610]create a snapshot when VM is running should succeed", Label("test_id:4610"), func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -250,7 +250,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 		})
 	})
 
-	Context("[storage-req]", Labels{"storage-req"}, func() {
+	Context("[storage-req]", Label("storage-req"), func() {
 		var (
 			snapshotStorageClass string
 		)
@@ -363,7 +363,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				return err
 			}
 
-			It("[test_id:6767]with volumes and guest agent available", Labels{"test_id:6767"}, func() {
+			It("[test_id:6767]with volumes and guest agent available", Label("test_id:6767"), func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
@@ -442,7 +442,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				checkContentSourceAndMemory(vm.DeepCopy(), contentName, initialMemory)
 			})
 
-			It("[test_id:6768]with volumes and no guest agent available", Labels{"test_id:6768"}, func() {
+			It("[test_id:6768]with volumes and no guest agent available", Label("test_id:6768"), func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi := tests.NewRandomFedoraVMI()
@@ -504,7 +504,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				checkOnlineSnapshotExpectedContentSource(vm.DeepCopy(), contentName, true)
 			})
 
-			It("[test_id:6769]without volumes with guest agent available", Labels{"test_id:6769"}, func() {
+			It("[test_id:6769]without volumes with guest agent available", Label("test_id:6769"), func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
 				vm = tests.NewRandomVirtualMachine(vmi, false)
@@ -527,7 +527,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				checkOnlineSnapshotExpectedContentSource(vm.DeepCopy(), contentName, false)
 			})
 
-			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", Labels{"test_id:6837"}, func() {
+			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", Label("test_id:6837"), func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
@@ -558,7 +558,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 			})
 
-			It("[test_id:6949]should unfreeze vm if snapshot fails when deadline exceeded", Labels{"test_id:6949"}, func() {
+			It("[test_id:6949]should unfreeze vm if snapshot fails when deadline exceeded", Label("test_id:6949"), func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
@@ -607,7 +607,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 			})
 
-			It("[test_id:7472]should succeed online snapshot with hot plug disk", Labels{"test_id:7472"}, func() {
+			It("[test_id:7472]should succeed online snapshot with hot plug disk", Label("test_id:7472"), func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
@@ -769,7 +769,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				}
 			})
 
-			It("[test_id:4611]should successfully create a snapshot", Labels{"test_id:4611"}, func() {
+			It("[test_id:4611]should successfully create a snapshot", Label("test_id:4611"), func() {
 				snapshot = newSnapshot()
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -981,7 +981,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				Expect(*snapshot.Status.ReadyToUse).To(BeTrue())
 			})
 
-			It("[test_id:6952]snapshot change phase to in progress and succeeded and then should not fail", Labels{"test_id:6952"}, func() {
+			It("[test_id:6952]snapshot change phase to in progress and succeeded and then should not fail", Label("test_id:6952"), func() {
 				createDenyVolumeSnapshotCreateWebhook()
 				snapshot = newSnapshot()
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: time.Minute}
@@ -1040,7 +1040,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Labels{"Serial"}, fu
 				Expect(snapshot.Status.Phase).To(Equal(snapshotv1.Succeeded))
 			})
 
-			It("[test_id:6838]snapshot should fail when deadline exceeded due to volume snapshots failure", Labels{"test_id:6838"}, func() {
+			It("[test_id:6838]snapshot should fail when deadline exceeded due to volume snapshots failure", Label("test_id:6838"), func() {
 				createDenyVolumeSnapshotCreateWebhook()
 				snapshot = newSnapshot()
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}

@@ -44,7 +44,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]ContainerDisk",
-	Labels{"rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var virtClient kubecli.KubevirtClient
@@ -95,18 +95,18 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			container := tests.GetContainerDiskContainerOfPod(pod, vmi.Spec.Volumes[0].Name)
 			Expect(container.ImagePullPolicy).To(Equal(expectedPolicy))
 		},
-			Entry("[test_id:3246]generate and set Always pull policy", Labels{"test_id:3246"}, "test", k8sv1.PullPolicy(""), k8sv1.PullAlways),
-			Entry("[test_id:3247]generate and set Always pull policy", Labels{"test_id:3247"}, "test:latest", k8sv1.PullPolicy(""), k8sv1.PullAlways),
-			Entry("[test_id:3248]generate and set IfNotPresent pull policy", Labels{"test_id:3248"}, "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396", k8sv1.PullPolicy(""), k8sv1.PullIfNotPresent),
-			Entry("[test_id:3249]pass through Never pull policy to the pod", Labels{"test_id:3249"}, "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396", k8sv1.PullNever, k8sv1.PullNever),
-			Entry("[test_id:3250]pass through IfNotPresent pull policy to the pod", Labels{"test_id:3250"}, "test:latest", k8sv1.PullIfNotPresent, k8sv1.PullIfNotPresent),
+			Entry("[test_id:3246]generate and set Always pull policy", Label("test_id:3246"), "test", k8sv1.PullPolicy(""), k8sv1.PullAlways),
+			Entry("[test_id:3247]generate and set Always pull policy", Label("test_id:3247"), "test:latest", k8sv1.PullPolicy(""), k8sv1.PullAlways),
+			Entry("[test_id:3248]generate and set IfNotPresent pull policy", Label("test_id:3248"), "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396", k8sv1.PullPolicy(""), k8sv1.PullIfNotPresent),
+			Entry("[test_id:3249]pass through Never pull policy to the pod", Label("test_id:3249"), "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396", k8sv1.PullNever, k8sv1.PullNever),
+			Entry("[test_id:3250]pass through IfNotPresent pull policy to the pod", Label("test_id:3250"), "test:latest", k8sv1.PullIfNotPresent, k8sv1.PullIfNotPresent),
 		)
 
 		Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachineInstance",
-			Labels{"rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with ephemeral registry disk", func() {
-					It("[test_id:1463][Conformance] should success multiple times", Labels{"test_id:1463", "Conformance"}, func() {
+					It("[test_id:1463][Conformance] should success multiple times", Label("test_id:1463", "Conformance"), func() {
 						vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 						num := 2
 						for i := 0; i < num; i++ {
@@ -126,10 +126,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 		Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance",
-			Labels{"rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with ephemeral registry disk", func() {
-					It("[test_id:1464]should not modify the spec on status update", Labels{"test_id:1464"}, func() {
+					It("[test_id:1464]should not modify the spec on status update", Label("test_id:1464"), func() {
 						vmi := libvmi.NewCirros()
 						v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
@@ -143,8 +143,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						Expect(startedVMI.Spec).To(Equal(vmi.Spec))
 					})
 				})
-				Context("[Serial]should obey the disk verification limits in the KubeVirt CR", Labels{"Serial"}, func() {
-					It("[test_id:7182]disk verification should fail when the memory limit is too low", Labels{"test_id:7182"}, func() {
+				Context("[Serial]should obey the disk verification limits in the KubeVirt CR", Label("Serial"), func() {
+					It("[test_id:7182]disk verification should fail when the memory limit is too low", Label("test_id:7182"), func() {
 						By("Reducing the diskVerificaton memory usage limit")
 						kv := util.GetCurrentKv(virtClient)
 						kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
@@ -175,10 +175,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 		Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting multiple VMIs",
-			Labels{"rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with ephemeral registry disk", func() {
-					It("[test_id:1465]should success", Labels{"test_id:1465"}, func() {
+					It("[test_id:1465]should success", Label("test_id:1465"), func() {
 						num := 5
 						vmis := make([]*v1.VirtualMachineInstance, 0, num)
 						objs := make([]runtime.Object, 0, num)
@@ -198,9 +198,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				})
 			})
 
-		Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", Labels{"rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"}, func() {
+		Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", Label("rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"), func() {
 			Context("with disk at /custom-disk/downloaded", func() {
-				It("[test_id:1466]should boot normally", Labels{"test_id:1466"}, func() {
+				It("[test_id:1466]should boot normally", Label("test_id:1466"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation), "#!/bin/bash\necho 'hello'\n")
 					for ind, volume := range vmi.Spec.Volumes {
 						if volume.ContainerDisk != nil {
@@ -215,10 +215,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting with virtio-win",
-			Labels{"rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:273", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with virtio-win as secondary disk", func() {
-					It("[test_id:1467]should boot and have the virtio as sata CDROM", Labels{"test_id:1467"}, func() {
+					It("[test_id:1467]should boot and have the virtio as sata CDROM", Label("test_id:1467"), func() {
 						vmi := libvmi.NewAlpine()
 						tests.AddEphemeralCdrom(vmi, "disk4", "sata", cd.ContainerDiskFor(cd.ContainerDiskVirtio))
 						vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -244,10 +244,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 		Describe("[rfe_id:4052][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions",
-			Labels{"rfe_id:4052", "crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:4052", "crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("with ephemeral registry disk", func() {
-					It("[test_id:4299]should not have world write permissions", Labels{"test_id:4299"}, func() {
+					It("[test_id:4299]should not have world write permissions", Label("test_id:4299"), func() {
 						vmi := libvmi.NewAlpine()
 						vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 

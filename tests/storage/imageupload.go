@@ -39,7 +39,7 @@ const (
 	insecure             = "--insecure"
 )
 
-var _ = SIGDescribe("[Serial]ImageUpload", Labels{"Serial"}, func() {
+var _ = SIGDescribe("[Serial]ImageUpload", Label("Serial"), func() {
 	var kubectlCmd *exec.Cmd
 
 	pvcSize := "100Mi"
@@ -142,8 +142,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", Labels{"Serial"}, func() {
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
 
-	Context("[storage-req] Upload an image and start a VMI with PVC", Labels{"storage-req"}, func() {
-		DescribeTable("[test_id:4621] Should succeed", Labels{"test_id:4621"}, func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
+	Context("[storage-req] Upload an image and start a VMI with PVC", Label("storage-req"), func() {
+		DescribeTable("[test_id:4621] Should succeed", Label("test_id:4621"), func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
 			sc, exists := libstorage.GetRWOBlockStorageClass()
 			if !exists {
 				Skip("Skip test when RWOBlock storage class is not present")

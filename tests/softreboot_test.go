@@ -64,7 +64,7 @@ func withoutACPI() libvmi.Option {
 const vmiLaunchTimeout = 360
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Soft reboot",
-	Labels{"crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var err error

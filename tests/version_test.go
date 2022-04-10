@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[sig-compute]Version", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]Version", Label("sig-compute"), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute]Version", Labels{"sig-compute"}, func() {
 	})
 
 	Describe("Check that version parameters where loaded by ldflags in build time", func() {
-		It("[test_id:555]Should return a good version information struct", Labels{"test_id:555"}, func() {
+		It("[test_id:555]Should return a good version information struct", Label("test_id:555"), func() {
 			info, err := virtClient.ServerVersion().Get()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.Compiler).To(Equal(runtime.Compiler))

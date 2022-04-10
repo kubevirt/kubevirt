@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]vTPM", func() {
+var _ = Describe("[sig-compute]vTPM", Label("sig-compute"), func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

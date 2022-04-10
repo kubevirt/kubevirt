@@ -43,7 +43,7 @@ import (
 )
 
 var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]",
-	Labels{"crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component"},
+	Label("crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component"),
 	func() {
 		var err error
 		var virtClient kubecli.KubevirtClient
@@ -58,10 +58,10 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 		})
 
 		Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance",
-			Labels{"crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("crit:high", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				Context("when virt-handler is responsive", func() {
-					It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", Labels{"Serial"}, func() {
+					It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", Label("Serial"), func() {
 						libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 						bridgeVMI := vmi
 						// Remove the masquerade interface to use the default bridge one

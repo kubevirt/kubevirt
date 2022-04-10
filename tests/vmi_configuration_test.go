@@ -65,7 +65,7 @@ import (
 
 type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
 
-var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]Configurations", Label("sig-compute"), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -105,7 +105,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 	})
 
 	Context("with all devices on the root PCI bus", func() {
-		It("[test_id:4623]should start run the guest as usual", Labels{"test_id:4623"}, func() {
+		It("[test_id:4623]should start run the guest as usual", Label("test_id:4623"), func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Annotations = map[string]string{
 				v1.PlacePCIDevicesOnRootComplex: "true",
@@ -128,7 +128,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 	})
 
 	Context("when requesting virtio-transitional models", func() {
-		It("[test_id:6957]should start and run the guest", Labels{"test_id:6957"}, func() {
+		It("[test_id:6957]should start and run the guest", Label("test_id:6957"), func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
@@ -143,10 +143,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should",
-		Labels{"rfe_id:897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
-			It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", Labels{"test_id:3110"}, func() {
+			It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", Label("test_id:3110"), func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSBurstable))
 			})
 
-			It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", Labels{"test_id:3111"}, func() {
+			It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", Label("test_id:3111"), func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				By("specifying identical limits and requests")
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -190,7 +190,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSGuaranteed))
 			})
 
-			It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", Labels{"test_id:3112"}, func() {
+			It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", Label("test_id:3112"), func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				By("specifying identical limits and requests")
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -225,7 +225,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 	Describe("VirtualMachineInstance definition", func() {
 		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores",
-			Labels{"Serial", "rfe_id:2065", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("Serial", "rfe_id:2065", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var availableNumberOfCPUs int
 				var vmi *v1.VirtualMachineInstance
@@ -239,7 +239,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				})
 
-				It("[test_id:1659]should report 3 cpu cores under guest OS", Labels{"test_id:1659"}, func() {
+				It("[test_id:1659]should report 3 cpu cores under guest OS", Label("test_id:1659"), func() {
 					vmi.Spec.Domain.CPU = &v1.CPU{
 						Cores: 3,
 					}
@@ -281,7 +281,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 					Expect(err).ToNot(HaveOccurred())
 				})
-				It("[test_id:4624]should set a correct memory units", Labels{"test_id:4624"}, func() {
+				It("[test_id:4624]should set a correct memory units", Label("test_id:4624"), func() {
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceMemory: resource.MustParse("64Mi"),
@@ -300,7 +300,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 				})
 
-				It("[test_id:1660]should report 3 sockets under guest OS", Labels{"test_id:1660"}, func() {
+				It("[test_id:1660]should report 3 sockets under guest OS", Label("test_id:1660"), func() {
 					vmi.Spec.Domain.CPU = &v1.CPU{
 						Sockets: 3,
 						Cores:   2,
@@ -326,7 +326,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report number of sockets")
 				})
 
-				It("[test_id:1661]should report 2 sockets from spec.domain.resources.requests under guest OS ", Labels{"test_id:1661"}, func() {
+				It("[test_id:1661]should report 2 sockets from spec.domain.resources.requests under guest OS ", Label("test_id:1661"), func() {
 					vmi.Spec.Domain.CPU = nil
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
@@ -350,7 +350,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report number of sockets")
 				})
 
-				It("[test_id:1662]should report 2 sockets from spec.domain.resources.limits under guest OS ", Labels{"test_id:1662"}, func() {
+				It("[test_id:1662]should report 2 sockets from spec.domain.resources.limits under guest OS ", Label("test_id:1662"), func() {
 					vmi.Spec.Domain.CPU = nil
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
@@ -376,7 +376,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report number of sockets")
 				})
 
-				It("[test_id:1663]should report 4 vCPUs under guest OS", Labels{"test_id:1663"}, func() {
+				It("[test_id:1663]should report 4 vCPUs under guest OS", Label("test_id:1663"), func() {
 					vmi.Spec.Domain.CPU = &v1.CPU{
 						Threads: 2,
 						Sockets: 2,
@@ -403,7 +403,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report number of threads")
 				})
 
-				It("[Serial][test_id:1664]should map cores to virtio block queues", Labels{"Serial", "test_id:1664"}, func() {
+				It("[Serial][test_id:1664]should map cores to virtio block queues", Label("Serial", "test_id:1664"), func() {
 					_true := true
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
@@ -423,7 +423,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(domXml).To(ContainSubstring("queues='3'"))
 				})
 
-				It("[test_id:1665]should map cores to virtio net queues", Labels{"test_id:1665"}, func() {
+				It("[test_id:1665]should map cores to virtio net queues", Label("test_id:1665"), func() {
 					if tests.ShouldAllowEmulation(virtClient) {
 						Skip("Software emulation should not be enabled for this test to run")
 					}
@@ -452,7 +452,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(domXml).ToNot(ContainSubstring("cache='none' queues='3'"))
 				})
 
-				It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", Labels{"test_id:1667"}, func() {
+				It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", Label("test_id:1667"), func() {
 					_false := false
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
@@ -473,9 +473,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
-				It("[test_id:3113]should failed to the VMI creation", Labels{"test_id:3113"}, func() {
+				It("[test_id:3113]should failed to the VMI creation", Label("test_id:3113"), func() {
 					vmi := tests.NewRandomVMI()
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 					By("Starting a VirtualMachineInstance")
@@ -485,7 +485,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied",
-			Labels{"Serial", "rfe_id:609", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("Serial", "rfe_id:609", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				BeforeEach(func() {
 					kv := util.GetCurrentKv(virtClient)
@@ -495,7 +495,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					tests.UpdateKubeVirtConfigValueAndWait(config)
 				})
 
-				It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", Labels{"test_id:3114"}, func() {
+				It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", Label("test_id:3114"), func() {
 					vmi := tests.NewRandomVMI()
 					guestMemory := resource.MustParse("4096M")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
@@ -506,7 +506,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("with BIOS bootloader method and no disk", func() {
-			It("[test_id:5265]should find no bootable device by default", Labels{"test_id:5265"}, func() {
+			It("[test_id:5265]should find no bootable device by default", Label("test_id:5265"), func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := tests.NewRandomVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
@@ -532,7 +532,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				// The expecter *should* have error-ed since the network interface is not marked bootable
 			})
 
-			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", Labels{"test_id:5266"}, func() {
+			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", Label("test_id:5266"), func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := tests.NewRandomVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
@@ -560,7 +560,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 		})
 
 		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method",
-			Labels{"rfe_id:2262", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:2262", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func(vmiNew VMICreationFuncWithEFI, loginTo console.LoginToFunction, msg string, fileName string) {
 				vmi := vmiNew()
 				By("Starting a VirtualMachineInstance")
@@ -589,14 +589,14 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(domXml).To(MatchRegexp(fileName))
 				}
 			},
-			Entry("[Serial][test_id:1668]should use EFI without secure boot", Labels{"Serial", "test_id:1668"}, tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			Entry("[Serial][test_id:4437]should enable EFI secure boot", Labels{"Serial", "test_id:4437"}, tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[Serial][test_id:1668]should use EFI without secure boot", Label("Serial", "test_id:1668"), tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
+			Entry("[Serial][test_id:4437]should enable EFI secure boot", Label("Serial", "test_id:4437"), tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
-				It("[test_id:1669]should show the requested guest memory inside the VMI", Labels{"test_id:1669"}, func() {
+				It("[test_id:1669]should show the requested guest memory inside the VMI", Label("test_id:1669"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					guestMemory := resource.MustParse("256Mi")
 					vmi.Spec.Domain.Memory = &v1.Memory{
@@ -607,7 +607,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
@@ -618,8 +618,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"}, func() {
-				It("[test_id:3115]should show the memory limit inside the VMI", Labels{"test_id:3115"}, func() {
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"), func() {
+				It("[test_id:3115]should show the memory limit inside the VMI", Label("test_id:3115"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("256Mi"),
@@ -628,7 +628,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
@@ -638,7 +638,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				})
 			})
 
-		Context("[rfe_id:989]test cpu_allocation_ratio", Labels{"rfe_id:989"}, func() {
+		Context("[rfe_id:989]test cpu_allocation_ratio", Label("rfe_id:989"), func() {
 			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
@@ -672,9 +672,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
-				It("[test_id:755]should show the requested memory different than guest memory", Labels{"test_id:755"}, func() {
+				It("[test_id:755]should show the requested memory different than guest memory", Label("test_id:755"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					guestMemory := resource.MustParse("256Mi")
 					vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
@@ -686,7 +686,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
@@ -710,7 +710,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test",
-			Labels{"rfe_id:609", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:609", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var vmi *v1.VirtualMachineInstance
 
@@ -724,17 +724,17 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					tests.WaitForSuccessfulVMIStart(vmi)
 				})
 
-				It("[test_id:730]Check OverCommit VM Created and Started", Labels{"test_id:730"}, func() {
+				It("[test_id:730]Check OverCommit VM Created and Started", Label("test_id:730"), func() {
 					overcommitVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(overcommitVmi)
 				})
-				It("[test_id:731]Check OverCommit status on VMI", Labels{"test_id:731"}, func() {
+				It("[test_id:731]Check OverCommit status on VMI", Label("test_id:731"), func() {
 					overcommitVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
 				})
-				It("[test_id:732]Check Free memory on the VMI", Labels{"test_id:732"}, func() {
+				It("[test_id:732]Check Free memory on the VMI", Label("test_id:732"), func() {
 					By("Expecting console")
 					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
@@ -747,9 +747,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:3078][crit:medium][vendor:cnv-qe@redhat.com][level:component]with usb controller",
-			Labels{"rfe_id:3078", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:3078", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
-				It("[test_id:3117]should start the VMI with usb controller when usb device is present", Labels{"test_id:3117"}, func() {
+				It("[test_id:3117]should start the VMI with usb controller when usb device is present", Label("test_id:3117"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 						{
@@ -773,7 +773,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report number of usb")
 				})
 
-				It("[test_id:3117]should start the VMI with usb controller when input device doesn't have bus", Labels{"test_id:3117"}, func() {
+				It("[test_id:3117]should start the VMI with usb controller when input device doesn't have bus", Label("test_id:3117"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 						{
@@ -796,7 +796,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report number of usb")
 				})
 
-				It("[test_id:3118]should start the VMI without usb controller", Labels{"test_id:3118"}, func() {
+				It("[test_id:3118]should start the VMI without usb controller", Label("test_id:3118"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					By("Starting a VirtualMachineInstance")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -816,8 +816,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices",
-			Labels{"rfe_id:3077", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"}, func() {
-				It("[test_id:2642]should failed to start the VMI with wrong type of input device", Labels{"test_id:2642"}, func() {
+			Label("rfe_id:3077", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"), func() {
+				It("[test_id:2642]should failed to start the VMI with wrong type of input device", Label("test_id:2642"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 					vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 						{
@@ -831,7 +831,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).To(HaveOccurred(), "should not start vmi")
 				})
 
-				It("[test_id:3074]should failed to start the VMI with wrong bus of input device", Labels{"test_id:3074"}, func() {
+				It("[test_id:3074]should failed to start the VMI with wrong bus of input device", Label("test_id:3074"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 					vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 						{
@@ -845,7 +845,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).To(HaveOccurred(), "should not start vmi")
 				})
 
-				It("[test_id:3072]should start the VMI with tablet input device with virtio bus", Labels{"test_id:3072"}, func() {
+				It("[test_id:3072]should start the VMI with tablet input device with virtio bus", Label("test_id:3072"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 						{
@@ -869,7 +869,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 60)).To(Succeed(), "should report input device")
 				})
 
-				It("[test_id:3073]should start the VMI with tablet input device with usb bus", Labels{"test_id:3073"}, func() {
+				It("[test_id:3073]should start the VMI with tablet input device with usb bus", Label("test_id:3073"), func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 						{
@@ -895,10 +895,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits lower than VMI required memory",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var vmi *v1.VirtualMachineInstance
-				It("[test_id:1670]should failed to start the VMI", Labels{"test_id:1670"}, func() {
+				It("[test_id:1670]should failed to start the VMI", Label("test_id:1670"), func() {
 					// create a namespace default limit
 					limitRangeObj := kubev1.LimitRange{
 
@@ -934,10 +934,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace cpu limits lower than VMI required cpu",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var vmi *v1.VirtualMachineInstance
-				It("[test_id:3119]should fail to start the VMI", Labels{"test_id:3119"}, func() {
+				It("[test_id:3119]should fail to start the VMI", Label("test_id:3119"), func() {
 					// create a namespace default limit
 					limitRangeObj := kubev1.LimitRange{
 
@@ -974,10 +974,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace limits higher than VMI requests",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var vmi *v1.VirtualMachineInstance
-				It("[test_id:3120]should start the VMI with the right default settings from namespace limits", Labels{"test_id:3120"}, func() {
+				It("[test_id:3120]should start the VMI with the right default settings from namespace limits", Label("test_id:3120"), func() {
 					// create a namespace default limit
 					limitRangeObj := kubev1.LimitRange{
 
@@ -1027,7 +1027,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with hugepages",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var hugepagesVmi *v1.VirtualMachineInstance
 
@@ -1138,13 +1138,13 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					By("Checking that the VM memory equals to a number of consumed hugepages")
 					Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 				},
-					Entry("[Serial][test_id:1671]hugepages-2Mi", Labels{"Serial", "test_id:1671"}, "2Mi", "64Mi", "None"),
-					Entry("[Serial][test_id:1672]hugepages-1Gi", Labels{"Serial", "test_id:1672"}, "1Gi", "1Gi", "None"),
-					Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Labels{"Serial", "test_id:1672"}, "2Mi", "70Mi", "64Mi"),
+					Entry("[Serial][test_id:1671]hugepages-2Mi", Label("Serial", "test_id:1671"), "2Mi", "64Mi", "None"),
+					Entry("[Serial][test_id:1672]hugepages-1Gi", Label("Serial", "test_id:1672"), "1Gi", "1Gi", "None"),
+					Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Label("Serial", "test_id:1672"), "2Mi", "70Mi", "64Mi"),
 				)
 
 				Context("with unsupported page size", func() {
-					It("[test_id:1673]should failed to schedule the pod", Labels{"test_id:1673"}, func() {
+					It("[test_id:1673]should failed to schedule the pod", Label("test_id:1673"), func() {
 						nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
@@ -1185,7 +1185,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng",
-			Labels{"rfe_id:893", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:893", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var rngVmi *v1.VirtualMachineInstance
 
@@ -1193,7 +1193,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					rngVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				})
 
-				It("[test_id:1674]should have the virtio rng device present when present", Labels{"test_id:1674"}, func() {
+				It("[test_id:1674]should have the virtio rng device present when present", Label("test_id:1674"), func() {
 					rngVmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 					By("Starting a VirtualMachineInstance")
@@ -1211,7 +1211,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 400)).To(Succeed())
 				})
 
-				It("[test_id:1675]should not have the virtio rng device when not present", Labels{"test_id:1675"}, func() {
+				It("[test_id:1675]should not have the virtio rng device when not present", Label("test_id:1675"), func() {
 					By("Starting a VirtualMachineInstance")
 					rngVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(rngVmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -1229,7 +1229,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var agentVMI *v1.VirtualMachineInstance
 
@@ -1260,7 +1260,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					return agentVMI
 				}
 
-				It("[test_id:1676]should have attached a guest agent channel by default", Labels{"test_id:1676"}, func() {
+				It("[test_id:1676]should have attached a guest agent channel by default", Label("test_id:1676"), func() {
 
 					agentVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					By("Starting a VirtualMachineInstance")
@@ -1282,7 +1282,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(domXML).To(ContainSubstring("<alias name='channel0'/>"), "Should have guest channel present")
 				})
 
-				It("[test_id:1677]VMI condition should signal agent presence", Labels{"test_id:1677"}, func() {
+				It("[test_id:1677]VMI condition should signal agent presence", Label("test_id:1677"), func() {
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
 
@@ -1297,7 +1297,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 				})
 
-				It("[test_id:4625]should remove condition when agent is off", Labels{"test_id:4625"}, func() {
+				It("[test_id:4625]should remove condition when agent is off", Label("test_id:4625"), func() {
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
 
@@ -1323,7 +1323,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 						"Agent condition should be gone")
 				})
 
-				Context("[Serial]with cluster config changes", Labels{"Serial"}, func() {
+				Context("[Serial]with cluster config changes", Label("Serial"), func() {
 					BeforeEach(func() {
 						kv := util.GetCurrentKv(virtClient)
 
@@ -1332,7 +1332,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 						tests.UpdateKubeVirtConfigValueAndWait(config)
 					})
 
-					It("[test_id:5267]VMI condition should signal unsupported agent presence", Labels{"test_id:5267"}, func() {
+					It("[test_id:5267]VMI condition should signal unsupported agent presence", Label("test_id:5267"), func() {
 						agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-shutdown")
 						By("Starting a VirtualMachineInstance")
 						agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
@@ -1356,7 +1356,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 					})
 
-					It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", Labels{"test_id:6958"}, func() {
+					It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", Label("test_id:6958"), func() {
 						agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
 						By("Starting a VirtualMachineInstance")
 						agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
@@ -1392,7 +1392,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					})
 				})
 
-				It("[test_id:4626]should have guestosinfo in status when agent is present", Labels{"test_id:4626"}, func() {
+				It("[test_id:4626]should have guestosinfo in status when agent is present", Label("test_id:4626"), func() {
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
 					var updatedVmi *v1.VirtualMachineInstance
@@ -1411,7 +1411,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
 				})
 
-				It("[test_id:4627]should return the whole data when agent is present", Labels{"test_id:4627"}, func() {
+				It("[test_id:4627]should return the whole data when agent is present", Label("test_id:4627"), func() {
 					agentVMI := prepareAgentVM()
 
 					By("Expecting the Guest VM information")
@@ -1431,7 +1431,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
 				})
 
-				It("[test_id:4628]should not return the whole data when agent is not present", Labels{"test_id:4628"}, func() {
+				It("[test_id:4628]should not return the whole data when agent is not present", Label("test_id:4628"), func() {
 					agentVMI := prepareAgentVM()
 
 					By("Expecting the VirtualMachineInstance console")
@@ -1453,7 +1453,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 240*time.Second, 2).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 				})
 
-				It("[test_id:4629]should return user list", Labels{"test_id:4629"}, func() {
+				It("[test_id:4629]should return user list", Label("test_id:4629"), func() {
 					agentVMI := prepareAgentVM()
 
 					Expect(console.LoginToFedora(agentVMI)).To(Succeed())
@@ -1471,7 +1471,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
 				})
 
-				It("[test_id:4630]should return filesystem list", Labels{"test_id:4630"}, func() {
+				It("[test_id:4630]should return filesystem list", Label("test_id:4630"), func() {
 					agentVMI := prepareAgentVM()
 
 					By("Expecting the Guest VM information")
@@ -1490,7 +1490,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number",
-			Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 				var snVmi *v1.VirtualMachineInstance
 
@@ -1498,7 +1498,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					snVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				})
 
-				It("[test_id:3121]should have serial-number set when present", Labels{"test_id:3121"}, func() {
+				It("[test_id:3121]should have serial-number set when present", Label("test_id:3121"), func() {
 					snVmi.Spec.Domain.Firmware = &v1.Firmware{Serial: "4b2f5496-f3a3-460b-a375-168223f68845"}
 
 					By("Starting a VirtualMachineInstance")
@@ -1518,7 +1518,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
 				})
 
-				It("[test_id:3122]should not have serial-number set when not present", Labels{"test_id:3122"}, func() {
+				It("[test_id:3122]should not have serial-number set when not present", Label("test_id:3122"), func() {
 					By("Starting a VirtualMachineInstance")
 					snVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(snVmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -1538,7 +1538,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 		Context("with TSC timer", func() {
-			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", Labels{"test_id:6843"}, func() {
+			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", Label("test_id:6843"), func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
@@ -1583,7 +1583,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 		Context("with Clock and timezone", func() {
 
-			It("[sig-compute][test_id:5268]guest should see timezone", Labels{"sig-compute", "test_id:5268"}, func() {
+			It("[sig-compute][test_id:5268]guest should see timezone", Label("sig-compute", "test_id:5268"), func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				timezone := "America/New_York"
 				tz := v1.ClockOffsetTimezone(timezone)
@@ -1627,7 +1627,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				vmi = tests.NewRandomVMI()
 			})
 
-			It("[test_id:6960]should reject disk with missing volume", Labels{"test_id:6960"}, func() {
+			It("[test_id:6960]should reject disk with missing volume", Label("test_id:6960"), func() {
 				const diskName = "testdisk"
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: diskName,
@@ -1638,7 +1638,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
 			})
 
-			It("[test_id:6961]should reject volume with missing disk / file system", Labels{"test_id:6961"}, func() {
+			It("[test_id:6961]should reject volume with missing disk / file system", Label("test_id:6961"), func() {
 				const volumeName = "testvolume"
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: volumeName,
@@ -1654,7 +1654,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 		})
 
-		Context("[Serial]using defaultRuntimeClass configuration", Labels{"Serial"}, func() {
+		Context("[Serial]using defaultRuntimeClass configuration", Label("Serial"), func() {
 			runtimeClassName := "custom-runtime-class"
 
 			BeforeEach(func() {
@@ -1701,7 +1701,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec",
-		Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			var cpuVmi *v1.VirtualMachineInstance
 			var nodes *k8sv1.NodeList
@@ -1735,9 +1735,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 
 			Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined",
-				Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+				Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 				func() {
-					It("[test_id:1678]should report defined CPU model", Labels{"test_id:1678"}, func() {
+					It("[test_id:1678]should report defined CPU model", Label("test_id:1678"), func() {
 						supportedCPUs := tests.GetSupportedCPUModels(*nodes)
 						Expect(supportedCPUs).ToNot(BeEmpty())
 						cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -1750,8 +1750,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 						Expect(err).ToNot(HaveOccurred())
 						tests.WaitForSuccessfulVMIStart(cpuVmi)
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+						By("Expecting the VirtualMachineInstance console")
+						Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 						By("Checking the CPU model under the guest OS")
 						Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -1762,9 +1762,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				})
 
 			Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model equals to passthrough",
-				Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+				Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 				func() {
-					It("[test_id:1679]should report exactly the same model as node CPU", Labels{"test_id:1679"}, func() {
+					It("[test_id:1679]should report exactly the same model as node CPU", Label("test_id:1679"), func() {
 						cpuVmi.Spec.Domain.CPU = &v1.CPU{
 							Model: "host-passthrough",
 						}
@@ -1779,8 +1779,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 						niceName := parseCPUNiceName(output)
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+						By("Expecting the VirtualMachineInstance console")
+						Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 						By("Checking the CPU model under the guest OS")
 						Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -1791,9 +1791,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				})
 
 			Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model not defined",
-				Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+				Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 				func() {
-					It("[test_id:1680]should report CPU model from libvirt capabilities", Labels{"test_id:1680"}, func() {
+					It("[test_id:1680]should report CPU model from libvirt capabilities", Label("test_id:1680"), func() {
 						By("Starting a VirtualMachineInstance")
 						cpuVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 						Expect(err).ToNot(HaveOccurred())
@@ -1803,8 +1803,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 						niceName := parseCPUNiceName(output)
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+						By("Expecting the VirtualMachineInstance console")
+						Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 						By("Checking the CPU model under the guest OS")
 						console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -1815,7 +1815,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				})
 
 			Context("when CPU features defined", func() {
-				It("[test_id:3123]should start a Virtual Machine with matching features", Labels{"test_id:3123"}, func() {
+				It("[test_id:3123]should start a Virtual Machine with matching features", Label("test_id:3123"), func() {
 					supportedCPUFeatures := tests.GetSupportedCPUFeatures(*nodes)
 					Expect(supportedCPUFeatures).ToNot(BeEmpty())
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -1831,14 +1831,14 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(cpuVmi)
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+				})
 			})
 		})
-	})
 
 	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings",
-		Labels{"Serial", "rfe_id:2869", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("Serial", "rfe_id:2869", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			BeforeEach(func() {
 				kv := util.GetCurrentKv(virtClient)
@@ -1848,7 +1848,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
-			It("[test_id:3124]should set machine type from VMI spec", Labels{"test_id:3124"}, func() {
+			It("[test_id:3124]should set machine type from VMI spec", Label("test_id:3124"), func() {
 				vmi := tests.NewRandomVMI()
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pc"}
 				tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1858,7 +1858,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
 			})
 
-			It("[test_id:3125]should allow creating VM without Machine defined", Labels{"test_id:3125"}, func() {
+			It("[test_id:3125]should allow creating VM without Machine defined", Label("test_id:3125"), func() {
 				vmi := tests.NewRandomVMI()
 				vmi.Spec.Domain.Machine = nil
 				tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1868,7 +1868,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 			})
 
-			It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", Labels{"test_id:6964"}, func() {
+			It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", Label("test_id:6964"), func() {
 				// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
 				vmi := tests.NewRandomVMI()
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
@@ -1879,7 +1879,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 			})
 
-			It("[Serial][test_id:3126]should set machine type from kubevirt-config", Labels{"Serial", "test_id:3126"}, func() {
+			It("[Serial][test_id:3126]should set machine type from kubevirt-config", Label("Serial", "test_id:3126"), func() {
 				kv := util.GetCurrentKv(virtClient)
 
 				config := kv.Spec.Configuration
@@ -1897,7 +1897,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 		})
 
 	Context("with a custom scheduler", func() {
-		It("[test_id:4631]should set the custom scheduler on the pod", Labels{"test_id:4631"}, func() {
+		It("[test_id:4631]should set the custom scheduler on the pod", Label("test_id:4631"), func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1907,10 +1907,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings",
-		Labels{"rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:140", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
-			It("[test_id:3127]should set CPU request from VMI spec", Labels{"test_id:3127"}, func() {
+			It("[test_id:3127]should set CPU request from VMI spec", Label("test_id:3127"), func() {
 				vmi := tests.NewRandomVMI()
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1921,7 +1921,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(cpuRequest.String()).To(Equal("500m"))
 			})
 
-			It("[test_id:3128]should set CPU request when it is not provided", Labels{"test_id:3128"}, func() {
+			It("[test_id:3128]should set CPU request when it is not provided", Label("test_id:3128"), func() {
 				vmi := tests.NewRandomVMI()
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
@@ -1931,7 +1931,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(cpuRequest.String()).To(Equal("100m"))
 			})
 
-			It("[Serial][test_id:3129]should set CPU request from kubevirt-config", Labels{"Serial", "test_id:3129"}, func() {
+			It("[Serial][test_id:3129]should set CPU request from kubevirt-config", Label("Serial", "test_id:3129"), func() {
 				kv := util.GetCurrentKv(virtClient)
 
 				config := kv.Spec.Configuration
@@ -1950,7 +1950,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 		})
 
 	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC",
-		Labels{"Serial", "rfe_id:904", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "storage-req"},
+		Label("Serial", "rfe_id:904", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "storage-req"),
 		func() {
 			var dataVolume *cdiv1.DataVolume
 
@@ -1959,7 +1959,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 				}
 				// create a new PV and PVC (PVs can't be reused)
-			dataVolume = libstorage.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume = libstorage.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1972,7 +1972,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:1681]should set appropriate cache modes", Labels{"test_id:1681"}, func() {
+			It("[test_id:1681]should set appropriate cache modes", Label("test_id:1681"), func() {
 				vmi := tests.NewRandomVMI()
 
 				By("adding disks to a VMI")
@@ -2029,7 +2029,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 			})
 
-			It("[test_id:5360]should set appropriate IO modes", Labels{"test_id:5360"}, func() {
+			It("[test_id:5360]should set appropriate IO modes", Label("test_id:5360"), func() {
 				vmi := tests.NewRandomVMI()
 
 				By("adding disks to a VMI")
@@ -2089,7 +2089,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", Labels{"test_id:6965", "storage-req"}, func() {
+		It("[test_id:6965][storage-req]Should set BlockIO when using custom block sizes", Label("test_id:6965", "storage-req"), func() {
 			By("creating a block volume")
 			dataVolume := libstorage.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
@@ -2127,10 +2127,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 		})
 
 		It("[test_id:6966][storage-req]Should set BlockIO when set to match volume block sizes on block devices",
-			Labels{"test_id:6966", "storage-req"},
+			Label("test_id:6966", "storage-req"),
 			func() {
 				By("creating a block volume")
-			dataVolume := libstorage.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := libstorage.NewRandomBlockDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2162,7 +2162,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(disks[0].BlockIO.PhysicalBlockSize).To(expectedDiskSizes)
 			})
 
-		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", Labels{"test_id:6967"}, func() {
+		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", Label("test_id:6967"), func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
@@ -2214,7 +2214,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 	})
 
 	Context("[rfe_id:898][crit:medium][vendor:cnv-qe@redhat.com][level:component]New VirtualMachineInstance with all supported drives",
-		Labels{"rfe_id:898", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:898", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			var vmi *v1.VirtualMachineInstance
@@ -2239,12 +2239,12 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			It("[test_id:1682]should have all the device nodes", Labels{"test_id:1682"}, func() {
+			It("[test_id:1682]should have all the device nodes", Label("test_id:1682"), func() {
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// keep the ordering!
@@ -2255,7 +2255,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				}, 10)).To(Succeed())
 			})
 
-			It("[test_id:3906]should configure custom Pci address", Labels{"test_id:3906"}, func() {
+			It("[test_id:3906]should configure custom Pci address", Label("test_id:3906"), func() {
 				By("checking disk1 Pci address")
 				vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:00:10.0"
 				vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
@@ -2266,7 +2266,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 			})
 
-			It("[test_id:1020]should not create the VM with wrong PCI address", Labels{"test_id:1020"}, func() {
+			It("[test_id:1020]should not create the VM with wrong PCI address", Label("test_id:1020"), func() {
 				By("setting disk1 Pci address")
 
 				wrongPciAddress := "0000:04:10.0"
@@ -2294,7 +2294,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			})
 		})
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning",
-		Labels{"rfe_id:897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:897", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			var nodes *kubev1.NodeList
 
@@ -2324,9 +2324,9 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				}
 			})
 
-			Context("[Serial]with cpu pinning enabled", Labels{"Serial"}, func() {
+			Context("[Serial]with cpu pinning enabled", Label("Serial"), func() {
 
-				It("[test_id:1684]should set the cpumanager label to false when it's not running", Labels{"test_id:1684"}, func() {
+				It("[test_id:1684]should set the cpumanager label to false when it's not running", Label("test_id:1684"), func() {
 
 					By("adding a cpumanger=true label to a node")
 					nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
@@ -2346,7 +2346,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 						return n.Labels[v1.CPUManager]
 					}, 3*time.Minute, 2*time.Second).Should(Equal("false"))
 				})
-				It("[test_id:1685]non master node should have a cpumanager label", Labels{"test_id:1685"}, func() {
+				It("[test_id:1685]non master node should have a cpumanager label", Label("test_id:1685"), func() {
 					cpuManagerEnabled := false
 					for idx := 1; idx < len(nodes.Items); idx++ {
 						labels := nodes.Items[idx].GetLabels()
@@ -2358,7 +2358,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}
 					Expect(cpuManagerEnabled).To(BeTrue())
 				})
-				It("[test_id:991]should be scheduled on a node with running cpu manager", Labels{"test_id:991"}, func() {
+				It("[test_id:991]should be scheduled on a node with running cpu manager", Label("test_id:991"), func() {
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
 						Cores:                 2,
@@ -2402,8 +2402,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 
 					Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 					By("Checking the number of CPU cores under guest OS")
 					Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -2416,7 +2416,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 					Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 				})
-				It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", Labels{"test_id:4632"}, func() {
+				It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", Label("test_id:4632"), func() {
 					Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2450,8 +2450,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					podQos := readyPod.Status.QOSClass
 					Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
-				//-------------------------------------------------------------------
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+					//-------------------------------------------------------------------
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
@@ -2471,7 +2471,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					By("Checking if pod memory usage is > 80Mi")
 					Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 				})
-				It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", Labels{"test_id:4023"}, func() {
+				It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", Label("test_id:4023"), func() {
 
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2518,8 +2518,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					// 1 additioan pcpus should be allocated on the pod for the emulation threads
 					Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 					By("Checking the number of CPU cores under guest OS")
 					Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -2528,7 +2528,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 15)).To(Succeed())
 				})
 
-				It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", Labels{"test_id:4024"}, func() {
+				It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", Label("test_id:4024"), func() {
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
 						Cores:                 2,
@@ -2540,7 +2540,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("[test_id:802]should configure correct number of vcpus with requests.cpus", Labels{"test_id:802"}, func() {
+				It("[test_id:802]should configure correct number of vcpus with requests.cpus", Label("test_id:802"), func() {
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
@@ -2553,8 +2553,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					node := tests.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
 					Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 					By("Checking the number of CPU cores under guest OS")
 					Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
@@ -2563,7 +2563,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					}, 15)).To(Succeed())
 				})
 
-				It("[test_id:1688]should fail the vmi creation if the requested resources are inconsistent", Labels{"test_id:1688"}, func() {
+				It("[test_id:1688]should fail the vmi creation if the requested resources are inconsistent", Label("test_id:1688"), func() {
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
 						Cores:                 2,
@@ -2576,7 +2576,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 					Expect(err).To(HaveOccurred())
 				})
-				It("[test_id:1689]should fail the vmi creation if cpu is not an integer", Labels{"test_id:1689"}, func() {
+				It("[test_id:1689]should fail the vmi creation if cpu is not an integer", Label("test_id:1689"), func() {
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
@@ -2588,7 +2588,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 					Expect(err).To(HaveOccurred())
 				})
-				It("[test_id:1690]should fail the vmi creation if Guaranteed QOS cannot be set", Labels{"test_id:1690"}, func() {
+				It("[test_id:1690]should fail the vmi creation if Guaranteed QOS cannot be set", Label("test_id:1690"), func() {
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
@@ -2603,7 +2603,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVmi)
 					Expect(err).To(HaveOccurred())
 				})
-				It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", Labels{"test_id:830"}, func() {
+				It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", Label("test_id:830"), func() {
 					Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2623,12 +2623,12 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					By("Starting a VirtualMachineInstance without dedicated cpus")
 					_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(Vmi)
 					Expect(err).ToNot(HaveOccurred())
-				node = tests.WaitForSuccessfulVMIStart(Vmi).Status.NodeName
+					node = tests.WaitForSuccessfulVMIStart(Vmi).Status.NodeName
 					Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 				})
 			})
 
-			Context("[Serial]cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", Labels{"Serial"}, func() {
+			Context("[Serial]cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", Label("Serial"), func() {
 
 				var cpuvmi, vmi *v1.VirtualMachineInstance
 				var node string
@@ -2664,7 +2664,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 				})
 
-				It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", Labels{"test_id:829"}, func() {
+				It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", Label("test_id:829"), func() {
 
 					By("Starting a VirtualMachineInstance with dedicated cpus")
 					cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
@@ -2673,8 +2673,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
 					Expect(node1).To(Equal(node))
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
 
 					By("Starting a VirtualMachineInstance without dedicated cpus")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -2683,11 +2683,11 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
 					Expect(node2).To(Equal(node))
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-			})
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
+				})
 
-				It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", Labels{"test_id:832"}, func() {
+				It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", Label("test_id:832"), func() {
 
 					By("Starting a VirtualMachineInstance without dedicated cpus")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -2696,27 +2696,27 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 					Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
 					Expect(node2).To(Equal(node))
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				By("Starting a VirtualMachineInstance with dedicated cpus")
-				cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
-				Expect(err).ToNot(HaveOccurred())
-				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi).Status.NodeName
-				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
-				Expect(node1).To(Equal(node))
+					By("Starting a VirtualMachineInstance with dedicated cpus")
+					cpuvmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuvmi)
+					Expect(err).ToNot(HaveOccurred())
+					node1 := tests.WaitForSuccessfulVMIStart(cpuvmi).Status.NodeName
+					Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
+					Expect(node1).To(Equal(node))
 
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
+					By("Expecting the VirtualMachineInstance console")
+					Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
+				})
 			})
 		})
-	})
 
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value",
-		Labels{"rfe_id:2926", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2926", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
-			It("[Serial][test_id:2927]Test Chassis value in a newly created VM", Labels{"Serial", "test_id:2927"}, func() {
+			It("[Serial][test_id:2927]Test Chassis value in a newly created VM", Label("Serial", "test_id:2927"), func() {
 				vmi := tests.NewRandomFedoraVMIWithDmidecode()
 				vmi.Spec.Domain.Chassis = &v1.Chassis{
 					Asset: "Test-123",
@@ -2732,8 +2732,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
-			By("Expecting console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+				By("Expecting console")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Check value in VM with dmidecode")
 				// Check on the VM, if expected values are there with dmidecode
@@ -2745,7 +2745,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 		})
 
 	Context("[Serial][rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values",
-		Labels{"Serial", "rfe_id:2926", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("Serial", "rfe_id:2926", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			var vmi *v1.VirtualMachineInstance
@@ -2754,7 +2754,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				vmi = tests.NewRandomFedoraVMIWithDmidecode()
 			})
 
-			It("[test_id:2751]test default SMBios", Labels{"test_id:2751"}, func() {
+			It("[test_id:2751]test default SMBios", Label("test_id:2751"), func() {
 				kv := util.GetCurrentKv(virtClient)
 
 				config := kv.Spec.Configuration
@@ -2775,8 +2775,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
 				Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
-			By("Expecting console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+				By("Expecting console")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Check values in dmidecode")
 				// Check on the VM, if expected values are there with dmidecode
@@ -2790,7 +2790,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				}, 1)).To(Succeed())
 			})
 
-			It("[test_id:2752]test custom SMBios values", Labels{"test_id:2752"}, func() {
+			It("[test_id:2752]test custom SMBios values", Label("test_id:2752"), func() {
 				kv := util.GetCurrentKv(virtClient)
 				config := kv.Spec.Configuration
 				// Set a custom test SMBios
@@ -2811,8 +2811,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(domXml).To(ContainSubstring("<entry name='sku'>1.0</entry>"))
 				Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 
-			By("Expecting console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+				By("Expecting console")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Check values in dmidecode")
 
@@ -2847,10 +2847,10 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 				Expect(err.Error()).To(ContainSubstring(errMsg))
 			}
 		},
-			Entry("[test_id:3777] Should be accepted when using sata", Labels{"test_id:3777"}, "sata", ""),
-			Entry("[test_id:3809] Should be accepted when using scsi", Labels{"test_id:3809"}, "scsi", ""),
-			Entry("[test_id:3776] Should be rejected when using virtio", Labels{"test_id:3776"}, "virtio", "Bus type virtio is invalid"),
-			Entry("[test_id:3808] Should be rejected when using ide", Labels{"test_id:3808"}, "ide", "IDE bus is not supported"),
+			Entry("[test_id:3777] Should be accepted when using sata", Label("test_id:3777"), "sata", ""),
+			Entry("[test_id:3809] Should be accepted when using scsi", Label("test_id:3809"), "scsi", ""),
+			Entry("[test_id:3776] Should be rejected when using virtio", Label("test_id:3776"), "virtio", "Bus type virtio is invalid"),
+			Entry("[test_id:3808] Should be rejected when using ide", Label("test_id:3808"), "ide", "IDE bus is not supported"),
 		)
 	})
 
@@ -2931,8 +2931,8 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:5269]across all available PCI root bus slots", Labels{"test_id:5269"}, 2, numOfSlotsToTest, false),
-			Entry("[test_id:5270]across all available PCI functions of a single slot", Labels{"test_id:5270"}, 0, numOfFuncsToTest, true),
+			Entry("[test_id:5269]across all available PCI root bus slots", Label("test_id:5269"), 2, numOfSlotsToTest, false),
+			Entry("[test_id:5270]across all available PCI functions of a single slot", Label("test_id:5270"), 0, numOfFuncsToTest, true),
 		)
 	})
 
@@ -2947,7 +2947,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper()
 		})
 
-		It("[test_id:5271]test cpuid hidden", Labels{"test_id:5271"}, func() {
+		It("[test_id:5271]test cpuid hidden", Label("test_id:5271"), func() {
 			vmi.Spec.Domain.Features = &v1.Features{
 				KVM: &v1.FeatureKVM{Hidden: true},
 			}
@@ -2974,7 +2974,7 @@ var _ = Describe("[sig-compute]Configurations", Labels{"sig-compute"}, func() {
 			}, 2*time.Second)).To(Succeed())
 		})
 
-		It("[test_id:5272]test cpuid default", Labels{"test_id:5272"}, func() {
+		It("[test_id:5272]test cpuid default", Label("test_id:5272"), func() {
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())

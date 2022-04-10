@@ -42,7 +42,7 @@ import (
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
-var _ = Describe("[sig-compute]CloudInitHookSidecars", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]CloudInitHookSidecars", Label("sig-compute"), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -102,13 +102,13 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", Labels{"sig-compute"}, fu
 
 	Describe("VMI definition", func() {
 		Context("with CloudInit hook sidecar", func() {
-			It("[test_id:3167]should successfully start with hook sidecar annotation", Labels{"test_id:3167"}, func() {
+			It("[test_id:3167]should successfully start with hook sidecar annotation", Label("test_id:3167"), func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:3168]should call Collect and PreCloudInitIso on the hook sidecar", Labels{"test_id:3168"}, func() {
+			It("[test_id:3168]should call Collect and PreCloudInitIso on the hook sidecar", Label("test_id:3168"), func() {
 				By("Getting hook-sidecar logs")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -124,7 +124,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", Labels{"sig-compute"}, fu
 					Should(ContainSubstring("Hook's PreCloudInitIso callback method has been called"))
 			})
 
-			It("[test_id:3169]should have cloud-init user-data from sidecar", Labels{"test_id:3169"}, func() {
+			It("[test_id:3169]should have cloud-init user-data from sidecar", Label("test_id:3169"), func() {
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(vmi, console.LoginToCirros)

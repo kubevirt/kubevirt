@@ -160,7 +160,7 @@ func (r rights) list() (e []rightsEntry) {
 }
 
 var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access",
-	Labels{"rfe_id:500", "crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:500", "crit:high", "arm64", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 
 		var k8sClient string
@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 			},
 				Entry("[test_id:526]given a vmi",
-					Labels{"test_id:526"},
+					Label("test_id:526"),
 					core.GroupName,
 					"virtualmachineinstances",
 					allowAllFor("admin"),
@@ -230,7 +230,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyAllFor("default")),
 
 				Entry("[test_id:527]given a vm",
-					Labels{"test_id:527"},
+					Label("test_id:527"),
 					core.GroupName,
 					"virtualmachines",
 					allowAllFor("admin"),
@@ -247,7 +247,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyAllFor("default")),
 
 				Entry("[test_id:528]given a vmi preset",
-					Labels{"test_id:528"},
+					Label("test_id:528"),
 					core.GroupName,
 					"virtualmachineinstancepresets",
 					allowAllFor("admin"),
@@ -256,7 +256,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyAllFor("default")),
 
 				Entry("[test_id:529][crit:low]given a vmi replica set",
-					Labels{"test_id:529"},
+					Label("test_id:529"),
 					core.GroupName,
 					"virtualmachineinstancereplicasets",
 					allowAllFor("admin"),
@@ -265,7 +265,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyAllFor("default")),
 
 				Entry("[test_id:3230]given a vmi migration",
-					Labels{"test_id:3230"},
+					Label("test_id:3230"),
 					core.GroupName,
 					"virtualmachineinstancemigrations",
 					allowAllFor("admin"),
@@ -274,7 +274,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyAllFor("default")),
 
 				Entry("[test_id:5243]given a vmsnapshot",
-					Labels{"test_id:5243"},
+					Label("test_id:5243"),
 					v1alpha1.SchemeGroupVersion.Group,
 					"virtualmachinesnapshots",
 					allowAllFor("admin"),
@@ -283,7 +283,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyAllFor("default")),
 
 				Entry("[test_id:5244]given a vmsnapshotcontent",
-					Labels{"test_id:5244"},
+					Label("test_id:5244"),
 					v1alpha1.SchemeGroupVersion.Group,
 					"virtualmachinesnapshotcontents",
 					allowAllFor("admin"),
@@ -291,7 +291,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					denyModificationsFor("view"),
 					denyAllFor("default")),
 				Entry("[test_id:5245]given a vmsrestore",
-					Labels{"test_id:5245"},
+					Label("test_id:5245"),
 					v1alpha1.SchemeGroupVersion.Group,
 					"virtualmachinerestores",
 					allowAllFor("admin"),
@@ -310,17 +310,17 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 			},
 				Entry("[test_id:3232]on vm start",
-					Labels{"test_id:3232"},
+					Label("test_id:3232"),
 					"virtualmachines", "start",
 					allowUpdateFor("admin", "edit"),
 					denyAllFor("view", "default")),
 				Entry("[test_id:3233]on vm stop",
-					Labels{"test_id:3233"},
+					Label("test_id:3233"),
 					"virtualmachines", "stop",
 					allowUpdateFor("admin", "edit"),
 					denyAllFor("view", "default")),
 				Entry("[test_id:3234]on vm restart",
-					Labels{"test_id:3234"},
+					Label("test_id:3234"),
 					"virtualmachines", "restart",
 					allowUpdateFor("admin", "edit"),
 					denyAllFor("view", "default")),
@@ -361,7 +361,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user",
-			Labels{"rfe_id:2919", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:2919", "crit:high", "vendor:cnv-qe@redhat.com", "level:component"),
 			func() {
 
 				var testUser string
@@ -407,25 +407,25 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
 						testRights(resource, "no")
 					},
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances"),
-						Entry("[test_id:2915]given a vm", Labels{"test_id:2915"}, "virtualmachines"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances"),
+						Entry("[test_id:2915]given a vm", Label("test_id:2915"), "virtualmachines"),
 						Entry("given a vmpool", "virtualmachinepools"),
-						Entry("[test_id:2917]given a vmi preset", Labels{"test_id:2917"}, "virtualmachineinstancepresets"),
-						Entry("[test_id:2919]given a vmi replica set", Labels{"test_id:2919"}, "virtualmachineinstancereplicasets"),
-						Entry("[test_id:3235]given a vmi migration", Labels{"test_id:3235"}, "virtualmachineinstancemigrations"),
-						Entry("[test_id:5246]given a vmsnapshot", Labels{"test_id:5246"}, "virtualmachinesnapshots"),
-						Entry("[test_id:5247]given a vmsnapshotcontent", Labels{"test_id:5247"}, "virtualmachinesnapshotcontents"),
-						Entry("[test_id:5248]given a vmsrestore", Labels{"test_id:5248"}, "virtualmachinerestores"),
+						Entry("[test_id:2917]given a vmi preset", Label("test_id:2917"), "virtualmachineinstancepresets"),
+						Entry("[test_id:2919]given a vmi replica set", Label("test_id:2919"), "virtualmachineinstancereplicasets"),
+						Entry("[test_id:3235]given a vmi migration", Label("test_id:3235"), "virtualmachineinstancemigrations"),
+						Entry("[test_id:5246]given a vmsnapshot", Label("test_id:5246"), "virtualmachinesnapshots"),
+						Entry("[test_id:5247]given a vmsnapshotcontent", Label("test_id:5247"), "virtualmachinesnapshotcontents"),
+						Entry("[test_id:5248]given a vmsrestore", Label("test_id:5248"), "virtualmachinerestores"),
 					)
 
 					DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
 						testAction(resource, action, "no")
 					},
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/pause", "update"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/unpause", "update"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/softreboot", "update"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/console", "get"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/vnc", "get"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/pause", "update"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/unpause", "update"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/softreboot", "update"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/console", "get"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/vnc", "get"),
 					)
 				})
 
@@ -448,26 +448,26 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					DescribeTable("should verify permissions on resources are correct the test user", func(resource string) {
 						testRights(resource, "yes")
 					},
-						Entry("[test_id:2920]given a vmi", Labels{"test_id:2920"}, "virtualmachineinstances"),
-						Entry("[test_id:2831]given a vm", Labels{"test_id:2831"}, "virtualmachines"),
+						Entry("[test_id:2920]given a vmi", Label("test_id:2920"), "virtualmachineinstances"),
+						Entry("[test_id:2831]given a vm", Label("test_id:2831"), "virtualmachines"),
 						Entry("given a vmpool", "virtualmachinepools"),
-						Entry("[test_id:2916]given a vmi preset", Labels{"test_id:2916"}, "virtualmachineinstancepresets"),
-						Entry("[test_id:2918][crit:low]given a vmi replica set", Labels{"test_id:2918"}, "virtualmachineinstancereplicasets"),
-						Entry("[test_id:2837]given a vmi migration", Labels{"test_id:2837"}, "virtualmachineinstancemigrations"),
-						Entry("[test_id:5249]given a vmsnapshot", Labels{"test_id:5249"}, "virtualmachinesnapshots"),
-						Entry("[test_id:5250]given a vmsnapshotcontent", Labels{"test_id:5250"}, "virtualmachinesnapshotcontents"),
-						Entry("[test_id:5251]given a vmsrestore", Labels{"test_id:5251"}, "virtualmachinerestores"),
+						Entry("[test_id:2916]given a vmi preset", Label("test_id:2916"), "virtualmachineinstancepresets"),
+						Entry("[test_id:2918][crit:low]given a vmi replica set", Label("test_id:2918"), "virtualmachineinstancereplicasets"),
+						Entry("[test_id:2837]given a vmi migration", Label("test_id:2837"), "virtualmachineinstancemigrations"),
+						Entry("[test_id:5249]given a vmsnapshot", Label("test_id:5249"), "virtualmachinesnapshots"),
+						Entry("[test_id:5250]given a vmsnapshotcontent", Label("test_id:5250"), "virtualmachinesnapshotcontents"),
+						Entry("[test_id:5251]given a vmsrestore", Label("test_id:5251"), "virtualmachinerestores"),
 					)
 
 					DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
 						testAction(resource, action, "yes")
 					},
 						Entry(EntryDescription("[test_id:2921]given a vmi"), "[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/unpause", "update"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/softreboot", "update"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/console", "get"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/vnc", "get"),
-						Entry("[test_id:2921]given a vmi", Labels{"test_id:2921"}, "virtualmachineinstances/guestosinfo", "get"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/unpause", "update"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/softreboot", "update"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/console", "get"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/vnc", "get"),
+						Entry("[test_id:2921]given a vmi", Label("test_id:2921"), "virtualmachineinstances/guestosinfo", "get"),
 					)
 				})
 			})

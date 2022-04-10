@@ -45,7 +45,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIPreset",
-	Labels{"rfe_id:609", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:609", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 		var err error
 		var virtClient kubecli.KubevirtClient
@@ -96,7 +96,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("CRD Validation", func() {
-			It("[test_id:1595]Should reject POST if schema is invalid", Labels{"test_id:1595"}, func() {
+			It("[test_id:1595]Should reject POST if schema is invalid", Label("test_id:1595"), func() {
 				// Preset with missing selector should fail CRD validation
 				jsonString := fmt.Sprintf("{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"%s\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}", v1.StorageGroupVersion.String())
 
@@ -108,7 +108,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 			})
 
-			It("[test_id:1596]should reject POST if validation webhoook deems the spec is invalid", Labels{"test_id:1596"}, func() {
+			It("[test_id:1596]should reject POST if validation webhoook deems the spec is invalid", Label("test_id:1596"), func() {
 				preset := &v1.VirtualMachineInstancePreset{
 					ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "fake"},
 					Spec: v1.VirtualMachineInstancePresetSpec{
@@ -141,12 +141,12 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Preset Matching", func() {
-			It("[test_id:1597]Should be accepted on POST", Labels{"test_id:1597"}, func() {
+			It("[test_id:1597]Should be accepted on POST", Label("test_id:1597"), func() {
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 				Expect(err).To(BeNil())
 			})
 
-			It("[test_id:1598]Should reject a second submission of a VMIPreset", Labels{"test_id:1598"}, func() {
+			It("[test_id:1598]Should reject a second submission of a VMIPreset", Label("test_id:1598"), func() {
 				// This test requires an explicit name or the resources won't conflict
 				presetName := "test-preset"
 				memoryPreset.Name = presetName
@@ -160,7 +160,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:1599]Should return 404 if VMIPreset does not exist", Labels{"test_id:1599"}, func() {
+			It("[test_id:1599]Should return 404 if VMIPreset does not exist", Label("test_id:1599"), func() {
 				b, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Name("wrong").DoRaw(context.Background())
 				Expect(err).To(HaveOccurred())
 				status := k8smetav1.Status{}
@@ -169,7 +169,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(status.Code).To(Equal(int32(http.StatusNotFound)))
 			})
 
-			It("[test_id:1600]Should reject presets that conflict with VirtualMachineInstance settings", Labels{"test_id:1600"}, func() {
+			It("[test_id:1600]Should reject presets that conflict with VirtualMachineInstance settings", Label("test_id:1600"), func() {
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -192,7 +192,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(found).To(BeFalse())
 			})
 
-			It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", Labels{"test_id:1601"}, func() {
+			It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", Label("test_id:1601"), func() {
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(cpuPreset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -220,7 +220,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(int(newVMI.Spec.Domain.CPU.Cores)).To(Equal(cores))
 			})
 
-			It("[test_id:1602]Should ignore VMIs that don't match", Labels{"test_id:1602"}, func() {
+			It("[test_id:1602]Should ignore VMIs that don't match", Label("test_id:1602"), func() {
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(memoryPreset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -245,7 +245,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 			})
 
-			It("[test_id:1603]Should not be applied to existing VMIs", Labels{"test_id:1603"}, func() {
+			It("[test_id:1603]Should not be applied to existing VMIs", Label("test_id:1603"), func() {
 				// create the VirtualMachineInstance first
 				newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -269,7 +269,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Exclusions", func() {
-			It("[test_id:1604]Should not apply presets to VirtualMachineInstance's with the exclusion marking", Labels{"test_id:1604"}, func() {
+			It("[test_id:1604]Should not apply presets to VirtualMachineInstance's with the exclusion marking", Label("test_id:1604"), func() {
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(cpuPreset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -321,7 +321,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 			})
 
-			It("[test_id:1605]should denied to start the VMI", Labels{"test_id:1605"}, func() {
+			It("[test_id:1605]should denied to start the VMI", Label("test_id:1605"), func() {
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(conflictPreset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -362,7 +362,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 			})
 
-			It("[test_id:644][rfe_id:609] should override presets", Labels{"test_id:644", "rfe_id:609"}, func() {
+			It("[test_id:644][rfe_id:609] should override presets", Label("test_id:644", "rfe_id:609"), func() {
 				By("Creating preset with 64M")
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(overridePreset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
@@ -419,7 +419,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 			})
 
-			It("[test_id:617][rfe_id:609] should create and delete preset", Labels{"test_id:617", "rfe_id:609"}, func() {
+			It("[test_id:617][rfe_id:609] should create and delete preset", Label("test_id:617", "rfe_id:609"), func() {
 				By("Creating preset")
 				err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(util.NamespaceTestDefault).Body(preset).Do(context.Background()).Error()
 				Expect(err).ToNot(HaveOccurred())
@@ -478,7 +478,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmiWin10.Labels = map[string]string{labelKey: win10Label}
 			})
 
-			It("[test_id:726] Should match multiple VMs via MatchExpression", Labels{"test_id:726"}, func() {
+			It("[test_id:726] Should match multiple VMs via MatchExpression", Label("test_id:726"), func() {
 				By("Creating preset with MatchExpression")
 				_, err := virtClient.VirtualMachineInstancePreset(util.NamespaceTestDefault).Create(preset)
 				Expect(err).ToNot(HaveOccurred())
@@ -500,7 +500,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 		})
 
-		Context("[rfe_id:613]MatchLabels", Labels{"rfe_id:613"}, func() {
+		Context("[rfe_id:613]MatchLabels", Label("rfe_id:613"), func() {
 			var preset *v1.VirtualMachineInstancePreset
 			labelKey := "kubevirt.io/cpu"
 			labelValue := "dodecacore"
@@ -540,7 +540,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				annotationVal = v1.GroupVersion.String()
 			})
 
-			It("[test_id:672] Should match multiple VMs via MatchLabel", Labels{"test_id:672"}, func() {
+			It("[test_id:672] Should match multiple VMs via MatchLabel", Label("test_id:672"), func() {
 				By("Creating preset with MatchExpression")
 				_, err := virtClient.VirtualMachineInstancePreset(util.NamespaceTestDefault).Create(preset)
 				Expect(err).ToNot(HaveOccurred())

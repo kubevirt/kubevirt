@@ -78,7 +78,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-compute"}, func() {
+var _ = Describe("[Serial][sig-compute]Infrastructure", Label("Serial", "sig-compute"), func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
@@ -151,7 +151,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 			Expect(slowDuration.Seconds()).To(BeNumerically(">", 2*fastDuration.Seconds()))
 		})
 
-		It("[QUARANTINE]on the virt handler rate limiter should lead to delayed VMI running states", Labels{"QUARANTINE"}, func() {
+		It("[QUARANTINE]on the virt handler rate limiter should lead to delayed VMI running states", Label("QUARANTINE"), func() {
 			By("first getting the basetime for a replicaset")
 			targetNode := util.GetAllSchedulableNodes(virtClient).Items[0]
 			vmi := libvmi.NewCirros(
@@ -195,7 +195,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 	})
 
 	Describe("downwardMetrics", func() {
-		It("[test_id:6535]should be published to a vmi and periodically updated", Labels{"test_id:6535"}, func() {
+		It("[test_id:6535]should be published to a vmi and periodically updated", Label("test_id:6535"), func() {
 			vmi := libvmi.NewFedora()
 			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -217,7 +217,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 	})
 
 	Describe("CRDs", func() {
-		It("[test_id:5177]Should have structural schema", Labels{"test_id:5177"}, func() {
+		It("[test_id:5177]Should have structural schema", Label("test_id:5177"), func() {
 			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
 				crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
 				crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
@@ -240,14 +240,14 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 	})
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates",
-		Labels{"rfe_id:4102", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component]certificates"},
+		Label("rfe_id:4102", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component]certificates"),
 		func() {
 
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 			})
 
-			It("[test_id:4099] should be rotated when a new CA is created", Labels{"test_id:4099"}, func() {
+			It("[test_id:4099] should be rotated when a new CA is created", Label("test_id:4099"), func() {
 				By("checking that the config-map gets the new CA bundle attached")
 				Eventually(func() int {
 					_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
@@ -314,7 +314,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 
-			It("[sig-compute][test_id:4100] should be valid during the whole rotation process", Labels{"sig-compute", "test_id:4100"}, func() {
+			It("[sig-compute][test_id:4100] should be valid during the whole rotation process", Label("sig-compute", "test_id:4100"), func() {
 				oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 				oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 				Expect(err).ToNot(HaveOccurred())
@@ -360,11 +360,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					return tests.GetCertFromSecret(secretName)
 				}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 			},
-				Entry("[test_id:4101] virt-operator", Labels{"test_id:4101"}, components.VirtOperatorCertSecretName),
-				Entry("[test_id:4103] virt-api", Labels{"test_id:4103"}, components.VirtApiCertSecretName),
-				Entry("[test_id:4104] virt-controller", Labels{"test_id:4104"}, components.VirtControllerCertSecretName),
-				Entry("[test_id:4105] virt-handlers client side", Labels{"test_id:4105"}, components.VirtHandlerCertSecretName),
-				Entry("[test_id:4106] virt-handlers server side", Labels{"test_id:4106"}, components.VirtHandlerServerCertSecretName),
+				Entry("[test_id:4101] virt-operator", Label("test_id:4101"), components.VirtOperatorCertSecretName),
+				Entry("[test_id:4103] virt-api", Label("test_id:4103"), components.VirtApiCertSecretName),
+				Entry("[test_id:4104] virt-controller", Label("test_id:4104"), components.VirtControllerCertSecretName),
+				Entry("[test_id:4105] virt-handlers client side", Label("test_id:4105"), components.VirtHandlerCertSecretName),
+				Entry("[test_id:4106] virt-handlers server side", Label("test_id:4106"), components.VirtHandlerServerCertSecretName),
 			)
 		})
 
@@ -385,7 +385,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 	}
 
 	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration",
-		Labels{"rfe_id:4126", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:4126", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			Context("CriticalAddonsOnly taint set on a node", func() {
@@ -423,7 +423,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					}
 				})
 
-				It("[test_id:4134] kubevirt components on that node should not evict", Labels{"test_id:4134"}, func() {
+				It("[test_id:4134] kubevirt components on that node should not evict", Label("test_id:4134"), func() {
 
 					By("finding all kubevirt pods")
 					pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
@@ -521,7 +521,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 		})
 
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics",
-		Labels{"rfe_id:3187", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:3187", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			/*
@@ -538,7 +538,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				}
 			})
 
-			It("[test_id:4135]should find VMI namespace on namespace label of the metric", Labels{"test_id:4135"}, func() {
+			It("[test_id:4135]should find VMI namespace on namespace label of the metric", Label("test_id:4135"), func() {
 
 				/*
 					This test is required because in cases of misconfigurations on
@@ -629,7 +629,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 		})
 
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints",
-		Labels{"rfe_id:3187", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:3187", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			var preparedVMIs []*v1.VirtualMachineInstance
 			var pod *k8sv1.Pod
@@ -752,7 +752,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 			})
 
 			PIt("[test_id:4136][flaky] should find one leading virt-controller and two ready",
-				Labels{"test_id:4136", "flaky"},
+				Label("test_id:4136", "flaky"),
 				func() {
 					endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -792,7 +792,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-controller")
 				})
 
-			It("[test_id:4137]should find one leading virt-operator and two ready", Labels{"test_id:4137"}, func() {
+			It("[test_id:4137]should find one leading virt-operator and two ready", Label("test_id:4137"), func() {
 				endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				foundMetrics := map[string]int{
@@ -831,7 +831,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-operator")
 			})
 
-			It("[test_id:4138]should be exposed and registered on the metrics endpoint", Labels{"test_id:4138"}, func() {
+			It("[test_id:4138]should be exposed and registered on the metrics endpoint", Label("test_id:4138"), func() {
 				endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				l, err := labels.Parse("prometheus.kubevirt.io=true")
@@ -857,7 +857,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 				}
 			})
-			It("[test_id:4139]should return Prometheus metrics", Labels{"test_id:4139"}, func() {
+			It("[test_id:4139]should return Prometheus metrics", Label("test_id:4139"), func() {
 				endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, ep := range endpoint.Subsets[0].Addresses {
@@ -917,8 +917,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				err := validatedHTTPResponses(errorsChan, concurrency)
 				Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
 			},
-				Entry("[test_id:4140] by using IPv4", Labels{"test_id:4140"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6226] by using IPv6", Labels{"test_id:6226"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4140] by using IPv4", Label("test_id:4140"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6226] by using IPv6", Label("test_id:6226"), k8sv1.IPv6Protocol),
 			)
 
 			DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
@@ -933,8 +933,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					return strings.Join(lines, "\n")
 				}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 			},
-				Entry("[test_id:4141] by using IPv4", Labels{"test_id:4141"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6227] by using IPv6", Labels{"test_id:6227"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4141] by using IPv4", Label("test_id:4141"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6227] by using IPv6", Label("test_id:6227"), k8sv1.IPv6Protocol),
 			)
 
 			DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
@@ -957,22 +957,22 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					}
 				}
 			},
-				Entry("[test_id:4142] storage flush requests metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-				Entry("[test_id:6228] storage flush requests metric by using IPv6", Labels{"test_id:6228"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-				Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
-				Entry("[test_id:6229] time (ms) spent on cache flushing metric by using IPv6", Labels{"test_id:6229"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
-				Entry("[test_id:4142] I/O read operations metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-				Entry("[test_id:6230] I/O read operations metric by using IPv6", Labels{"test_id:6230"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-				Entry("[test_id:4142] I/O write operations metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-				Entry("[test_id:6231] I/O write operations metric by using IPv6", Labels{"test_id:6231"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-				Entry("[test_id:4142] storage read operation time metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
-				Entry("[test_id:6232] storage read operation time metric by using IPv6", Labels{"test_id:6232"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
-				Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-				Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6", Labels{"test_id:6233"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-				Entry("[test_id:4142] storage write operation time metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
-				Entry("[test_id:6234] storage write operation time metric by using IPv6", Labels{"test_id:6234"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
-				Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", Labels{"test_id:4142"}, k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
-				Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6", Labels{"test_id:6235"}, k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+				Entry("[test_id:4142] storage flush requests metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+				Entry("[test_id:6228] storage flush requests metric by using IPv6", Label("test_id:6228"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+				Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+				Entry("[test_id:6229] time (ms) spent on cache flushing metric by using IPv6", Label("test_id:6229"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+				Entry("[test_id:4142] I/O read operations metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
+				Entry("[test_id:6230] I/O read operations metric by using IPv6", Label("test_id:6230"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
+				Entry("[test_id:4142] I/O write operations metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
+				Entry("[test_id:6231] I/O write operations metric by using IPv6", Label("test_id:6231"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
+				Entry("[test_id:4142] storage read operation time metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+				Entry("[test_id:6232] storage read operation time metric by using IPv6", Label("test_id:6232"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+				Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+				Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6", Label("test_id:6233"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+				Entry("[test_id:4142] storage write operation time metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+				Entry("[test_id:6234] storage write operation time metric by using IPv6", Label("test_id:6234"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+				Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", Label("test_id:4142"), k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+				Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6", Label("test_id:6235"), k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 			)
 
 			DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
@@ -989,16 +989,16 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					Expect(value).To(BeNumerically(operator, float64(0.0)))
 				}
 			},
-				Entry("[test_id:4143] network metrics by IPv4", Labels{"test_id:4143"}, k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
-				Entry("[test_id:6236] network metrics by IPv6", Labels{"test_id:6236"}, k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
-				Entry("[test_id:4144] memory metrics by IPv4", Labels{"test_id:4144"}, k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
-				Entry("[test_id:6237] memory metrics by IPv6", Labels{"test_id:6237"}, k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
-				Entry("[test_id:4553] vcpu wait by IPv4", Labels{"test_id:4553"}, k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-				Entry("[test_id:6238] vcpu wait by IPv6", Labels{"test_id:6238"}, k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-				Entry("[test_id:4554] vcpu seconds by IPv4", Labels{"test_id:4554"}, k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
-				Entry("[test_id:6239] vcpu seconds by IPv6", Labels{"test_id:6239"}, k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
-				Entry("[test_id:4556] vmi unused memory by IPv4", Labels{"test_id:4556"}, k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
-				Entry("[test_id:6240] vmi unused memory by IPv6", Labels{"test_id:6240"}, k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+				Entry("[test_id:4143] network metrics by IPv4", Label("test_id:4143"), k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
+				Entry("[test_id:6236] network metrics by IPv6", Label("test_id:6236"), k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
+				Entry("[test_id:4144] memory metrics by IPv4", Label("test_id:4144"), k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
+				Entry("[test_id:6237] memory metrics by IPv6", Label("test_id:6237"), k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
+				Entry("[test_id:4553] vcpu wait by IPv4", Label("test_id:4553"), k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
+				Entry("[test_id:6238] vcpu wait by IPv6", Label("test_id:6238"), k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
+				Entry("[test_id:4554] vcpu seconds by IPv4", Label("test_id:4554"), k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+				Entry("[test_id:6239] vcpu seconds by IPv6", Label("test_id:6239"), k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+				Entry("[test_id:4556] vmi unused memory by IPv4", Label("test_id:4556"), k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+				Entry("[test_id:6240] vmi unused memory by IPv6", Label("test_id:6240"), k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
 			)
 
 			DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
@@ -1034,8 +1034,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					))
 				}
 			},
-				Entry("[test_id:4145] by IPv4", Labels{"test_id:4145"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6241] by IPv6", Labels{"test_id:6241"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4145] by IPv4", Label("test_id:4145"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6241] by IPv6", Label("test_id:6241"), k8sv1.IPv6Protocol),
 			)
 
 			DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
@@ -1053,8 +1053,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					}
 				}
 			},
-				Entry("[test_id:4146] by IPv4", Labels{"test_id:4146"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6242] by IPv6", Labels{"test_id:6242"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4146] by IPv4", Label("test_id:4146"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6242] by IPv6", Label("test_id:6242"), k8sv1.IPv6Protocol),
 			)
 
 			DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
@@ -1071,8 +1071,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 					Expect(value).To(BeNumerically(">=", float64(0.0)))
 				}
 			},
-				Entry("[test_id:4148] by IPv4", Labels{"test_id:4148"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6243] by IPv6", Labels{"test_id:6243"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4148] by IPv4", Label("test_id:4148"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6243] by IPv6", Label("test_id:6243"), k8sv1.IPv6Protocol),
 			)
 
 			DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
@@ -1093,8 +1093,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				}
 				Expect(containK8sLabel).To(Equal(true))
 			},
-				Entry("[test_id:4147] by IPv4", Labels{"test_id:4147"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6244] by IPv6", Labels{"test_id:6244"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4147] by IPv4", Label("test_id:4147"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6244] by IPv6", Label("test_id:6244"), k8sv1.IPv6Protocol),
 			)
 
 			// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
@@ -1120,8 +1120,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Expect(in).To(BeTrue())
 				Expect(out).To(BeTrue())
 			},
-				Entry("[test_id:4555] by IPv4", Labels{"test_id:4555"}, k8sv1.IPv4Protocol),
-				Entry("[test_id:6245] by IPv6", Labels{"test_id:6245"}, k8sv1.IPv6Protocol),
+				Entry("[test_id:4555] by IPv4", Label("test_id:4555"), k8sv1.IPv4Protocol),
+				Entry("[test_id:6245] by IPv6", Label("test_id:6245"), k8sv1.IPv6Protocol),
 			)
 		})
 
@@ -1131,7 +1131,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 		})
 
 		Context("when the controller pod is not running and an election happens", func() {
-			It("[test_id:4642]should succeed afterwards", Labels{"test_id:4642"}, func() {
+			It("[test_id:4642]should succeed afterwards", Label("test_id:4642"), func() {
 				newLeaderPod := getNewLeaderPod(virtClient)
 				Expect(newLeaderPod).NotTo(BeNil())
 
@@ -1265,7 +1265,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				}, 15*time.Second, 1*time.Second).Should(Equal(true))
 			})
 
-			It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", Labels{"test_id:6246"}, func() {
+			It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", Label("test_id:6246"), func() {
 				for _, node := range nodesWithKVM {
 					Expect(err).ToNot(HaveOccurred())
 					cpuModelLabelPresent := false
@@ -1305,7 +1305,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				}
 			})
 
-			It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", Labels{"test_id:6247"}, func() {
+			It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", Label("test_id:6247"), func() {
 				node := nodesWithKVM[0]
 
 				for key := range node.Labels {
@@ -1318,7 +1318,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				}
 			})
 
-			It("[test_id:6248] should set default min cpu model filter when min-cpu is not set in kubevirt config", Labels{"test_id:6248"}, func() {
+			It("[test_id:6248] should set default min cpu model filter when min-cpu is not set in kubevirt config", Label("test_id:6248"), func() {
 				node := nodesWithKVM[0]
 
 				for key := range node.Labels {
@@ -1326,7 +1326,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				}
 			})
 
-			It("[test_id:6995]should expose tsc frequency and tsc scalability", Labels{"test_id:6995"}, func() {
+			It("[test_id:6995]should expose tsc frequency and tsc scalability", Label("test_id:6995"), func() {
 				node := nodesWithKVM[0]
 				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-frequency"))
 				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-scalable"))
@@ -1348,7 +1348,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 			})
 
-			It("[test_id:6249] should update node with new cpu model label set", Labels{"test_id:6249"}, func() {
+			It("[test_id:6249] should update node with new cpu model label set", Label("test_id:6249"), func() {
 				obsoleteModel := ""
 				node := nodesWithKVM[0]
 
@@ -1378,7 +1378,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Expect(found).To(Equal(false), "Node can't contain label "+v1.CPUModelLabel+obsoleteModel)
 			})
 
-			It("[test_id:6250] should update node with new cpu model vendor label", Labels{"test_id:6250"}, func() {
+			It("[test_id:6250] should update node with new cpu model vendor label", Label("test_id:6250"), func() {
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, node := range nodes.Items {
@@ -1392,7 +1392,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Fail("No node contains label " + v1.CPUModelVendorLabel)
 			})
 
-			It("[test_id:6251] should update node with new cpu feature label set", Labels{"test_id:6251"}, func() {
+			It("[test_id:6251] should update node with new cpu feature label set", Label("test_id:6251"), func() {
 				node := nodesWithKVM[0]
 
 				numberOfLabelsBeforeUpdate := len(node.Labels)
@@ -1408,7 +1408,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Expect(numberOfLabelsBeforeUpdate).ToNot(Equal(len(node.Labels)), "Node should have different number of labels")
 			})
 
-			It("[test_id:6252] should remove all cpu model labels (all cpu model are in obsolete list)", Labels{"test_id:6252"}, func() {
+			It("[test_id:6252] should remove all cpu model labels (all cpu model are in obsolete list)", Label("test_id:6252"), func() {
 				node := nodesWithKVM[0]
 
 				obsoleteModels := nodelabellerutil.DefaultObsoleteCPUModels
@@ -1475,7 +1475,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Labels{"Serial", "sig-co
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:6253] should remove old labeller labels and annotations", Labels{"test_id:6253"}, func() {
+			It("[test_id:6253] should remove old labeller labels and annotations", Label("test_id:6253"), func() {
 				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

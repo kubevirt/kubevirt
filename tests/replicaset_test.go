@@ -51,7 +51,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet",
-	Labels{"rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"},
+	Label("rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component", "sig-compute"),
 	func() {
 		var err error
 		var virtClient kubecli.KubevirtClient
@@ -131,7 +131,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}
 
 		DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale",
-			Labels{"rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func(startScale int, stopScale int) {
 				newRS := newReplicaSet()
 				doScale(newRS.ObjectMeta.Name, int32(startScale))
@@ -139,24 +139,24 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				doScale(newRS.ObjectMeta.Name, int32(0))
 
 			},
-			Entry("[test_id:1405]to three, to two and then to zero replicas", Labels{"test_id:1405"}, 3, 2),
-			Entry("[test_id:1406]to five, to six and then to zero replicas", Labels{"test_id:1406"}, 5, 6),
+			Entry("[test_id:1405]to three, to two and then to zero replicas", Label("test_id:1405"), 3, 2),
+			Entry("[test_id:1406]to five, to six and then to zero replicas", Label("test_id:1406"), 5, 6),
 		)
 
 		DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource",
-			Labels{"rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func(startScale int, stopScale int) {
 				newRS := newReplicaSet()
 				libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(startScale))
 				libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(stopScale))
 				libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(0))
 			},
-			Entry("[test_id:1407]to three, to two and then to zero replicas", Labels{"test_id:1407"}, 3, 2),
-			Entry("[test_id:1408]to five, to six and then to zero replicas", Labels{"test_id:1408"}, 5, 6),
+			Entry("[test_id:1407]to three, to two and then to zero replicas", Label("test_id:1407"), 3, 2),
+			Entry("[test_id:1408]to five, to six and then to zero replicas", Label("test_id:1408"), 5, 6),
 		)
 
 		DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler",
-			Labels{"rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+			Label("rfe_id:588", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 			func(startScale int, stopScale int) {
 				checks.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
 				template := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -168,11 +168,11 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				doScaleWithHPA(newRS.ObjectMeta.Name, int32(1), int32(1), int32(1))
 
 			},
-			Entry("[test_id:1409]to three, to two and then to one replicas", Labels{"test_id:1409"}, 3, 2),
-			Entry("[test_id:1410]to five, to six and then to one replicas", Labels{"test_id:1410"}, 5, 6),
+			Entry("[test_id:1409]to three, to two and then to one replicas", Label("test_id:1409"), 3, 2),
+			Entry("[test_id:1410]to five, to six and then to one replicas", Label("test_id:1410"), 5, 6),
 		)
 
-		It("[test_id:1411]should be rejected on POST if spec is invalid", Labels{"test_id:1411"}, func() {
+		It("[test_id:1411]should be rejected on POST if spec is invalid", Label("test_id:1411"), func() {
 			newRS := newReplicaSet()
 			newRS.TypeMeta = v12.TypeMeta{
 				APIVersion: v1.StorageGroupVersion.String(),
@@ -193,7 +193,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 		})
-		It("[test_id:1412]should reject POST if validation webhoook deems the spec is invalid", Labels{"test_id:1412"}, func() {
+		It("[test_id:1412]should reject POST if validation webhoook deems the spec is invalid", Label("test_id:1412"), func() {
 			newRS := newReplicaSet()
 			newRS.TypeMeta = v12.TypeMeta{
 				APIVersion: v1.GroupVersion.String(),
@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
-		It("[test_id:1413]should update readyReplicas once VMIs are up", Labels{"test_id:1413"}, func() {
+		It("[test_id:1413]should update readyReplicas once VMIs are up", Label("test_id:1413"), func() {
 			newRS := newReplicaSet()
 			doScale(newRS.ObjectMeta.Name, 2)
 
@@ -233,7 +233,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}, 120*time.Second, 1*time.Second).Should(Equal(2))
 		})
 
-		It("[test_id:1414]should return the correct data when using server-side printing", Labels{"test_id:1414"}, func() {
+		It("[test_id:1414]should return the correct data when using server-side printing", Label("test_id:1414"), func() {
 			checks.SkipIfVersionBelow("server-side printing is only enabled by default from 1.11 on", "1.11")
 			newRS := newReplicaSet()
 			doScale(newRS.ObjectMeta.Name, 2)
@@ -270,7 +270,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(table.Rows[0].Cells[3]).To(BeNumerically("==", 2))
 		})
 
-		It("[test_id:1415]should remove VMIs once they are marked for deletion", Labels{"test_id:1415"}, func() {
+		It("[test_id:1415]should remove VMIs once they are marked for deletion", Label("test_id:1415"), func() {
 			newRS := newReplicaSet()
 			// Create a replicaset with two replicas
 			doScale(newRS.ObjectMeta.Name, 2)
@@ -286,7 +286,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}, 120*time.Second, 1*time.Second).Should(BeZero())
 		})
 
-		It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", Labels{"test_id:1416"}, func() {
+		It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", Label("test_id:1416"), func() {
 			newRS := newReplicaSet()
 			// Create a replicaset with two replicas
 			doScale(newRS.ObjectMeta.Name, 2)
@@ -325,7 +325,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:1417]should not scale when paused and scale when resume", Labels{"test_id:1417"}, func() {
+		It("[test_id:1417]should not scale when paused and scale when resume", Label("test_id:1417"), func() {
 			rs := newReplicaSet()
 			// pause controller
 			By("Pausing the replicaset")
@@ -379,7 +379,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
 		})
 
-		It("[test_id:1418]should replace finished VMIs", Labels{"test_id:1418"}, func() {
+		It("[test_id:1418]should replace finished VMIs", Label("test_id:1418"), func() {
 			By("Creating new replica set")
 			rs := newReplicaSet()
 			doScale(rs.ObjectMeta.Name, int32(2))
@@ -468,7 +468,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(vmi.DeletionTimestamp).ToNot(BeNil())
 		})
 
-		It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", Labels{"test_id:4121"}, func() {
+		It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", Label("test_id:4121"), func() {
 			k8sClient := clientcmd.GetK8sCmdClient()
 			clientcmd.SkipIfNoCmd(k8sClient)
 

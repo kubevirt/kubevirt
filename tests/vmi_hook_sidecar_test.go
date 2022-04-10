@@ -47,7 +47,7 @@ const (
 	sidecarContainerName = "hook-sidecar-0"
 )
 
-var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
+var _ = Describe("[sig-compute]HookSidecars", Label("sig-compute"), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -64,7 +64,7 @@ var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition",
-		Labels{"rfe_id:2667", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"},
+		Label("rfe_id:2667", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 			getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, bool, error) {
 				podSelector := tests.UnfinishedVMIPodSelector(vmi)
@@ -79,14 +79,14 @@ var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 			}
 
 			Context("with SM BIOS hook sidecar", func() {
-				It("[test_id:3155]should successfully start with hook sidecar annotation", Labels{"test_id:3155"}, func() {
+				It("[test_id:3155]should successfully start with hook sidecar annotation", Label("test_id:3155"), func() {
 					By("Starting a VMI")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
 				})
 
-				It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", Labels{"test_id:3156"}, func() {
+				It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", Label("test_id:3156"), func() {
 					By("Starting a VMI")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
@@ -94,7 +94,7 @@ var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 					tests.WaitForSuccessfulVMIStart(vmi)
 				})
 
-				It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", Labels{"test_id:3157"}, func() {
+				It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", Label("test_id:3157"), func() {
 					By("Getting hook-sidecar logs")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).ToNot(HaveOccurred())
@@ -110,7 +110,7 @@ var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 						Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
 				})
 
-				It("[test_id:3158]should update domain XML with SM BIOS properties", Labels{"test_id:3158"}, func() {
+				It("[test_id:3158]should update domain XML with SM BIOS properties", Label("test_id:3158"), func() {
 					By("Reading domain XML using virsh")
 					clientcmd.SkipIfNoCmd("kubectl")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -149,12 +149,12 @@ var _ = Describe("[sig-compute]HookSidecars", Labels{"sig-compute"}, func() {
 				})
 			})
 
-			Context("[Serial]with sidecar feature gate disabled", Labels{"Serial"}, func() {
+			Context("[Serial]with sidecar feature gate disabled", Label("Serial"), func() {
 				BeforeEach(func() {
 					tests.DisableFeatureGate(virtconfig.SidecarGate)
 				})
 
-				It("[test_id:2666]should not start with hook sidecar annotation", Labels{"test_id:2666"}, func() {
+				It("[test_id:2666]should not start with hook sidecar annotation", Label("test_id:2666"), func() {
 					By("Starting a VMI")
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")

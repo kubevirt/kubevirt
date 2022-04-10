@@ -286,7 +286,7 @@ const (
 	windowsSysprepedVMIPassword = "Gauranga"
 )
 
-var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Labels{"Serial", "Sysprep", "sig-compute"}, func() {
+var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Label("Serial", "Sysprep", "sig-compute"), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -306,7 +306,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", Labels{"ref_id:5105"}, func() {
+	Context("[ref_id:5105]should create the Admin user as specified in the Autounattend.xml", Label("ref_id:5105"), func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 		var output string
@@ -349,7 +349,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			}
 		})
 
-		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", Labels{"test_id:5843"}, func() {
+		It("[test_id:5843]Should run echo command on machine using the credentials specified in the Autounattend.xml file", Label("test_id:5843"), func() {
 			command := append(cli, "echo works")
 			Eventually(func() error {
 				fmt.Printf("Running \"%s\" command via winrm-cli\n", command)
