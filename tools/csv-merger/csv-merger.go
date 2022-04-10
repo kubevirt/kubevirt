@@ -46,11 +46,18 @@ import (
 )
 
 const (
-	operatorName          = "kubevirt-hyperconverged-operator"
-	CSVMode               = "CSV"
-	CRDMode               = "CRDs"
-	almExamplesAnnotation = "alm-examples"
-	validOutputModes      = CSVMode + "|" + CRDMode
+	operatorName            = "kubevirt-hyperconverged-operator"
+	CSVMode                 = "CSV"
+	CRDMode                 = "CRDs"
+	almExamplesAnnotation   = "alm-examples"
+	validOutputModes        = CSVMode + "|" + CRDMode
+	supported               = "supported"
+	operatorFrameworkPrefix = "operatorframework.io/"
+)
+
+var (
+	supported_archs = []string{"arch.amd64"}
+	supported_os    = []string{"os.linux"}
 )
 
 type EnvVarFlags []corev1.EnvVar
@@ -307,6 +314,8 @@ func getHcoCsv() {
 		csvBase.Spec.DisplayName = *specDisplayName
 	}
 
+	setSupported(csvBase)
+
 	applyOverrides(csvBase)
 
 	csvBase.Spec.RelatedImages = sortRelatedImages(csvBase.Spec.RelatedImages)
@@ -412,6 +421,18 @@ func applyOverrides(csvBase *csvv1alpha1.ClusterServiceVersion) {
 		panicOnError(yaml.Unmarshal(csvOBytes, csvO))
 
 		panicOnError(mergo.Merge(csvBase, csvO, mergo.WithOverride))
+	}
+}
+
+func setSupported(csvBase *csvv1alpha1.ClusterServiceVersion) {
+	if csvBase.Labels == nil {
+		csvBase.Labels = make(map[string]string)
+	}
+	for _, ele := range supported_archs {
+		csvBase.Labels[operatorFrameworkPrefix+ele] = supported
+	}
+	for _, ele := range supported_os {
+		csvBase.Labels[operatorFrameworkPrefix+ele] = supported
 	}
 }
 

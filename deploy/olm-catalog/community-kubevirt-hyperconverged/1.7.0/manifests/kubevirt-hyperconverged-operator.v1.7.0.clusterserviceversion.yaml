@@ -19,6 +19,9 @@ metadata:
     operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/os.linux: supported
   name: kubevirt-hyperconverged-operator.v1.7.0
   namespace: placeholder
 spec:
