@@ -164,13 +164,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
 
 		// Multus tests need to ensure that old VMIs are gone
-		Eventually(func() int {
+		Eventually(func() []v1.VirtualMachineInstance {
 			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return len(list1.Items) + len(list2.Items)
-		}, 6*time.Minute, 1*time.Second).Should(BeZero())
+			return append(list1.Items, list2.Items...)
+		}, 6*time.Minute, 1*time.Second).Should(BeEmpty())
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
@@ -663,13 +663,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				tests.WaitAgentConnected(virtClient, agentVMI)
 
 				getOptions := &metav1.GetOptions{}
-				Eventually(func() bool {
+				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
 					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					if err != nil {
-						return false
+						return nil
 					}
-					return len(updatedVmi.Status.Interfaces) == 4
-				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
+					return updatedVmi.Status.Interfaces
+				}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
