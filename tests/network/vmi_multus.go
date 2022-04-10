@@ -934,6 +934,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			sriovNetworks := []string{sriovnet1, sriovnet2}
 			vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
+			vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
+			vmi.Spec.Domain.Devices.Interfaces[2].PciAddress = "0000:07:00.0"
 			vmi = startVmi(vmi)
 			vmi = waitVmi(vmi)
 
@@ -947,9 +949,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			By("checking virtual machine instance has three interfaces")
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
 
-			// there is little we can do beyond just checking three devices are present: PCI slots are different inside
-			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
-			// it's hard to match them.
+			Expect(pciAddressExistsInGuest(vmi, vmi.Spec.Domain.Devices.Interfaces[1].PciAddress)).To(Succeed())
+			Expect(pciAddressExistsInGuest(vmi, vmi.Spec.Domain.Devices.Interfaces[2].PciAddress)).To(Succeed())
 		})
 
 		// createSriovVMs instantiates two VMs on the same node connected through SR-IOV.
@@ -1442,6 +1443,11 @@ func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+func pciAddressExistsInGuest(vmi *v1.VirtualMachineInstance, pciAddress string) error {
+	command := fmt.Sprintf("grep -q %s /sys/class/net/*/device/uevent\n", pciAddress)
+	return console.RunCommand(vmi, command, 15*time.Second)
 }
 
 func getInterfaceNameByMAC(vmi *v1.VirtualMachineInstance, mac string) (string, error) {
