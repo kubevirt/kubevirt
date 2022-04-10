@@ -1222,6 +1222,10 @@ func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, erro
 	return cr.Name, nil
 }
 
+func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
+	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
+}
+
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 
@@ -1235,6 +1239,11 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	if hasStartPausedRequest(vm) {
 		strategy := virtv1.StartStrategyPaused
 		vmi.Spec.StartStrategy = &strategy
+	}
+
+	// prevent from retriggering memory dump after shutdown if memory dump is complete
+	if hasCompletedMemoryDump(vm) {
+		vmi.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
 	setupStableFirmwareUUID(vm, vmi)
