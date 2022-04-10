@@ -43,7 +43,7 @@ import (
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libreplicaset"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -1175,13 +1175,13 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
-			nodesWithKVM = tests.GetNodesWithKVM()
+			nodesWithKVM = libnode.GetNodesWithKVM()
 			if len(nodesWithKVM) == 0 {
 				Skip("Skip testing with node-labeller, because there are no nodes with kvm")
 			}
 		})
 		AfterEach(func() {
-			nodesWithKVM = tests.GetNodesWithKVM()
+			nodesWithKVM = libnode.GetNodesWithKVM()
 
 			for _, node := range nodesWithKVM {
 				delete(node.Labels, nonExistingCPUModelLabel)
@@ -1242,7 +1242,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				tests.UpdateKubeVirtConfigValueAndWait(kvConfig)
 
 				Eventually(func() bool {
-					nodesWithKVM = tests.GetNodesWithKVM()
+					nodesWithKVM = libnode.GetNodesWithKVM()
 
 					for _, node := range nodesWithKVM {
 						_, skipAnnotationFound := node.Annotations[v1.LabellerSkipNodeAnnotation]

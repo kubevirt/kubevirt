@@ -105,12 +105,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/Masterminds/semver"
@@ -480,7 +480,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
-	CleanNodes()
+	libnode.CleanNodes()
 }
 
 func AfterTestSuitCleanup() {
@@ -496,7 +496,7 @@ func AfterTestSuitCleanup() {
 
 func BeforeTestCleanup() {
 	cleanNamespaces()
-	CleanNodes()
+	libnode.CleanNodes()
 	resetToDefaultConfig()
 	ensureKubevirtInfra()
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
@@ -548,140 +548,6 @@ func ensureKubevirtInfra() {
 		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady
 	}, timeout, interval).Should(BeTrue(), "waiting for virt-handler daemonSet to be ready")
 
-}
-
-func CleanNodes() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	nodes := util2.GetAllSchedulableNodes(virtCli).Items
-
-	clusterDrainKey := GetNodeDrainKey()
-
-	for _, node := range nodes {
-
-		old, err := json.Marshal(node)
-		Expect(err).ToNot(HaveOccurred())
-		new := node.DeepCopy()
-
-		k8sClient := clientcmd.GetK8sCmdClient()
-		if k8sClient == "oc" {
-			clientcmd.RunCommandWithNS("", k8sClient, "adm", "uncordon", node.Name)
-		} else {
-			clientcmd.RunCommandWithNS("", k8sClient, "uncordon", node.Name)
-		}
-
-		found := false
-		taints := []k8sv1.Taint{}
-		for _, taint := range node.Spec.Taints {
-
-			if taint.Key == clusterDrainKey && taint.Effect == k8sv1.TaintEffectNoSchedule {
-				found = true
-			} else if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
-				// this key is used as a fallback if the original drain key is built-in
-				found = true
-			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
-				// this key is used in testing as a custom alternate drain key
-				found = true
-			} else {
-				taints = append(taints, taint)
-			}
-
-		}
-		new.Spec.Taints = taints
-
-		for k := range node.Labels {
-			if strings.HasPrefix(k, cleanup.KubeVirtTestLabelPrefix) {
-				found = true
-				delete(new.Labels, k)
-			}
-		}
-
-		if node.Spec.Unschedulable {
-			new.Spec.Unschedulable = false
-		}
-
-		if !found {
-			continue
-		}
-		newJson, err := json.Marshal(new)
-		Expect(err).ToNot(HaveOccurred())
-
-		patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func AddLabelToNode(nodeName string, key string, value string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	old, err := json.Marshal(node)
-	Expect(err).ToNot(HaveOccurred())
-	new := node.DeepCopy()
-	new.Labels[key] = value
-
-	newJson, err := json.Marshal(new)
-	Expect(err).ToNot(HaveOccurred())
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-}
-
-func RemoveLabelFromNode(nodeName string, key string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	if _, exists := node.Labels[key]; !exists {
-		return
-	}
-
-	old, err := json.Marshal(node)
-	Expect(err).ToNot(HaveOccurred())
-	new := node.DeepCopy()
-	delete(new.Labels, key)
-
-	newJson, err := json.Marshal(new)
-	Expect(err).ToNot(HaveOccurred())
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-}
-
-func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	old, err := json.Marshal(node)
-	Expect(err).ToNot(HaveOccurred())
-	new := node.DeepCopy()
-	new.Spec.Taints = append(new.Spec.Taints, k8sv1.Taint{
-		Key:    key,
-		Effect: effect,
-	})
-
-	newJson, err := json.Marshal(new)
-	Expect(err).ToNot(HaveOccurred())
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
 }
 
 // CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
@@ -920,27 +786,6 @@ func EnsureKVMPresent() {
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
 			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
 	}
-}
-
-func GetNodesWithKVM() []*k8sv1.Node {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-	Expect(err).ToNot(HaveOccurred())
-
-	nodes := make([]*k8sv1.Node, 0)
-	// cluster is not ready until all nodes are ready.
-	for _, pod := range virtHandlerPods.Items {
-		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
-		if ok {
-			nodes = append(nodes, virtHandlerNode)
-		}
-	}
-	return nodes
 }
 
 func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
@@ -4348,19 +4193,7 @@ func IsRunningOnKindInfra() bool {
 }
 
 func IsUsingBuiltinNodeDrainKey() bool {
-	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
-}
-
-func GetNodeDrainKey() string {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	kv := util2.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.MigrationConfiguration != nil && kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey != nil {
-		return *kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey
-	}
-
-	return virtconfig.NodeDrainTaintDefaultKey
+	return libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
 
 func RandTmpDir() string {
