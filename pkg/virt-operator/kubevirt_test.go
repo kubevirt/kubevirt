@@ -139,7 +139,7 @@ type KubeVirtTestData struct {
 	totalUpdates    int
 	totalPatches    int
 	totalDeletions  int
-	resourceChanges map[string]map[string]intpkg/virt-operator/kubevirt_test.go
+	resourceChanges map[string]map[string]int
 
 	deleteFromCache bool
 	addToCache      bool
@@ -1183,15 +1183,43 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], true))
 
 	// ca certificate
-	caSecret := components.NewCACertSecret(NAMESPACE)
+	caSecrets := components.NewCACertSecrets(NAMESPACE)
+	var caSecret *k8sv1.Secret
+	var caExportSecret *k8sv1.Secret
+	for _, ca := range caSecrets {
+		if ca.Name == components.KubeVirtCASecretName {
+			caSecret = ca
+		}
+		if ca.Name == components.KubeVirtExportCASecretName {
+			caExportSecret = ca
+		}
+	}
 	components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: apply.Duration7d})
 	caCert, _ := components.LoadCertificates(caSecret)
 	caBundle := cert.EncodeCertPEM(caCert.Leaf)
 	all = append(all, caSecret)
 
-	caConfigMap := components.NewKubeVirtCAConfigMap(NAMESPACE)
+	components.PopulateSecretWithCertificate(caExportSecret, nil, &metav1.Duration{Duration: apply.Duration7d})
+	caExportCert, _ := components.LoadCertificates(caExportSecret)
+	caExportBundle := cert.EncodeCertPEM(caExportCert.Leaf)
+	all = append(all, caExportSecret)
+
+	configMaps := components.NewCAConfigMaps(NAMESPACE)
+	var caConfigMap *k8sv1.ConfigMap
+	var caExportConfigMap *k8sv1.ConfigMap
+	for _, cm := range configMaps {
+		if cm.Name == components.KubeVirtCASecretName {
+			caConfigMap = cm
+		}
+		if cm.Name == components.KubeVirtExportCASecretName {
+			caExportConfigMap = cm
+		}
+	}
+
 	caConfigMap.Data = map[string]string{components.CABundleKey: string(caBundle)}
 	all = append(all, caConfigMap)
+	caExportConfigMap.Data = map[string]string{components.CABundleKey: string(caExportBundle)}
+	all = append(all, caExportConfigMap)
 
 	// webhooks and apiservice
 	validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
@@ -1313,7 +1341,7 @@ func (k *KubeVirtTestData) shouldExpectInstallStrategyDeletion() {
 
 		deleted, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
-		if deleted.GetName() == "kubevirt-ca" {
+		if deleted.GetName() == components.KubeVirtCASecretName || deleted.GetName() == components.KubeVirtExportCASecretName {
 			return false, nil, nil
 		}
 		var key string

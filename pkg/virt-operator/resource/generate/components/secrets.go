@@ -23,20 +23,25 @@ import (
 // #nosec 101, false positives were caused by variables not holding any secret value.
 const (
 	KubeVirtCASecretName            = "kubevirt-ca"
+	KubeVirtExportCASecretName      = "kubevirt-export-ca"
 	VirtHandlerCertSecretName       = "kubevirt-virt-handler-certs"
 	VirtHandlerServerCertSecretName = "kubevirt-virt-handler-server-certs"
 	VirtOperatorCertSecretName      = "kubevirt-operator-certs"
 	VirtApiCertSecretName           = "kubevirt-virt-api-certs"
 	VirtControllerCertSecretName    = "kubevirt-controller-certs"
 	CABundleKey                     = "ca-bundle"
-	localPodDNStemplateString       = "%s.%s.pod.cluster.local"
-	caClusterLocal                  = "cluster.local"
+	LocalPodDNStemplateString       = "%s.%s.pod.cluster.local"
+	CaClusterLocal                  = "cluster.local"
 )
 
 type CertificateCreationCallback func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey)
 
 var populationStrategy = map[string]CertificateCreationCallback{
 	KubeVirtCASecretName: func(secret *k8sv1.Secret, _ *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey) {
+		caKeyPair, _ := triple.NewCA("kubevirt.io", duration)
+		return caKeyPair.Cert, caKeyPair.Key
+	},
+	KubeVirtExportCASecretName: func(secret *k8sv1.Secret, _ *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey) {
 		caKeyPair, _ := triple.NewCA("kubevirt.io", duration)
 		return caKeyPair.Cert, caKeyPair.Key
 	},
@@ -47,10 +52,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			fmt.Sprintf(localPodDNStemplateString, VirtOperatorServiceName, secret.Namespace),
+			fmt.Sprintf(LocalPodDNStemplateString, VirtOperatorServiceName, secret.Namespace),
 			VirtOperatorServiceName,
 			secret.Namespace,
-			caClusterLocal,
+			CaClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -64,10 +69,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			fmt.Sprintf(localPodDNStemplateString, VirtApiServiceName, secret.Namespace),
+			fmt.Sprintf(LocalPodDNStemplateString, VirtApiServiceName, secret.Namespace),
 			VirtApiServiceName,
 			secret.Namespace,
-			caClusterLocal,
+			CaClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -81,10 +86,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			fmt.Sprintf(localPodDNStemplateString, VirtControllerServiceName, secret.Namespace),
+			fmt.Sprintf(LocalPodDNStemplateString, VirtControllerServiceName, secret.Namespace),
 			VirtControllerServiceName,
 			secret.Namespace,
-			caClusterLocal,
+			CaClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -101,7 +106,7 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			"kubevirt.io:system:node:virt-handler",
 			VirtHandlerServiceName,
 			secret.Namespace,
-			caClusterLocal,
+			CaClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -141,34 +146,65 @@ func PopulateSecretWithCertificate(secret *k8sv1.Secret, caCert *tls.Certificate
 	return nil
 }
 
-func NewCACertSecret(operatorNamespace string) *k8sv1.Secret {
-	return &k8sv1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      KubeVirtCASecretName,
-			Namespace: operatorNamespace,
-			Labels: map[string]string{
-				v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+func NewCACertSecrets(operatorNamespace string) []*k8sv1.Secret {
+	return []*k8sv1.Secret{
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
 			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      KubeVirtCASecretName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
 		},
-		Type: k8sv1.SecretTypeTLS,
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      KubeVirtExportCASecretName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
 	}
 }
 
-func NewKubeVirtCAConfigMap(operatorNamespace string) *k8sv1.ConfigMap {
-	return &k8sv1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
+func NewCAConfigMaps(operatorNamespace string) []*k8sv1.ConfigMap {
+	return []*k8sv1.ConfigMap{
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      KubeVirtCASecretName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      KubeVirtCASecretName,
-			Namespace: operatorNamespace,
-			Labels: map[string]string{
-				v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      KubeVirtExportCASecretName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
 			},
 		},
 	}

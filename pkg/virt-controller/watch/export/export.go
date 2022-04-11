@@ -21,7 +21,10 @@ package export
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"time"
 
@@ -42,7 +45,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
@@ -72,6 +79,10 @@ const (
 
 	// annContentType is an annotation on a PVC indicating the content type. This is populated by CDI.
 	annContentType = "cdi.kubevirt.io/storage.contentType"
+
+	caDefaultPath = "/etc/virt-controller/exportca"
+	caCertFile    = caDefaultPath + "/tls.crt"
+	caKeyFile     = caDefaultPath + "/tls.key"
 )
 
 // variable so can be overridden in tests
@@ -111,6 +122,8 @@ type VMExportController struct {
 	ResyncPeriod time.Duration
 
 	vmExportQueue workqueue.RateLimitingInterface
+
+	caCert *tls.Certificate
 }
 
 // Init initializes the export controller
@@ -150,6 +163,12 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 
 	log.Log.Info("Starting export controller.")
 	defer log.Log.Info("Shutting down export controller.")
+
+	caCert, err := ctrl.loadCACertificate()
+	if err != nil {
+		return err
+	}
+	ctrl.caCert = caCert
 
 	if !cache.WaitForCacheSync(
 		stopCh,
@@ -235,10 +254,6 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 	if err != nil {
 		return 0, err
 	}
-	certSecret, err := ctrl.getOrCreateTokenCertSecret(vmExport)
-	if err != nil {
-		return 0, err
-	}
 
 	if ctrl.isSourcePvc(&vmExport.Spec) {
 		pvc, err := ctrl.getPvc(vmExport.Namespace, vmExport.Spec.Source.Name)
@@ -249,25 +264,26 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if pvc != nil {
 			pvcs = append(pvcs, pvc)
 		} else {
-			pvcs = append(pvcs, &corev1.PersistentVolumeClaim{
+			pvc = &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vmExport.Spec.Source.Name,
 					Namespace: vmExport.Namespace,
 				},
-			})
+			}
+			pvcs = append(pvcs, pvc)
 		}
-		var pod *corev1.Pod
 		inUse, err := ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
 			return retry, err
 		}
+		var pod *corev1.Pod
 		if !inUse {
-			pod, err = ctrl.getOrCreateExporterPod(vmExport, pvcs, certSecret)
+			pod, err = ctrl.getOrCreateExporterPod(vmExport, pvcs)
 			if err != nil {
 				return 0, err
 			}
 		}
-		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod, service, certSecret, inUse)
+		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod, service, inUse)
 	}
 	return retry, nil
 }
@@ -285,6 +301,21 @@ func (ctrl *VMExportController) getOrCreateTokenCertSecret(vmExport *exportv1.Vi
 }
 
 func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Secret {
+	caKeyPair := &triple.KeyPair{
+		Key:  ctrl.caCert.PrivateKey.(*rsa.PrivateKey),
+		Cert: ctrl.caCert.Leaf,
+	}
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		fmt.Sprintf(components.LocalPodDNStemplateString, ctrl.getExportServiceName(vmExport), vmExport.Namespace),
+		ctrl.getExportServiceName(vmExport),
+		vmExport.Namespace,
+		components.CaClusterLocal,
+		nil,
+		nil,
+		time.Hour*24*365*2, // 2 years
+	)
+
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctrl.getExportSecretName(vmExport),
@@ -297,56 +328,35 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 				}),
 			},
 		},
-		StringData: map[string]string{
-			"tls.crt": `-----BEGIN CERTIFICATE-----
-MIIC8DCCAdigAwIBAgIUHFV1fE0pjwSu10Jsu0qCERKxzq0wDQYJKoZIhvcNAQEL
-BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTIyMDQwNTIwNDA1MFoXDTIyMDUw
-NTIwNDA1MFowFDESMBAGA1UEAwwJbG9jYWxob3N0MIIBIjANBgkqhkiG9w0BAQEF
-AAOCAQ8AMIIBCgKCAQEAvnGus/3zqeMj7F3kIm1IEeZYQ19CnAT1A1NzGRVpD4nu
-NP7LEnYx3ZFhOmRxMvS+1Q7QccOTkO8YBS3Cx178DO96lpXOldZFgbK5iWsVbaCc
-pWaGHV47t4XvBZwIe8I7ze3ucs6w/6gaQGTctDTeNSHwuJ8M20aPUVA2/T/Wgby8
-lElCBVnWM/C+VmuhfylyfHfZdD2gHJof87EzDKkIWf9F1/tt+ba78iZr+17y3z4R
-44CLjGX8LWhYGCVvZwkZH9ncRnf0MLJOlFXdcXjhPdJbfHiobL3OdLW542N3XeIo
-cOwWy/q4pR8O7cCENBKI/pnIi7j5wwfFScaXcGRA4wIDAQABozowODAUBgNVHREE
-DTALgglsb2NhbGhvc3QwCwYDVR0PBAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMB
-MA0GCSqGSIb3DQEBCwUAA4IBAQB26fqJwlc3a06+84aWjKOQ0TeENX+c7+Aw/ux+
-D7HUKAxuxuU5GEXQuCFEnbi32FFHDxBE98bHeI9U0R2qfP067WGOqcHSfnNikZT1
-CFU9T+iWaSB5EDi8nPUC2Mi7R14l36kdvwi9KNpg6WTXA37weXtfKNR9EtbIxS1x
-DNry6TB9JbxMLgWKckbUP2X43aX8apMm+Hfk8/xl2mz0jy8fkalfB0/hvi2dL634
-L9R/x4pLMIbVXMQabiK4W/G0LkKZBEi1paBmBR4Iwj0PMgj9wz6Ipz2eCNjCmdOM
-zEIRWVbxcyj/1uiQ3mhEcqgRzplklmVpCQi0x1Bp2x43XTXC
------END CERTIFICATE-----`,
-			"tls.key": `-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC+ca6z/fOp4yPs
-XeQibUgR5lhDX0KcBPUDU3MZFWkPie40/ssSdjHdkWE6ZHEy9L7VDtBxw5OQ7xgF
-LcLHXvwM73qWlc6V1kWBsrmJaxVtoJylZoYdXju3he8FnAh7wjvN7e5yzrD/qBpA
-ZNy0NN41IfC4nwzbRo9RUDb9P9aBvLyUSUIFWdYz8L5Wa6F/KXJ8d9l0PaAcmh/z
-sTMMqQhZ/0XX+235trvyJmv7XvLfPhHjgIuMZfwtaFgYJW9nCRkf2dxGd/Qwsk6U
-Vd1xeOE90lt8eKhsvc50tbnjY3dd4ihw7BbL+rilHw7twIQ0Eoj+mciLuPnDB8VJ
-xpdwZEDjAgMBAAECggEATupiv3krQCm8WBTsFQv9wlUWHAzcWDSBpvgsiKdjmqnI
-SLOQSL0rmqnEhWLbuYbLkRQLcijd/D/nTzYQMXd9sIqH3OCE83gP41fBJF14Sq40
-WyGpz3+d9UWNr2Bh746kI4hFt9NIaxgokKh7AD2sGo5O5uIZfL+3YbWAo96RL77j
-O0fTYHs9Jeny97bKItt+I7drLCmuaSd48JYulLzW73pORe7tFeOtOwjVVzSgXJmF
-/A5qpYhx2BPqkK28ytMsq+dXxngo4mJrWtT1RGkD1C9h5XwWDENKHAR29vGIls/b
-JYUkaggI1Nqi/8c1SfGlDkty+nW077QPzhhQj92soQKBgQDvWA4ujidOk59u3Of1
-dPUkrhZQ9pHixplI6qNjnf/rt9deo8KMZH/ys/KPEboILSA5J+t0lt5qZ10aseud
-rWkRbhxP1xq1sDlbMVJdW+dBtkobbqKZCULLAclm2C56K7s8FzSrt4qNfHJJ6Dsg
-keAZEleqlO/l2yPzv9WkL1ZLMwKBgQDLsngKoUNGaT8BRjKmt5VEQ7DLK28aE7m5
-bPdOp8NsvP3HGDHggo0rw4hjaXhaAPPwh5TDNotfzq5Vf2k7Ho6HjCWQwRNAOzFq
-CbFr4SKTJBHI1hPdoaCaf7qDmMDM4/G4MtaS8/fuyDnqnuGs9lI7vMfjaApYIdXt
-oPqWZlWzkQKBgHkCrVDugIMi8jYMLJ8WvicIebH/qGze+ns6Xter98vHDHYGGAQB
-gAtG3fll/gfKQQOE4m/1I4jqr9Eiab00Au5UHK5lVFTOP4GS41DeeYLo1nkeK8ly
-PDoFsj10SbNtTuIn3XKAfuXgKKyjZNmnx4UFmBtf6BbwADJqKGs1n8yvAoGBAJJ/
-krIidR4Ix5WFBRy+YA4umNImNMuOcD6Zzeu14GkuK16rWgPcIOfewxKsYjBpCwhs
-mmMjsW2AWgWHkwk/2sZF1yaaldvWNp3Kxt2Nl643fMrynGsDuVwkjOHkVJWHQut1
-NLmP2TrUqkLBbhFVPqNUDHbS9s2X2CIFavQMOYrhAoGBAIcysv8rhglALKkG62Fn
-+FtHMoKlyw+vrqQETXd36EkH/umxXgCPioJhFuU7dc7/L8mEa/23Ft114wxa0tY4
-xESkznjB8l9rc26g/VNYcjvu3IYDC/liE7OOWNmVpp7GZAAo1/Qf4JSwjX8slspH
-Da+rJEHvvG7EFYTOvuqLD/jf
------END PRIVATE KEY-----
-`,
+		Data: map[string][]byte{
+			"tls.crt": cert.EncodeCertPEM(keyPair.Cert),
+			"tls.key": cert.EncodePrivateKeyPEM(keyPair.Key),
 		},
 	}
+}
+
+func (ctrl *VMExportController) loadCACertificate() (serverCrt *tls.Certificate, err error) {
+	certBytes, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load export CA certificate: %v", err)
+	}
+
+	keyBytes, err := ioutil.ReadFile(caKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load export CA certificate: %v", err)
+	}
+
+	crt, err := tls.X509KeyPair(certBytes, keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load export CA certificate: %v", err)
+	}
+	leaf, err := cert.ParseCertsPEM(certBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load leaf certificate: %v", err)
+	}
+	crt.Leaf = leaf[0]
+
+	return &crt, nil
 }
 
 func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, error) {
@@ -414,16 +424,27 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 	return service
 }
 
-func (ctrl *VMExportController) getOrCreateExporterPod(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim, secret *corev1.Secret) (*corev1.Pod, error) {
-	manifest := ctrl.createExporterPodManifest(vmExport, pvcs, secret)
-	log.Log.V(3).Infof("Checking if pod exist: %s/%s", manifest.Namespace, manifest.Name)
-	if pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Get(context.Background(), manifest.Name, metav1.GetOptions{}); err != nil && !errors.IsNotFound(err) {
+func (ctrl *VMExportController) getOrCreateExporterPod(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", exportPrefix, vmExport.Name),
+			Namespace: vmExport.Namespace,
+		},
+	}
+	log.Log.V(3).Infof("Checking if pod exist: %s/%s", pod.Namespace, pod.Name)
+	if pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{}); err != nil && !errors.IsNotFound(err) {
 		log.Log.V(3).Errorf("error %v", err)
 		return nil, err
 	} else if pod != nil && err == nil {
 		log.Log.V(1).Infof("Found pod %s/%s", pod.Namespace, pod.Name)
 		return pod, nil
 	}
+	secret, err := ctrl.getOrCreateTokenCertSecret(vmExport)
+	if err != nil {
+		return nil, err
+	}
+	manifest := ctrl.createExporterPodManifest(vmExport, pvcs, secret)
+
 	log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
 	return ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
 }
@@ -451,16 +472,17 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 				ReadOnly:  true,
 				MountPath: mountPoint,
 			})
+			// TODO should be outside else, once we support block volumes
+			podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
+				Name: pvc.Name,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvc.Name,
+					},
+				},
+			})
 		}
 		ctrl.addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint)
-		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-			Name: pvc.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvc.Name,
-				},
-			},
-		})
 	}
 
 	// Add token and certs ENV variables
@@ -543,7 +565,7 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	return ann[annContentType] == string(cdiv1.DataVolumeKubeVirt)
 }
 
-func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, secret *corev1.Secret, pvcInUse bool) (time.Duration, error) {
+func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) (time.Duration, error) {
 	var retry time.Duration
 	vmExportCopy := vmExport.DeepCopy()
 	if vmExportCopy.Status == nil {
