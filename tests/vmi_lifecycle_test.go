@@ -65,10 +65,6 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-func newCirrosVMI() *v1.VirtualMachineInstance {
-	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-}
-
 func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	vmi.Spec.Affinity = &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
@@ -609,7 +605,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
 				By("checking that it can still start VMIs")
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
 				Expect(err).To(BeNil())
@@ -695,7 +691,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				time.Sleep(10 * time.Second)
 
 				By("starting another VMI on the same node, to verify devices still work")
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
 				Expect(err).To(BeNil())
@@ -838,18 +834,18 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1635]the vmi with tolerations should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 			})
 
 			It("[test_id:1636]the vmi without tolerations should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
 				Eventually(func() string {
@@ -875,9 +871,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -887,16 +883,16 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
 
-				vmiB := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmiB := libvmi.NewCirros()
 				addNodeAffinityToVMI(vmiB, nodes.Items[0].Name)
 
 				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
@@ -912,7 +908,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(vmiB.Namespace).Create(vmiB)
+				vmiB, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmiB)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMIB")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -958,9 +954,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -979,11 +975,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiCPUModel,
-				}
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi := libvmi.NewCirros(libvmi.WithCPU(&v1.CPU{Model: vmiCPUModel}))
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -994,8 +987,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[sig-compute][test_id:3201]should set cpu model to default when vmi does not have it set and default cpu model is not set", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi := libvmi.NewCirros()
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -1015,7 +1008,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				newVMI := newCirrosVMI()
+				newVMI := libvmi.NewCirros()
 				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
 				By("Fetching virt-launcher pod")
 				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
@@ -1033,10 +1026,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				config.CPUModel = defaultCPUModel
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				newVMI := newCirrosVMI()
-				newVMI.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiCPUModel,
-				}
+				newVMI := libvmi.NewCirros(libvmi.WithCPU(&v1.CPU{Model: vmiCPUModel}))
 				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
 				By("Fetching virt-launcher pod")
 				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
@@ -1115,13 +1105,16 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Model: supportedCPU,
-				}
+				vmi := libvmi.NewCirros(
+					libvmi.WithCPU(
+						&v1.CPU{
+							Cores: 1,
+							Model: supportedCPU,
+						},
+					),
+				)
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1137,13 +1130,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				for _, label := range supportedKVMInfoFeature {
 					fmt.Println("Using " + label)
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					vmi := libvmi.NewCirros()
 					features := enableHyperVInVMI(label)
 					vmi.Spec.Domain.Features = &v1.Features{
 						Hyperv: &features,
 					}
 
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 					tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1154,14 +1147,14 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("the vmi with EVMCS HyperV feature should have correct hyperv and cpu features auto filled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
 						EVMCS: &v1.FeatureState{},
 					},
 				}
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -1176,16 +1169,19 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Model: "486",
-				}
+				vmi := libvmi.NewCirros(
+					libvmi.WithCPU(
+						&v1.CPU{
+							Cores: 1,
+							Model: "486",
+						},
+					),
+				)
 
 				//Make sure the vmi should try to be scheduled only on master node
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -1204,22 +1200,25 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
 
 				By("adding a node-feature-discovery CPU model label to a node")
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Features: []v1.CPUFeature{
-						{
-							Name:   supportedFeatures[0],
-							Policy: "require",
+				vmi := libvmi.NewCirros(
+					libvmi.WithCPU(
+						&v1.CPU{
+							Cores: 1,
+							Features: []v1.CPUFeature{
+								{
+									Name:   supportedFeatures[0],
+									Policy: "require",
+								},
+								{
+									Name:   "fpu",
+									Policy: "disable",
+								},
+							},
 						},
-						{
-							Name:   "fpu",
-							Policy: "disable",
-						},
-					},
-				}
+					),
+				)
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1290,22 +1289,25 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 
 				supportedFeaturesAmongAllNodes := GetSupportedCPUFeaturesFromNodes(*nodes)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Features: []v1.CPUFeature{
-						{
-							Name:   supportedFeaturesAmongAllNodes[0],
-							Policy: "require",
+				vmi := libvmi.NewCirros(
+					libvmi.WithCPU(
+						&v1.CPU{
+							Cores: 1,
+							Features: []v1.CPUFeature{
+								{
+									Name:   supportedFeaturesAmongAllNodes[0],
+									Policy: "require",
+								},
+								{
+									Name:   supportedFeaturesAmongAllNodes[1],
+									Policy: "forbid",
+								},
+							},
 						},
-						{
-							Name:   supportedFeaturesAmongAllNodes[1],
-							Policy: "forbid",
-						},
-					},
-				}
+					),
+				)
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -1323,22 +1325,25 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Features: []v1.CPUFeature{
-						{
-							Name:   supportedFeatures[0],
-							Policy: "forbid",
+				vmi := libvmi.NewCirros(
+					libvmi.WithCPU(
+						&v1.CPU{
+							Cores: 1,
+							Features: []v1.CPUFeature{
+								{
+									Name:   supportedFeatures[0],
+									Policy: "forbid",
+								},
+							},
 						},
-					},
-				}
+					),
+				)
 
 				// Add node affinity first to test later on that although there is node affinity to
 				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
 				addNodeAffinityToVMI(vmi, node.Name)
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -1692,24 +1697,25 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 		Context("with ACPI and some grace period seconds", func() {
 			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(gracePeriod int64) {
-				vmi = newCirrosVMI()
+				var vmi *v1.VirtualMachineInstance
 
 				if gracePeriod >= 0 {
-					vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+					vmi = libvmi.NewCirros(libvmi.WithTerminationGracePeriod(gracePeriod))
 				} else {
 					gracePeriod = v1.DefaultGracePeriodSeconds
+					vmi = libvmi.NewCirros()
 					vmi.Spec.TerminationGracePeriodSeconds = nil
 				}
 
 				By("Creating the VirtualMachineInstance")
-				obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				By("Deleting the VirtualMachineInstance")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 
 				By("Verifying VirtualMachineInstance's status is Succeeded")
 				Eventually(func() v1.VirtualMachineInstancePhase {

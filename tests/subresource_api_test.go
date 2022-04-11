@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -256,8 +257,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 
 			BeforeEach(func() {
 				var err error
-				vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				vm = tests.NewRandomVirtualMachine(vmi, true)
 				vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())

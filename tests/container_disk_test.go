@@ -31,7 +31,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -54,10 +53,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		util.PanicOnError(err)
 	})
 
-	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
-		_, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		tests.WaitForSuccessfulVMIStart(obj)
+	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance) {
+		tests.WaitForSuccessfulVMIStart(vmi)
 
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
@@ -100,16 +97,17 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463][Conformance] should success multiple times", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := libvmi.NewCirros()
 				num := 2
 				for i := 0; i < num; i++ {
 					By("Starting the VirtualMachineInstance")
 					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 					Expect(err).To(BeNil())
-					tests.WaitForSuccessfulVMIStart(obj)
+					vmi = tests.WaitForSuccessfulVMIStart(obj)
 
 					By("Stopping the VirtualMachineInstance")
-					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
+					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").
+						Namespace(vmi.Namespace).Name(vmi.Name).Do(context.Background()).Get()
 					Expect(err).To(BeNil())
 					By("Waiting until the VirtualMachineInstance is gone")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -170,18 +168,16 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			It("[test_id:1465]should success", func() {
 				num := 5
 				vmis := make([]*v1.VirtualMachineInstance, 0, num)
-				objs := make([]runtime.Object, 0, num)
 				for i := 0; i < num; i++ {
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					vmi := libvmi.NewCirros()
 					// FIXME if we give too much ram, the vmis really boot and eat all our memory (cache?)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 					obj := tests.RunVMI(vmi, 10)
-					vmis = append(vmis, vmi)
-					objs = append(objs, obj)
+					vmis = append(vmis, obj)
 				}
 
-				for idx, vmi := range vmis {
-					verifyContainerDiskVMI(vmi, objs[idx])
+				for _, vmi := range vmis {
+					verifyContainerDiskVMI(vmi)
 				}
 			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
 		})
@@ -190,7 +186,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
 			It("[test_id:1466]should boot normally", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation), "#!/bin/bash\necho 'hello'\n")
+				cirrosOpts := []libvmi.Option{
+					libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)),
+					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true),
+				}
+				vmi := libvmi.New(cirrosOpts...)
+
 				for ind, volume := range vmi.Spec.Volumes {
 					if volume.ContainerDisk != nil {
 						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/downloaded"
