@@ -80,7 +80,6 @@ The functional tests contains the following tests:
 #### [test_id:5678] all expected 'infra' pod must be on infra node
 #### [test_id:5679] should create, verify and delete VMIs with correct node placements
 #### [test_id:5883]should create ConsoleQuickStart objects"
-#### [test_id:5676]should be able to read kubevirt-storage-class-defaults ConfigMap
 #### [test_id:5696] should create, verify and delete VMIs
 
 ### Running the Functional Tests Using a Docker Container

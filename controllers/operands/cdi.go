@@ -6,10 +6,6 @@ import (
 
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
-	log "github.com/go-logr/logr"
-
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +18,6 @@ import (
 )
 
 const (
-	cdiRoleName                   = "hco.kubevirt.io:config-reader"
 	HonorWaitForFirstConsumerGate = "HonorWaitForFirstConsumer"
 	cdiConfigAuthorityAnnotation  = "cdi.kubevirt.io/configAuthority"
 )
@@ -179,145 +174,6 @@ func NewCDIWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1bet
 			Labels:      getLabels(hc, hcoutil.AppComponentStorage),
 			Namespace:   getNamespace(hcoutil.UndefinedNamespace, opts),
 			Annotations: map[string]string{cdiConfigAuthorityAnnotation: ""},
-		},
-	}
-}
-
-// ************** CDI Storage Config Handler **************
-type storageConfigHandler genericOperand
-
-func newStorageConfigHandler(Client client.Client, Scheme *runtime.Scheme) *storageConfigHandler {
-	return &storageConfigHandler{
-		Client:                 Client,
-		Scheme:                 Scheme,
-		crType:                 "StorageConfigmap",
-		removeExistingOwner:    false,
-		setControllerReference: true,
-		hooks:                  &storageConfigHooks{},
-	}
-}
-
-type storageConfigHooks struct{}
-
-func (h storageConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
-	return NewKubeVirtStorageConfigForCR(hc, hc.Namespace), nil
-}
-func (h storageConfigHooks) getEmptyCr() client.Object { return &corev1.ConfigMap{} }
-func (h storageConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*corev1.ConfigMap).ObjectMeta
-}
-func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
-	storageConfig, ok1 := required.(*corev1.ConfigMap)
-	found, ok2 := exists.(*corev1.ConfigMap)
-	if !ok1 || !ok2 {
-		return false, false, errors.New("can't convert to a ConfigMap")
-	}
-
-	// Merge old & new values. This is necessary in case the user has defined
-	// their own chosen values in the configmap.
-	needsUpdate := false
-	for key, value := range storageConfig.Data {
-		if found.Data[key] != value {
-			found.Data[key] = value
-			needsUpdate = true
-		}
-	}
-
-	if !reflect.DeepEqual(found.Labels, storageConfig.Labels) {
-		util.DeepCopyLabels(&storageConfig.ObjectMeta, &found.ObjectMeta)
-		needsUpdate = true
-	}
-
-	if needsUpdate {
-		req.Logger.Info("Updating existing KubeVirt Storage Configmap to its default values")
-		err := Client.Update(req.Ctx, found)
-		if err != nil {
-			return false, false, err
-		}
-		return true, !req.HCOTriggered, nil
-	}
-
-	return false, false, nil
-}
-
-func (h storageConfigHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
-
-func NewKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
-	localSC := "local-sc"
-	if cr.Spec.LocalStorageClassName != "" {
-		localSC = cr.Spec.LocalStorageClassName
-	}
-
-	ocsRBD := "ocs-storagecluster-ceph-rbd"
-
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-storage-class-defaults",
-			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
-			Namespace: namespace,
-		},
-		Data: map[string]string{
-			"accessMode":            "ReadWriteOnce",
-			"volumeMode":            "Filesystem",
-			localSC + ".accessMode": "ReadWriteOnce",
-			localSC + ".volumeMode": "Filesystem",
-			ocsRBD + ".accessMode":  "ReadWriteMany",
-			ocsRBD + ".volumeMode":  "Block",
-		},
-	}
-}
-
-// ************** Config Reader Role Handler **************
-func NewConfigReaderRoleHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	cdiConfigReaderRole := NewCdiConfigReaderRole(hc)
-
-	return []Operand{newRoleHandler(Client, Scheme, cdiConfigReaderRole)}, nil
-
-}
-
-// ************** Config Reader Role Binding Handler **************
-func newConfigReaderRoleBindingHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	cdiConfigReaderRoleBinding := NewCdiConfigReaderRoleBinding(hc)
-
-	return []Operand{newRoleBindingHandler(Client, Scheme, cdiConfigReaderRoleBinding)}, nil
-}
-
-func NewCdiConfigReaderRole(hc *hcov1beta1.HyperConverged) *rbacv1.Role {
-	return &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cdiRoleName,
-			Labels:    getLabels(hc, hcoutil.AppComponentStorage),
-			Namespace: hc.Namespace,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups:     []string{""},
-				Resources:     []string{"configmaps"},
-				ResourceNames: []string{"kubevirt-storage-class-defaults"},
-				Verbs:         []string{"get", "watch", "list"},
-			},
-		},
-	}
-}
-
-func NewCdiConfigReaderRoleBinding(hc *hcov1beta1.HyperConverged) *rbacv1.RoleBinding {
-	return &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cdiRoleName,
-			Labels:    getLabels(hc, hcoutil.AppComponentStorage),
-			Namespace: hc.Namespace,
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     cdiRoleName,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "Group",
-				Name:     "system:authenticated",
-			},
 		},
 	}
 }

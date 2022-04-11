@@ -111,9 +111,6 @@ type BasicExpected struct {
 	namespace            *corev1.Namespace
 	hco                  *hcov1beta1.HyperConverged
 	pc                   *schedulingv1.PriorityClass
-	kvStorageConfig      *corev1.ConfigMap
-	kvStorageRole        *rbacv1.Role
-	kvStorageRoleBinding *rbacv1.RoleBinding
 	kv                   *kubevirtcorev1.KubeVirt
 	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
@@ -139,9 +136,6 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.namespace,
 		be.hco,
 		be.pc,
-		be.kvStorageConfig,
-		be.kvStorageRole,
-		be.kvStorageRoleBinding,
 		be.kv,
 		be.cdi,
 		be.cna,
@@ -212,17 +206,6 @@ func getBasicDeployment() *BasicExpected {
 	res.mService = operands.NewMetricsService(hco)
 	res.serviceMonitor = operands.NewServiceMonitor(hco, namespace)
 	res.promRule = operands.NewPrometheusRule(hco, namespace)
-
-	expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
-	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-	res.kvStorageConfig = expectedKVStorageConfig
-	expectedKVStorageRole := operands.NewCdiConfigReaderRole(hco)
-	expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-	res.kvStorageRole = expectedKVStorageRole
-
-	expectedKVStorageRoleBinding := operands.NewCdiConfigReaderRoleBinding(hco)
-	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 
 	expectedKV, err := operands.NewKubeVirt(hco, namespace)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

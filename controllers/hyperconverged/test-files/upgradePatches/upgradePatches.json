@@ -63,6 +63,42 @@
         "name": "vm-import-controller-config",
         "namespace": "kubevirt-hyperconverged"
       }
+    },
+    {
+      "semverRange": "<1.7.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "v1",
+        "kind": "ConfigMap"
+      },
+      "objectKey": {
+        "name": "kubevirt-storage-class-defaults",
+        "namespace": "kubevirt-hyperconverged"
+      }
+    },
+    {
+      "semverRange": "<1.7.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "rbac.authorization.k8s.io/v1",
+        "kind": "Role"
+      },
+      "objectKey": {
+        "name": "hco.kubevirt.io:config-reader",
+        "namespace": "kubevirt-hyperconverged"
+      }
+    },
+    {
+      "semverRange": "<1.7.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "rbac.authorization.k8s.io/v1",
+        "kind": "RoleBinding"
+      },
+      "objectKey": {
+        "name": "hco.kubevirt.io:config-reader",
+        "namespace": "kubevirt-hyperconverged"
+      }
     }
   ]
 }

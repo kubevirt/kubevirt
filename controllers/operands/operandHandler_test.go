@@ -69,11 +69,6 @@ var _ = Describe("Test operandHandler", func() {
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
-					Msg:       "Created ConfigMap kubevirt-storage-class-defaults",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
 					Msg:       "Created NetworkAddonsConfig cluster",
 				},
 				{

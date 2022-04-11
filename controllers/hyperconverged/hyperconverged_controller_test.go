@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -670,7 +672,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(20))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(17))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -2129,7 +2131,6 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					foundCM := &corev1.ConfigMap{}
-
 					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -2142,6 +2143,226 @@ var _ = Describe("HyperconvergedController", func() {
 					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
 					Expect(err).ToNot(HaveOccurred())
 
+				})
+
+				It("should remove ConfigMap kubevirt-storage-class-defaults upgrading from < 1.7.0", func() {
+					cmToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kubevirt-storage-class-defaults",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					roleToBeRemoved := &rbacv1.Role{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "hco.kubevirt.io:config-reader",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					roleBindingToBeRemoved := &rbacv1.RoleBinding{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "hco.kubevirt.io:config-reader",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					cmNotToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kubevirt-storage-class-defaults",
+							Namespace: "different" + namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					cmNotToBeRemoved2 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "other",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					toBeRemovedRelatedObjects := []corev1.ObjectReference{
+						{
+							APIVersion:      "v1",
+							Kind:            "ConfigMap",
+							Name:            cmToBeRemoved1.Name,
+							Namespace:       cmToBeRemoved1.Namespace,
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "rbac.authorization.k8s.io/v1",
+							Kind:            "Role",
+							Name:            roleToBeRemoved.Name,
+							Namespace:       roleToBeRemoved.Namespace,
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "rbac.authorization.k8s.io/v1",
+							Kind:            "RoleBinding",
+							Name:            roleBindingToBeRemoved.Name,
+							Namespace:       roleBindingToBeRemoved.Namespace,
+							ResourceVersion: "999",
+						},
+					}
+					otherRelatedObjects := []corev1.ObjectReference{
+						{
+							APIVersion:      "v1",
+							Kind:            "ConfigMap",
+							Name:            cmNotToBeRemoved1.Name,
+							Namespace:       cmNotToBeRemoved1.Namespace,
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "v1",
+							Kind:            "ConfigMap",
+							Name:            cmNotToBeRemoved2.Name,
+							Namespace:       cmNotToBeRemoved2.Namespace,
+							ResourceVersion: "999",
+						},
+					}
+
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.6.9")
+
+					for _, objRef := range toBeRemovedRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+
+					resources := append(expected.toArray(), cmToBeRemoved1, roleToBeRemoved, roleBindingToBeRemoved, cmNotToBeRemoved1, cmNotToBeRemoved2)
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundCM := &corev1.ConfigMap{}
+					foundRole := &rbacv1.Role{}
+					foundRoleBinding := &rbacv1.RoleBinding{}
+
+					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
+					Expect(err).To(HaveOccurred())
+					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleToBeRemoved), foundRole)
+					Expect(err).To(HaveOccurred())
+					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleBindingToBeRemoved), foundRoleBinding)
+					Expect(err).To(HaveOccurred())
+					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, objRef := range toBeRemovedRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).ToNot(ContainElement(objRef))
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).To(ContainElement(objRef))
+					}
+
+				})
+
+				It("should not remove ConfigMap kubevirt-storage-class-defaults upgrading from > 1.7.0", func() {
+					cmToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kubevirt-storage-class-defaults",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					roleToBeRemoved := &rbacv1.Role{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "hco.kubevirt.io:config-reader",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+					roleBindingToBeRemoved := &rbacv1.RoleBinding{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "hco.kubevirt.io:config-reader",
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+							Namespace: namespace,
+						},
+					}
+					cmNotToBeRemoved1 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kubevirt-storage-class-defaults",
+							Namespace: "different" + namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					cmNotToBeRemoved2 := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "other",
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					}
+
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.7.1")
+
+					resources := append(expected.toArray(), cmToBeRemoved1, roleToBeRemoved, roleBindingToBeRemoved, cmNotToBeRemoved1, cmNotToBeRemoved2)
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundCM := &corev1.ConfigMap{}
+					foundRole := &rbacv1.Role{}
+					foundRoleBinding := &rbacv1.RoleBinding{}
+					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleToBeRemoved), foundRole)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleBindingToBeRemoved), foundRoleBinding)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
+					Expect(err).ToNot(HaveOccurred())
 				})
 
 			})

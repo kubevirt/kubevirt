@@ -1,24 +1,6 @@
 # ConfigMaps
 HCO creates ConfigMaps on deployment for supplying default values configuration.
 
-## Storage ConfigMap
-Defines default values for storage specs: 'accessMode' and 'volumeMode'.
-
-### Example
-```
----
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: kubevirt-storage-class-defaults
-  namespace: openshift
-data:
-  accessMode: ReadWriteMany
-  volumeMode: Filesystem  # (Block for BareMetal infrastructure)
-  local-sc.accessMode: ReadWriteOnce
-  local-sc.volumeMode: Filesystem
-```
-
 # Config local storage class name
 Use 'LocalStorageClassName' spec to specify the name of the local class name.
 
