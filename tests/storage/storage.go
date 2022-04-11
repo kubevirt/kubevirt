@@ -131,7 +131,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.RemoveSCSIDisk(nodeName, address)
 			})
 
-			It(" [QUARANTINE]should pause VMI on IO error", func() {
+			It(" should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.AddPVCDisk(vmi, "pvc-disk", "virtio", pvc.Name)
@@ -213,7 +213,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It(" [QUARANTINE]should pause VMI on IO error", func() {
+			It(" should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
