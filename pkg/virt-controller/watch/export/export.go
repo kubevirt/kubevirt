@@ -22,7 +22,7 @@ package export
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +78,22 @@ const (
 var currentTime = func() *metav1.Time {
 	t := metav1.Now()
 	return &t
+}
+
+func rawURI(pvc *corev1.PersistentVolumeClaim) string {
+	return path.Join(fmt.Sprintf("%s/%s/disk.img", urlBasePath, pvc.Name))
+}
+
+func rawGzipURI(pvc *corev1.PersistentVolumeClaim) string {
+	return path.Join(fmt.Sprintf("%s/%s/disk.img.gz", urlBasePath, pvc.Name))
+}
+
+func archiveURI(pvc *corev1.PersistentVolumeClaim) string {
+	return path.Join(fmt.Sprintf("%s/%s/disk.tar.gz", urlBasePath, pvc.Name))
+}
+
+func dirURI(pvc *corev1.PersistentVolumeClaim) string {
+	return path.Join(fmt.Sprintf("%s/%s/dir", urlBasePath, pvc.Name)) + "/"
 }
 
 // VMExportController is resonsible for exporting VMs
@@ -493,27 +509,27 @@ func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *c
 	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-			Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img", urlBasePath, pvc.Name)),
+			Value: rawURI(pvc),
 		}, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-			Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img.gz", urlBasePath, pvc.Name)),
+			Value: rawGzipURI(pvc),
 		})
 	} else {
 		if ctrl.isKubevirtContentType(pvc) {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-				Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img", urlBasePath, pvc.Name)),
+				Value: rawURI(pvc),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-				Value: filepath.Join(fmt.Sprintf("%s/%s/disk.img.gz", urlBasePath, pvc.Name)),
+				Value: rawGzipURI(pvc),
 			})
 		} else {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_ARCHIVE_URI", index),
-				Value: filepath.Join(fmt.Sprintf("%s/%s/disk.tar.gz", urlBasePath, pvc.Name)),
+				Value: archiveURI(pvc),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_DIR_URI", index),
-				Value: filepath.Join(fmt.Sprintf("%s/%s/dir", urlBasePath, pvc.Name)) + "/",
+				Value: dirURI(pvc),
 			})
 		}
 	}
@@ -573,34 +589,40 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 	vmExportCopy.Status.Links.Internal = &exportv1.VirtualMachineExportLink{
 		Volumes: []exportv1.VirtualMachineExportVolume{},
 	}
-	if ctrl.isKubevirtContentType(pvc) {
-		vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
-			Name: pvc.Name,
-			Formats: []exportv1.VirtualMachineExportVolumeFormat{
-				{
-					Format: exportv1.KubeVirtRaw,
-					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/export-fs0/disk.img", service.Name, vmExport.Namespace),
+	// XXX TODO - should only populate if uploadserver pod running
+	// pvc should def not be nil at that point
+	if pvc != nil {
+		const scheme = "https://"
+		host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
+		if ctrl.isKubevirtContentType(pvc) {
+			vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
+				Name: pvc.Name,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.KubeVirtRaw,
+						Url:    scheme + path.Join(host, rawURI(pvc)),
+					},
+					{
+						Format: exportv1.KubeVirtGz,
+						Url:    scheme + path.Join(host, rawGzipURI(pvc)),
+					},
 				},
-				{
-					Format: exportv1.KubeVirtGz,
-					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/export-fs0/disk.img.gz", service.Name, vmExport.Namespace),
+			})
+		} else {
+			vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
+				Name: pvc.Name,
+				Formats: []exportv1.VirtualMachineExportVolumeFormat{
+					{
+						Format: exportv1.Archive,
+						Url:    scheme + path.Join(host, dirURI(pvc)),
+					},
+					{
+						Format: exportv1.ArchiveGz,
+						Url:    scheme + path.Join(host, archiveURI(pvc)),
+					},
 				},
-			},
-		})
-	} else {
-		vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
-			Name: pvc.Name,
-			Formats: []exportv1.VirtualMachineExportVolumeFormat{
-				{
-					Format: exportv1.Archive,
-					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/export-fs0/dir.tar.gz", service.Name, vmExport.Namespace),
-				},
-				{
-					Format: exportv1.ArchiveGz,
-					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/export-fs0/dir/", service.Name, vmExport.Namespace),
-				},
-			},
-		})
+			})
+		}
 	}
 	//	updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 	if !equality.Semantic.DeepEqual(vmExport, vmExportCopy) {
