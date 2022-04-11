@@ -14,6 +14,7 @@ aliases:
       - jean-edouard
       - mhenriks
       - enp0s3
+      - xpivarc
   emeritus_approvers:
       - cynepco3hahue
       - slintes
@@ -51,6 +52,7 @@ aliases:
       - kbidarkar
       - phoracek
       - enp0s3
+      - xpivarc
   network-reviewers:
       - AlonaKaplan
       - EdDev
