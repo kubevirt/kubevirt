@@ -20,13 +20,17 @@
 package scp
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/povsister/scp"
+	"github.com/spf13/cobra"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
-
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -79,25 +83,53 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	isFile, isDir, exists, err := stat(local.Path)
+	if err != nil {
+		return fmt.Errorf("failed reading path %q: %v", local.Path, err)
+	}
+
 	if toRemote {
+		if !exists {
+			return fmt.Errorf("local path %q does not exist, can't copy it", local.Path)
+		}
+
 		if o.recursive {
+			if isFile {
+				return fmt.Errorf("local path %q is not a direcotry but '--recursive' was provided", local.Path)
+			}
 			err = scpClient.CopyDirToRemote(local.Path, remote.Path, &scp.DirTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
 			}
 		} else {
-			err = scpClient.CopyFileToRemote(local.Path, remote.Path, &scp.FileTransferOption{PreserveProp: o.preserve})
-			if err != nil {
+			if isDir {
+				return fmt.Errorf("local path %q is a directory but '--recursive' was not provided", local.Path)
+			}
+			if err = scpClient.CopyFileToRemote(local.Path, remote.Path, &scp.FileTransferOption{PreserveProp: o.preserve}); err != nil {
 				return err
 			}
 		}
 	} else {
 		if o.recursive {
+			if exists {
+				if !isDir {
+					return fmt.Errorf("local path %q is a file but '--recursive' was provided", local.Path)
+				}
+				local.Path = appendRemoteBase(local.Path, remote.Path)
+			}
+
+			if err := os.MkdirAll(local.Path, os.ModePerm); err != nil {
+				return fmt.Errorf("failed ensuring the existence of the local target directory %q: %v", local.Path, err)
+			}
+
 			err = scpClient.CopyDirFromRemote(remote.Path, local.Path, &scp.DirTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
 			}
 		} else {
+			if exists && isDir {
+				local.Path = appendRemoteBase(local.Path, remote.Path)
+			}
 			err = scpClient.CopyFileFromRemote(remote.Path, local.Path, &scp.FileTransferOption{PreserveProp: o.preserve})
 			if err != nil {
 				return err
@@ -142,4 +174,26 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 		opts.SshUsername = remote.Username
 	}
 	return
+}
+
+func stat(path string) (isFile bool, isDir bool, exists bool, err error) {
+	s, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, false, false, nil
+	} else if err != nil {
+		return false, false, false, err
+	}
+	return !s.IsDir(), s.IsDir(), true, nil
+}
+
+func appendRemoteBase(localPath, remotePath string) string {
+	remoteBase := filepath.Base(remotePath)
+	switch remoteBase {
+	case "..", ".", "/", "./", "":
+		// no identifiable base name, let's go with the supplied local path
+		return localPath
+	default:
+		// we identified a base location, let's append it to the local path
+		return filepath.Join(localPath, remoteBase)
+	}
 }

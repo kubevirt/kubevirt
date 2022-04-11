@@ -6,14 +6,14 @@ import (
 	"net"
 	"os"
 
-	"k8s.io/client-go/tools/clientcmd"
-
-	"kubevirt.io/client-go/kubecli"
-
 	"github.com/golang/glog"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
+
+	"k8s.io/client-go/tools/clientcmd"
+
+	"kubevirt.io/client-go/kubecli"
 )
 
 type NativeSSHConnection struct {
