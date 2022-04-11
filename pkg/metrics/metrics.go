@@ -17,6 +17,7 @@ const (
 type metricDesc struct {
 	fqName          string
 	help            string
+	mType           string
 	constLabelPairs []string
 	initFunc        func(metricDesc) prometheus.Collector
 }
@@ -31,6 +32,7 @@ var HcoMetrics = func() hcoMetrics {
 		"overwrittenModifications": {
 			fqName:          "kubevirt_hco_out_of_band_modifications_count",
 			help:            "Count of out-of-band modifications overwritten by HCO",
+			mType:           "Counter",
 			constLabelPairs: []string{counterLabelCompName},
 			initFunc: func(md metricDesc) prometheus.Collector {
 				return prometheus.NewCounterVec(
@@ -45,6 +47,7 @@ var HcoMetrics = func() hcoMetrics {
 		"unsafeModifications": {
 			fqName:          "kubevirt_hco_unsafe_modification_count",
 			help:            "Count of unsafe modifications in the HyperConverged annotations",
+			mType:           "Gauge",
 			constLabelPairs: []string{counterLabelAnnName},
 			initFunc: func(md metricDesc) prometheus.Collector {
 				return prometheus.NewGaugeVec(
@@ -175,16 +178,14 @@ func getLabelsForUnsafeAnnotation(unsafeAnnotation string) prometheus.Labels {
 type MetricDescription struct {
 	FqName string
 	Help   string
+	Type   string
 }
 
 func (hm hcoMetrics) GetMetricDesc() []MetricDescription {
-	res := make([]MetricDescription, len(hm.metricDescList))
-	i := 0
+	var res []MetricDescription
 	for _, md := range hm.metricDescList {
-		res[i] = MetricDescription{FqName: md.fqName, Help: md.help}
-		i++
+		res = append(res, MetricDescription{FqName: md.fqName, Help: md.help, Type: md.mType})
 	}
-
 	return res
 }
 

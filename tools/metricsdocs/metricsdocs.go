@@ -42,18 +42,20 @@ func writeToFile(metricsList metricList) {
 type metric struct {
 	name        string
 	description string
+	mType       string
 }
 
 func metricDescriptionToMetric(md metrics.MetricDescription) metric {
 	return metric{
 		name:        md.FqName,
 		description: md.Help,
+		mType:       md.Type,
 	}
 }
 
 func (m metric) writeOut() {
 	fmt.Println("###", m.name)
-	fmt.Println(m.description)
+	fmt.Println(m.description + ". Type: " + m.mType + ".")
 }
 
 type metricList []metric
