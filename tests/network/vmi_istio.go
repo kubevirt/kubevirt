@@ -99,7 +99,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 	Context("Virtual Machine with masquerade interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
 			By("Starting HTTP Server")
-			tests.StartHTTPServer(vmi, targetPort)
+			tests.StartHTTPServer(vmi, targetPort, console.LoginToCirros)
 
 			By("Getting back the VMI IP")
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -349,7 +349,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 
 				Expect(console.LoginToCirros(serverVMI)).To(Succeed())
 				By("Starting HTTP Server")
-				tests.StartHTTPServer(serverVMI, vmiServerTestPort)
+				tests.StartHTTPServer(serverVMI, vmiServerTestPort, console.LoginToCirros)
 
 				By("Creating Istio VirtualService")
 				virtualServicesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}

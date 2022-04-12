@@ -72,7 +72,7 @@ var _ = SIGDescribe("Port-forward", func() {
 			}
 
 			vmi := createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
-			tests.StartHTTPServerWithSourceIp(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily))
+			tests.StartHTTPServerWithSourceIp(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily), console.LoginToCirros)
 
 			localPort = 1500 + GinkgoParallelProcess()
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -168,7 +168,7 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 
 	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
-	vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 	return vmi
 }

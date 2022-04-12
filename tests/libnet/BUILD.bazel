@@ -3,11 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "alpine.go",
         "cloudinit.go",
         "dns.go",
         "expose_util.go",
         "ipaddress.go",
-        "ipv6.go",
         "namespace.go",
         "ping.go",
         "skips.go",

@@ -74,7 +74,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 type vmSnapshotDef struct {
@@ -1639,7 +1638,7 @@ spec:
 				Eventually(func() error {
 					vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					if err := libnet.WithIPv6(console.LoginToCirros)(vmi); err != nil {
+					if err := console.LoginToCirros(vmi); err != nil {
 						return err
 					}
 					return nil

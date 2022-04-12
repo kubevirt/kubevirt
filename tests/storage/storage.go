@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -334,7 +336,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Checking that /dev/vdc has a capacity of 1G, aligned to 4k")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -358,7 +360,10 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
+				vmi = libvmi.NewAlpine(
+					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 					Name:   "emptydisk1",
 					Serial: diskSerial,
@@ -378,11 +383,11 @@ var _ = SIGDescribe("Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(libnet.WithAlpineConfig(console.LoginToAlpine)(vmi)).To(Succeed())
 
 				By("Checking for the specified serial number")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo find /sys -type f -regex \".*/block/.*/serial\" | xargs cat\n"},
+					&expect.BSnd{S: "find /sys -type f -regex \".*/block/.*/serial\" | xargs cat\n"},
 					&expect.BExp{R: diskSerial},
 				}, 10)).To(Succeed())
 			})
@@ -427,7 +432,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
@@ -487,7 +492,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				By("Checking that virtio-fs is mounted")
 				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
@@ -1038,7 +1043,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 			})
 		})
 

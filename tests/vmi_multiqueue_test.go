@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -78,7 +77,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Checking if we can login")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 		})
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
