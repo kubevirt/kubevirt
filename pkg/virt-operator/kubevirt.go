@@ -872,6 +872,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	strategy, err = install.LoadInstallStrategyFromCache(c.stores, config)
 	if err == nil {
 		c.cacheInstallStrategyInMap(strategy, config, kv.Generation)
+		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", config.GetKubeVirtVersion())
 		return strategy, false, nil
 	}
 

@@ -25,10 +25,11 @@ func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
-		"phase":      "+optional",
-		"links":      "+optional",
-		"conditions": "+optional\n+listType=atomic",
+		"":            "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
+		"phase":       "+optional",
+		"links":       "+optional",
+		"serviceName": "+optional",
+		"conditions":  "+optional\n+listType=atomic",
 	}
 }
 

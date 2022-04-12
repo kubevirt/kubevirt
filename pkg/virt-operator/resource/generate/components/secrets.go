@@ -42,7 +42,7 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		return caKeyPair.Cert, caKeyPair.Key
 	},
 	KubeVirtExportCASecretName: func(secret *k8sv1.Secret, _ *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey) {
-		caKeyPair, _ := triple.NewCA("kubevirt.io", duration)
+		caKeyPair, _ := triple.NewCA("export.kubevirt.io", duration)
 		return caKeyPair.Cert, caKeyPair.Key
 	},
 	VirtOperatorCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey) {

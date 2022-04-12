@@ -22,9 +22,8 @@ package export
 import (
 	"context"
 	"crypto/rsa"
-	"crypto/tls"
+	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"path"
 	"time"
 
@@ -45,6 +44,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -83,6 +83,7 @@ const (
 	caDefaultPath = "/etc/virt-controller/exportca"
 	caCertFile    = caDefaultPath + "/tls.crt"
 	caKeyFile     = caDefaultPath + "/tls.key"
+	caBundle      = "ca-bundle"
 )
 
 // variable so can be overridden in tests
@@ -113,17 +114,19 @@ type VMExportController struct {
 
 	TemplateService services.TemplateService
 
-	VMExportInformer cache.SharedIndexInformer
-	PVCInformer      cache.SharedIndexInformer
-	PodInformer      cache.SharedIndexInformer
+	VMExportInformer  cache.SharedIndexInformer
+	PVCInformer       cache.SharedIndexInformer
+	PodInformer       cache.SharedIndexInformer
+	ConfigMapInformer cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
-	ResyncPeriod time.Duration
+	KubevirtNamespace string
+	ResyncPeriod      time.Duration
 
 	vmExportQueue workqueue.RateLimitingInterface
 
-	caCert *tls.Certificate
+	caCertManager *bootstrap.FileCertificateManager
 }
 
 // Init initializes the export controller
@@ -154,6 +157,9 @@ func (ctrl *VMExportController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
+
+	ctrl.caCertManager = bootstrap.NewFileCertificateManager(caCertFile, caKeyFile)
+	go ctrl.caCertManager.Start()
 }
 
 // Run the controller
@@ -163,12 +169,6 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 
 	log.Log.Info("Starting export controller.")
 	defer log.Log.Info("Shutting down export controller.")
-
-	caCert, err := ctrl.loadCACertificate()
-	if err != nil {
-		return err
-	}
-	ctrl.caCert = caCert
 
 	if !cache.WaitForCacheSync(
 		stopCh,
@@ -301,9 +301,10 @@ func (ctrl *VMExportController) getOrCreateTokenCertSecret(vmExport *exportv1.Vi
 }
 
 func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Secret {
+	caCert := ctrl.caCertManager.Current()
 	caKeyPair := &triple.KeyPair{
-		Key:  ctrl.caCert.PrivateKey.(*rsa.PrivateKey),
-		Cert: ctrl.caCert.Leaf,
+		Key:  caCert.PrivateKey.(*rsa.PrivateKey),
+		Cert: caCert.Leaf,
 	}
 	keyPair, _ := triple.NewServerKeyPair(
 		caKeyPair,
@@ -333,30 +334,6 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 			"tls.key": cert.EncodePrivateKeyPEM(keyPair.Key),
 		},
 	}
-}
-
-func (ctrl *VMExportController) loadCACertificate() (serverCrt *tls.Certificate, err error) {
-	certBytes, err := ioutil.ReadFile(caCertFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load export CA certificate: %v", err)
-	}
-
-	keyBytes, err := ioutil.ReadFile(caKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load export CA certificate: %v", err)
-	}
-
-	crt, err := tls.X509KeyPair(certBytes, keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load export CA certificate: %v", err)
-	}
-	leaf, err := cert.ParseCertsPEM(certBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load leaf certificate: %v", err)
-	}
-	crt.Leaf = leaf[0]
-
-	return &crt, nil
 }
 
 func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, error) {
@@ -562,7 +539,7 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	if ann == nil {
 		return false
 	}
-	return ann[annContentType] == string(cdiv1.DataVolumeKubeVirt)
+	return ann[annContentType] == string(cdiv1.DataVolumeKubeVirt) || ann[annContentType] == ""
 }
 
 func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) (time.Duration, error) {
@@ -607,11 +584,17 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 	} else {
 		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvc), true)
 	}
+	internalCert, err := ctrl.base64EncodeExportCa()
+	if err != nil {
+		return retry, err
+	}
+	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}
 	vmExportCopy.Status.Links.Internal = &exportv1.VirtualMachineExportLink{
 		Volumes: []exportv1.VirtualMachineExportVolume{},
+		Cert:    internalCert,
 	}
-	// XXX TODO - should only populate if uploadserver pod running
+	// XXX TODO - should only populate if export server pod running
 	// pvc should def not be nil at that point
 	if pvc != nil {
 		const scheme = "https://"
@@ -657,6 +640,18 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		retry = time.Second
 	}
 	return retry, nil
+}
+
+func (ctrl *VMExportController) base64EncodeExportCa() (string, error) {
+	key := controller.NamespacedKey(ctrl.KubevirtNamespace, components.KubeVirtExportCASecretName)
+	ctrl.ConfigMapInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.ConfigMapInformer.GetStore().GetByKey(key)
+	if err != nil || !exists {
+		return "", err
+	}
+	cm := obj.(*corev1.ConfigMap).DeepCopy()
+	bundle := cm.Data[caBundle]
+	return base64.StdEncoding.EncodeToString([]byte(bundle)), nil
 }
 
 func (ctrl *VMExportController) isSourcePvc(source *exportv1.VirtualMachineExportSpec) bool {

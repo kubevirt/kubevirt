@@ -173,6 +173,7 @@ type VirtControllerApp struct {
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
+	caExportConfigMapInformer cache.SharedIndexInformer
 	exportController          *export.VMExportController
 	snapshotController        *snapshot.VMSnapshotController
 	restoreController         *snapshot.VMRestoreController
@@ -351,6 +352,7 @@ func Execute() {
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
+	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
 	app.allPodInformer = app.informerFactory.Pod()
 
 	if app.hasCDI {
@@ -662,13 +664,15 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
-		TemplateService:  vca.templateService,
-		Client:           vca.clientSet,
-		VMExportInformer: vca.vmExportInformer,
-		PVCInformer:      vca.persistentVolumeClaimInformer,
-		PodInformer:      vca.allPodInformer,
-		Recorder:         recorder,
-		ResyncPeriod:     vca.snapshotControllerResyncPeriod,
+		TemplateService:   vca.templateService,
+		Client:            vca.clientSet,
+		VMExportInformer:  vca.vmExportInformer,
+		PVCInformer:       vca.persistentVolumeClaimInformer,
+		PodInformer:       vca.allPodInformer,
+		Recorder:          recorder,
+		ResyncPeriod:      vca.snapshotControllerResyncPeriod,
+		ConfigMapInformer: vca.caExportConfigMapInformer,
+		KubevirtNamespace: vca.kubevirtNamespace,
 	}
 	vca.exportController.Init()
 }

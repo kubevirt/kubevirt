@@ -75,6 +75,9 @@ type VirtualMachineExportStatus struct {
 	Links *VirtualMachineExportLinks `json:"links,omitempty"`
 
 	// +optional
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// +optional
 	// +listType=atomic
 	Conditions []Condition `json:"conditions,omitempty"`
 }
