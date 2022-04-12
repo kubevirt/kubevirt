@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
 	"kubevirt.io/kubevirt/pkg/virtctl/scp"
+	"kubevirt.io/kubevirt/pkg/virtctl/sev"
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -109,6 +110,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
 		create.NewCommand(),
 		optionsCmd,
+		sev.NewSEVCommand(clientConfig),
 	)
 	return rootCmd, clientConfig
 }
