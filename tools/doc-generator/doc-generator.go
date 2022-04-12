@@ -46,13 +46,16 @@ const (
 // manually
 const (
 	vmiPhaseCountName = "kubevirt_vmi_phase_count"
-	vmiPhaseCountDesc = "Sum of VMIs per phase and node.\n\n`phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]"
+	vmiPhaseCountDesc = "Sum of VMIs per phase and node.\n\n`phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]."
+	vmiPhaseCountType = "Gauge"
 
 	vmiEvictionBlockerName = "kubevirt_vmi_non_evictable"
 	vmiEvictionBlockerDesc = "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable."
+	vmiEvictionBlockerType = "Gauge"
 
 	vmiMemoryUsedBytes     = "kubevirt_vmi_memory_used_bytes"
 	vmiMemoryUsedBytesDesc = "Amount of `used` memory as seen by the domain."
+	vmiMemoryUsedBytesType = "Counter"
 )
 
 func main() {
@@ -91,11 +94,12 @@ func writeToFile(metrics metricList) {
 type metric struct {
 	name        string
 	description string
+	mType       string
 }
 
 func (m metric) writeToFile(newFile io.WriteCloser) {
 	fmt.Fprintln(newFile, "###", m.name)
-	fmt.Fprintln(newFile, m.description)
+	fmt.Fprintln(newFile, m.description, "Type:", m.mType+".")
 	fmt.Fprintln(newFile)
 }
 
@@ -116,14 +120,6 @@ func (m metricList) Swap(i, j int) {
 	m[i], m[j] = m[j], m[i]
 }
 
-func (m *metricList) add(line string) {
-	split := strings.Split(line, " ")
-	name := split[2]
-	split[3] = strings.Title(split[3])
-	description := strings.Join(split[3:], " ")
-	*m = append(*m, metric{name: name, description: description})
-}
-
 func (m metricList) writeToFile(newFile io.WriteCloser) {
 	for _, met := range m {
 		met.writeToFile(newFile)
@@ -135,29 +131,56 @@ var (
 		{
 			name:        vmiPhaseCountName,
 			description: vmiPhaseCountDesc,
+			mType:       vmiPhaseCountType,
 		},
 		{
 			name:        vmiEvictionBlockerName,
 			description: vmiEvictionBlockerDesc,
+			mType:       vmiEvictionBlockerType,
 		},
 		{
 			name:        vmiMemoryUsedBytes,
 			description: vmiMemoryUsedBytesDesc,
+			mType:       vmiMemoryUsedBytesType,
 		},
 		{
 			name:        domainstats.MigrateVmiDataProcessedMetricName,
 			description: "The total Guest OS data processed and migrated to the new VM.",
+			mType:       "Gauge",
 		},
 		{
 			name:        domainstats.MigrateVmiDataRemainingMetricName,
 			description: "The remaining guest OS data to be migrated to the new VM.",
+			mType:       "Gauge",
 		},
 		{
 			name:        domainstats.MigrateVmiDirtyMemoryRateMetricName,
 			description: "The rate of memory being dirty in the Guest OS.",
+			mType:       "Gauge",
 		},
 	}
 )
+
+func parseMetricDesc(line string) (string, string) {
+	split := strings.Split(line, " ")
+	name := split[2]
+	split[3] = strings.Title(split[3])
+	description := strings.Join(split[3:], " ")
+	return name, description
+}
+
+func parseMetricType(scan *bufio.Scanner, name string) string {
+	for scan.Scan() {
+		typeLine := scan.Text()
+		if strings.HasPrefix(typeLine, "# TYPE ") {
+			split := strings.Split(typeLine, " ")
+			if split[2] == name {
+				return strings.Title(split[3])
+			}
+		}
+	}
+	return ""
+}
 
 const filter = "kubevirt_"
 
@@ -167,7 +190,9 @@ func parseVirtMetrics(r io.Reader, metrics *metricList) error {
 		helpLine := scan.Text()
 		if strings.HasPrefix(helpLine, "# HELP ") {
 			if strings.Contains(helpLine, filter) {
-				metrics.add(helpLine)
+				metName, metDesc := parseMetricDesc(helpLine)
+				metType := parseMetricType(scan, metName)
+				*metrics = append(*metrics, metric{name: metName, description: metDesc, mType: metType})
 			}
 		}
 	}
