@@ -32,7 +32,7 @@ require (
 	github.com/insomniacslk/dhcp v0.0.0-20201112113307-4de412bc85d8
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
-	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
+	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/moby/sys/mountinfo v0.4.1
@@ -120,6 +120,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect

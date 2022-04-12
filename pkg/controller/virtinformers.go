@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/api/flavor"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -1080,12 +1080,12 @@ func (f *kubeInformerFactory) Pod() cache.SharedIndexInformer {
 func VolumeSnapshotInformer(clientSet kubecli.KubevirtClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshots", k8sv1.NamespaceAll, fields.Everything())
-	return cache.NewSharedIndexInformer(lw, &vsv1beta1.VolumeSnapshot{}, resyncPeriod, cache.Indexers{})
+	return cache.NewSharedIndexInformer(lw, &vsv1.VolumeSnapshot{}, resyncPeriod, cache.Indexers{})
 }
 
 // VolumeSnapshotClassInformer returns an informer for VolumeSnapshotClasses
 func VolumeSnapshotClassInformer(clientSet kubecli.KubevirtClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
-	return cache.NewSharedIndexInformer(lw, &vsv1beta1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
+	return cache.NewSharedIndexInformer(lw, &vsv1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
 }

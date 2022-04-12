@@ -7,7 +7,7 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -126,8 +126,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							admissionregistrationv1.Create,
 						},
 						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{vsv1beta1.GroupName},
-							APIVersions: []string{vsv1beta1.SchemeGroupVersion.Version},
+							APIGroups:   []string{vsv1.GroupName},
+							APIVersions: []string{vsv1.SchemeGroupVersion.Version},
 							Resources:   []string{"volumesnapshots"},
 						},
 					}},
@@ -945,7 +945,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 					vsc := vs.DeepCopy()
 					t := metav1.Now()
-					vsc.Status.Error = &vsv1beta1.VolumeSnapshotError{
+					vsc.Status.Error = &vsv1.VolumeSnapshotError{
 						Time:    &t,
 						Message: &m,
 					}

@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -679,7 +679,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	}
 	pvc.Annotations[pvcRestoreAnnotation] = vmRestore.Name
 
-	apiGroup := vsv1beta1.GroupName
+	apiGroup := vsv1.GroupName
 	pvc.Spec.DataSource = &corev1.TypedLocalObjectReference{
 		APIGroup: &apiGroup,
 		Kind:     "VolumeSnapshot",
