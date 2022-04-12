@@ -1366,7 +1366,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Spec: extv1.CustomResourceDefinitionSpec{
 						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
-								Name:   "v1beta1",
+								Name:   "v1",
 								Served: true,
 							},
 						},
@@ -1875,7 +1875,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Spec: extv1.CustomResourceDefinitionSpec{
 						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
-								Name:   "v1beta1",
+								Name:   "v1",
 								Served: true,
 							},
 						},

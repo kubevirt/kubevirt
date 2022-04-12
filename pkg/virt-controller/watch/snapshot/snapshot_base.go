@@ -94,7 +94,7 @@ type VMSnapshotController struct {
 	vmStatusUpdater *status.VMStatusUpdater
 }
 
-var supportedCRDVersions = []string{"v1beta1"}
+var supportedCRDVersions = []string{"v1"}
 
 // Init initializes the snapshot controller
 func (ctrl *VMSnapshotController) Init() {
