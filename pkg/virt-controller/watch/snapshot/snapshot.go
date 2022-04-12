@@ -398,7 +398,7 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 		},
 	}
 
-	volumeSnapshot, err := ctrl.Client.KubernetesSnapshotClient().SnapshotV1beta1().
+	volumeSnapshot, err := ctrl.Client.KubernetesSnapshotClient().SnapshotV1().
 		VolumeSnapshots(content.Namespace).
 		Create(context.Background(), snapshot, metav1.CreateOptions{})
 	if err != nil {

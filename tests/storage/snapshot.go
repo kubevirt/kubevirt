@@ -676,7 +676,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 							vs, err := virtClient.
 								KubernetesSnapshotClient().
-								SnapshotV1beta1().
+								SnapshotV1().
 								VolumeSnapshots(vm.Namespace).
 								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
@@ -802,7 +802,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 							vs, err := virtClient.
 								KubernetesSnapshotClient().
-								SnapshotV1beta1().
+								SnapshotV1().
 								VolumeSnapshots(vm.Namespace).
 								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
@@ -903,7 +903,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 
 				err = virtClient.KubernetesSnapshotClient().
-					SnapshotV1beta1().
+					SnapshotV1().
 					VolumeSnapshots(vm.Namespace).
 					Delete(context.Background(), *vb.VolumeSnapshotName, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -938,7 +938,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				m := "bad stuff"
 				Eventually(func() bool {
 					vs, err := virtClient.KubernetesSnapshotClient().
-						SnapshotV1beta1().
+						SnapshotV1().
 						VolumeSnapshots(vm.Namespace).
 						Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -951,7 +951,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					}
 
 					_, err = virtClient.KubernetesSnapshotClient().
-						SnapshotV1beta1().
+						SnapshotV1().
 						VolumeSnapshots(vs.Namespace).
 						UpdateStatus(context.Background(), vsc, metav1.UpdateOptions{})
 					if errors.IsConflict(err) {
@@ -1152,7 +1152,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return configuredStorageClass, nil
 	}
 
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
