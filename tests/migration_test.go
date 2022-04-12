@@ -679,15 +679,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		Context("with a bridge network interface", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					{
-						Name: "default",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-				}
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
@@ -915,19 +910,24 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[test_id:6842]should migrate with TSC frequency set", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Features: []v1.CPUFeature{
-						{
-							Name:   "invtsc",
-							Policy: "require",
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(
+						libvmi.InterfaceDeviceWithMasqueradeBinding(),
+					),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCPU(
+						&v1.CPU{
+							Features: []v1.CPUFeature{
+								{
+									Name:   "invtsc",
+									Policy: "require",
+								},
+							},
 						},
-					},
-				}
-				// only with this strategy will the frequency be set
-				strategy := v1.EvictionStrategyLiveMigrate
-				vmi.Spec.EvictionStrategy = &strategy
-
+					),
+					// only with this strategy will the frequency be set
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -2451,7 +2451,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 			It("Migration should generate empty isos of the right size on the target", func() {
 				By("Creating a VMI with cloud-init and config maps")
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 				configMapName := "configmap-" + rand.String(5)
 				secretName := "secret-" + rand.String(5)
 				downwardAPIName := "downwardapi-" + rand.String(5)
@@ -2948,25 +2951,25 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 			}
 
-			getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
-				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(namespace).ShouldNot(BeNil())
-				return namespace
-			}
-
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+
+				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), util.NamespaceTestDefault, metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(namespace).ShouldNot(BeNil())
 
 				var expectedPolicyName *string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
+					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, namespace, 1, 0)
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
@@ -3071,7 +3074,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+					createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("checking that the PDB appeared")
@@ -3081,10 +3084,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 					By("waiting for VMI")
-					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+					tests.WaitForSuccessfulVMIStartWithTimeout(createdVMI, 60)
 
 					By("deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+					Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(createdVMI.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
 					Eventually(func() []policyv1.PodDisruptionBudget {
 						pdbs, err := virtClient.PolicyV1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
@@ -3092,7 +3095,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 					Eventually(func() bool {
-						_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(createdVMI.Name, &metav1.GetOptions{})
 						return errors.IsNotFound(err)
 					}, 60*time.Second, 500*time.Millisecond).Should(BeTrue())
 				}
@@ -3343,7 +3346,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					vmi_evict1 := alpineVMIWithEvictionStrategy()
 					vmi_evict2 := alpineVMIWithEvictionStrategy()
-					vmi_noevict := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vmi_noevict := libvmi.NewAlpine(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 
 					labelKey := "testkey"
 					labels := map[string]string{
@@ -3399,9 +3405,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					tests.StartVirtualMachine(vm_noevict)
 
 					// Get VMIs
-					vmi_evict1, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(vmi_evict1.Name, &metav1.GetOptions{})
-					vmi_evict2, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(vmi_evict2.Name, &metav1.GetOptions{})
-					vmi_noevict, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(vmi_noevict.Name, &metav1.GetOptions{})
+					vmi_evict1, err = virtClient.VirtualMachineInstance(vm_evict1.Namespace).Get(vm_evict1.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					vmi_evict2, err = virtClient.VirtualMachineInstance(vm_evict2.Namespace).Get(vm_evict2.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					vmi_noevict, err = virtClient.VirtualMachineInstance(vm_noevict.Namespace).Get(vm_noevict.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vmi_evict1.Status.NodeName).ToNot(BeEmpty())
+					Expect(vmi_evict2.Status.NodeName).ToNot(BeEmpty())
+					Expect(vmi_noevict.Status.NodeName).ToNot(BeEmpty())
 
 					By("Verifying all VMIs are collcated on the same node")
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_evict2.Status.NodeName))
@@ -3470,8 +3483,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libnode.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("starting four VMIs on that node")
-				for _, vmi := range vmis {
-					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				for i := range vmis {
+					vmis[i], err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmis[i])
 					Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -3553,7 +3566,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Context("with no eviction strategy set", func() {
 				It("should block the eviction api and migrate", func() {
 					// no EvictionStrategy set
-					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vmi := libvmi.NewAlpine(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 					vmi = runVMIAndExpectLaunch(vmi, 180)
 					vmiNodeOrig := vmi.Status.NodeName
 					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -3589,9 +3605,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			Context("with eviction strategy set to 'None'", func() {
 				It("The VMI should get evicted", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-					evictionStrategy := v1.EvictionStrategyNone
-					vmi.Spec.EvictionStrategy = &evictionStrategy
+					vmi := libvmi.NewAlpine(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
+					)
 					vmi = runVMIAndExpectLaunch(vmi, 180)
 					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
@@ -3602,13 +3620,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	Context("[Serial] With Huge Pages", func() {
-		var hugepagesVmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			hugepagesVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		})
 
 		DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+			hugepagesVmi := libvmi.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
 			v, err := cluster.GetKubernetesVersion()
 			Expect(err).ShouldNot(HaveOccurred())
@@ -3642,7 +3659,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			By("Starting hugepages VMI")
-			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(hugepagesVmi)
+			hugepagesVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(hugepagesVmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(hugepagesVmi)
 
@@ -3669,15 +3686,18 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
-			cpuVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-			cpuVMI.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 3,
-				DedicatedCPUPlacement: true,
-			}
-			cpuVMI.Spec.Domain.Memory = &v1.Memory{
-				Hugepages: &v1.Hugepages{PageSize: "2Mi"},
-			}
+			cpuVMI := libvmi.NewAlpine(
+				libvmi.WithCPU(
+					&v1.CPU{
+						Cores:                 3,
+						DedicatedCPUPlacement: true,
+					},
+				),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithHugePages(&v1.Hugepages{PageSize: "2Mi"}),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
 			By("Starting a VirtualMachineInstance")
 			cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
@@ -3693,16 +3713,19 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 				var err error
-				cpuVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-				cpuVMI.Spec.Domain.CPU = &v1.CPU{
-					Cores:                 3,
-					DedicatedCPUPlacement: true,
-					NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
-				}
-				cpuVMI.Spec.Domain.Memory = &v1.Memory{
-					Hugepages: &v1.Hugepages{PageSize: "2Mi"},
-				}
+				cpuVMI := libvmi.NewAlpine(
+					libvmi.WithCPU(
+						&v1.CPU{
+							Cores:                 3,
+							DedicatedCPUPlacement: true,
+							NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
+						},
+					),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithHugePages(&v1.Hugepages{PageSize: "2Mi"}),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				By("Starting a VirtualMachineInstance")
 				cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
@@ -3717,8 +3740,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	It("should replace containerdisk and kernel boot images with their reproducible digest during migration", func() {
-
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 		vmi.Spec.Domain.Firmware = utils.GetVMIKernelBoot().Spec.Domain.Firmware
 
 		By("Starting a VirtualMachineInstance")
@@ -3993,12 +4018,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
 			By("creating a migratable VMI with 2 dedicated CPU cores")
-			migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			migratableVMI.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 uint32(2),
-				DedicatedCPUPlacement: true,
-			}
-			migratableVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+			migratableVMI = libvmi.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCPU(&v1.CPU{
+					Cores:                 2,
+					DedicatedCPUPlacement: true,
+				}),
+				libvmi.WithResourceMemory("512Mi"),
+			)
 
 			By("creating a template for a pause pod with 2 dedicated CPU cores")
 			pausePod = tests.RenderPod("pause-", nil, nil)
@@ -4142,7 +4170,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	It("should update MigrationState's MigrationConfiguration of VMI status", func() {
 		By("Starting a VMI")
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 		vmi = runVMIAndExpectLaunch(vmi, 240)
 
 		By("Starting a Migration")
@@ -4210,9 +4241,11 @@ func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 }
 
 func alpineVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
-	strategy := v1.EvictionStrategyLiveMigrate
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-	vmi.Spec.EvictionStrategy = &strategy
+	vmi := libvmi.NewAlpine(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+	)
 	return vmi
 }
 
