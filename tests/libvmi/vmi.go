@@ -171,6 +171,13 @@ func WithSEV() Option {
 	}
 }
 
+// WithCPU specifies the vmi CPU
+func WithCPU(cpu *v1.CPU) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.CPU = cpu
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
