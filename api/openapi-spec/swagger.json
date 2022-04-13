@@ -18123,6 +18123,14 @@
      "cpu": {
       "$ref": "#/definitions/v1alpha1.CPUFlavor"
      },
+     "ioThreadsPolicy": {
+      "description": "Optionally defines the IOThreadsPolicy to be used by the flavor.",
+      "type": "string"
+     },
+     "launchSecurity": {
+      "description": "Optionally defines the LaunchSecurity to be used by the flavor.",
+      "$ref": "#/definitions/v1.LaunchSecurity"
+     },
      "memory": {
       "$ref": "#/definitions/v1alpha1.MemoryFlavor"
      }

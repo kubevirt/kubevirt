@@ -57,6 +57,8 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 	if flavorSpec != nil {
 		conflicts = append(conflicts, applyCpu(field, flavorSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyMemory(field, flavorSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyIOThreadPolicy(field, flavorSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyLaunchSecurity(field, flavorSpec, vmiSpec)...)
 	}
 
 	if preferenceSpec != nil {
@@ -259,6 +261,37 @@ func applyMemory(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachine
 		flavorHugePages := flavorSpec.Memory.Hugepages.DeepCopy()
 		vmiSpec.Domain.Memory.Hugepages = flavorHugePages
 	}
+
+	return nil
+}
+
+func applyIOThreadPolicy(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+
+	if flavorSpec.IOThreadsPolicy == nil {
+		return nil
+	}
+
+	if vmiSpec.Domain.IOThreadsPolicy != nil {
+		return Conflicts{field.Child("domain", "ioThreadsPolicy")}
+	}
+
+	flavorIOThreadPolicy := *flavorSpec.IOThreadsPolicy
+	vmiSpec.Domain.IOThreadsPolicy = &flavorIOThreadPolicy
+
+	return nil
+}
+
+func applyLaunchSecurity(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+
+	if flavorSpec.LaunchSecurity == nil {
+		return nil
+	}
+
+	if vmiSpec.Domain.LaunchSecurity != nil {
+		return Conflicts{field.Child("domain", "launchSecurity")}
+	}
+
+	vmiSpec.Domain.LaunchSecurity = flavorSpec.LaunchSecurity.DeepCopy()
 
 	return nil
 }

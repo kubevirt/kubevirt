@@ -82,6 +82,16 @@ type VirtualMachineFlavorSpec struct {
 	CPU CPUFlavor `json:"cpu"`
 
 	Memory MemoryFlavor `json:"memory"`
+
+	// Optionally defines the IOThreadsPolicy to be used by the flavor.
+	//
+	// +optional
+	IOThreadsPolicy *v1.IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+
+	// Optionally defines the LaunchSecurity to be used by the flavor.
+	//
+	// +optional
+	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
 }
 
 // CPUFlavor

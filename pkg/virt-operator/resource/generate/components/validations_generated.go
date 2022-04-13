@@ -6864,6 +6864,16 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        ioThreadsPolicy:
+          description: Optionally defines the IOThreadsPolicy to be used by the flavor.
+          type: string
+        launchSecurity:
+          description: Optionally defines the LaunchSecurity to be used by the flavor.
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              type: object
+          type: object
         memory:
           description: FlavorMemory
           properties:
@@ -7339,6 +7349,16 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           required:
           - guest
+          type: object
+        ioThreadsPolicy:
+          description: Optionally defines the IOThreadsPolicy to be used by the flavor.
+          type: string
+        launchSecurity:
+          description: Optionally defines the LaunchSecurity to be used by the flavor.
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              type: object
           type: object
         memory:
           description: FlavorMemory

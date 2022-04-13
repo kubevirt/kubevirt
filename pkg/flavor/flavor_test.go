@@ -466,6 +466,60 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 		})
+		Context("flavor.Spec.ioThreadsPolicy", func() {
+
+			var flavorPolicy v1.IOThreadsPolicy
+
+			BeforeEach(func() {
+				flavorPolicy = v1.IOThreadsPolicyShared
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					IOThreadsPolicy: &flavorPolicy,
+				}
+			})
+
+			It("in full to VMI", func() {
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(*flavorSpec.IOThreadsPolicy))
+			})
+
+			It("detects IOThreadsPolicy conflict", func() {
+				vmi.Spec.Domain.IOThreadsPolicy = &flavorPolicy
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.ioThreadsPolicy"))
+			})
+		})
+
+		Context("flavor.Spec.LaunchSecurity", func() {
+
+			BeforeEach(func() {
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					LaunchSecurity: &v1.LaunchSecurity{
+						SEV: &v1.SEV{},
+					},
+				}
+			})
+
+			It("in full to VMI", func() {
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(*vmi.Spec.Domain.LaunchSecurity).To(Equal(*flavorSpec.LaunchSecurity))
+			})
+
+			It("detects LaunchSecurity conflict", func() {
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+					SEV: &v1.SEV{},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.launchSecurity"))
+			})
+		})
 
 		// TODO - break this up into smaller more targeted tests
 		Context("Preference.Devices ", func() {

@@ -22825,12 +22825,25 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"),
 						},
 					},
+					"ioThreadsPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines the IOThreadsPolicy to be used by the flavor.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"launchSecurity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines the LaunchSecurity to be used by the flavor.",
+							Ref:         ref("kubevirt.io/api/core/v1.LaunchSecurity"),
+						},
+					},
 				},
 				Required: []string{"cpu", "memory"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUFlavor", "kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"},
+			"kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/flavor/v1alpha1.CPUFlavor", "kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"},
 	}
 }
 

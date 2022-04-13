@@ -454,6 +454,16 @@ func (in *VirtualMachineFlavorSpec) DeepCopyInto(out *VirtualMachineFlavorSpec) 
 	*out = *in
 	in.CPU.DeepCopyInto(&out.CPU)
 	in.Memory.DeepCopyInto(&out.Memory)
+	if in.IOThreadsPolicy != nil {
+		in, out := &in.IOThreadsPolicy, &out.IOThreadsPolicy
+		*out = new(v1.IOThreadsPolicy)
+		**out = **in
+	}
+	if in.LaunchSecurity != nil {
+		in, out := &in.LaunchSecurity, &out.LaunchSecurity
+		*out = new(v1.LaunchSecurity)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
