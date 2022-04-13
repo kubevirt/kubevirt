@@ -134,7 +134,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			cleanupConfiguredMdevs()
 		})
 
-		It("Should successfully passthrough a mediated device", func() {
+		It("[QUARANTINE]Should successfully passthrough a mediated device", func() {
 
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -194,7 +194,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
 		})
-		It("Should override default mdev configuration on a specific node", func() {
+		It("[QUARANTINE]Should override default mdev configuration on a specific node", func() {
 			newDesiredMdevTypeName := "nvidia-223"
 			newExpectedInstancesNum := 8
 			By("Creating a configuration for mediated devices")
