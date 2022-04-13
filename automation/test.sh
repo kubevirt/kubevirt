@@ -70,6 +70,11 @@ else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
+# Single-node single-replica test lanes need nfs csi to run sig-storage tests
+if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+  export KUBEVIRT_DEPLOY_NFS_CSI=true
+fi
+
 if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
@@ -412,6 +417,16 @@ else
     export KUBEVIRT_E2E_SKIP="\\[verify-nonroot\\]"
   else
     export KUBEVIRT_E2E_SKIP="$KUBEVIRT_E2E_SKIP|\\[verify-nonroot\\]"
+  fi
+fi
+
+# Single-node single-replica test lanes obviously can't run live migrations,
+# but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
+if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+  if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
+    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SRIOV|GPU|Macvtap|MediatedDevices|Migration"
+  else
+    export KUBEVIRT_E2E_SKIP="SRIOV|GPU|Macvtap|MediatedDevices|Migration"
   fi
 fi
 
