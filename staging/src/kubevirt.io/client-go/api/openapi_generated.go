@@ -496,6 +496,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.DevicePreferences":                                          schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.FeaturePreferences":                                         schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences":                                        schema_kubevirtio_api_flavor_v1alpha1_FirmwarePreferences(ref),
+		"kubevirt.io/api/flavor/v1alpha1.MachinePreferences":                                         schema_kubevirtio_api_flavor_v1alpha1_MachinePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.MemoryFlavor":                                               schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
@@ -22492,6 +22493,26 @@ func schema_kubevirtio_api_flavor_v1alpha1_FirmwarePreferences(ref common.Refere
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_MachinePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MachinePreferences contains various optional defaults for Machine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredMachineType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredMachineType optionally defines the preferred machine type to use.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22932,11 +22953,16 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences"),
 						},
 					},
+					"machine": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.MachinePreferences"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences", "kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences", "kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences", "kubevirt.io/api/flavor/v1alpha1.MachinePreferences"},
 	}
 }
 

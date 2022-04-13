@@ -196,6 +196,9 @@ type VirtualMachinePreferenceSpec struct {
 
 	//+optional
 	Firmware *FirmwarePreferences `json:"firmware,omitempty"`
+
+	//+optional
+	Machine *MachinePreferences `json:"machine,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -392,4 +395,15 @@ type FirmwarePreferences struct {
 	//
 	// +optional
 	PreferredUseSecureBoot *bool `json:"preferredUseSecureBoot,omitempty"`
+}
+
+// MachinePreferences contains various optional defaults for Machine.
+//
+// +k8s:openapi-gen=true
+type MachinePreferences struct {
+
+	// PreferredMachineType optionally defines the preferred machine type to use.
+	//
+	// +optional
+	PreferredMachineType string `json:"preferredMachineType,omitempty"`
 }

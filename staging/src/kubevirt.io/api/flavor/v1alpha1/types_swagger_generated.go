@@ -87,6 +87,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"devices":  "+optional",
 		"features": "+optional",
 		"firmware": "+optional",
+		"machine":  "+optional",
 	}
 }
 
@@ -143,5 +144,12 @@ func (FirmwarePreferences) SwaggerDoc() map[string]string {
 		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
 		"preferredUseEfi":        "PreferredUseEfi optionally enables EFI\n\n+optional",
 		"preferredUseSecureBoot": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\n+optional",
+	}
+}
+
+func (MachinePreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "MachinePreferences contains various optional defaults for Machine.\n\n+k8s:openapi-gen=true",
+		"preferredMachineType": "PreferredMachineType optionally defines the preferred machine type to use.\n\n+optional",
 	}
 }

@@ -163,6 +163,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			}
 			preference.Spec.Firmware.PreferredUseBios = pointer.Bool(true)
+			// We don't want to break tests randomly so just use the q35 alias for now
+			preference.Spec.Machine.PreferredMachineType = "q35"
 
 			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -207,6 +209,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Assert that the correct firmware preferences are enabled
 			Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
+
+			// Assert that the correct machine type preference is applied to the VMI
+			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
@@ -281,6 +286,7 @@ func newVirtualMachinePreference() *flavorv1alpha1.VirtualMachinePreference {
 			Devices:  &flavorv1alpha1.DevicePreferences{},
 			Features: &flavorv1alpha1.FeaturePreferences{},
 			Firmware: &flavorv1alpha1.FirmwarePreferences{},
+			Machine:  &flavorv1alpha1.MachinePreferences{},
 		},
 	}
 }
@@ -290,6 +296,7 @@ func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Domain.Memory = nil
 	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 	vmi.Spec.Domain.Features = &v1.Features{}
+	vmi.Spec.Domain.Machine = &v1.Machine{}
 
 	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
 		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {

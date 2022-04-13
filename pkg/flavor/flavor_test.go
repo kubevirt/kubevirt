@@ -732,5 +732,21 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.PreferredUseSecureBoot))
 			})
 		})
+
+		Context("Preference.Machine ", func() {
+
+			It("in full to VMI", func() {
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					Machine: &flavorv1alpha1.MachinePreferences{
+						PreferredMachineType: "q35-rhel-8.0",
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
+			})
+		})
 	})
 })

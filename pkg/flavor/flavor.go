@@ -64,6 +64,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 		applyDevicePreferences(preferenceSpec, vmiSpec)
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
+		applyMachinePreferences(preferenceSpec, vmiSpec)
 	}
 
 	return conflicts
@@ -514,5 +515,20 @@ func applyFirmwarePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefe
 
 	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && *preferenceSpec.Firmware.PreferredUseSecureBoot && vmiSpec.Domain.Firmware.Bootloader.EFI != nil {
 		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(true)
+	}
+}
+
+func applyMachinePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+
+	if preferenceSpec.Machine == nil {
+		return
+	}
+
+	if vmiSpec.Domain.Machine == nil {
+		vmiSpec.Domain.Machine = &v1.Machine{}
+	}
+
+	if preferenceSpec.Machine.PreferredMachineType != "" && vmiSpec.Domain.Machine.Type == "" {
+		vmiSpec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
 	}
 }

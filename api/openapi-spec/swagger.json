@@ -17808,6 +17808,16 @@
      }
     }
    },
+   "v1alpha1.MachinePreferences": {
+    "description": "MachinePreferences contains various optional defaults for Machine.",
+    "type": "object",
+    "properties": {
+     "preferredMachineType": {
+      "description": "PreferredMachineType optionally defines the preferred machine type to use.",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.MemoryFlavor": {
     "description": "FlavorMemory",
     "type": "object",
@@ -18315,6 +18325,9 @@
      },
      "firmware": {
       "$ref": "#/definitions/v1alpha1.FirmwarePreferences"
+     },
+     "machine": {
+      "$ref": "#/definitions/v1alpha1.MachinePreferences"
      }
     }
    },

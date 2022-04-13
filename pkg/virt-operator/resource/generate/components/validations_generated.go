@@ -7260,6 +7260,14 @@ var CRDsValidation map[string]string = map[string]string{
                 PreferredUseEfi and PreferredSmm to be enabled."
               type: boolean
           type: object
+        machine:
+          description: MachinePreferences contains various optional defaults for Machine.
+          properties:
+            preferredMachineType:
+              description: PreferredMachineType optionally defines the preferred machine
+                type to use.
+              type: string
+          type: object
       type: object
   required:
   - spec
@@ -18379,6 +18387,14 @@ var CRDsValidation map[string]string = map[string]string{
                 the OVMF roms will be swapped for SecureBoot-enabled ones. \n Requires
                 PreferredUseEfi and PreferredSmm to be enabled."
               type: boolean
+          type: object
+        machine:
+          description: MachinePreferences contains various optional defaults for Machine.
+          properties:
+            preferredMachineType:
+              description: PreferredMachineType optionally defines the preferred machine
+                type to use.
+              type: string
           type: object
       type: object
   required:
