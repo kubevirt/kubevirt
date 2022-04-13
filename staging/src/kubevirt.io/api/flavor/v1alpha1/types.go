@@ -193,6 +193,9 @@ type VirtualMachinePreferenceSpec struct {
 
 	//+optional
 	Features *FeaturePreferences `json:"features,omitempty"`
+
+	//+optional
+	Firmware *FirmwarePreferences `json:"firmware,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -359,4 +362,34 @@ type FeaturePreferences struct {
 	//
 	// +optional
 	PreferredSmm *v1.FeatureState `json:"preferredSmm,omitempty"`
+}
+
+// FirmwarePreferences contains various optional defaults for Firmware.
+//
+// +k8s:openapi-gen=true
+type FirmwarePreferences struct {
+
+	// PreferredUseBios optionally enables BIOS
+	//
+	// +optional
+	PreferredUseBios *bool `json:"preferredUseBios,omitempty"`
+
+	// PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
+	//
+	// Requires PreferredUseBios to be enabled.
+	//
+	// +optional
+	PreferredUseBiosSerial *bool `json:"preferredUseBiosSerial,omitempty"`
+
+	// PreferredUseEfi optionally enables EFI
+	//
+	// +optional
+	PreferredUseEfi *bool `json:"preferredUseEfi,omitempty"`
+
+	// PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
+	//
+	// Requires PreferredUseEfi and PreferredSmm to be enabled.
+	//
+	// +optional
+	PreferredUseSecureBoot *bool `json:"preferredUseSecureBoot,omitempty"`
 }

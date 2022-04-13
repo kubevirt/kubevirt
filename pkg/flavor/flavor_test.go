@@ -697,5 +697,40 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 		})
+
+		Context("Preference.Firmware ", func() {
+
+			It("in BIOS preferences full to VMI", func() {
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					Firmware: &flavorv1alpha1.FirmwarePreferences{
+						PreferredUseBios:       pointer.Bool(true),
+						PreferredUseBiosSerial: pointer.Bool(true),
+						PreferredUseEfi:        pointer.Bool(false),
+						PreferredUseSecureBoot: pointer.Bool(false),
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(Equal(*preferenceSpec.Firmware.PreferredUseBiosSerial))
+			})
+
+			It("in SecureBoot preferences full to VMI", func() {
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					Firmware: &flavorv1alpha1.FirmwarePreferences{
+						PreferredUseBios:       pointer.Bool(false),
+						PreferredUseBiosSerial: pointer.Bool(false),
+						PreferredUseEfi:        pointer.Bool(true),
+						PreferredUseSecureBoot: pointer.Bool(true),
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.PreferredUseSecureBoot))
+			})
+		})
 	})
 })

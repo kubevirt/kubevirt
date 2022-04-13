@@ -162,6 +162,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Enabled: pointer.Bool(true),
 				},
 			}
+			preference.Spec.Firmware.PreferredUseBios = pointer.Bool(true)
 
 			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -203,6 +204,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Assert that the correct features are enabled
 			Expect(*vmi.Spec.Domain.Features.Hyperv).To(Equal(*preference.Spec.Features.PreferredHyperv))
+
+			// Assert that the correct firmware preferences are enabled
+			Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
@@ -276,6 +280,7 @@ func newVirtualMachinePreference() *flavorv1alpha1.VirtualMachinePreference {
 			CPU:      &flavorv1alpha1.CPUPreferences{},
 			Devices:  &flavorv1alpha1.DevicePreferences{},
 			Features: &flavorv1alpha1.FeaturePreferences{},
+			Firmware: &flavorv1alpha1.FirmwarePreferences{},
 		},
 	}
 }

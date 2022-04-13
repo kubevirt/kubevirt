@@ -495,6 +495,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.CPUPreferences":                                             schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.DevicePreferences":                                          schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.FeaturePreferences":                                         schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref),
+		"kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences":                                        schema_kubevirtio_api_flavor_v1alpha1_FirmwarePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.MemoryFlavor":                                               schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
@@ -22450,6 +22451,47 @@ func schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref common.Referen
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_FirmwarePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FirmwarePreferences contains various optional defaults for Firmware.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredUseBios": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseBios optionally enables BIOS",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredUseBiosSerial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredUseEfi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseEfi optionally enables EFI",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"preferredUseSecureBoot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22885,11 +22927,16 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.FeaturePreferences"),
 						},
 					},
+					"firmware": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences", "kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences"},
 	}
 }
 

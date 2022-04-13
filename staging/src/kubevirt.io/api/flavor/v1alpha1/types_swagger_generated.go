@@ -86,6 +86,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"cpu":      "+optional",
 		"devices":  "+optional",
 		"features": "+optional",
+		"firmware": "+optional",
 	}
 }
 
@@ -132,5 +133,15 @@ func (FeaturePreferences) SwaggerDoc() map[string]string {
 		"preferredKvm":        "PreferredKvm optionally enables and configures KVM features\n\n+optional",
 		"preferredPvspinlock": "PreferredPvspinlock optionally enables the Pvspinlock feature\n\n+optional",
 		"preferredSmm":        "PreferredSmm optionally enables the SMM feature\n\n+optional",
+	}
+}
+
+func (FirmwarePreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                       "FirmwarePreferences contains various optional defaults for Firmware.\n\n+k8s:openapi-gen=true",
+		"preferredUseBios":       "PreferredUseBios optionally enables BIOS\n\n+optional",
+		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
+		"preferredUseEfi":        "PreferredUseEfi optionally enables EFI\n\n+optional",
+		"preferredUseSecureBoot": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\n+optional",
 	}
 }

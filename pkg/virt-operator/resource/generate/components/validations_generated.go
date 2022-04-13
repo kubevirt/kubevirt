@@ -7240,6 +7240,26 @@ var CRDsValidation map[string]string = map[string]string{
                   type: boolean
               type: object
           type: object
+        firmware:
+          description: FirmwarePreferences contains various optional defaults for
+            Firmware.
+          properties:
+            preferredUseBios:
+              description: PreferredUseBios optionally enables BIOS
+              type: boolean
+            preferredUseBiosSerial:
+              description: "PreferredUseBiosSerial optionally transmitts BIOS output
+                over the serial. \n Requires PreferredUseBios to be enabled."
+              type: boolean
+            preferredUseEfi:
+              description: PreferredUseEfi optionally enables EFI
+              type: boolean
+            preferredUseSecureBoot:
+              description: "PreferredUseSecureBoot optionally enables SecureBoot and
+                the OVMF roms will be swapped for SecureBoot-enabled ones. \n Requires
+                PreferredUseEfi and PreferredSmm to be enabled."
+              type: boolean
+          type: object
       type: object
   required:
   - spec
@@ -18339,6 +18359,26 @@ var CRDsValidation map[string]string = map[string]string{
                     or disabled on the guest. Defaults to true.
                   type: boolean
               type: object
+          type: object
+        firmware:
+          description: FirmwarePreferences contains various optional defaults for
+            Firmware.
+          properties:
+            preferredUseBios:
+              description: PreferredUseBios optionally enables BIOS
+              type: boolean
+            preferredUseBiosSerial:
+              description: "PreferredUseBiosSerial optionally transmitts BIOS output
+                over the serial. \n Requires PreferredUseBios to be enabled."
+              type: boolean
+            preferredUseEfi:
+              description: PreferredUseEfi optionally enables EFI
+              type: boolean
+            preferredUseSecureBoot:
+              description: "PreferredUseSecureBoot optionally enables SecureBoot and
+                the OVMF roms will be swapped for SecureBoot-enabled ones. \n Requires
+                PreferredUseEfi and PreferredSmm to be enabled."
+              type: boolean
           type: object
       type: object
   required:

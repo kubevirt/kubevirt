@@ -63,6 +63,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 		// By design Preferences can't conflict with the VMI so we don't return any
 		applyDevicePreferences(preferenceSpec, vmiSpec)
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
+		applyFirmwarePreferences(preferenceSpec, vmiSpec)
 	}
 
 	return conflicts
@@ -483,5 +484,35 @@ func applyHyperVFeaturePreferences(preferenceSpec *flavorv1alpha1.VirtualMachine
 	if preferenceSpec.Features.PreferredHyperv.VendorID != nil && vmiSpec.Domain.Features.Hyperv.VendorID == nil {
 		vmiSpec.Domain.Features.Hyperv.VendorID = preferenceSpec.Features.PreferredHyperv.VendorID.DeepCopy()
 	}
+}
 
+func applyFirmwarePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+
+	if preferenceSpec.Firmware == nil {
+		return
+	}
+
+	if vmiSpec.Domain.Firmware == nil {
+		vmiSpec.Domain.Firmware = &v1.Firmware{}
+	}
+
+	if vmiSpec.Domain.Firmware.Bootloader == nil {
+		vmiSpec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+	}
+
+	if preferenceSpec.Firmware.PreferredUseBios != nil && *preferenceSpec.Firmware.PreferredUseBios && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil && vmiSpec.Domain.Firmware.Bootloader.EFI == nil {
+		vmiSpec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
+	}
+
+	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && *preferenceSpec.Firmware.PreferredUseBiosSerial && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil {
+		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(true)
+	}
+
+	if preferenceSpec.Firmware.PreferredUseEfi != nil && *preferenceSpec.Firmware.PreferredUseEfi && vmiSpec.Domain.Firmware.Bootloader.EFI == nil && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil {
+		vmiSpec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+	}
+
+	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && *preferenceSpec.Firmware.PreferredUseSecureBoot && vmiSpec.Domain.Firmware.Bootloader.EFI != nil {
+		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(true)
+	}
 }

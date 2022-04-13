@@ -17786,6 +17786,28 @@
      }
     }
    },
+   "v1alpha1.FirmwarePreferences": {
+    "description": "FirmwarePreferences contains various optional defaults for Firmware.",
+    "type": "object",
+    "properties": {
+     "preferredUseBios": {
+      "description": "PreferredUseBios optionally enables BIOS",
+      "type": "boolean"
+     },
+     "preferredUseBiosSerial": {
+      "description": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
+      "type": "boolean"
+     },
+     "preferredUseEfi": {
+      "description": "PreferredUseEfi optionally enables EFI",
+      "type": "boolean"
+     },
+     "preferredUseSecureBoot": {
+      "description": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1alpha1.MemoryFlavor": {
     "description": "FlavorMemory",
     "type": "object",
@@ -18290,6 +18312,9 @@
      },
      "features": {
       "$ref": "#/definitions/v1alpha1.FeaturePreferences"
+     },
+     "firmware": {
+      "$ref": "#/definitions/v1alpha1.FirmwarePreferences"
      }
     }
    },
