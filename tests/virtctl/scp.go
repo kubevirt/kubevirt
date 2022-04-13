@@ -70,11 +70,53 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		)()).To(Succeed())
 
 		By("comparing the two files")
-		expected, err := ioutil.ReadFile(keyFile)
+		compareFile(keyFile, copyBackFile)
+	})
+
+	It("should copy a local directory back and forth", func() {
+		By("injecting a SSH public key into a VMI")
+		vmi := libvmi.NewCirros(
+			libvmi.WithCloudInitNoCloudUserData(renderUserDataWithKey(pub), false))
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
-		actual, err := ioutil.ReadFile(copyBackFile)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(string(actual)).To(Equal(string(expected)))
+
+		vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+
+		By("creating a few random files")
+		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
+		copyToDir := filepath.Join(GinkgoT().TempDir(), "targetdir")
+
+		Expect(os.Mkdir(copyFromDir, 0777)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(copyFromDir, "file1"), []byte("test"), 0777)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), 0777)).To(Succeed())
+
+		By("copying a file to the VMI")
+		Expect(clientcmd.NewRepeatableVirtctlCommand(
+			"scp",
+			"--namespace", util.NamespaceTestDefault,
+			"--username", "cirros",
+			"--identity-file", keyFile,
+			"--recursive",
+			"--known-hosts=",
+			copyFromDir,
+			vmi.Name+":"+"./sourcedir",
+		)()).To(Succeed())
+
+		By("copying the file back")
+		Expect(clientcmd.NewRepeatableVirtctlCommand(
+			"scp",
+			"--namespace", util.NamespaceTestDefault,
+			"--username", "cirros",
+			"--recursive",
+			"--identity-file", keyFile,
+			"--known-hosts=",
+			vmi.Name+":"+"./sourcedir",
+			copyToDir,
+		)()).To(Succeed())
+
+		By("comparing the two directories")
+		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
+		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
 	})
 })
 
@@ -84,4 +126,12 @@ mkdir -p /home/cirros/.ssh/
 echo "%s" > /home/cirros/.ssh/authorized_keys
 chown -R cirros:cirros /home/cirros/.ssh
 `, string(ssh.MarshalAuthorizedKey(key)))
+}
+
+func compareFile(file1 string, file2 string) {
+	expected, err := ioutil.ReadFile(file1)
+	Expect(err).ToNot(HaveOccurred())
+	actual, err := ioutil.ReadFile(file2)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(string(actual)).To(Equal(string(expected)))
 }
