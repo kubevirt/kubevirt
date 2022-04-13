@@ -256,10 +256,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		},
 			Entry("[test_id:3197]enabled when debugLogs label defined", map[string]string{"debugLogs": "true"}, nil, true),
-			Entry("enabled when customLogFilters defined", nil, map[string]string{v1.CustomLibvirtLogFiltersAnnotation: fakeLibvirtLogFilters}, true),
-			Entry("enabled when log verbosity is high", map[string]string{"logVerbosity": "10"}, nil, true),
-			Entry("disabled when log verbosity is low", map[string]string{"logVerbosity": "2"}, nil, false),
-			Entry("disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
+			Entry("[test_id:8530]enabled when customLogFilters defined", nil, map[string]string{v1.CustomLibvirtLogFiltersAnnotation: fakeLibvirtLogFilters}, true),
+			Entry("[test_id:8531]enabled when log verbosity is high", map[string]string{"logVerbosity": "10"}, nil, true),
+			Entry("[test_id:8532]disabled when log verbosity is low", map[string]string{"logVerbosity": "2"}, nil, false),
+			Entry("[test_id:8533]disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
 		)
 
 		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
