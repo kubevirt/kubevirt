@@ -174,6 +174,7 @@ OPERATORS=(
     "cdi-operator"
     "cluster-network-addons-operator"
     "node-maintenance-operator"
+    "tekton-tasks-operator"
 )
 
 if [ "$IS_OPENSHIFT" = "true" ]; then

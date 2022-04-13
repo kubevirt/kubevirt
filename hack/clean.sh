@@ -46,6 +46,9 @@ source hack/common.sh
 # Delete ssp-operator
 "${CMD}" delete -f "${SSP_OPERATOR_URL}" --ignore-not-found || true
 
+# Delete tekton-tasks-operator
+"${CMD}" delete -f "${TTO_OPERATOR_URL}" --ignore-not-found || true
+
 # Remove other settings
 "${CMD}" delete -f _out/cluster_role_binding.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/cluster_role.yaml --ignore-not-found || true

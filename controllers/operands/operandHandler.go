@@ -50,6 +50,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 		(*genericOperand)(newKubevirtHandler(client, scheme)),
 		(*genericOperand)(newCdiHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
+		(*genericOperand)(newTtoHandler(client, scheme)),
 	}
 
 	if ci.IsOpenshift() {
@@ -190,6 +191,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewCDIWithNameOnly(req.Instance),
 		NewNetworkAddonsWithNameOnly(req.Instance),
 		NewSSPWithNameOnly(req.Instance),
+		NewTTOWithNameOnly(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
 	}
 

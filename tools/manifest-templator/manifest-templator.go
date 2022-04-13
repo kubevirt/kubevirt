@@ -54,6 +54,7 @@ var (
 	cnaCsv            = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
 	virtCsv           = flag.String("virt-csv", "", "KubeVirt CSV string")
 	sspCsv            = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
+	ttoCsv            = flag.String("tto-csv", "", "Tekton tasks operator CSV string")
 	cdiCsv            = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
 	nmoCsv            = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
 	hppCsv            = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
@@ -69,6 +70,7 @@ var (
 	cdiVersion        = flag.String("cdi-version", "", "CDI operator version")
 	cnaoVersion       = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion        = flag.String("ssp-version", "", "SSP operator version")
+	ttoVersion        = flag.String("tto-version", "", "Tekton tasks operator operator version")
 	nmoVersion        = flag.String("nmo-version", "", "NM operator version")
 	hppoVersion       = flag.String("hppo-version", "", "HPP operator version")
 	apiSources        = flag.String("api-sources", cwd+"/...", "Project sources")
@@ -383,6 +385,10 @@ func getCsvWithComponent() []util.CsvWithComponent {
 			Component: hcoutil.AppComponentSchedule,
 		},
 		{
+			Csv:       *ttoCsv,
+			Component: hcoutil.AppComponentTekton,
+		},
+		{
 			Csv:       *cdiCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
@@ -413,6 +419,7 @@ func getOperatorParameters() *components.DeploymentOperatorParams {
 		CdiVersion:         *cdiVersion,
 		CnaoVersion:        *cnaoVersion,
 		SspVersion:         *sspVersion,
+		TtoVersion:         *ttoVersion,
 		NmoVersion:         *nmoVersion,
 		HppoVersion:        *hppoVersion,
 		Env:                []corev1.EnvVar{},

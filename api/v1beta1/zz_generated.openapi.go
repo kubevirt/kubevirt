@@ -215,6 +215,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"deployTektonTaskResources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -409,6 +417,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 						SchemaProps: spec.SchemaProps{
 							Description: "TLSSecurityProfile specifies the settings for TLS connections to be propagated to all kubevirt-hyperconverged components. If unset, the hyperconverged cluster operator will consume the value set on the APIServer CR on OCP/OKD or Intermediate if on vanilla k8s. Note that only Old, Intermediate and Custom profiles are currently supported, and the maximum available MinTLSVersions is VersionTLS12.",
 							Ref:         ref("github.com/openshift/api/config/v1.TLSSecurityProfile"),
+						},
+					},
+					"tektonPipelinesNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TektonPipelinesNamespace defines namespace in which example pipelines will be deployed.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

@@ -52,6 +52,7 @@ spec:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
               featureGates:
+                deployTektonTaskResources: false
                 enableCommonBootImageImport: true
                 sriovLiveMigration: true
                 withHostPassthroughCPU: false
@@ -849,6 +850,7 @@ spec:
                 x-kubernetes-list-type: atomic
               featureGates:
                 default:
+                  deployTektonTaskResources: false
                   enableCommonBootImageImport: true
                   sriovLiveMigration: true
                   withHostPassthroughCPU: false
@@ -856,6 +858,11 @@ spec:
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
+                  deployTektonTaskResources:
+                    default: false
+                    description: deploy resources (kubevirt tekton tasks and example
+                      pipelines) in Tekton tasks operator
+                    type: boolean
                   enableCommonBootImageImport:
                     default: true
                     description: 'Opt-in to automatic delivery/updates of the common
@@ -2123,6 +2130,10 @@ spec:
                     type: array
                     x-kubernetes-list-type: set
                 type: object
+              tektonPipelinesNamespace:
+                description: TektonPipelinesNamespace defines namespace in which example
+                  pipelines will be deployed.
+                type: string
               tlsSecurityProfile:
                 description: TLSSecurityProfile specifies the settings for TLS connections
                   to be propagated to all kubevirt-hyperconverged components. If unset,

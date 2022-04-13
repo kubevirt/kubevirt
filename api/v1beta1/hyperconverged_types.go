@@ -51,7 +51,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true}
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -141,6 +141,11 @@ type HyperConvergedSpec struct {
 	// MinTLSVersions is VersionTLS12.
 	// +optional
 	TLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
+
+	// TektonPipelinesNamespace defines namespace in which example pipelines will
+	// be deployed.
+	// +optional
+	TektonPipelinesNamespace *string `json:"tektonPipelinesNamespace,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -259,6 +264,11 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=true
 	EnableCommonBootImageImport bool `json:"enableCommonBootImageImport"`
+
+	// deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator
+	// +optional
+	// +kubebuilder:default=false
+	DeployTektonTaskResources bool `json:"deployTektonTaskResources"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -501,7 +511,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`
