@@ -424,7 +424,7 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 		memory = *vmi.Spec.Domain.Memory.Guest
 	}
 
-	//get total data Size
+	// get total data Size
 	if vmi.Status.MigrationMethod == v1.BlockMigration {
 		disksSize := getVMIEphemeralDisksTotalSize()
 		memory.Add(*disksSize)
@@ -753,7 +753,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		sev := kutil.IsSEVVMI(vmi)
 
 		if !l.efiEnvironment.Bootable(secureBoot, sev) {
-			log.Log.Reason(err).Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
+			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
 			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
 		}
 
@@ -913,7 +913,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	//Look up all the disks to detach
+	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
@@ -927,7 +927,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			return nil, err
 		}
 	}
-	//Look up all the disks to attach
+	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
 		if err != nil {
