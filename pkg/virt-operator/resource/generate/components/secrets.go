@@ -29,6 +29,7 @@ const (
 	VirtOperatorCertSecretName      = "kubevirt-operator-certs"
 	VirtApiCertSecretName           = "kubevirt-virt-api-certs"
 	VirtControllerCertSecretName    = "kubevirt-controller-certs"
+	VirtExportProxyCertSecretName   = "kubevirt-exportproxy-certs"
 	CABundleKey                     = "ca-bundle"
 	LocalPodDNStemplateString       = "%s.%s.pod.cluster.local"
 	CaClusterLocal                  = "cluster.local"
@@ -124,6 +125,23 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			duration,
 		)
 		return clientKeyPair.Cert, clientKeyPair.Key
+	},
+	VirtExportProxyCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*rsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewServerKeyPair(
+			caKeyPair,
+			fmt.Sprintf(localPodDNStemplateString, VirtExportProxyServiceName, secret.Namespace),
+			VirtExportProxyServiceName,
+			secret.Namespace,
+			caClusterLocal,
+			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
 	},
 }
 
@@ -234,6 +252,20 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      VirtControllerCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtExportProxyCertSecretName,
 				Namespace: installNamespace,
 				Labels: map[string]string{
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,

@@ -232,6 +232,7 @@ var _ = Describe("Certificate Management", func() {
 			Entry("virt-controller", VirtControllerCertSecretName),
 			Entry("virt-api", VirtApiCertSecretName),
 			Entry("virt-operator", VirtOperatorCertSecretName),
+			Entry("virt-exportproxy", VirtExportProxyCertSecretName),
 		)
 
 		It("should suggest earlier rotation if CA expires before cert", func() {

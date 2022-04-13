@@ -64,6 +64,7 @@ type templateData struct {
 	VirtControllerSha      string
 	VirtHandlerSha         string
 	VirtLauncherSha        string
+	VirtExportProxySha     string
 	GsSha                  string
 	PriorityClassSpec      string
 	FeatureGates           []string
@@ -94,6 +95,7 @@ func main() {
 	virtControllerSha := flag.String("virt-controller-sha", "", "")
 	virtHandlerSha := flag.String("virt-handler-sha", "", "")
 	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
+	virtExportProxySha := flag.String("virt-exportproxy-sha", "", "")
 	gsSha := flag.String("gs-sha", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 2, "")
@@ -137,6 +139,7 @@ func main() {
 		data.VirtControllerSha = *virtControllerSha
 		data.VirtHandlerSha = *virtHandlerSha
 		data.VirtLauncherSha = *virtLauncherSha
+		data.VirtExportProxySha = *virtExportProxySha
 		data.GsSha = *gsSha
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
@@ -187,6 +190,7 @@ func main() {
 		data.VirtControllerSha = "{{.VirtControllerSha}}"
 		data.VirtHandlerSha = "{{.VirtHandlerSha}}"
 		data.VirtLauncherSha = "{{.VirtLauncherSha}}"
+		data.VirtExportProxySha = "{{.VirtExportProxySha}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorCsv = "{{.OperatorCsv}}"
@@ -261,6 +265,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtControllerSha,
 		data.VirtHandlerSha,
 		data.VirtLauncherSha,
+		data.VirtExportProxySha,
 		data.GsSha)
 	if err != nil {
 		panic(err)

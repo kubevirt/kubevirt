@@ -311,6 +311,18 @@ func haveControllerDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v
 	return true
 }
 
+func haveExportProxyDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range targetStrategy.ExportProxyDeployments() {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+
+	return true
+}
+
 func haveDaemonSetsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, daemonSet := range targetStrategy.DaemonSets() {
 		if !util.DaemonsetIsReady(kv, daemonSet, stores) {
@@ -487,10 +499,11 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	infrastructureRolledOver := false
-	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && daemonSetsRolledOver {
+	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver {
 
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
@@ -644,6 +657,18 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
+		deployment, err := r.syncDeployment(deployment)
+		if err != nil {
+			return false, err
+		}
+		err = r.syncPodDisruptionBudgetForDeployment(deployment)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// create/update ExportProxy Deployments
+	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
 		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err

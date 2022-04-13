@@ -269,6 +269,10 @@ func tokenChecker(tokenGetter TokenGetterFunc, nextHandler http.Handler) http.Ha
 
 func archiveHandler(mountPoint string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		tarReader, err := newTarReader(mountPoint)
 		if err != nil {
 			log.Log.Reason(err).Error("error creating tar reader")
@@ -288,6 +292,10 @@ func archiveHandler(mountPoint string) http.Handler {
 
 func gzipHandler(filePath string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		f, err := os.Open(filePath)
 		if err != nil {
 			log.Log.Reason(err).Errorf("error opening %s", filePath)

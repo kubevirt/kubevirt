@@ -149,6 +149,21 @@ func (ins *Strategy) ControllerDeployments() []*appsv1.Deployment {
 	return deployments
 }
 
+func (ins *Strategy) ExportProxyDeployments() []*appsv1.Deployment {
+	// XXX TODO - check export feature gate
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range ins.deployments {
+		if !strings.Contains(deployment.Name, "virt-exportproxy") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+
+	}
+
+	return deployments
+}
+
 func (ins *Strategy) DaemonSets() []*appsv1.DaemonSet {
 	return ins.daemonSets
 }
@@ -467,6 +482,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
+	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
 	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
@@ -480,6 +496,12 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.deployments = append(strategy.deployments, controller)
 
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
+
+	exportProxyDeployment, err := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	if err != nil {
+		return nil, fmt.Errorf("error generating export proxy deployment %v", err)
+	}
+	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
 	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), productName, productVersion, productComponent, config.GetImagePullPolicy(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
