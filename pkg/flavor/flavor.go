@@ -321,6 +321,11 @@ func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefere
 func applyDiskPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for diskIndex := range vmiSpec.Domain.Devices.Disks {
 		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
+		// If we don't have a target device defined default to a DiskTarget so we can apply preferences
+		if vmiDisk.DiskDevice.Disk == nil && vmiDisk.DiskDevice.CDRom == nil && vmiDisk.DiskDevice.LUN == nil {
+			vmiDisk.DiskDevice.Disk = &virtv1.DiskTarget{}
+		}
+
 		if vmiDisk.DiskDevice.Disk != nil {
 			if preferenceSpec.Devices.PreferredDiskBus != "" && vmiDisk.DiskDevice.Disk.Bus == "" {
 				vmiDisk.DiskDevice.Disk.Bus = preferenceSpec.Devices.PreferredDiskBus

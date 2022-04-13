@@ -610,6 +610,17 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue))
 
 			})
+
+			It("When passed Preference and a disk doesn't have a DiskDevice target defined", func() {
+
+				vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk = nil
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
+
+			})
 		})
 	})
 })
