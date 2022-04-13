@@ -185,6 +185,16 @@ func WithEvictionStrategy(evictionStrategy v1.EvictionStrategy) Option {
 	}
 }
 
+// WithHugePages configures the vmi to use hugepages
+func WithHugePages(hugepages *v1.Hugepages) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Memory == nil {
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+		}
+		vmi.Spec.Domain.Memory.Hugepages = hugepages
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
