@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package libstorage
 
 import (
 	"encoding/json"
@@ -45,7 +45,11 @@ type KubeVirtTestsConfiguration struct {
 	StorageSnapshot string `json:"storageSnapshot"`
 }
 
-func loadConfig() (*KubeVirtTestsConfiguration, error) {
+const kubevirtIoTest = "kubevirt.io/test"
+
+var Config *KubeVirtTestsConfiguration
+
+func LoadConfig() (*KubeVirtTestsConfiguration, error) {
 	// open configuration file
 	jsonFile, err := os.Open(flags.ConfigFile)
 	if err != nil {

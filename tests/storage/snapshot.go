@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -1085,7 +1086,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+				dataVolume := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
@@ -1147,7 +1148,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", nil
 	}
 
-	configuredStorageClass, exists := tests.GetSnapshotStorageClass()
+	configuredStorageClass, exists := libstorage.GetSnapshotStorageClass()
 	if exists {
 		return configuredStorageClass, nil
 	}
