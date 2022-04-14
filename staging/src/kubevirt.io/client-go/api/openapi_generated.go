@@ -22859,6 +22859,24 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"),
 						},
 					},
+					"gpus": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines any GPU devices associated with the flavor.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/core/v1.GPU"),
+									},
+								},
+							},
+						},
+					},
 					"ioThreadsPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Optionally defines the IOThreadsPolicy to be used by the flavor.",
@@ -22877,7 +22895,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/flavor/v1alpha1.CPUFlavor", "kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"},
+			"kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/flavor/v1alpha1.CPUFlavor", "kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"},
 	}
 }
 

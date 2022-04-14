@@ -59,6 +59,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 		conflicts = append(conflicts, applyMemory(field, flavorSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyIOThreadPolicy(field, flavorSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyLaunchSecurity(field, flavorSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyGPUs(field, flavorSpec, vmiSpec)...)
 	}
 
 	if preferenceSpec != nil {
@@ -293,6 +294,22 @@ func applyLaunchSecurity(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Virtua
 	}
 
 	vmiSpec.Domain.LaunchSecurity = flavorSpec.LaunchSecurity.DeepCopy()
+
+	return nil
+}
+
+func applyGPUs(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+
+	if len(flavorSpec.GPUs) == 0 {
+		return nil
+	}
+
+	if len(vmiSpec.Domain.Devices.GPUs) >= 1 {
+		return Conflicts{field.Child("domain", "devices", "gpus")}
+	}
+
+	vmiSpec.Domain.Devices.GPUs = make([]v1.GPU, len(flavorSpec.GPUs))
+	copy(vmiSpec.Domain.Devices.GPUs, flavorSpec.GPUs)
 
 	return nil
 }

@@ -485,6 +485,13 @@ func (in *VirtualMachineFlavorSpec) DeepCopyInto(out *VirtualMachineFlavorSpec) 
 	*out = *in
 	in.CPU.DeepCopyInto(&out.CPU)
 	in.Memory.DeepCopyInto(&out.Memory)
+	if in.GPUs != nil {
+		in, out := &in.GPUs, &out.GPUs
+		*out = make([]v1.GPU, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.IOThreadsPolicy != nil {
 		in, out := &in.IOThreadsPolicy, &out.IOThreadsPolicy
 		*out = new(v1.IOThreadsPolicy)

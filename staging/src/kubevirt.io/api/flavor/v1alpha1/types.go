@@ -83,6 +83,12 @@ type VirtualMachineFlavorSpec struct {
 
 	Memory MemoryFlavor `json:"memory"`
 
+	// Optionally defines any GPU devices associated with the flavor.
+	//
+	// +optional
+	// +listType=atomic
+	GPUs []v1.GPU `json:"gpus,omitempty"`
+
 	// Optionally defines the IOThreadsPolicy to be used by the flavor.
 	//
 	// +optional

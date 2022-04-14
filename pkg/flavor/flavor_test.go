@@ -521,6 +521,44 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 		})
 
+		Context("flavor.Spec.GPUs", func() {
+
+			BeforeEach(func() {
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					GPUs: []v1.GPU{
+						v1.GPU{
+							Name:       "barfoo",
+							DeviceName: "vendor.com/gpu_name",
+						},
+					},
+				}
+			})
+
+			It("in full to VMI", func() {
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(vmi.Spec.Domain.Devices.GPUs).To(Equal(flavorSpec.GPUs))
+
+			})
+
+			It("detects GPU conflict", func() {
+
+				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+					v1.GPU{
+						Name:       "foobar",
+						DeviceName: "vendor.com/gpu_name",
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.devices.gpus"))
+
+			})
+		})
+
 		// TODO - break this up into smaller more targeted tests
 		Context("Preference.Devices ", func() {
 

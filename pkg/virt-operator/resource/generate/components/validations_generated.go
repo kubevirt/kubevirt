@@ -6864,6 +6864,45 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        gpus:
+          description: Optionally defines any GPU devices associated with the flavor.
+          items:
+            properties:
+              deviceName:
+                type: string
+              name:
+                description: Name of the GPU device as exposed by a device plugin
+                type: string
+              tag:
+                description: If specified, the virtual network interface address and
+                  its tag will be provided to the guest via config drive
+                type: string
+              virtualGPUOptions:
+                properties:
+                  display:
+                    properties:
+                      enabled:
+                        description: Enabled determines if a display addapter backed
+                          by a vGPU should be enabled or disabled on the guest. Defaults
+                          to true.
+                        type: boolean
+                      ramFB:
+                        description: Enables a boot framebuffer, until the guest OS
+                          loads a real GPU driver Defaults to true.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                type: object
+            required:
+            - deviceName
+            - name
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the flavor.
           type: string
@@ -7445,6 +7484,45 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        gpus:
+          description: Optionally defines any GPU devices associated with the flavor.
+          items:
+            properties:
+              deviceName:
+                type: string
+              name:
+                description: Name of the GPU device as exposed by a device plugin
+                type: string
+              tag:
+                description: If specified, the virtual network interface address and
+                  its tag will be provided to the guest via config drive
+                type: string
+              virtualGPUOptions:
+                properties:
+                  display:
+                    properties:
+                      enabled:
+                        description: Enabled determines if a display addapter backed
+                          by a vGPU should be enabled or disabled on the guest. Defaults
+                          to true.
+                        type: boolean
+                      ramFB:
+                        description: Enables a boot framebuffer, until the guest OS
+                          loads a real GPU driver Defaults to true.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                type: object
+            required:
+            - deviceName
+            - name
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the flavor.
           type: string

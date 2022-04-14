@@ -18155,6 +18155,14 @@
      "cpu": {
       "$ref": "#/definitions/v1alpha1.CPUFlavor"
      },
+     "gpus": {
+      "description": "Optionally defines any GPU devices associated with the flavor.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.GPU"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "ioThreadsPolicy": {
       "description": "Optionally defines the IOThreadsPolicy to be used by the flavor.",
       "type": "string"
