@@ -9,7 +9,7 @@
 | End-user | NVIDIA | 2018 | [link](https://www.nvidia.com) | NVIDIA's latest computing platform is built on open-source projects like Kubernetes and KubeVirt to power products like [GeForce NOW](https://www.nvidia.com/en-us/geforce-now/) with more to come. |
 | Integration | minikube | 2020 | [link](https://minikube.sigs.k8s.io) | |
 | Integration | oVirt | | [link](https://www.ovirt.org/documentation/administration_guide/index.html#proc-adding-kubevirt-openshift-as-an-external-provider_external_providers) | |
-| Integration | okd | 2020 | [link](https://minikube.sigs.k8s.io) | |
+| Integration | okd | 2020 | [link](https://www.okd.io) | |
 | Vendor | EQUINIX | | [link](https://metal.equinix.com/) | |
 | Vendor | H3C | 2019 | [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites. |
 | Vendor | KUBERMATIC | 2019 | [link](https://www.kubermatic.com/products/kubevirt/) | As a distributor we are running KubeVirt to enable VM workload on Kubermatic Virtualization. |
