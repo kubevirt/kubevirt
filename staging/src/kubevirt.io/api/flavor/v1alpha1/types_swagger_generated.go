@@ -30,7 +30,7 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true1",
+		"":                "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true",
 		"ioThreadsPolicy": "Optionally defines the IOThreadsPolicy to be used by the flavor.\n\n+optional",
 		"launchSecurity":  "Optionally defines the LaunchSecurity to be used by the flavor.\n\n+optional",
 	}
@@ -85,6 +85,7 @@ func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
 func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
+		"clock":    "+optional",
 		"cpu":      "+optional",
 		"devices":  "+optional",
 		"features": "+optional",
@@ -124,6 +125,7 @@ func (DevicePreferences) SwaggerDoc() map[string]string {
 		"preferredRng":                        "PreferredRng optionally defines the preferred rng device to be used.\n\n+optional",
 		"preferredBlockMultiQueue":            "PreferredBlockMultiQueue optionally enables the vhost multiqueue feature for virtio disks.\n\n+optional",
 		"preferredNetworkInterfaceMultiQueue": "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.\n\n+optional",
+		"preferredTPM":                        "PreferredTPM optionally defines the preferred TPM device to be used.\n\n+optional",
 	}
 }
 
@@ -153,5 +155,13 @@ func (MachinePreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "MachinePreferences contains various optional defaults for Machine.\n\n+k8s:openapi-gen=true",
 		"preferredMachineType": "PreferredMachineType optionally defines the preferred machine type to use.\n\n+optional",
+	}
+}
+
+func (ClockPreferences) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "ClockPreferences contains various optional defaults for Clock.\n\n+k8s:openapi-gen=true",
+		"preferredClockOffset": "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.\n\n+optional",
+		"preferredTimer":       "Timer specifies whih timers are attached to the vmi.\n\n+optional",
 	}
 }

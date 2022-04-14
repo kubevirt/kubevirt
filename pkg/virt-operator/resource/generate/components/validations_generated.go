@@ -6921,6 +6921,97 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: VirtualMachinePreferenceSpec
       properties:
+        clock:
+          description: ClockPreferences contains various optional defaults for Clock.
+          properties:
+            preferredClockOffset:
+              description: ClockOffset allows specifying the UTC offset or the timezone
+                of the guest clock.
+              properties:
+                timezone:
+                  description: Timezone sets the guest clock to the specified timezone.
+                    Zone name follows the TZ environment variable format (e.g. 'America/New_York').
+                  type: string
+                utc:
+                  description: UTC sets the guest clock to UTC on each boot. If an
+                    offset is specified, guest changes to the clock will be kept during
+                    reboots and are not reset.
+                  properties:
+                    offsetSeconds:
+                      description: OffsetSeconds specifies an offset in seconds, relative
+                        to UTC. If set, guest changes to the clock will be kept during
+                        reboots and not reset.
+                      type: integer
+                  type: object
+              type: object
+            preferredTimer:
+              description: Timer specifies whih timers are attached to the vmi.
+              properties:
+                hpet:
+                  description: HPET (High Precision Event Timer) - multiple timers
+                    with periodic interrupts.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                    tickPolicy:
+                      description: TickPolicy determines what happens when QEMU misses
+                        a deadline for injecting a tick to the guest. One of "delay",
+                        "catchup", "merge", "discard".
+                      type: string
+                  type: object
+                hyperv:
+                  description: Hyperv (Hypervclock) - lets guests read the host’s
+                    wall clock time (paravirtualized). For windows guests.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                  type: object
+                kvm:
+                  description: "KVM \t(KVM clock) - lets guests read the host’s wall
+                    clock time (paravirtualized). For linux guests."
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                  type: object
+                pit:
+                  description: PIT (Programmable Interval Timer) - a timer with periodic
+                    interrupts.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                    tickPolicy:
+                      description: TickPolicy determines what happens when QEMU misses
+                        a deadline for injecting a tick to the guest. One of "delay",
+                        "catchup", "discard".
+                      type: string
+                  type: object
+                rtc:
+                  description: RTC (Real Time Clock) - a continuously running timer
+                    with periodic interrupts.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                    tickPolicy:
+                      description: TickPolicy determines what happens when QEMU misses
+                        a deadline for injecting a tick to the guest. One of "delay",
+                        "catchup".
+                      type: string
+                    track:
+                      description: Track the guest or the wall clock.
+                      type: string
+                  type: object
+              type: object
+          type: object
         cpu:
           description: PreferencesCPU
           properties:
@@ -7028,6 +7119,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredSoundModel optionally defines the preferred model
                 for Sound devices.
               type: string
+            preferredTPM:
+              description: PreferredTPM optionally defines the preferred TPM device
+                to be used.
+              type: object
             preferredUseVirtioTransitional:
               description: PreferredUseVirtioTransitional optionally defines the preferred
                 value of UseVirtioTransitional
@@ -18059,6 +18154,97 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: VirtualMachinePreferenceSpec
       properties:
+        clock:
+          description: ClockPreferences contains various optional defaults for Clock.
+          properties:
+            preferredClockOffset:
+              description: ClockOffset allows specifying the UTC offset or the timezone
+                of the guest clock.
+              properties:
+                timezone:
+                  description: Timezone sets the guest clock to the specified timezone.
+                    Zone name follows the TZ environment variable format (e.g. 'America/New_York').
+                  type: string
+                utc:
+                  description: UTC sets the guest clock to UTC on each boot. If an
+                    offset is specified, guest changes to the clock will be kept during
+                    reboots and are not reset.
+                  properties:
+                    offsetSeconds:
+                      description: OffsetSeconds specifies an offset in seconds, relative
+                        to UTC. If set, guest changes to the clock will be kept during
+                        reboots and not reset.
+                      type: integer
+                  type: object
+              type: object
+            preferredTimer:
+              description: Timer specifies whih timers are attached to the vmi.
+              properties:
+                hpet:
+                  description: HPET (High Precision Event Timer) - multiple timers
+                    with periodic interrupts.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                    tickPolicy:
+                      description: TickPolicy determines what happens when QEMU misses
+                        a deadline for injecting a tick to the guest. One of "delay",
+                        "catchup", "merge", "discard".
+                      type: string
+                  type: object
+                hyperv:
+                  description: Hyperv (Hypervclock) - lets guests read the host’s
+                    wall clock time (paravirtualized). For windows guests.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                  type: object
+                kvm:
+                  description: "KVM \t(KVM clock) - lets guests read the host’s wall
+                    clock time (paravirtualized). For linux guests."
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                  type: object
+                pit:
+                  description: PIT (Programmable Interval Timer) - a timer with periodic
+                    interrupts.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                    tickPolicy:
+                      description: TickPolicy determines what happens when QEMU misses
+                        a deadline for injecting a tick to the guest. One of "delay",
+                        "catchup", "discard".
+                      type: string
+                  type: object
+                rtc:
+                  description: RTC (Real Time Clock) - a continuously running timer
+                    with periodic interrupts.
+                  properties:
+                    present:
+                      description: Enabled set to false makes sure that the machine
+                        type or a preset can't add the timer. Defaults to true.
+                      type: boolean
+                    tickPolicy:
+                      description: TickPolicy determines what happens when QEMU misses
+                        a deadline for injecting a tick to the guest. One of "delay",
+                        "catchup".
+                      type: string
+                    track:
+                      description: Track the guest or the wall clock.
+                      type: string
+                  type: object
+              type: object
+          type: object
         cpu:
           description: PreferencesCPU
           properties:
@@ -18166,6 +18352,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredSoundModel optionally defines the preferred model
                 for Sound devices.
               type: string
+            preferredTPM:
+              description: PreferredTPM optionally defines the preferred TPM device
+                to be used.
+              type: object
             preferredUseVirtioTransitional:
               description: PreferredUseVirtioTransitional optionally defines the preferred
                 value of UseVirtioTransitional

@@ -67,6 +67,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
 		applyMachinePreferences(preferenceSpec, vmiSpec)
+		applyClockPreferences(preferenceSpec, vmiSpec)
 	}
 
 	return conflicts
@@ -349,6 +350,10 @@ func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefere
 		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.BoolPtr(true)
 	}
 
+	if preferenceSpec.Devices.PreferredTPM != nil && vmiSpec.Domain.Devices.TPM == nil {
+		vmiSpec.Domain.Devices.TPM = preferenceSpec.Devices.PreferredTPM.DeepCopy()
+	}
+
 	applyDiskPreferences(preferenceSpec, vmiSpec)
 	applyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
@@ -563,5 +568,24 @@ func applyMachinePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefer
 
 	if preferenceSpec.Machine.PreferredMachineType != "" && vmiSpec.Domain.Machine.Type == "" {
 		vmiSpec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+	}
+}
+
+func applyClockPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.Clock == nil {
+		return
+	}
+
+	if vmiSpec.Domain.Clock == nil {
+		vmiSpec.Domain.Clock = &v1.Clock{}
+	}
+
+	// We don't want to allow a partial overwrite here as that could lead to some unexpected behaviour for users so only replace when nothing is set
+	if preferenceSpec.Clock.PreferredClockOffset != nil && vmiSpec.Domain.Clock.ClockOffset.UTC == nil && vmiSpec.Domain.Clock.ClockOffset.Timezone == nil {
+		vmiSpec.Domain.Clock.ClockOffset = *preferenceSpec.Clock.PreferredClockOffset.DeepCopy()
+	}
+
+	if preferenceSpec.Clock.PreferredTimer != nil && vmiSpec.Domain.Clock.Timer == nil {
+		vmiSpec.Domain.Clock.Timer = preferenceSpec.Clock.PreferredTimer.DeepCopy()
 	}
 }

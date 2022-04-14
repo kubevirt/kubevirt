@@ -13664,6 +13664,20 @@
      }
     }
    },
+   "v1.ClockOffset": {
+    "description": "Exactly one of its members must be set.",
+    "type": "object",
+    "properties": {
+     "timezone": {
+      "description": "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York').",
+      "type": "string"
+     },
+     "utc": {
+      "description": "UTC sets the guest clock to UTC on each boot. If an offset is specified, guest changes to the clock will be kept during reboots and are not reset.",
+      "$ref": "#/definitions/v1.ClockOffsetUTC"
+     }
+    }
+   },
    "v1.ClockOffsetUTC": {
     "description": "UTC sets the guest clock to UTC on each boot.",
     "type": "object",
@@ -17620,6 +17634,20 @@
      }
     }
    },
+   "v1alpha1.ClockPreferences": {
+    "description": "ClockPreferences contains various optional defaults for Clock.",
+    "type": "object",
+    "properties": {
+     "preferredClockOffset": {
+      "description": "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.",
+      "$ref": "#/definitions/v1.ClockOffset"
+     },
+     "preferredTimer": {
+      "description": "Timer specifies whih timers are attached to the vmi.",
+      "$ref": "#/definitions/v1.Timer"
+     }
+    }
+   },
    "v1alpha1.Condition": {
     "description": "Condition defines conditions",
     "type": "object",
@@ -17733,6 +17761,10 @@
      "preferredSoundModel": {
       "description": "PreferredSoundModel optionally defines the preferred model for Sound devices.",
       "type": "string"
+     },
+     "preferredTPM": {
+      "description": "PreferredTPM optionally defines the preferred TPM device to be used.",
+      "$ref": "#/definitions/v1.TPMDevice"
      },
      "preferredUseVirtioTransitional": {
       "description": "PreferredUseVirtioTransitional optionally defines the preferred value of UseVirtioTransitional",
@@ -18322,6 +18354,9 @@
     "description": "VirtualMachinePreferenceSpec",
     "type": "object",
     "properties": {
+     "clock": {
+      "$ref": "#/definitions/v1alpha1.ClockPreferences"
+     },
      "cpu": {
       "$ref": "#/definitions/v1alpha1.CPUPreferences"
      },

@@ -493,6 +493,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                     schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUFlavor":                                                  schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.CPUPreferences":                                             schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref),
+		"kubevirt.io/api/flavor/v1alpha1.ClockPreferences":                                           schema_kubevirtio_api_flavor_v1alpha1_ClockPreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.DevicePreferences":                                          schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.FeaturePreferences":                                         schema_kubevirtio_api_flavor_v1alpha1_FeaturePreferences(ref),
 		"kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences":                                        schema_kubevirtio_api_flavor_v1alpha1_FirmwarePreferences(ref),
@@ -22242,6 +22243,33 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_ClockPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClockPreferences contains various optional defaults for Clock.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"preferredClockOffset": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.",
+							Ref:         ref("kubevirt.io/api/core/v1.ClockOffset"),
+						},
+					},
+					"preferredTimer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timer specifies whih timers are attached to the vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.Timer"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.ClockOffset", "kubevirt.io/api/core/v1.Timer"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22393,11 +22421,17 @@ func schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"preferredTPM": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredTPM optionally defines the preferred TPM device to be used.",
+							Ref:         ref("kubevirt.io/api/core/v1.TPMDevice"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.VGPUOptions"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
 	}
 }
 
@@ -22946,6 +22980,11 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 				Description: "VirtualMachinePreferenceSpec",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"clock": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/flavor/v1alpha1.ClockPreferences"),
+						},
+					},
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUPreferences"),
@@ -22975,7 +23014,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences", "kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences", "kubevirt.io/api/flavor/v1alpha1.MachinePreferences"},
+			"kubevirt.io/api/flavor/v1alpha1.CPUPreferences", "kubevirt.io/api/flavor/v1alpha1.ClockPreferences", "kubevirt.io/api/flavor/v1alpha1.DevicePreferences", "kubevirt.io/api/flavor/v1alpha1.FeaturePreferences", "kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences", "kubevirt.io/api/flavor/v1alpha1.MachinePreferences"},
 	}
 }
 

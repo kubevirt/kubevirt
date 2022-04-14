@@ -620,6 +620,7 @@ var _ = Describe("Flavor and Preferences", func() {
 						PreferredInterfaceModel: "virtio",
 						PreferredSoundModel:     "ac97",
 						PreferredRng:            &v1.Rng{},
+						PreferredTPM:            &v1.TPMDevice{},
 					},
 				}
 
@@ -662,6 +663,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.Rng).To(Equal(*preferenceSpec.Devices.PreferredRng))
 				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))
 				Expect(*vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue))
+				Expect(*vmi.Spec.Domain.Devices.TPM).To(Equal(*preferenceSpec.Devices.PreferredTPM))
 
 			})
 
@@ -800,6 +802,29 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(conflicts).To(HaveLen(0))
 
 				Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
+			})
+		})
+		Context("Preference.Clock ", func() {
+
+			It("in full to VMI", func() {
+				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
+					Clock: &flavorv1alpha1.ClockPreferences{
+						PreferredClockOffset: &v1.ClockOffset{
+							UTC: &v1.ClockOffsetUTC{
+								OffsetSeconds: pointer.Int(30),
+							},
+						},
+						PreferredTimer: &v1.Timer{
+							Hyperv: &v1.HypervTimer{},
+						},
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(*&vmi.Spec.Domain.Clock.ClockOffset).To(Equal(*preferenceSpec.Clock.PreferredClockOffset))
+				Expect(*vmi.Spec.Domain.Clock.Timer).To(Equal(*preferenceSpec.Clock.PreferredTimer))
 			})
 		})
 	})

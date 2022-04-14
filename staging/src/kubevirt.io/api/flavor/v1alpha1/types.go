@@ -196,6 +196,9 @@ type VirtualMachineClusterPreferenceList struct {
 type VirtualMachinePreferenceSpec struct {
 
 	//+optional
+	Clock *ClockPreferences `json:"clock,omitempty"`
+
+	//+optional
 	CPU *CPUPreferences `json:"cpu,omitempty"`
 
 	//+optional
@@ -339,6 +342,11 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredNetworkInterfaceMultiQueue *bool `json:"preferredNetworkInterfaceMultiQueue,omitempty"`
+
+	// PreferredTPM optionally defines the preferred TPM device to be used.
+	//
+	// +optional
+	PreferredTPM *v1.TPMDevice `json:"preferredTPM,omitempty"`
 }
 
 // FeaturePreferences contains various optional defaults for Features.
@@ -416,4 +424,20 @@ type MachinePreferences struct {
 	//
 	// +optional
 	PreferredMachineType string `json:"preferredMachineType,omitempty"`
+}
+
+// ClockPreferences contains various optional defaults for Clock.
+//
+// +k8s:openapi-gen=true
+type ClockPreferences struct {
+
+	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock.
+	//
+	// +optional
+	PreferredClockOffset *v1.ClockOffset `json:"preferredClockOffset,omitempty"`
+
+	// Timer specifies whih timers are attached to the vmi.
+	//
+	// +optional
+	PreferredTimer *v1.Timer `json:"preferredTimer,omitempty"`
 }
