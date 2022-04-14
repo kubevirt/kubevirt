@@ -17955,17 +17955,31 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"persistentVolumeClaim": {
+					"claimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the virt launcher",
-							Ref:         ref("kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+							Description: "ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Will force the ReadOnly setting in VolumeMounts. Default false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hotpluggable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
+				Required: []string{"claimName"},
 			},
 		},
-		Dependencies: []string{
-			"kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
 	}
 }
 

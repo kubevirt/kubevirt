@@ -1798,7 +1798,7 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 	} else if volume.PersistentVolumeClaim != nil {
 		name = volume.PersistentVolumeClaim.ClaimName
 	} else if volume.MemoryDump != nil {
-		name = volume.MemoryDump.PersistentVolumeClaim.ClaimName
+		name = volume.MemoryDump.ClaimName
 	}
 
 	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
@@ -2073,8 +2073,8 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				pvcName = volume.VolumeSource.PersistentVolumeClaim.ClaimName
 			} else if volume.VolumeSource.DataVolume != nil {
 				pvcName = volume.VolumeSource.DataVolume.Name
-			} else if volume.VolumeSource.MemoryDump.PersistentVolumeClaim != nil {
-				pvcName = volume.VolumeSource.MemoryDump.PersistentVolumeClaim.ClaimName
+			} else if volume.VolumeSource.MemoryDump != nil {
+				pvcName = volume.VolumeSource.MemoryDump.ClaimName
 			}
 
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
@@ -2177,7 +2177,7 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	} else if volume.PersistentVolumeClaim != nil {
 		claimName = volume.PersistentVolumeClaim.ClaimName
 	} else if volume.MemoryDump != nil {
-		claimName = volume.PersistentVolumeClaim.ClaimName
+		claimName = volume.MemoryDump.ClaimName
 	}
 
 	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))

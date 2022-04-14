@@ -430,9 +430,7 @@ func (PersistentVolumeClaimVolumeSource) SwaggerDoc() map[string]string {
 }
 
 func (MemoryDumpVolumeSource) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the virt launcher\n+optional",
-	}
+	return map[string]string{}
 }
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {

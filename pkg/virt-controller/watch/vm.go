@@ -555,7 +555,7 @@ func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *virtv1.VirtualMachineInstanc
 	}
 
 	memoryDumpVol := &virtv1.MemoryDumpVolumeSource{
-		PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+		PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
 			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			},

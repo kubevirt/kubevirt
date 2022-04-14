@@ -774,7 +774,7 @@ type MemoryDumpVolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the virt launcher
 	// +optional
-	PersistentVolumeClaim *PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	PersistentVolumeClaimVolumeSource `json:",inline"`
 }
 
 type EphemeralVolumeSource struct {

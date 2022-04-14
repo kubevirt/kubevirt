@@ -15573,10 +15573,21 @@
    },
    "v1.MemoryDumpVolumeSource": {
     "type": "object",
+    "required": [
+     "claimName"
+    ],
     "properties": {
-     "persistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the virt launcher",
-      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
+     "claimName": {
+      "description": "ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "type": "string"
+     },
+     "hotpluggable": {
+      "description": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+      "type": "boolean"
+     },
+     "readOnly": {
+      "description": "Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
      }
     }
    },
