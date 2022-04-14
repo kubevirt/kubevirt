@@ -1862,7 +1862,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -1892,7 +1892,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -1929,7 +1929,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -1968,7 +1968,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2007,7 +2007,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2015,7 +2015,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2062,7 +2062,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2070,7 +2070,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2117,7 +2117,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2149,7 +2149,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2157,7 +2157,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				},
@@ -2621,7 +2621,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
 					},
 					Target: api.DiskTarget{
-						Bus:    "virtio",
+						Bus:    v1.DiskBusVirtio,
 						Device: "vda",
 					},
 					Driver: &api.DiskDriver{
@@ -2638,7 +2638,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
 					},
 					Target: api.DiskTarget{
-						Bus:    "scsi",
+						Bus:    v1.DiskBusSCSI,
 						Device: "sda",
 					},
 					Driver: &api.DiskDriver{

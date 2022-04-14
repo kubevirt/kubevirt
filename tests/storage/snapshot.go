@@ -395,7 +395,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					Name: "blank",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				})
@@ -474,7 +474,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					Name: "blank",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				})

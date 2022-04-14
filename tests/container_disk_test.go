@@ -210,7 +210,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with virtio-win as secondary disk", func() {
 			It("[test_id:1467]should boot and have the virtio as sata CDROM", func() {
 				vmi := libvmi.NewAlpine()
-				tests.AddEphemeralCdrom(vmi, "disk4", "sata", cd.ContainerDiskFor(cd.ContainerDiskVirtio))
+				tests.AddEphemeralCdrom(vmi, "disk4", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskVirtio))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Checking whether the second disk really contains virtio drivers")

@@ -45,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -137,7 +138,7 @@ var _ = SIGDescribe("Storage", func() {
 			It(" should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi = tests.AddPVCDisk(vmi, "pvc-disk", "virtio", pvc.Name)
+				vmi = tests.AddPVCDisk(vmi, "pvc-disk", v1.DiskBusVirtio, pvc.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), failedCreateVMI)
 
@@ -323,7 +324,7 @@ var _ = SIGDescribe("Storage", func() {
 					Name: "emptydisk1",
 					DiskDevice: virtv1.DiskDevice{
 						Disk: &virtv1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				})
@@ -370,7 +371,7 @@ var _ = SIGDescribe("Storage", func() {
 					Serial: diskSerial,
 					DiskDevice: virtv1.DiskDevice{
 						Disk: &virtv1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				})
@@ -646,7 +647,7 @@ var _ = SIGDescribe("Storage", func() {
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
 				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
-				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
+				tests.AddPVCDisk(vmi, "disk1", v1.DiskBusVirtio, tests.DiskCustomHostPath)
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -736,7 +737,7 @@ var _ = SIGDescribe("Storage", func() {
 						diskPath = filepath.Join(hostDiskDir, diskName)
 					})
 
-					DescribeTable("Should create a disk image and start", func(driver string) {
+					DescribeTable("Should create a disk image and start", func(driver v1.DiskBus) {
 						By(startingVMInstance)
 						// do not choose a specific node to run the test
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
@@ -756,8 +757,8 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath(hostDiskName, diskPath)))
 					},
-						Entry("[test_id:851]with virtio driver", "virtio"),
-						Entry("[test_id:3057]with sata driver", "sata"),
+						Entry("[test_id:851]with virtio driver", v1.DiskBusVirtio),
+						Entry("[test_id:3057]with sata driver", v1.DiskBusSATA),
 					)
 
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
@@ -1117,7 +1118,7 @@ var _ = SIGDescribe("Storage", func() {
 					Name: "emptydisk1",
 					DiskDevice: virtv1.DiskDevice{
 						Disk: &virtv1.DiskTarget{
-							Bus: "scsi",
+							Bus: v1.DiskBusSCSI,
 						},
 					},
 				})
@@ -1125,7 +1126,7 @@ var _ = SIGDescribe("Storage", func() {
 					Name: "emptydisk2",
 					DiskDevice: virtv1.DiskDevice{
 						Disk: &virtv1.DiskTarget{
-							Bus: "sata",
+							Bus: v1.DiskBusSATA,
 						},
 					},
 				})
@@ -1306,8 +1307,8 @@ var _ = SIGDescribe("Storage", func() {
 				pvcClaim := "pvc-test-disk1"
 				size, _ := resource.ParseQuantity("500Mi")
 				tests.CreateBlockPVC(virtClient, pvcClaim, size)
-				tests.AddPVCDisk(vmi1, diskName, "virtio", pvcClaim)
-				tests.AddPVCDisk(vmi2, diskName, "virtio", pvcClaim)
+				tests.AddPVCDisk(vmi1, diskName, v1.DiskBusVirtio, pvcClaim)
+				tests.AddPVCDisk(vmi2, diskName, v1.DiskBusVirtio, pvcClaim)
 
 				setShareable(vmi1, diskName)
 				setShareable(vmi2, diskName)
@@ -1346,7 +1347,7 @@ var _ = SIGDescribe("Storage", func() {
 					Name: deviceName,
 					DiskDevice: virtv1.DiskDevice{
 						LUN: &virtv1.LunTarget{
-							Bus:      "scsi",
+							Bus:      v1.DiskBusSCSI,
 							ReadOnly: false,
 						},
 					},

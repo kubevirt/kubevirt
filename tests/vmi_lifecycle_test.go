@@ -381,7 +381,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				By("defining a VirtualMachineInstance with an Alpine disk")
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
 				By("adding a Cirros Disk")
-				tests.AddEphemeralDisk(vmi, "disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 				By("setting boot order")
 				vmi = tests.AddBootOrderToDisk(vmi, "disk0", &alpineBootOrder)

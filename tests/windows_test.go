@@ -97,8 +97,12 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 			Devices: v1.Devices{
 				Disks: []v1.Disk{
 					{
-						Name:       windowsDisk,
-						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "sata"}},
+						Name: windowsDisk,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
 					},
 				},
 			},

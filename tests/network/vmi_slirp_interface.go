@@ -200,7 +200,7 @@ var _ = SIGDescribe("Slirp Networking", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 			vmi.Spec.Domain.Devices = v1.Devices{}
 			vmi.Spec.Networks = nil
-			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())

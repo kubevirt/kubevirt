@@ -175,7 +175,7 @@ var _ = Describe("Template", func() {
 				{
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					Name: "containerdisk",

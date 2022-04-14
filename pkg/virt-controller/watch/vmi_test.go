@@ -44,6 +44,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
@@ -2472,7 +2473,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "existing",
 				DiskDevice: virtv1.DiskDevice{
 					Disk: &virtv1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			})
@@ -2480,7 +2481,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "hotplug",
 				DiskDevice: virtv1.DiskDevice{
 					Disk: &virtv1.DiskTarget{
-						Bus: "scsi",
+						Bus: v1.DiskBusSATA,
 					},
 				},
 			})
@@ -2554,7 +2555,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "existing",
 				DiskDevice: virtv1.DiskDevice{
 					Disk: &virtv1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			})

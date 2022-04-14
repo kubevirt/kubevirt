@@ -246,11 +246,11 @@ var getWindowsSysprepVMISpec = func() v1.VirtualMachineInstanceSpec {
 				Disks: []v1.Disk{
 					{
 						Name:       windowsSealedDisk,
-						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "sata"}},
+						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusSATA}},
 					},
 					{
 						Name:       "sysprep",
-						DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: "sata"}},
+						DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: v1.DiskBusSATA}},
 					},
 				},
 			},

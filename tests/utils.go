@@ -1854,14 +1854,14 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 	}
 	return vmi
 }
 
-func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
+func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
 		DiskDevice: v1.DiskDevice{
@@ -1892,7 +1892,7 @@ func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootord
 	return vmi
 }
 
-func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus string, claimName string) *v1.VirtualMachineInstance {
+func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
 		DiskDevice: v1.DiskDevice{
@@ -1913,7 +1913,7 @@ func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus string, claimNa
 	return vmi
 }
 
-func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
+func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
 		DiskDevice: v1.DiskDevice{
@@ -1988,7 +1988,7 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 		Name:     "disk1",
 		Virtiofs: &v1.FilesystemVirtiofs{},
@@ -2008,7 +2008,7 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	vmi = AddPVCFS(vmi, "disk1", claimName)
 	return vmi
 }
@@ -2094,7 +2094,7 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "virtio",
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})
@@ -2107,14 +2107,14 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
 	return vmi
 }
 
 func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
 	AddUserData(vmi, "disk1", userData)
 	return vmi
 }
@@ -2143,7 +2143,7 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 			CDRom: &v1.CDRomTarget{
 				// Do not specify ReadOnly flag so that
 				// default behavior can be tested
-				Bus: "sata",
+				Bus: v1.DiskBusSATA,
 			},
 		},
 	})
@@ -2165,7 +2165,7 @@ func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "sata",
+				Bus: v1.DiskBusSATA,
 			},
 		},
 	})
@@ -2196,7 +2196,7 @@ func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDi
 		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "virtio",
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})
@@ -2333,7 +2333,7 @@ func AddDownwardMetricsVolume(vmi *v1.VirtualMachineInstance, volumeName string)
 		Name: volumeName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "virtio",
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})
@@ -3443,7 +3443,7 @@ func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance
 	return podName
 }
 
-func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName, busName, diskSize string) {
+func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName string, busName v1.DiskBus, diskSize string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
 		DiskDevice: v1.DiskDevice{
@@ -4298,7 +4298,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 		Disk: &v1.Disk{
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{
-					Bus: "scsi",
+					Bus: v1.DiskBusSCSI,
 				},
 			},
 			Serial: addVolumeName,

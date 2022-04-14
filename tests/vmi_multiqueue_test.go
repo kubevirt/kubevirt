@@ -92,7 +92,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
-			tests.AddEphemeralDisk(vmi, "disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
