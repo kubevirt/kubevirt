@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -158,23 +158,23 @@ var _ = Describe("Snapshot controlleer", func() {
 		}
 	}
 
-	createVolumeSnapshots := func(content *snapshotv1.VirtualMachineSnapshotContent) []vsv1beta1.VolumeSnapshot {
-		var volumeSnapshots []vsv1beta1.VolumeSnapshot
+	createVolumeSnapshots := func(content *snapshotv1.VirtualMachineSnapshotContent) []vsv1.VolumeSnapshot {
+		var volumeSnapshots []vsv1.VolumeSnapshot
 		for _, vb := range content.Spec.VolumeBackups {
 			if vb.VolumeSnapshotName == nil {
 				continue
 			}
-			vs := vsv1beta1.VolumeSnapshot{
+			vs := vsv1.VolumeSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *vb.VolumeSnapshotName,
 					Namespace: content.Namespace,
 				},
-				Spec: vsv1beta1.VolumeSnapshotSpec{
-					Source: vsv1beta1.VolumeSnapshotSource{
+				Spec: vsv1.VolumeSnapshotSpec{
+					Source: vsv1.VolumeSnapshotSource{
 						PersistentVolumeClaimName: &vb.PersistentVolumeClaim.Name,
 					},
 				},
-				Status: &vsv1beta1.VolumeSnapshotStatus{
+				Status: &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: &f,
 				},
 			}
@@ -183,8 +183,8 @@ var _ = Describe("Snapshot controlleer", func() {
 		return volumeSnapshots
 	}
 
-	createVolumeSnapshotClasses := func() []vsv1beta1.VolumeSnapshotClass {
-		return []vsv1beta1.VolumeSnapshotClass{
+	createVolumeSnapshotClasses := func() []vsv1.VolumeSnapshotClass {
+		return []vsv1.VolumeSnapshotClass{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: volumeSnapshotClassName,
@@ -283,8 +283,8 @@ var _ = Describe("Snapshot controlleer", func() {
 			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
-			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshot{})
-			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})
+			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshot{})
+			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -378,7 +378,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockVMSnapshotQueue.Wait()
 		}
 
-		addVolumeSnapshot := func(s *vsv1beta1.VolumeSnapshot) {
+		addVolumeSnapshot := func(s *vsv1.VolumeSnapshot) {
 			syncCaches(stop)
 			mockVMSnapshotContentQueue.ExpectAdds(1)
 			volumeSnapshotSource.Add(s)
@@ -1203,7 +1203,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					message := "bad error"
 					volumeSnapshots[i].Status.ReadyToUse = &rtu
 					volumeSnapshots[i].Status.CreationTime = ct
-					volumeSnapshots[i].Status.Error = &vsv1beta1.VolumeSnapshotError{
+					volumeSnapshots[i].Status.Error = &vsv1.VolumeSnapshotError{
 						Message: &message,
 						Time:    timeFunc(),
 					}
@@ -1366,7 +1366,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Spec: extv1.CustomResourceDefinitionSpec{
 						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
-								Name:   "v1beta1",
+								Name:   "v1",
 								Served: true,
 							},
 						},
@@ -1875,7 +1875,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Spec: extv1.CustomResourceDefinitionSpec{
 						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
-								Name:   "v1beta1",
+								Name:   "v1",
 								Served: true,
 							},
 						},
@@ -1956,7 +1956,7 @@ func expectVolumeSnapshotCreates(
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 
-		createObj := create.GetObject().(*vsv1beta1.VolumeSnapshot)
+		createObj := create.GetObject().(*vsv1.VolumeSnapshot)
 		pvc, ok := volumeSnapshots[createObj.Name]
 		Expect(ok).To(BeTrue())
 		Expect(pvc).Should(Equal(*createObj.Spec.Source.PersistentVolumeClaimName))

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -94,7 +94,7 @@ type VMSnapshotController struct {
 	vmStatusUpdater *status.VMStatusUpdater
 }
 
-var supportedCRDVersions = []string{"v1beta1"}
+var supportedCRDVersions = []string{"v1"}
 
 // Init initializes the snapshot controller
 func (ctrl *VMSnapshotController) Init() {
@@ -455,7 +455,7 @@ func (ctrl *VMSnapshotController) handleVolumeSnapshotClass(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if _, ok := obj.(*vsv1beta1.VolumeSnapshotClass); ok {
+	if _, ok := obj.(*vsv1.VolumeSnapshotClass); ok {
 		for _, vmKey := range ctrl.VMInformer.GetStore().ListKeys() {
 			ctrl.vmQueue.Add(vmKey)
 		}
@@ -500,7 +500,7 @@ func (ctrl *VMSnapshotController) handleVolumeSnapshot(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if volumeSnapshot, ok := obj.(*vsv1beta1.VolumeSnapshot); ok {
+	if volumeSnapshot, ok := obj.(*vsv1.VolumeSnapshot); ok {
 		k, _ := cache.MetaNamespaceKeyFunc(volumeSnapshot)
 		keys, err := ctrl.VMSnapshotContentInformer.GetIndexer().IndexKeys("volumeSnapshot", k)
 		if err != nil {
@@ -555,7 +555,7 @@ func (ctrl *VMSnapshotController) handlePVC(obj interface{}) {
 	}
 }
 
-func (ctrl *VMSnapshotController) getVolumeSnapshot(namespace, name string) (*vsv1beta1.VolumeSnapshot, error) {
+func (ctrl *VMSnapshotController) getVolumeSnapshot(namespace, name string) (*vsv1.VolumeSnapshot, error) {
 	di := ctrl.dynamicInformerMap[volumeSnapshotCRD]
 	di.mutex.Lock()
 	defer di.mutex.Unlock()
@@ -570,10 +570,10 @@ func (ctrl *VMSnapshotController) getVolumeSnapshot(namespace, name string) (*vs
 		return nil, err
 	}
 
-	return obj.(*vsv1beta1.VolumeSnapshot).DeepCopy(), nil
+	return obj.(*vsv1.VolumeSnapshot).DeepCopy(), nil
 }
 
-func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1beta1.VolumeSnapshotClass {
+func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1.VolumeSnapshotClass {
 	di := ctrl.dynamicInformerMap[volumeSnapshotClassCRD]
 	di.mutex.Lock()
 	defer di.mutex.Unlock()
@@ -582,10 +582,10 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1beta1.VolumeS
 		return nil
 	}
 
-	var vscs []vsv1beta1.VolumeSnapshotClass
+	var vscs []vsv1.VolumeSnapshotClass
 	objs := di.informer.GetStore().List()
 	for _, obj := range objs {
-		vsc := obj.(*vsv1beta1.VolumeSnapshotClass).DeepCopy()
+		vsc := obj.(*vsv1.VolumeSnapshotClass).DeepCopy()
 		vscs = append(vscs, *vsc)
 	}
 

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -127,8 +127,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							admissionregistrationv1.Create,
 						},
 						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{vsv1beta1.GroupName},
-							APIVersions: []string{vsv1beta1.SchemeGroupVersion.Version},
+							APIGroups:   []string{vsv1.GroupName},
+							APIVersions: []string{vsv1.SchemeGroupVersion.Version},
 							Resources:   []string{"volumesnapshots"},
 						},
 					}},
@@ -677,7 +677,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 							vs, err := virtClient.
 								KubernetesSnapshotClient().
-								SnapshotV1beta1().
+								SnapshotV1().
 								VolumeSnapshots(vm.Namespace).
 								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
@@ -803,7 +803,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 							vs, err := virtClient.
 								KubernetesSnapshotClient().
-								SnapshotV1beta1().
+								SnapshotV1().
 								VolumeSnapshots(vm.Namespace).
 								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
@@ -904,7 +904,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 
 				err = virtClient.KubernetesSnapshotClient().
-					SnapshotV1beta1().
+					SnapshotV1().
 					VolumeSnapshots(vm.Namespace).
 					Delete(context.Background(), *vb.VolumeSnapshotName, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -939,20 +939,20 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				m := "bad stuff"
 				Eventually(func() bool {
 					vs, err := virtClient.KubernetesSnapshotClient().
-						SnapshotV1beta1().
+						SnapshotV1().
 						VolumeSnapshots(vm.Namespace).
 						Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					vsc := vs.DeepCopy()
 					t := metav1.Now()
-					vsc.Status.Error = &vsv1beta1.VolumeSnapshotError{
+					vsc.Status.Error = &vsv1.VolumeSnapshotError{
 						Time:    &t,
 						Message: &m,
 					}
 
 					_, err = virtClient.KubernetesSnapshotClient().
-						SnapshotV1beta1().
+						SnapshotV1().
 						VolumeSnapshots(vs.Namespace).
 						UpdateStatus(context.Background(), vsc, metav1.UpdateOptions{})
 					if errors.IsConflict(err) {
@@ -1153,7 +1153,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return configuredStorageClass, nil
 	}
 
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}

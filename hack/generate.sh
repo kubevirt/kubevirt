@@ -70,8 +70,8 @@ client-gen --clientset-name versioned \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 client-gen --clientset-name versioned \
-    --input-base github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis \
-    --input volumesnapshot/v1beta1 \
+    --input-base github.com/kubernetes-csi/external-snapshotter/client/v4/apis \
+    --input volumesnapshot/v1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/external-snapshotter/clientset \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt

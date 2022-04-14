@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +kubebuilder:object:generate=true
-package v1beta1
+package v1
 
 import (
 	core_v1 "k8s.io/api/core/v1"
@@ -31,13 +31,13 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if a snapshot is ready to be used to restore a volume."
-// +kubebuilder:printcolumn:name="SourcePVC",type=string,JSONPath=`.spec.source.persistentVolumeClaimName`,description="Name of the source PVC from where a dynamically taken snapshot will be created."
-// +kubebuilder:printcolumn:name="SourceSnapshotContent",type=string,JSONPath=`.spec.source.volumeSnapshotContentName`,description="Name of the VolumeSnapshotContent which represents a pre-provisioned snapshot."
-// +kubebuilder:printcolumn:name="RestoreSize",type=string,JSONPath=`.status.restoreSize`,description="Represents the complete size of the snapshot."
+// +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if the snapshot is ready to be used to restore a volume."
+// +kubebuilder:printcolumn:name="SourcePVC",type=string,JSONPath=`.spec.source.persistentVolumeClaimName`,description="If a new snapshot needs to be created, this contains the name of the source PVC from which this snapshot was (or will be) created."
+// +kubebuilder:printcolumn:name="SourceSnapshotContent",type=string,JSONPath=`.spec.source.volumeSnapshotContentName`,description="If a snapshot already exists, this contains the name of the existing VolumeSnapshotContent object representing the existing snapshot."
+// +kubebuilder:printcolumn:name="RestoreSize",type=string,JSONPath=`.status.restoreSize`,description="Represents the minimum size of volume required to rehydrate from this snapshot."
 // +kubebuilder:printcolumn:name="SnapshotClass",type=string,JSONPath=`.spec.volumeSnapshotClassName`,description="The name of the VolumeSnapshotClass requested by the VolumeSnapshot."
-// +kubebuilder:printcolumn:name="SnapshotContent",type=string,JSONPath=`.status.boundVolumeSnapshotContentName`,description="The name of the VolumeSnapshotContent to which this VolumeSnapshot is bound."
-// +kubebuilder:printcolumn:name="CreationTime",type=date,JSONPath=`.status.creationTime`,description="Timestamp when the point-in-time snapshot is taken by the underlying storage system."
+// +kubebuilder:printcolumn:name="SnapshotContent",type=string,JSONPath=`.status.boundVolumeSnapshotContentName`,description="Name of the VolumeSnapshotContent object to which the VolumeSnapshot object intends to bind to. Please note that verification of binding actually requires checking both VolumeSnapshot and VolumeSnapshotContent to ensure both are pointing at each other. Binding MUST be verified prior to usage of this object."
+// +kubebuilder:printcolumn:name="CreationTime",type=date,JSONPath=`.status.creationTime`,description="Timestamp when the point-in-time snapshot was taken by the underlying storage system."
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type VolumeSnapshot struct {
 	metav1.TypeMeta `json:",inline"`
@@ -52,10 +52,10 @@ type VolumeSnapshot struct {
 	Spec VolumeSnapshotSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 
 	// status represents the current information of a snapshot.
-	// NOTE: status can be modified by sources other than system controllers,
-	// and must not be depended upon for accuracy.
-	// Controllers should only use information from the VolumeSnapshotContent object
-	// after verifying that the binding is accurate and complete.
+	// Consumers must verify binding between VolumeSnapshot and
+	// VolumeSnapshotContent objects is successful (by validating that both
+	// VolumeSnapshot and VolumeSnapshotContent point at each other) before
+	// using this object.
 	// +optional
 	Status *VolumeSnapshotStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
@@ -78,12 +78,18 @@ type VolumeSnapshotSpec struct {
 	// Required.
 	Source VolumeSnapshotSource `json:"source" protobuf:"bytes,1,opt,name=source"`
 
-	// volumeSnapshotClassName is the name of the VolumeSnapshotClass requested by the VolumeSnapshot.
-	// If not specified, the default snapshot class will be used if one exists.
-	// If not specified, and there is no default snapshot class, dynamic snapshot creation will fail.
+	// VolumeSnapshotClassName is the name of the VolumeSnapshotClass
+	// requested by the VolumeSnapshot.
+	// VolumeSnapshotClassName may be left nil to indicate that the default
+	// SnapshotClass should be used.
+	// A given cluster may have multiple default Volume SnapshotClasses: one
+	// default per CSI Driver. If a VolumeSnapshot does not specify a SnapshotClass,
+	// VolumeSnapshotSource will be checked to figure out what the associated
+	// CSI Driver is, and the default VolumeSnapshotClass associated with that
+	// CSI Driver will be used. If more than one VolumeSnapshotClass exist for
+	// a given CSI Driver and more than one have been marked as default,
+	// CreateSnapshot will fail and generate an event.
 	// Empty string is not allowed for this field.
-	// TODO(xiangqian): a webhook validation on empty string.
-	// More info: https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes
 	// +optional
 	VolumeSnapshotClassName *string `json:"volumeSnapshotClassName,omitempty" protobuf:"bytes,2,opt,name=volumeSnapshotClassName"`
 }
@@ -93,48 +99,62 @@ type VolumeSnapshotSpec struct {
 // object should be used.
 // Exactly one of its members must be set.
 // Members in VolumeSnapshotSource are immutable.
-// TODO(xiangqian): Add a webhook to ensure that VolumeSnapshotSource members
-// will not be updated once specified.
 type VolumeSnapshotSource struct {
 	// persistentVolumeClaimName specifies the name of the PersistentVolumeClaim
-	// object in the same namespace as the VolumeSnapshot object where the
-	// snapshot should be dynamically taken from.
+	// object representing the volume from which a snapshot should be created.
+	// This PVC is assumed to be in the same namespace as the VolumeSnapshot
+	// object.
+	// This field should be set if the snapshot does not exists, and needs to be
+	// created.
 	// This field is immutable.
 	// +optional
 	PersistentVolumeClaimName *string `json:"persistentVolumeClaimName,omitempty" protobuf:"bytes,1,opt,name=persistentVolumeClaimName"`
 
 	// volumeSnapshotContentName specifies the name of a pre-existing VolumeSnapshotContent
-	// object.
+	// object representing an existing volume snapshot.
+	// This field should be set if the snapshot already exists and only needs a representation in Kubernetes.
 	// This field is immutable.
 	// +optional
 	VolumeSnapshotContentName *string `json:"volumeSnapshotContentName,omitempty" protobuf:"bytes,2,opt,name=volumeSnapshotContentName"`
 }
 
 // VolumeSnapshotStatus is the status of the VolumeSnapshot
+// Note that CreationTime, RestoreSize, ReadyToUse, and Error are in both
+// VolumeSnapshotStatus and VolumeSnapshotContentStatus. Fields in VolumeSnapshotStatus
+// are updated based on fields in VolumeSnapshotContentStatus. They are eventual
+// consistency. These fields are duplicate in both objects due to the following reasons:
+// - Fields in VolumeSnapshotContentStatus can be used for filtering when importing a
+//   volumesnapshot.
+// - VolumsnapshotStatus is used by end users because they cannot see VolumeSnapshotContent.
+// - CSI snapshotter sidecar is light weight as it only watches VolumeSnapshotContent
+//   object, not VolumeSnapshot object.
 type VolumeSnapshotStatus struct {
-	// boundVolumeSnapshotContentName represents the name of the VolumeSnapshotContent
-	// object to which the VolumeSnapshot object is bound.
+	// boundVolumeSnapshotContentName is the name of the VolumeSnapshotContent
+	// object to which this VolumeSnapshot object intends to bind to.
 	// If not specified, it indicates that the VolumeSnapshot object has not been
 	// successfully bound to a VolumeSnapshotContent object yet.
-	// NOTE: Specified boundVolumeSnapshotContentName alone does not mean binding
-	//       is valid. Controllers MUST always verify bidirectional binding between
-	//       VolumeSnapshot and VolumeSnapshotContent to avoid possible security issues.
+	// NOTE: To avoid possible security issues, consumers must verify binding between
+	// VolumeSnapshot and VolumeSnapshotContent objects is successful (by validating that
+	// both VolumeSnapshot and VolumeSnapshotContent point at each other) before using
+	// this object.
 	// +optional
 	BoundVolumeSnapshotContentName *string `json:"boundVolumeSnapshotContentName,omitempty" protobuf:"bytes,1,opt,name=boundVolumeSnapshotContentName"`
 
 	// creationTime is the timestamp when the point-in-time snapshot is taken
 	// by the underlying storage system.
-	// In dynamic snapshot creation case, this field will be filled in with the
-	// "creation_time" value returned from CSI "CreateSnapshotRequest" gRPC call.
+	// In dynamic snapshot creation case, this field will be filled in by the
+	// snapshot controller with the "creation_time" value returned from CSI
+	// "CreateSnapshot" gRPC call.
 	// For a pre-existing snapshot, this field will be filled with the "creation_time"
 	// value returned from the CSI "ListSnapshots" gRPC call if the driver supports it.
-	// If not specified, it indicates that the creation time of the snapshot is unknown.
+	// If not specified, it may indicate that the creation time of the snapshot is unknown.
 	// +optional
 	CreationTime *metav1.Time `json:"creationTime,omitempty" protobuf:"bytes,2,opt,name=creationTime"`
 
-	// readyToUse indicates if a snapshot is ready to be used to restore a volume.
-	// In dynamic snapshot creation case, this field will be filled in with the
-	// "ready_to_use" value returned from CSI "CreateSnapshotRequest" gRPC call.
+	// readyToUse indicates if the snapshot is ready to be used to restore a volume.
+	// In dynamic snapshot creation case, this field will be filled in by the
+	// snapshot controller with the "ready_to_use" value returned from CSI
+	// "CreateSnapshot" gRPC call.
 	// For a pre-existing snapshot, this field will be filled with the "ready_to_use"
 	// value returned from the CSI "ListSnapshots" gRPC call if the driver supports it,
 	// otherwise, this field will be set to "True".
@@ -142,9 +162,11 @@ type VolumeSnapshotStatus struct {
 	// +optional
 	ReadyToUse *bool `json:"readyToUse,omitempty" protobuf:"varint,3,opt,name=readyToUse"`
 
-	// restoreSize represents the complete size of the snapshot in bytes.
-	// In dynamic snapshot creation case, this field will be filled in with the
-	// "size_bytes" value returned from CSI "CreateSnapshotRequest" gRPC call.
+	// restoreSize represents the minimum size of volume required to create a volume
+	// from this snapshot.
+	// In dynamic snapshot creation case, this field will be filled in by the
+	// snapshot controller with the "size_bytes" value returned from CSI
+	// "CreateSnapshot" gRPC call.
 	// For a pre-existing snapshot, this field will be filled with the "size_bytes"
 	// value returned from the CSI "ListSnapshots" gRPC call if the driver supports it.
 	// When restoring a volume from this snapshot, the size of the volume MUST NOT
@@ -157,6 +179,8 @@ type VolumeSnapshotStatus struct {
 	// This field could be helpful to upper level controllers(i.e., application controller)
 	// to decide whether they should continue on waiting for the snapshot to be created
 	// based on the type of error reported.
+	// The snapshot controller will keep retrying when an error occurrs during the
+	// snapshot creation. Upon success, this error field will be cleared.
 	// +optional
 	Error *VolumeSnapshotError `json:"error,omitempty" protobuf:"bytes,5,opt,name=error,casttype=VolumeSnapshotError"`
 }
@@ -223,7 +247,7 @@ type VolumeSnapshotClassList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if a snapshot is ready to be used to restore a volume."
+// +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if the snapshot is ready to be used to restore a volume."
 // +kubebuilder:printcolumn:name="RestoreSize",type=integer,JSONPath=`.status.restoreSize`,description="Represents the complete size of the snapshot in bytes"
 // +kubebuilder:printcolumn:name="DeletionPolicy",type=string,JSONPath=`.spec.deletionPolicy`,description="Determines whether this VolumeSnapshotContent and its physical snapshot on the underlying storage system should be deleted when its bound VolumeSnapshot is deleted."
 // +kubebuilder:printcolumn:name="Driver",type=string,JSONPath=`.spec.driver`,description="Name of the CSI driver used to create the physical snapshot on the underlying storage system."
@@ -276,9 +300,11 @@ type VolumeSnapshotContentSpec struct {
 	// Supported values are "Retain" and "Delete".
 	// "Retain" means that the VolumeSnapshotContent and its physical snapshot on underlying storage system are kept.
 	// "Delete" means that the VolumeSnapshotContent and its physical snapshot on underlying storage system are deleted.
-	// In dynamic snapshot creation case, this field will be filled in with the "DeletionPolicy" field defined in the
-	// VolumeSnapshotClass the VolumeSnapshot refers to.
-	// For pre-existing snapshots, users MUST specify this field when creating the VolumeSnapshotContent object.
+	// For dynamically provisioned snapshots, this field will automatically be filled in by the
+	// CSI snapshotter sidecar with the "DeletionPolicy" field defined in the corresponding
+	// VolumeSnapshotClass.
+	// For pre-existing snapshots, users MUST specify this field when creating the
+	//  VolumeSnapshotContent object.
 	// Required.
 	DeletionPolicy DeletionPolicy `json:"deletionPolicy" protobuf:"bytes,2,opt,name=deletionPolicy"`
 
@@ -289,11 +315,16 @@ type VolumeSnapshotContentSpec struct {
 	// Required.
 	Driver string `json:"driver" protobuf:"bytes,3,opt,name=driver"`
 
-	// name of the VolumeSnapshotClass to which this snapshot belongs.
+	// name of the VolumeSnapshotClass from which this snapshot was (or will be)
+	// created.
+	// Note that after provisioning, the VolumeSnapshotClass may be deleted or
+	// recreated with different set of values, and as such, should not be referenced
+	// post-snapshot creation.
 	// +optional
 	VolumeSnapshotClassName *string `json:"volumeSnapshotClassName,omitempty" protobuf:"bytes,4,opt,name=volumeSnapshotClassName"`
 
-	// source specifies from where a snapshot will be created.
+	// source specifies whether the snapshot is (or should be) dynamically provisioned
+	// or already exists, and just requires a Kubernetes object representation.
 	// This field is immutable after creation.
 	// Required.
 	Source VolumeSnapshotContentSource `json:"source" protobuf:"bytes,5,opt,name=source"`
@@ -312,13 +343,23 @@ type VolumeSnapshotContentSource struct {
 	VolumeHandle *string `json:"volumeHandle,omitempty" protobuf:"bytes,1,opt,name=volumeHandle"`
 
 	// snapshotHandle specifies the CSI "snapshot_id" of a pre-existing snapshot on
-	// the underlying storage system.
+	// the underlying storage system for which a Kubernetes object representation
+	// was (or should be) created.
 	// This field is immutable.
 	// +optional
 	SnapshotHandle *string `json:"snapshotHandle,omitempty" protobuf:"bytes,2,opt,name=snapshotHandle"`
 }
 
 // VolumeSnapshotContentStatus is the status of a VolumeSnapshotContent object
+// Note that CreationTime, RestoreSize, ReadyToUse, and Error are in both
+// VolumeSnapshotStatus and VolumeSnapshotContentStatus. Fields in VolumeSnapshotStatus
+// are updated based on fields in VolumeSnapshotContentStatus. They are eventual
+// consistency. These fields are duplicate in both objects due to the following reasons:
+// - Fields in VolumeSnapshotContentStatus can be used for filtering when importing a
+//   volumesnapshot.
+// - VolumsnapshotStatus is used by end users because they cannot see VolumeSnapshotContent.
+// - CSI snapshotter sidecar is light weight as it only watches VolumeSnapshotContent
+//   object, not VolumeSnapshot object.
 type VolumeSnapshotContentStatus struct {
 	// snapshotHandle is the CSI "snapshot_id" of a snapshot on the underlying storage system.
 	// If not specified, it indicates that dynamic snapshot creation has either failed
@@ -328,8 +369,9 @@ type VolumeSnapshotContentStatus struct {
 
 	// creationTime is the timestamp when the point-in-time snapshot is taken
 	// by the underlying storage system.
-	// In dynamic snapshot creation case, this field will be filled in with the
-	// "creation_time" value returned from CSI "CreateSnapshotRequest" gRPC call.
+	// In dynamic snapshot creation case, this field will be filled in by the
+	// CSI snapshotter sidecar with the "creation_time" value returned from CSI
+	// "CreateSnapshot" gRPC call.
 	// For a pre-existing snapshot, this field will be filled with the "creation_time"
 	// value returned from the CSI "ListSnapshots" gRPC call if the driver supports it.
 	// If not specified, it indicates the creation time is unknown.
@@ -340,8 +382,9 @@ type VolumeSnapshotContentStatus struct {
 	CreationTime *int64 `json:"creationTime,omitempty" protobuf:"varint,2,opt,name=creationTime"`
 
 	// restoreSize represents the complete size of the snapshot in bytes.
-	// In dynamic snapshot creation case, this field will be filled in with the
-	// "size_bytes" value returned from CSI "CreateSnapshotRequest" gRPC call.
+	// In dynamic snapshot creation case, this field will be filled in by the
+	// CSI snapshotter sidecar with the "size_bytes" value returned from CSI
+	// "CreateSnapshot" gRPC call.
 	// For a pre-existing snapshot, this field will be filled with the "size_bytes"
 	// value returned from the CSI "ListSnapshots" gRPC call if the driver supports it.
 	// When restoring a volume from this snapshot, the size of the volume MUST NOT
@@ -352,8 +395,9 @@ type VolumeSnapshotContentStatus struct {
 	RestoreSize *int64 `json:"restoreSize,omitempty" protobuf:"bytes,3,opt,name=restoreSize"`
 
 	// readyToUse indicates if a snapshot is ready to be used to restore a volume.
-	// In dynamic snapshot creation case, this field will be filled in with the
-	// "ready_to_use" value returned from CSI "CreateSnapshotRequest" gRPC call.
+	// In dynamic snapshot creation case, this field will be filled in by the
+	// CSI snapshotter sidecar with the "ready_to_use" value returned from CSI
+	// "CreateSnapshot" gRPC call.
 	// For a pre-existing snapshot, this field will be filled with the "ready_to_use"
 	// value returned from the CSI "ListSnapshots" gRPC call if the driver supports it,
 	// otherwise, this field will be set to "True".
@@ -361,7 +405,8 @@ type VolumeSnapshotContentStatus struct {
 	// +optional.
 	ReadyToUse *bool `json:"readyToUse,omitempty" protobuf:"varint,4,opt,name=readyToUse"`
 
-	// error is the latest observed error during snapshot creation, if any.
+	// error is the last observed error during snapshot creation, if any.
+	// Upon success after retry, this error field will be cleared.
 	// +optional
 	Error *VolumeSnapshotError `json:"error,omitempty" protobuf:"bytes,5,opt,name=error,casttype=VolumeSnapshotError"`
 }
