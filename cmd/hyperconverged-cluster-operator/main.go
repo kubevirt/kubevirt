@@ -202,6 +202,9 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				&corev1.Service{}: {
 					Field: namespaceSelector,
 				},
+				&corev1.Endpoints{}: {
+					Field: namespaceSelector,
+				},
 				&monitoringv1.ServiceMonitor{}: {
 					Label: labelSelector,
 					Field: namespaceSelector,
