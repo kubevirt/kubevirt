@@ -726,7 +726,10 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	if spec.EvictionStrategy != nil {
 		evictionStrategy = spec.EvictionStrategy
 	}
-	if !config.LiveMigrationEnabled() &&
+
+	highAvailabilityInfra := isInfrastructureHighlyAvailable(config.GetConfigFromKubeVirtCR())
+	if highAvailabilityInfra &&
+		!config.LiveMigrationEnabled() &&
 		evictionStrategy != nil &&
 		*evictionStrategy == v1.EvictionStrategyLiveMigrate {
 		causes = append(causes, metav1.StatusCause{
@@ -741,7 +744,12 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 			Field:   field.Child("evictionStrategy").String(),
 		})
 	}
+
 	return causes
+}
+
+func isInfrastructureHighlyAvailable(kv *v1.KubeVirt) bool {
+	return kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *kv.Spec.Infra.Replicas >= uint8(2)
 }
 
 func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {

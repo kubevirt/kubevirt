@@ -50,6 +50,7 @@ import (
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
+	replicas := uint8(2)
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt",
@@ -58,6 +59,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			},
+			Infra: &v1.ComponentConfig{
+				Replicas: &replicas,
 			},
 		},
 		Status: v1.KubeVirtStatus{
@@ -71,6 +75,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+	}
+	setReplicas := func(replicas uint8) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Infra.Replicas = &replicas
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 	disableFeatureGates := func() {
@@ -159,11 +168,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("migration policy to be set nil", nil),
 		)
 
-		It("should block setting eviction policies if the feature gate is disabled", func() {
+		It("should block setting eviction policies if the feature gate is disabled in high availability infrastructure", func() {
 			disableFeatureGates()
 			vmi.Spec.EvictionStrategy = &policyMigrate
 			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
+		})
+
+		It("should allow setting eviction policies if the feature gate is disabled in single node cluster", func() {
+			disableFeatureGates()
+			vmi.Spec.EvictionStrategy = &policyMigrate
+			setReplicas(uint8(1))
+			resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(resp).To(BeEmpty())
 		})
 
 		It("should allow no eviction policy to be set", func() {
