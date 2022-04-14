@@ -26,8 +26,6 @@ import (
 	"strings"
 
 	"kubevirt.io/client-go/api"
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
-
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -2217,29 +2215,39 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		Context("with kernel boot defined", func() {
 
-			const (
-				fakeKernelArgs = "args"
-				fakeImage      = "image"
-				fakeInitrd     = "initrd"
-				fakeKernel     = "kernel"
-			)
-
-			DescribeTable("", func(kernelArgs, initrdPath, kernelPath, image string, defineContainerNil bool, shouldBeValid bool) {
-				vmi := utils.GetVMIKernelBoot()
-
-				kb := vmi.Spec.Domain.Firmware.KernelBoot
-
-				if defineContainerNil {
-					kb.Container = nil
-				} else {
-					kb.KernelArgs = kernelArgs
-					kb.Container.KernelPath = kernelPath
-					kb.Container.InitrdPath = initrdPath
-					kb.Container.Image = image
+			createKernelBoot := func(kernelArgs, initrdPath, kernelPath, image string) *v1.KernelBoot {
+				var kbContainer *v1.KernelBootContainer
+				if image != "" || kernelPath != "" || initrdPath != "" {
+					kbContainer = &v1.KernelBootContainer{
+						Image:      image,
+						KernelPath: kernelPath,
+						InitrdPath: initrdPath,
+					}
 				}
 
+				return &v1.KernelBoot{
+					KernelArgs: kernelArgs,
+					Container:  kbContainer,
+				}
+			}
+
+			const (
+				validKernelArgs   = "args"
+				withoutKernelArgs = ""
+
+				validImage   = "image"
+				withoutImage = ""
+
+				validInitrd   = "initrd"
+				withoutInitrd = ""
+
+				validKernel   = "kernel"
+				withoutKernel = ""
+			)
+
+			DescribeTable("", func(kernelBoot *v1.KernelBoot, shouldBeValid bool) {
 				kernelBootField := k8sfield.NewPath("spec").Child("domain").Child("firmware").Child("kernelBoot")
-				causes := validateKernelBoot(kernelBootField, kb)
+				causes := validateKernelBoot(kernelBootField, kernelBoot)
 
 				if shouldBeValid {
 					Expect(causes).To(BeEmpty())
@@ -2248,22 +2256,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				}
 			},
 				Entry("without kernel args and null container - should approve",
-					"", "", "", "", true, true),
-				Entry("with kernel args and null container - should approve",
-					fakeKernelArgs, "", "", "", true, true),
+					createKernelBoot(withoutKernelArgs, withoutInitrd, withoutKernel, withoutImage), true),
+				Entry("with kernel args and null container - should reject",
+					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, withoutImage), false),
 				Entry("without kernel args, with container that has image & kernel & initrd defined - should approve",
-					"", fakeInitrd, fakeKernel, fakeImage, false, true),
+					createKernelBoot(withoutKernelArgs, validInitrd, validKernel, validImage), true),
 				Entry("with kernel args, with container that has image & kernel & initrd defined - should approve",
-					fakeKernelArgs, fakeInitrd, fakeKernel, fakeImage, false, true),
+					createKernelBoot(validKernelArgs, validInitrd, validKernel, validImage), true),
 				Entry("with kernel args, with container that has image & kernel defined - should approve",
-					fakeKernelArgs, "", fakeKernel, fakeImage, false, true),
+					createKernelBoot(validKernelArgs, withoutInitrd, validKernel, validImage), true),
 				Entry("with kernel args, with container that has image & initrd defined - should approve",
-					fakeKernelArgs, fakeInitrd, "", fakeImage, false, true),
+					createKernelBoot(validKernelArgs, validInitrd, withoutKernel, validImage), true),
 				Entry("with kernel args, with container that has only image defined - should reject",
-					fakeKernelArgs, "", "", fakeImage, false, false),
+					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, validImage), false),
 				Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
-					fakeKernelArgs, fakeInitrd, fakeKernel, "", false, false),
-				Entry("with kernel args, with container that has nothing defined", "", "", "", "", false, false),
+					createKernelBoot(validKernelArgs, validInitrd, validKernel, withoutImage), false),
 			)
 		})
 	})

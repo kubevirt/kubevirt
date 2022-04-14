@@ -2394,7 +2394,18 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 
 // Rejects kernel boot defined with initrd/kernel path but without an image
 func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes []metav1.StatusCause) {
-	if kernelBoot == nil || kernelBoot.Container == nil {
+	if kernelBoot == nil {
+		return
+	}
+
+	if kernelBoot.Container == nil {
+		if kernelBoot.KernelArgs != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "kernel arguments cannot be provided without an external kernel",
+				Field:   field.Child("kernelArgs").String(),
+			})
+		}
 		return
 	}
 
