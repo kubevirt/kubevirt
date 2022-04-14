@@ -240,7 +240,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Label("Serial", "sig-com
 	})
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates",
-		Label("rfe_id:4102", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component]certificates"),
+		Label("rfe_id:4102", "crit:medium", "vendor:cnv-qe@redhat.com", "level:component"),
 		func() {
 
 			BeforeEach(func() {

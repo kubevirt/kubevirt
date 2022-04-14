@@ -48,6 +48,10 @@ fi
 rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
+function log() {
+    echo >&2 $@
+}
+
 function functest() {
     KUBEVIRT_FUNC_TEST_SUITE_ARGS="-apply-default-e2e-configuration \
 	    -conn-check-ipv4-address=${conn_check_ipv4_address} \
@@ -63,6 +67,35 @@ function functest() {
     _out/tests/ginkgo -timeout=3h -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
 }
 
+# The get_label_filter function is a temporary solution to convert the old regex based filtering to the new label base
+# filtering. TODO: after change all the original filters to be label based, then delete this function.
+function get_label_filter() {
+    if [[ -n "${KUBEVIRT_E2E_LABEL_FILTER}" ]]; then
+        label_filter="${KUBEVIRT_E2E_LABEL_FILTER}"
+    else
+        label_filter=""
+        if [[ -n "${KUBEVIRT_E2E_FOCUS}" ]]; then
+            log "Warning: KUBEVIRT_E2E_FOCUS is deprecated. Use KUBEVIRT_E2E_LABEL_FILTER instead. See here for details: https://onsi.github.io/ginkgo/MIGRATING_TO_V2#spec-labels"
+            label_filter="($(echo ${KUBEVIRT_E2E_FOCUS} | tr '|' ',' | tr -d '\\[' | tr -d '\\]'))"
+        fi
+
+        if [[ -n "${KUBEVIRT_E2E_SKIP}" ]]; then
+            log "Warning: KUBEVIRT_E2E_SKIP is deprecated. Use KUBEVIRT_E2E_LABEL_FILTER instead. See here for details: https://onsi.github.io/ginkgo/MIGRATING_TO_V2#spec-labels"
+            if [[ -n "${label_filter}" ]]; then
+                label_filter="${label_filter}&&"
+            fi
+            label_filter="${label_filter}!($(echo "${KUBEVIRT_E2E_SKIP}" | tr -d '\\[' | tr -d '\\]' | sed "s#|#,#g"))"
+        fi
+    fi
+
+    if [[ -n "${label_filter}" ]]; then
+        label_filter=--label-filter="${label_filter}"
+    fi
+
+    echo "${label_filter}"
+}
+
+# TODO: Replace the "Serial" labels with the Serial decorator, then most of the code below can be removed.
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
     parallel_test_args=""
@@ -94,14 +127,6 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
     exit "$return_value"
 else
-    additional_test_args=""
-    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
-    fi
-
-    if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-        additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
-    fi
-
-    functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
+    label_filter=$(get_label_filter)
+    functest "${label_filter}" ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 fi

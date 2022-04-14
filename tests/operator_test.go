@@ -1373,7 +1373,7 @@ spec:
 		})
 	})
 
-	Describe("[test_id:4744]should apply component customization", Label("test_id:4744", "Serial"), func() {
+	Describe("[test_id:4744][Serial]should apply component customization", Label("test_id:4744", "Serial"), func() {
 
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"

@@ -727,7 +727,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					)
 
 					It("[outside_connectivity]should be able to reach the outside world [IPv4]",
-						Label("outside_connectivity]should be able to reach the outside world [IPv4"),
+						Label("outside_connectivity"),
 						func() {
 							libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 							ipv4Address := "8.8.8.8"
@@ -787,7 +787,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					)
 
 					It("[outside_connectivity]should be able to reach the outside world [IPv6]",
-						Label("outside_connectivity]should be able to reach the outside world [IPv6"),
+						Label("outside_connectivity"),
 						func() {
 							libnet.SkipWhenClusterNotSupportIpv6(virtClient)
 							// Cluster nodes subnet (docker network gateway)
