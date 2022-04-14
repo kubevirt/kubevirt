@@ -33,6 +33,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -59,6 +60,8 @@ const (
 	vmiGuestAgentErr             = "VMI does not have guest agent connected"
 	prepConnectionErrFmt         = "Cannot prepare connection %s"
 	getRequestErrFmt             = "Cannot GET request %s"
+	pvcVolumeModeErr             = "pvc should be filesystem pvc"
+	pvcSizeErrFmt                = "pvc size should be bigger then vm memory:%s+%s"
 	defaultProfilerComponentPort = 8443
 )
 
@@ -1329,6 +1332,40 @@ func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.V
 	return patch, nil
 }
 
+func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace string) (*v12.PersistentVolumeClaim, *errors.StatusError) {
+	pvc, err := app.virtCli.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, k8smetav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("persistentvolumeclaim"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve pvc [%s]: %v", name, err))
+	}
+	return pvc, nil
+}
+
+func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInstance, claimName, namespace string) *errors.StatusError {
+	pvc, err := app.fetchPersistentVolumeClaim(claimName, namespace)
+	if err != nil {
+		return err
+	}
+	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == v12.PersistentVolumeBlock {
+		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcVolumeModeErr))
+	}
+
+	pvcSize := pvc.Spec.Resources.Requests.Storage()
+	scaledPvcSize := resource.NewScaledQuantity(pvcSize.ScaledValue(resource.Kilo), resource.Kilo)
+	domain := vmi.Spec.Domain
+	vmiMemoryReq := domain.Resources.Requests.Memory()
+	memOverhead := resource.MustParse("100Mi")
+	expectedPvcSize := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	expectedPvcSize.Add(memOverhead)
+	if scaledPvcSize.Cmp(*expectedPvcSize) < 0 {
+		return errors.NewConflict(v1.Resource("persistentvolumeclaim"), claimName, fmt.Errorf(pvcSizeErrFmt, vmiMemoryReq.String(), memOverhead.String()))
+	}
+
+	return nil
+}
+
 func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) *errors.StatusError {
 	vm, statErr := app.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
@@ -1343,6 +1380,10 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 
 		if !vmi.IsRunning() {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
+		}
+
+		if err := app.validateMemoryDumpClaim(vmi, memoryDumpReq.ClaimName, namespace); err != nil {
+			return err
 		}
 	}
 

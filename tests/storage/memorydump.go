@@ -52,6 +52,7 @@ const (
 	verifierPodName                  = "verifier"
 	memoryDumpPVCName                = "fs-pvc"
 	memoryDumpPVCName2               = "fs-pvc2"
+	memoryDumpSmallPVCName           = "fs-pvc-small"
 	virtCtlClaimName                 = "--claim-name=%s"
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
 	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
@@ -319,10 +320,11 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	Context("Memory dump with existing PVC", func() {
 		var (
-			vm             *v1.VirtualMachine
-			memoryDumpPVC  *k8sv1.PersistentVolumeClaim
-			memoryDumpPVC2 *k8sv1.PersistentVolumeClaim
-			sc             string
+			vm                 *v1.VirtualMachine
+			memoryDumpPVC      *k8sv1.PersistentVolumeClaim
+			memoryDumpPVC2     *k8sv1.PersistentVolumeClaim
+			memoryDumpSmallPVC *k8sv1.PersistentVolumeClaim
+			sc                 string
 		)
 		const (
 			numPVs = 2
@@ -338,9 +340,8 @@ var _ = SIGDescribe("Memory dump", func() {
 
 			vm = createAndStartVM()
 
-			size, _ := resource.ParseQuantity("2Gi")
+			size, _ := resource.ParseQuantity("500Mi")
 			memoryDumpPVC = createMemoryDumpPVC(memoryDumpPVCName, sc, size)
-			memoryDumpPVC2 = createMemoryDumpPVC(memoryDumpPVCName2, sc, size)
 		})
 
 		AfterEach(func() {
@@ -352,6 +353,9 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 			if memoryDumpPVC2 != nil {
 				deletePVC(memoryDumpPVC2)
+			}
+			if memoryDumpSmallPVC != nil {
+				deletePVC(memoryDumpSmallPVC)
 			}
 		})
 
@@ -405,6 +409,8 @@ var _ = SIGDescribe("Memory dump", func() {
 			// Verify the content is still on the pvc
 			verifyMemoryDumpOutput(memoryDumpPVC, previousOutput, true)
 
+			size, _ := resource.ParseQuantity("500Mi")
+			memoryDumpPVC2 = createMemoryDumpPVC(memoryDumpPVCName2, sc, size)
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
 			memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName2)
 
@@ -456,6 +462,18 @@ var _ = SIGDescribe("Memory dump", func() {
 			// verify memory dump didnt reappeared in the VMI
 			verifyMemoryDumpNotOnVMI(vm, memoryDumpPVCName)
 			verifyMemoryDumpOutput(memoryDumpPVC, previousOutput, true)
+		})
+
+		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
+			By("Trying to get memory dump with small pvc")
+			size, _ := resource.ParseQuantity("200Mi")
+			memoryDumpSmallPVC = createMemoryDumpPVC(memoryDumpSmallPVCName, sc, size)
+			commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
+			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+			Eventually(func() string {
+				err := memorydumpCommand()
+				return err.Error()
+			}, 3*time.Second, 1*time.Second).Should(ContainSubstring("pvc size should be bigger then vm memory"))
 		})
 	})
 })

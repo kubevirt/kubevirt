@@ -267,6 +267,12 @@ rules:
   - patch
   - update
 - apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachines/status

@@ -415,18 +415,12 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 }
 
 func memoryDump(vmName, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), claimName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("error dumping vm memory, failed to verify pvc %s, %v", claimName, err)
-	} else if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
-		return fmt.Errorf("error dumping vm memory, pvc %s should be filesystem pvc", claimName)
-	}
 	memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
 		ClaimName: claimName,
 		Phase:     v1.MemoryDumpAssociating,
 	}
 
-	err = virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+	err := virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
 	if err != nil {
 		return fmt.Errorf("error dumping vm memory, %v", err)
 	}
