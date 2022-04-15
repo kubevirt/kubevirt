@@ -645,7 +645,7 @@ func (m *migrationMonitor) isMigrationProgressing(domainSpec *api.DomainSpec) bo
 	// check if the migration is progressing
 	progressDelay := now - m.lastProgressUpdate
 	if m.progressTimeout != 0 && progressDelay/int64(time.Second) > m.progressTimeout {
-		logger.Warningf("Live migration stuck for %d sec", progressDelay)
+		logger.Warningf("Live migration stuck for %d sec", m.progressTimeout)
 		return false
 	}
 
@@ -755,9 +755,8 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 			return nil
 		}
 
-		progressDelay := now - m.lastProgressUpdate
 		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay)
+		aborted.message = fmt.Sprintf("Live migration stuck for %d sec and has been aborted", m.progressTimeout)
 		aborted.abortStatus = v1.MigrationAbortSucceeded
 		return aborted
 	case m.shouldTriggerTimeout(elapsed, domainSpec):
