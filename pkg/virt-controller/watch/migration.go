@@ -470,7 +470,9 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				}
 			}
 		case virtv1.MigrationScheduled:
-			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNode != "" {
+			if vmi.Status.MigrationState != nil &&
+				vmi.Status.MigrationState.MigrationUID == migration.UID &&
+				vmi.Status.MigrationState.TargetNode != "" {
 				migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 			}
 		case virtv1.MigrationPreparingTarget:
