@@ -1019,6 +1019,28 @@ var _ = Describe("Migration watcher", func() {
 			// expect nothing to occur
 		})
 
+		It("should not transition to PreparingTarget if VMI MigrationState is outdated", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod.Spec.NodeName = "node01"
+
+			const oldMigrationUID = "oldmigrationuid"
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(oldMigrationUID),
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"%s"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, oldMigrationUID, pod.Name)
+
+			shouldExpectVirtualMachineInstancePatch(vmi, patch)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		})
 		It("should transition to preparing target phase", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
