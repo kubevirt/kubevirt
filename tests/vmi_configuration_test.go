@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -1692,7 +1693,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		}
 
 		BeforeEach(func() {
-			nodes = util.GetAllSchedulableNodes(virtClient)
+			nodes = libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -2581,7 +2582,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			BeforeEach(func() {
 
-				nodes := util.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 

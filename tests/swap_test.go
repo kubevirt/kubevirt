@@ -116,7 +116,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 	}
 
 	skipIfSwapOff := func(message string) {
-		nodes := util.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		for _, node := range nodes.Items {
 			swapSizeKib := getSwapSizeInKib(node)
 			if swapSizeKib < maxSwapSizeToUseKib {
@@ -129,7 +129,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		nodes := util.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items)).To(BeNumerically(">", 1),
 			"should have at least two shcedulable nodes in the cluster")
 
@@ -142,7 +142,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 	Context("Migration to/from memory overcommitted nodes", func() {
 
 		It("Postcopy Migration of vmi that is dirtying(stress-ng) more memory than the source node's memory", func() {
-			nodes := util.GetAllSchedulableNodes(virtClient).Items
+			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
 			sourceNode := nodes[0]
 			targetNode := nodes[1]
 			totalMemKib := getTotalMemSizeInKib(sourceNode)
@@ -218,7 +218,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
-			nodes := util.GetAllSchedulableNodes(virtClient).Items
+			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
 			targetNode := nodes[0]
 			sourceNode := nodes[1]
 

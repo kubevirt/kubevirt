@@ -600,7 +600,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
-		nodes := util2.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			idx := rand.Intn(len(nodes.Items))
 			schedulableNode = nodes.Items[idx].Name
@@ -919,7 +919,7 @@ func CreateAllSeparateDeviceHostPathPvs(osName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
-		nodes := util2.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			for _, node := range nodes.Items {
 				createSeparateDeviceHostPathPv(osName, node.Name)
@@ -3385,7 +3385,7 @@ func HasCDI() bool {
 func getArch() string {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
-	nodes := util2.GetAllSchedulableNodes(virtCli).Items
+	nodes := libnode.GetAllSchedulableNodes(virtCli).Items
 	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
 	return nodes[0].Status.NodeInfo.Architecture
 }

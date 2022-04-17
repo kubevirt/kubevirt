@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -139,7 +140,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		var serverIP string
 
 		BeforeEach(func() {
-			nodeList = util.GetAllSchedulableNodes(virtClient)
+			nodeList = libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
 			chosenMACHW, err := tests.GenerateRandomMac()

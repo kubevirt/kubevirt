@@ -1089,7 +1089,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 				Eventually(func() []k8sv1.Node {
-					nodes = util.GetAllSchedulableNodes(virtClient)
+					nodes = libnode.GetAllSchedulableNodes(virtClient)
 					return nodes.Items
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 			})
@@ -2014,7 +2014,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
-				nodes := util.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for idx, entry := range nodes.Items {
 					if entry.Name == vmi.Status.NodeName {
@@ -2534,7 +2534,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				return others
 			}
 			isHeterogeneousCluster := func() bool {
-				nodes := util.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				for _, node := range nodes.Items {
 					hostModel := getNodeHostModel(&node)
 					otherNodes := getOtherNodes(nodes, &node)
@@ -3221,7 +3221,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("selecting a node as the source")
-				sourceNode := util.GetAllSchedulableNodes(virtClient).Items[0]
+				sourceNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 				libnode.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("starting four VMIs on that node")
@@ -3236,7 +3236,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("selecting a node as the target")
-				targetNode := util.GetAllSchedulableNodes(virtClient).Items[1]
+				targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[1]
 				libnode.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), "target")
 
 				By("tainting the source node as non-schedulabele")

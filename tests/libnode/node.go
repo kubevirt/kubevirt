@@ -47,7 +47,7 @@ var SchedulableNode = ""
 func CleanNodes() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	nodes := util.GetAllSchedulableNodes(virtCli).Items
+	nodes := GetAllSchedulableNodes(virtCli).Items
 
 	clusterDrainKey := GetNodeDrainKey()
 
@@ -208,5 +208,11 @@ func GetNodesWithKVM() []*k8sv1.Node {
 			nodes = append(nodes, virtHandlerNode)
 		}
 	}
+	return nodes
+}
+
+func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 	return nodes
 }
