@@ -58,7 +58,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1beta1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -70,7 +69,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -128,7 +126,6 @@ const (
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
-var KubeVirtDefaultConfig v1.KubeVirtConfiguration
 var Arch string
 
 type EventType string
@@ -594,116 +591,6 @@ func BeforeTestSuitSetup(_ []byte) {
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
-}
-
-var originalKV *v1.KubeVirt
-
-func AdjustKubeVirtResource() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	kv := util2.GetCurrentKv(virtClient)
-	originalKV = kv.DeepCopy()
-
-	KubeVirtDefaultConfig = originalKV.Spec.Configuration
-
-	if !flags.ApplyDefaulte2eConfiguration {
-		return
-	}
-
-	// Rotate very often during the tests to ensure that things are working
-	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
-		CA: &v1.CertConfig{
-			Duration:    &metav1.Duration{Duration: 20 * time.Minute},
-			RenewBefore: &metav1.Duration{Duration: 12 * time.Minute},
-		},
-		Server: &v1.CertConfig{
-			Duration:    &metav1.Duration{Duration: 14 * time.Minute},
-			RenewBefore: &metav1.Duration{Duration: 10 * time.Minute},
-		},
-	}}
-
-	// match default kubevirt-config testing resource
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-	}
-
-	if kv.Spec.Configuration.DeveloperConfiguration.FeatureGates == nil {
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
-	}
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.CPUManager,
-		virtconfig.LiveMigrationGate,
-		virtconfig.IgnitionGate,
-		virtconfig.SidecarGate,
-		virtconfig.SnapshotGate,
-		virtconfig.HostDiskGate,
-		virtconfig.VirtIOFSGate,
-		virtconfig.HotplugVolumesGate,
-		virtconfig.DownwardMetricsFeatureGate,
-		virtconfig.NUMAFeatureGate,
-		virtconfig.MacvtapGate,
-		virtconfig.ExpandDisksGate,
-		virtconfig.WorkloadEncryptionSEV,
-	)
-	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
-
-	if kv.Spec.Configuration.NetworkConfiguration == nil {
-		testDefaultPermitSlirpInterface := true
-
-		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			PermitSlirpInterface: &testDefaultPermitSlirpInterface,
-		}
-	}
-
-	data, err := json.Marshal(kv.Spec)
-	Expect(err).ToNot(HaveOccurred())
-	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
-	util2.PanicOnError(err)
-	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	if checks.HasFeature(virtconfig.CPUManager) && len(nodes.Items) > 1 {
-		// CPUManager is not enabled in the control-plane node
-		waitForSchedulableNodeWithCPUManager()
-	}
-}
-
-func waitForSchedulableNodeWithCPUManager() {
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	Eventually(func() bool {
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
-		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-		return len(nodes.Items) != 0
-	}, 360, 1*time.Second).Should(BeTrue())
-}
-
-func RestoreKubeVirtResource() {
-	if originalKV != nil {
-		virtClient, err := kubecli.GetKubevirtClient()
-		util2.PanicOnError(err)
-		data, err := json.Marshal(originalKV.Spec)
-		Expect(err).ToNot(HaveOccurred())
-		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
-		util2.PanicOnError(err)
-	}
-}
-
-func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
-	allowEmulation := false
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	kv := util2.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
-	}
-
-	return allowEmulation
 }
 
 func EnsureKVMPresent() {
@@ -3277,39 +3164,6 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 60)).To(Succeed())
-}
-
-// UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
-func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	kv := util2.GetCurrentKv(virtClient)
-	old, err := json.Marshal(kv)
-	Expect(err).ToNot(HaveOccurred())
-
-	if equality.Semantic.DeepEqual(kv.Spec.Configuration, kvConfig) {
-		return kv
-	}
-
-	suiteConfig, _ := GinkgoConfiguration()
-	if suiteConfig.ParallelTotal > 1 {
-		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
-	}
-
-	updatedKV := kv.DeepCopy()
-	updatedKV.Spec.Configuration = kvConfig
-	newJson, err := json.Marshal(updatedKV)
-	Expect(err).ToNot(HaveOccurred())
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
-	Expect(err).ToNot(HaveOccurred())
-
-	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch, &metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	return kv
 }
 
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource

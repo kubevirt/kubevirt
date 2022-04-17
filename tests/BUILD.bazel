@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "io_utils.go",
         "job.go",
+        "kubevirtresource.go",
         "migration.go",
         "namespace.go",
         "pod_servers.go",
