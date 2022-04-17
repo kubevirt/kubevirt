@@ -1075,7 +1075,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
 				}
 
-				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, hugepageType)
+				nodeWithHugepages := libnode.GetNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
 					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}

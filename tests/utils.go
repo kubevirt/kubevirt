@@ -3131,18 +3131,6 @@ func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathTy
 	return pod
 }
 
-func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	for _, node := range nodes.Items {
-		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
-			return &node
-		}
-	}
-	return nil
-}
-
 // CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
 func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
