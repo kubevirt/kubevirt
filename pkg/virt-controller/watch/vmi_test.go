@@ -2115,6 +2115,37 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return res
 		}
 
+		makeVolumesWithMemoryDump := func(total int, indexes ...int) []*virtv1.Volume {
+			res := make([]*virtv1.Volume, 0)
+			for i := 0; i < total; i++ {
+				memoryDump := false
+				for _, index := range indexes {
+					if i == index {
+						memoryDump = true
+						res = append(res, &virtv1.Volume{
+							Name: fmt.Sprintf("volume%d", index),
+							VolumeSource: virtv1.VolumeSource{
+								MemoryDump: testutils.NewFakeMemoryDumpSource(fmt.Sprintf("claim%d", i)),
+							},
+						})
+					}
+				}
+				if !memoryDump {
+					res = append(res, &virtv1.Volume{
+						Name: fmt.Sprintf("volume%d", i),
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: fmt.Sprintf("claim%d", i),
+								},
+							},
+						},
+					})
+				}
+			}
+			return res
+		}
+
 		makeK8sVolumes := func(indexes ...int) []k8sv1.Volume {
 			res := make([]k8sv1.Volume, 0)
 			for _, index := range indexes {
@@ -2324,6 +2355,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should return a volume if vmi has one more than virtlauncher", makeK8sVolumes(), makeVolumes(1), 1),
 			Entry("should return a volume if vmi has one more than virtlauncher, with matching volumes", makeK8sVolumes(1, 3), makeVolumes(1, 2, 3), 2),
 			Entry("should return multiple volumes if vmi has multiple more than virtlauncher, with matching volumes", makeK8sVolumes(1, 3), makeVolumes(1, 2, 3, 4, 5), 2, 4, 5),
+			Entry("should return a memory dump volume if vmi has memory dump volume not on virtlauncher", makeK8sVolumes(0, 2), makeVolumesWithMemoryDump(3, 1), 1),
 		)
 
 		truncateSprintf := func(str string, args ...interface{}) string {
@@ -2356,6 +2388,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return res
 		}
 
+		makeVolumeStatusesForUpdateWithMemoryDump := func(dumpIndex int, indexes ...int) []virtv1.VolumeStatus {
+			res := makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeAttachedToNode, "Created hotplug attachment pod test-pod, for volume volume%d", SuccessfulCreatePodReason, indexes...)
+			res[dumpIndex].MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
+				ClaimName: fmt.Sprintf("volume%d", dumpIndex),
+			}
+			return res
+		}
+
 		makeVolumeStatusesForUpdate := func(indexes ...int) []virtv1.VolumeStatus {
 			return makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeAttachedToNode, "Created hotplug attachment pod test-pod, for volume volume%d", SuccessfulCreatePodReason, indexes...)
 		}
@@ -2378,20 +2418,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, pvcIndex := range pvcIndexes {
 				pvc := NewHotplugPVC(fmt.Sprintf("claim%d", pvcIndex), k8sv1.NamespaceDefault, k8sv1.ClaimBound)
 				pvcInformer.GetIndexer().Add(pvc)
-				for i, stat := range expectedStatus {
-					if stat.Name == pvc.Name {
-						var fsOverhead cdiv1.Percent
-						fsOverhead = "0.055"
-						stat.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfo{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{
-								k8sv1.ReadOnlyMany,
-							},
-							FilesystemOverhead: &fsOverhead,
-						}
-						expectedStatus[i] = stat
-						break
-					}
-				}
 			}
 
 			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
@@ -2441,6 +2467,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]int{},
 				makeVolumeStatusesForUpdate(),
 				[]string{}),
+			Entry("should update volume status with memory dump, if a new memory dump volume is added",
+				makeVolumeStatusesForUpdate(),
+				makeVolumesWithMemoryDump(1, 0),
+				[]int{0},
+				[]int{0},
+				makeVolumeStatusesForUpdateWithMemoryDump(0, 0),
+				[]string{SuccessfulCreatePodReason}),
 		)
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {

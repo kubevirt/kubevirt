@@ -292,7 +292,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					res = append(res, v1.Volume{
 						Name: fmt.Sprintf("volume-name-%d", index),
 						VolumeSource: v1.VolumeSource{
-							MemoryDump: testutils.NewFakeMemoryDumpSource(),
+							MemoryDump: testutils.NewFakeMemoryDumpSource(fmt.Sprintf("volume-name-%d", index)),
 						},
 					})
 				}

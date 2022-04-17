@@ -3336,7 +3336,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testMemoryDump",
 				VolumeSource: v1.VolumeSource{
-					MemoryDump: testutils.NewFakeMemoryDumpSource(),
+					MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump"),
 				},
 			})
 
@@ -3350,13 +3350,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				v1.Volume{
 					Name: "testMemoryDump",
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: testutils.NewFakeMemoryDumpSource(),
+						MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump"),
 					},
 				},
 				v1.Volume{
 					Name: "testMemoryDump2",
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: testutils.NewFakeMemoryDumpSource(),
+						MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump2"),
 					},
 				},
 			)

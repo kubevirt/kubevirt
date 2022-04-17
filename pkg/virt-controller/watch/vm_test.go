@@ -1788,6 +1788,295 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 		})
 
+		Context("VM memory dump", func() {
+			const (
+				testPVCName = "testPVC"
+			)
+
+			shouldExpectVMIVolumesAddPatched := func(vmi *virtv1.VirtualMachineInstance) {
+				test := `{ "op": "test", "path": "/spec/volumes", "value": null}`
+				update := `{ "op": "add", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
+				patch := fmt.Sprintf("[%s, %s]", test, update)
+
+				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			}
+
+			shouldExpectVMIVolumesRemovePatched := func(vmi *virtv1.VirtualMachineInstance) {
+				test := `{ "op": "test", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
+				update := `{ "op": "replace", "path": "/spec/volumes", "value": []}`
+				patch := fmt.Sprintf("[%s, %s]", test, update)
+				fmt.Println(patch)
+
+				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			}
+
+			applyVMIMemoryDumpVol := func(spec *virtv1.VirtualMachineInstanceSpec) *virtv1.VirtualMachineInstanceSpec {
+				newVolume := virtv1.Volume{
+					Name: testPVCName,
+					VolumeSource: virtv1.VolumeSource{
+						MemoryDump: &virtv1.MemoryDumpVolumeSource{
+							PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
+									ClaimName: testPVCName,
+								},
+								Hotpluggable: true,
+							},
+						},
+					},
+				}
+
+				spec.Volumes = append(spec.Volumes, newVolume)
+
+				return spec
+			}
+
+			It("should add memory dump volume and update vmi volumes", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpAssociating,
+				}
+
+				addVirtualMachine(vm)
+
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				shouldExpectVMIVolumesAddPatched(vmi)
+
+				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				}).Return(nil, nil)
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+				controller.Execute()
+			})
+
+			It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpAssociating,
+				}
+
+				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				addVirtualMachine(vm)
+				vmi.Spec = vm.Spec.Template.Spec
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				// when the memory dump volume is in the vm volume list we should change status to in progress
+				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpInProgress,
+				}
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
+				}).Return(nil, nil)
+
+				controller.Execute()
+			})
+
+			It("should change status to unmounting when memory dump timestamp updated", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpInProgress,
+				}
+
+				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				addVirtualMachine(vm)
+				vmi.Spec = vm.Spec.Template.Spec
+				now := metav1.Now()
+				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+					{
+						Name: testPVCName,
+						MemoryDumpVolume: &virtv1.DomainMemoryDumpInfo{
+							DumpTimestamp:  &now,
+							ClaimName:      testPVCName,
+							TargetFileName: "memory.dump",
+						},
+					},
+				}
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpUnmounting,
+					Timestamp: &now,
+					FileName:  &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
+				}
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
+				}).Return(nil, nil)
+
+				controller.Execute()
+			})
+
+			It("should update status to failed when memory dump failed", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpInProgress,
+				}
+
+				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				addVirtualMachine(vm)
+				vmi.Spec = vm.Spec.Template.Spec
+				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+					{
+						Name:    testPVCName,
+						Phase:   virtv1.MemoryDumpVolumeFailed,
+						Message: "Memory dump failed",
+						MemoryDumpVolume: &virtv1.DomainMemoryDumpInfo{
+							ClaimName: testPVCName,
+						},
+					},
+				}
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpFailed,
+					Message:   vmi.Status.VolumeStatus[0].Message,
+				}
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
+				}).Return(nil, nil)
+
+				controller.Execute()
+			})
+
+			DescribeTable("should remove memory dump volume from vmi volumes", func(phase virtv1.MemoryDumpPhase) {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     phase,
+				}
+
+				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				addVirtualMachine(vm)
+				vmi.Spec = vm.Spec.Template.Spec
+				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+					{
+						Name: testPVCName,
+						MemoryDumpVolume: &virtv1.DomainMemoryDumpInfo{
+							ClaimName: testPVCName,
+						},
+					},
+				}
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				shouldExpectVMIVolumesRemovePatched(vmi)
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+				controller.Execute()
+			},
+				Entry("when phase is Unmounting", virtv1.MemoryDumpUnmounting),
+				Entry("when phase is Failed", virtv1.MemoryDumpFailed),
+			)
+
+			It("should update memory dump to complete once memory dump volume unmounted", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				now := metav1.Now()
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpUnmounting,
+					Timestamp: &now,
+				}
+
+				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				addVirtualMachine(vm)
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				// in case the volume is not in vmi volume status we should update status to completed
+				updatedMemoryDump := &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpCompleted,
+					Timestamp: &now,
+				}
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
+				}).Return(nil, nil)
+
+				controller.Execute()
+			})
+
+			It("should remove memory dump volume from vm volumes list when status is Dissociating", func() {
+				// No need to add vmi - can do this action even if vm not running
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpDissociating,
+				}
+
+				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				addVirtualMachine(vm)
+
+				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
+				}).Return(nil, nil)
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+				controller.Execute()
+			})
+
+			It("should dissociate memory dump request when status is Dissociating and not in vm volumes", func() {
+				// No need to add vmi - can do this action even if vm not running
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     virtv1.MemoryDumpDissociating,
+				}
+
+				addVirtualMachine(vm)
+
+				// in case the volume is not in vm volumes we should remove memory dump request
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(BeNil())
+				}).Return(nil, nil)
+
+				controller.Execute()
+			})
+
+			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase virtv1.MemoryDumpPhase) {
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Status.MemoryDumpRequest = &virtv1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     phase,
+				}
+
+				vmi := controller.setupVMIFromVM(vm)
+				Expect(vmi.Spec.Volumes).To(BeEmpty())
+
+			},
+				Entry("in phase Unmounting", virtv1.MemoryDumpUnmounting),
+				Entry("in phase Completed", virtv1.MemoryDumpCompleted),
+				Entry("in phase Dissociating", virtv1.MemoryDumpDissociating),
+			)
+
+		})
+
 		Context("VM printableStatus", func() {
 
 			It("Should set a Stopped status when running=false and VMI doesn't exist", func() {

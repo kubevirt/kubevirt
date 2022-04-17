@@ -59,11 +59,11 @@ func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
 	}
 }
 
-func NewFakeMemoryDumpSource() *KVv1.MemoryDumpVolumeSource {
+func NewFakeMemoryDumpSource(name string) *KVv1.MemoryDumpVolumeSource {
 	return &KVv1.MemoryDumpVolumeSource{
 		PersistentVolumeClaimVolumeSource: KVv1.PersistentVolumeClaimVolumeSource{
 			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
-				ClaimName: "fake-memory-dump",
+				ClaimName: name,
 			},
 			Hotpluggable: true,
 		},
