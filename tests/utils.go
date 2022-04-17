@@ -587,7 +587,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	var err error
 	libstorage.Config, err = libstorage.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
-	Arch = getArch()
+	Arch = libnode.GetArch()
 
 	// Customize host disk paths
 	// Right now we support three nodes. More image copying needs to happen
@@ -3353,14 +3353,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 
 func HasCDI() bool {
 	return libstorage.HasDataVolumeCRD()
-}
-
-func getArch() string {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	nodes := libnode.GetAllSchedulableNodes(virtCli).Items
-	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
-	return nodes[0].Status.NodeInfo.Architecture
 }
 
 func VolumeExpansionAllowed(sc string) bool {

@@ -243,3 +243,11 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	}
 	return nil
 }
+
+func GetArch() string {
+	virtCli, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := GetAllSchedulableNodes(virtCli).Items
+	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
+	return nodes[0].Status.NodeInfo.Architecture
+}
