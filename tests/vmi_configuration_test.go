@@ -228,7 +228,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+				availableNumberOfCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
 
 				requiredNumberOfCpus := 3
 				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),

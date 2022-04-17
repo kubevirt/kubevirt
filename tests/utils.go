@@ -2911,21 +2911,6 @@ func DeprecatedBeforeAll(fn func()) {
 	})
 }
 
-func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
-	var cpus int64
-
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	for _, node := range nodes.Items {
-		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
-			cpus = v.Value()
-		}
-	}
-
-	return int(cpus)
-}
-
 func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vm)
 	if err != nil {

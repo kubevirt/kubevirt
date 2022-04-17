@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -56,7 +57,7 @@ var _ = Describe("[sig-compute]MultiQueue", func() {
 		var availableCPUs int
 
 		BeforeEach(func() {
-			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 
 		It("[test_id:4599]should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
