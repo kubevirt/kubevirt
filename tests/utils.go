@@ -126,14 +126,7 @@ const (
 	BashHelloScript              = "#!/bin/bash\necho 'hello'\n"
 )
 
-var Arch string
-
 type EventType string
-
-const (
-	defaultEventuallyTimeout         = 5 * time.Second
-	defaultEventuallyPollingInterval = 1 * time.Second
-)
 
 const (
 	NormalEvent  EventType = "Normal"
@@ -143,8 +136,6 @@ const (
 const defaultTestGracePeriod int64 = 0
 
 const SubresourceTestLabel = "subresource-access-test-pod"
-
-var schedulableNode = ""
 
 type startType string
 
@@ -166,12 +157,6 @@ const (
 	OSWindowsSysprep = "windows-sysprep" // This is for sysprep tests, they run on a syspreped image of windows of a different version.
 	OSRhel           = "rhel"
 	CustomHostPath   = "custom-host-path"
-	HostPathBase     = "/tmp/hostImages"
-)
-
-var (
-	HostPathAlpine string
-	HostPathCustom string
 )
 
 const (
@@ -435,52 +420,6 @@ func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType
 	return
 }
 
-func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
-	checkForPodsToBeReady := func() []string {
-		podsNotReady := make([]string, 0)
-		virtClient, err := kubecli.GetKubevirtClient()
-		util2.PanicOnError(err)
-
-		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
-		util2.PanicOnError(err)
-		for _, pod := range podsList.Items {
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Terminated != nil {
-					break // We don't care about terminated pods
-				} else if status.State.Running != nil {
-					if !status.Ready { // We need to wait for this one
-						podsNotReady = append(podsNotReady, pod.Name)
-						break
-					}
-				} else {
-					// It is in Waiting state, We need to wait for this one
-					podsNotReady = append(podsNotReady, pod.Name)
-					break
-				}
-			}
-		}
-		return podsNotReady
-	}
-	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
-}
-
-func SynchronizedAfterTestSuiteCleanup() {
-	RestoreKubeVirtResource()
-
-	libnode.CleanNodes()
-}
-
-func AfterTestSuitCleanup() {
-
-	cleanupServiceAccounts()
-	cleanNamespaces()
-
-	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-	}
-	removeNamespaces()
-}
-
 func BeforeTestCleanup() {
 	cleanNamespaces()
 	libnode.CleanNodes()
@@ -488,136 +427,6 @@ func BeforeTestCleanup() {
 	ensureKubevirtInfra()
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
-}
-
-func ensureKubevirtInfra() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	kv := util2.GetCurrentKv(virtClient)
-
-	timeout := 180 * time.Second
-	interval := 1 * time.Second
-
-	deployments := []string{
-		"virt-operator",
-		components.VirtAPIName,
-		components.VirtControllerName,
-	}
-
-	ensureDeployment := func(deploymentName string) {
-		deployment, err := virtClient.
-			AppsV1().
-			Deployments(kv.Namespace).
-			Get(context.Background(), deploymentName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		EventuallyWithOffset(
-			1,
-			ThisDeploymentWith(kv.Namespace, deploymentName),
-			timeout,
-			interval).
-			Should(HaveReadyReplicasNumerically("==", *deployment.Spec.Replicas),
-				"waiting for %s deployment to be ready", deploymentName)
-	}
-
-	for _, deploymentName := range deployments {
-		ensureDeployment(deploymentName)
-	}
-
-	//TODO: implement matcher for Daemonset in test infra
-	Eventually(func() bool {
-		ds, err := virtClient.
-			AppsV1().
-			DaemonSets(kv.Namespace).
-			Get(context.Background(), components.VirtHandlerName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady
-	}, timeout, interval).Should(BeTrue(), "waiting for virt-handler daemonSet to be ready")
-
-}
-
-func SynchronizedBeforeTestSetup() []byte {
-	var err error
-	libstorage.Config, err = libstorage.LoadConfig()
-	Expect(err).ToNot(HaveOccurred())
-
-	if flags.KubeVirtInstallNamespace == "" {
-		detectInstallNamespace()
-	}
-
-	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-		DeployTestingInfrastructure()
-	}
-
-	EnsureKVMPresent()
-	AdjustKubeVirtResource()
-
-	return nil
-}
-
-func BeforeTestSuitSetup(_ []byte) {
-	worker := GinkgoParallelProcess()
-	rand.Seed(int64(worker))
-	log.InitializeLogging("tests")
-	log.Log.SetIOWriter(GinkgoWriter)
-	var err error
-	libstorage.Config, err = libstorage.LoadConfig()
-	Expect(err).ToNot(HaveOccurred())
-	Arch = libnode.GetArch()
-
-	// Customize host disk paths
-	// Right now we support three nodes. More image copying needs to happen
-	// TODO link this somehow with the image provider which we run upfront
-
-	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
-	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
-
-	// Wait for schedulable nodes
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	Eventually(func() int {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
-		if len(nodes.Items) > 0 {
-			idx := rand.Intn(len(nodes.Items))
-			schedulableNode = nodes.Items[idx].Name
-		}
-		return len(nodes.Items)
-	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
-
-	createNamespaces()
-	createServiceAccounts()
-
-	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
-	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
-}
-
-func EnsureKVMPresent() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	if !ShouldAllowEmulation(virtClient) {
-		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		EventuallyWithOffset(1, func() bool {
-			ready := true
-			// cluster is not ready until all nodes are ready.
-			for _, pod := range virtHandlerPods.Items {
-				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
-				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
-				ready = ready && ok1 && ok2
-				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
-			}
-			return ready
-		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
-	}
 }
 
 func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
@@ -1042,28 +851,6 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 		panic(err)
 	}
 	return nil
-}
-
-func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
-	// Deploy / delete test infrastructure / dependencies
-	manifests := GetListOfManifests(flags.PathToTestingInfrastrucureManifests)
-	for _, manifest := range manifests {
-		objects := ReadManifestYamlFile(manifest)
-		for _, obj := range objects {
-			err := actionOnObject(obj)
-			util2.PanicOnError(err)
-		}
-	}
-
-	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
-}
-
-func DeployTestingInfrastructure() {
-	deployOrWipeTestingInfrastrucure(ApplyRawManifest)
-}
-
-func WipeTestingInfrastructure() {
-	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
 }
 
 func DeleteConfigMap(name string) {
