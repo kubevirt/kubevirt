@@ -28,7 +28,6 @@ import (
 	"os/exec"
 
 	"github.com/coreos/go-iptables/iptables"
-	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -67,8 +66,7 @@ type NetworkHandler interface {
 	LinkAdd(link netlink.Link) error
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
-	SetRandomMac(iface string) (net.HardwareAddr, error)
-	GetMacDetails(iface string) (net.HardwareAddr, error)
+	LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasNatIptables(proto iptables.Protocol) bool
@@ -89,6 +87,10 @@ type NetworkHandler interface {
 }
 
 type NetworkUtilsHandler struct{}
+
+func (h *NetworkUtilsHandler) LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error {
+	return netlink.LinkSetHardwareAddr(link, hwaddr)
+}
 
 func (h *NetworkUtilsHandler) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
@@ -309,51 +311,6 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 	}
 
 	return ipv4, ipv6, nil
-}
-
-// GetMacDetails from an interface
-func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
-	currentMac, err := lmf.GetCurrentMac(iface)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get mac information for interface: %s", iface)
-		return nil, err
-	}
-	return currentMac, nil
-}
-
-// SetRandomMac changes the MAC address for a given interface to a randomly generated, preserving the vendor prefix
-func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
-	var mac net.HardwareAddr
-
-	currentMac, err := h.GetMacDetails(iface)
-	if err != nil {
-		return nil, err
-	}
-
-	changed := false
-
-	for i := 0; i < randomMacGenerationAttempts; i++ {
-		changed, err = lmf.SpoofMacSameVendor(iface, false)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", iface)
-			return nil, err
-		}
-
-		if changed {
-			mac, err = h.GetMacDetails(iface)
-			if err != nil {
-				return nil, err
-			}
-			log.Log.Infof("updated MAC for %s interface: old: %s -> new: %s", iface, currentMac, mac)
-			break
-		}
-	}
-	if !changed {
-		err := fmt.Errorf("failed to spoof MAC for an interface %s after %d attempts", iface, randomMacGenerationAttempts)
-		log.Log.Reason(err)
-		return nil, err
-	}
-	return currentMac, nil
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
