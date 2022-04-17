@@ -95,7 +95,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"kubevirt.io/kubevirt/pkg/controller"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -148,13 +147,6 @@ const defaultTestGracePeriod int64 = 0
 
 const SubresourceTestLabel = "subresource-access-test-pod"
 
-// NamespaceTestAlternative is used to test controller-namespace independency.
-var NamespaceTestAlternative = "kubevirt-test-alternative"
-
-// NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
-var NamespaceTestOperator = "kubevirt-test-operator"
-
-var TestNamespaces = []string{util2.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 var schedulableNode = ""
 
 type startType string
@@ -546,17 +538,6 @@ func ensureKubevirtInfra() {
 		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady
 	}, timeout, interval).Should(BeTrue(), "waiting for virt-handler daemonSet to be ready")
 
-}
-
-// CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
-func CalculateNamespaces() {
-	worker := GinkgoParallelProcess()
-	util2.NamespaceTestDefault = fmt.Sprintf("%s%d", util2.NamespaceTestDefault, worker)
-	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
-	// TODO, that is not needed, just a shortcut to not have to treat this namespace
-	// differently when running in parallel
-	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
-	TestNamespaces = []string{util2.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 }
 
 func SynchronizedBeforeTestSetup() []byte {
@@ -1425,220 +1406,6 @@ func GetContainerOfPod(pod *k8sv1.Pod, containerName string) *k8sv1.Container {
 		util2.PanicOnError(fmt.Errorf("could not find the %s container", containerName))
 	}
 	return computeContainer
-}
-
-func cleanNamespaces() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	for _, namespace := range TestNamespaces {
-
-		_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-		if err != nil {
-			continue
-		}
-
-		// Clean namespace labels
-		err = libnet.RemoveAllLabelsFromNamespace(virtCli, namespace)
-		util2.PanicOnError(err)
-
-		//Remove all Jobs
-		jobDeleteStrategy := metav1.DeletePropagationOrphan
-		jobDeleteOptions := metav1.DeleteOptions{PropagationPolicy: &jobDeleteStrategy}
-		util2.PanicOnError(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Body(&jobDeleteOptions).Do(context.Background()).Error())
-		//Remove all HPA
-		util2.PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error())
-
-		// Remove all VirtualMachinePools
-		util2.PanicOnError(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
-
-		// Remove all VirtualMachines
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error())
-
-		// Remove all VirtualMachineReplicaSets
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error())
-
-		// Remove all VMIs
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
-		vmis, err := virtCli.VirtualMachineInstance(namespace).List(&metav1.ListOptions{})
-		util2.PanicOnError(err)
-		for _, vmi := range vmis.Items {
-			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
-				if !errors.IsNotFound(err) {
-					util2.PanicOnError(err)
-				}
-			}
-		}
-
-		// Remove all Pods
-		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-		util2.PanicOnError(err)
-		var gracePeriod int64 = 0
-		for _, pod := range podList.Items {
-			err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
-			if errors.IsNotFound(err) {
-				continue
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Remove all Services
-		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
-		util2.PanicOnError(err)
-		for _, svc := range svcList.Items {
-			util2.PanicOnError(virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}))
-		}
-
-		// Remove PVCs
-		util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error())
-		if HasCDI() {
-			// Remove DataVolumes
-			util2.PanicOnError(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error())
-		}
-		// Remove PVs
-		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
-		})
-		util2.PanicOnError(err)
-		for _, pv := range pvs.Items {
-			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				util2.PanicOnError(err)
-			}
-		}
-
-		// Remove all VirtualMachineInstance Secrets
-		labelSelector := fmt.Sprintf("%s", SecretLabel)
-		util2.PanicOnError(
-			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
-				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
-			),
-		)
-
-		// Remove all VirtualMachineInstance Presets
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error())
-		// Remove all limit ranges
-		util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error())
-
-		// Remove all Migration Objects
-		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error())
-		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
-		util2.PanicOnError(err)
-		for _, migration := range migrations.Items {
-			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
-				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
-				if !errors.IsNotFound(err) {
-					util2.PanicOnError(err)
-				}
-			}
-		}
-		// Remove all NetworkAttachmentDefinitions
-		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			util2.PanicOnError(err)
-		}
-		for _, netDef := range nets.Items {
-			util2.PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
-		}
-
-		// Remove all Istio Sidecars, VirtualServices, DestinationRules and Gateways
-		for _, res := range []string{"sidecars", "virtualservices", "destinationrules", "gateways"} {
-			util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: res}, namespace))
-		}
-
-		// Remove all Istio PeerAuthentications
-		util2.PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
-
-		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s", cleanup.TestLabelForNamespace(namespace)),
-		})
-		util2.PanicOnError(err)
-		for _, policy := range migrationPolicyList.Items {
-			util2.PanicOnError(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{}))
-		}
-	}
-}
-
-func removeNamespaces() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	// First send an initial delete to every namespace
-	for _, namespace := range TestNamespaces {
-		err := virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		if !errors.IsNotFound(err) {
-			util2.PanicOnError(err)
-		}
-	}
-
-	// Wait until the namespaces are terminated
-	fmt.Println("")
-	for _, namespace := range TestNamespaces {
-		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
-		EventuallyWithOffset(1, func() error {
-			return virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", namespace))
-	}
-}
-
-func removeAllGroupVersionResourceFromNamespace(groupVersionResource schema.GroupVersionResource, namespace string) error {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
-
-	gvr, err := virtCli.DynamicClient().Resource(groupVersionResource).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	for _, r := range gvr.Items {
-		err = virtCli.DynamicClient().Resource(groupVersionResource).Namespace(namespace).Delete(context.Background(), r.GetName(), metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func detectInstallNamespace() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	kvs, err := virtCli.KubeVirt("").List(&metav1.ListOptions{})
-	util2.PanicOnError(err)
-	if len(kvs.Items) == 0 {
-		util2.PanicOnError(fmt.Errorf("Could not detect a kubevirt installation"))
-	}
-	if len(kvs.Items) > 1 {
-		util2.PanicOnError(fmt.Errorf("Invalid kubevirt installation, more than one KubeVirt resource found"))
-	}
-	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
-}
-
-func createNamespaces() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	// Create a Test Namespaces
-	for _, namespace := range TestNamespaces {
-		ns := &k8sv1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-				Labels: map[string]string{
-					cleanup.TestLabelForNamespace(namespace): "",
-				},
-			},
-		}
-		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		if !errors.IsAlreadyExists(err) {
-			util2.PanicOnError(err)
-		}
-	}
 }
 
 func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
