@@ -94,7 +94,7 @@ function _run_registry() {
         docker rm $REGISTRY_NAME || true
         sleep 5
     done
-    docker run -d --network=${network} -p $HOST_PORT:5000  --restart=always --name $REGISTRY_NAME quay.io/libpod/registry:2.7
+    docker run -d --network=${network} -p $HOST_PORT:5000  --restart=always --name $REGISTRY_NAME registry:2
 }
 
 function _configure_registry_on_node() {
@@ -303,7 +303,8 @@ function down() {
     if [ -z "$($KIND get clusters | grep ${CLUSTER_NAME})" ]; then
         return
     fi
-    $KIND delete cluster --name=${CLUSTER_NAME}
+    # On CI, avoid failing an entire test run just because of a deletion error
+    $KIND delete cluster --name=${CLUSTER_NAME} || [ "$CI" = "true" ]
     docker rm -f $REGISTRY_NAME >> /dev/null
     rm -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
 }
