@@ -337,9 +337,9 @@ container_pull(
 
 container_pull(
     name = "fedora_with_test_tooling_aarch64",
-    digest = "sha256:9b1371260c05086a24ac9effdbedca9759c885ea8db93de7f0339df3bcd5a5c3",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-with-test-tooling",
+    digest = "sha256:9c9172fe559e6a9522e940f7a033deea342b73e3cd11f0aa334bc0235395bef2",
+    registry = "docker.io",
+    repository = "dockerneties/fedora-with-test-tooling-arm:latest",
 )
 
 container_pull(
