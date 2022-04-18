@@ -732,8 +732,21 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 func (c *MigrationController) handleSignalMigrationAbort(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
 
 	vmiCopy := vmi.DeepCopy()
+	now := v1.NewTime(time.Now())
 
+	if vmiCopy.Status.MigrationState == nil {
+		vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+			MigrationUID:   migration.UID,
+			SourceNode:     vmi.Status.NodeName,
+			StartTimestamp: &now,
+		}
+	}
+
+	if vmiCopy.Status.MigrationState.EndTimestamp == nil {
+		vmiCopy.Status.MigrationState.EndTimestamp = &now
+	}
 	vmiCopy.Status.MigrationState.AbortRequested = true
+
 	if !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) {
 
 		newStatus := vmiCopy.Status
@@ -1038,6 +1051,13 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		return fmt.Errorf("vmi is inelgible for migration because another migration job is running")
 	}
 
+	if migration.DeletionTimestamp != nil {
+		err = c.handleSignalMigrationAbort(migration, vmi)
+		if err != nil {
+			return err
+		}
+	}
+
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
 		if !targetPodExists {
@@ -1125,10 +1145,6 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			return c.handleMarkMigrationFailedOnVMI(migration, vmi)
 		}
 	case virtv1.MigrationRunning:
-		// abort the migration if the migration is being deleted.
-		if migration.DeletionTimestamp != nil && vmi.Status.MigrationState != nil {
-			return c.handleSignalMigrationAbort(migration, vmi)
-		}
 	}
 
 	return nil
