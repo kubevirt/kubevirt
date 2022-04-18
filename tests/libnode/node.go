@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util/nodes"
+
 	utiltype "kubevirt.io/kubevirt/pkg/util/types"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -332,4 +334,30 @@ func GetArch() string {
 	nodes := GetAllSchedulableNodes(virtCli).Items
 	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
 	return nodes[0].Status.NodeInfo.Architecture
+}
+
+func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, setSchedulable bool) {
+	origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+
+	nodeCopy := origNode.DeepCopy()
+	nodeCopy.Spec.Unschedulable = !setSchedulable
+
+	err = nodes.PatchNode(virtCli, origNode, nodeCopy)
+	Expect(err).ShouldNot(HaveOccurred())
+
+	Eventually(func() bool {
+		patchedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+
+		return patchedNode.Spec.Unschedulable
+	}, 30*time.Second, time.Second).Should(Equal(!setSchedulable), fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable))
+}
+
+func SetNodeUnschedulable(nodeName string, virtCli kubecli.KubevirtClient) {
+	setNodeSchedualability(nodeName, virtCli, false)
+}
+
+func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
+	setNodeSchedualability(nodeName, virtCli, true)
 }
