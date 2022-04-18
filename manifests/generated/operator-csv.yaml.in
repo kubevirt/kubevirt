@@ -772,6 +772,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/migrate
+          - virtualmachines/memorydump
           verbs:
           - update
         - apiGroups:
@@ -875,6 +876,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/migrate
+          - virtualmachines/memorydump
           verbs:
           - update
         - apiGroups:
