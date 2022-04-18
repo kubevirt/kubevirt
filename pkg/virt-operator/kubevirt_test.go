@@ -1199,7 +1199,8 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	caBundle := cert.EncodeCertPEM(caCert.Leaf)
 	all = append(all, caSecret)
 
-	components.PopulateSecretWithCertificate(caExportSecret, nil, &metav1.Duration{Duration: apply.Duration7d})
+	caExportDuration := metav1.Duration{Duration: time.Hour * 24 * 365 * 10} // 10 Years
+	components.PopulateSecretWithCertificate(caExportSecret, nil, &caExportDuration)
 	caExportCert, _ := components.LoadCertificates(caExportSecret)
 	caExportBundle := cert.EncodeCertPEM(caExportCert.Leaf)
 	all = append(all, caExportSecret)

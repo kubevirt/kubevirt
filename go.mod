@@ -153,6 +153,7 @@ require (
 
 require (
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect; indirect github.com/gophercloud/gophercloud v0.4.0 // indirect
+	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95 // indirect
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 )
 

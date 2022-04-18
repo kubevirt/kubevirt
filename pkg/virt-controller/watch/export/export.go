@@ -247,7 +247,7 @@ func (ctrl *VMExportController) handlePVC(obj interface{}) {
 }
 
 func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachineExport) (time.Duration, error) {
-	log.Log.V(1).Infof("Updating VirtualMachineExport %s/%s", vmExport.Namespace, vmExport.Name)
+	log.Log.V(3).Infof("Updating VirtualMachineExport %s/%s", vmExport.Namespace, vmExport.Name)
 	var retry time.Duration
 
 	service, err := ctrl.getOrCreateExportService(vmExport)
@@ -263,21 +263,13 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		pvcs := make([]*corev1.PersistentVolumeClaim, 0)
 		if pvc != nil {
 			pvcs = append(pvcs, pvc)
-		} else {
-			pvc = &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      vmExport.Spec.Source.Name,
-					Namespace: vmExport.Namespace,
-				},
-			}
-			pvcs = append(pvcs, pvc)
 		}
 		inUse, err := ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
 			return retry, err
 		}
 		var pod *corev1.Pod
-		if !inUse {
+		if !inUse && len(pvcs) > 0 {
 			pod, err = ctrl.getOrCreateExporterPod(vmExport, pvcs)
 			if err != nil {
 				return 0, err
@@ -337,6 +329,9 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 }
 
 func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, error) {
+	if pvc == nil {
+		return false, nil
+	}
 	pvcSet := sets.NewString(pvc.Name)
 	if usedPods, err := watchutil.PodsUsingPVCs(ctrl.PodInformer, pvc.Namespace, pvcSet); err != nil {
 		return false, err
@@ -594,9 +589,7 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		Volumes: []exportv1.VirtualMachineExportVolume{},
 		Cert:    internalCert,
 	}
-	// XXX TODO - should only populate if export server pod running
-	// pvc should def not be nil at that point
-	if pvc != nil {
+	if pvc != nil && exporterPod != nil && exporterPod.Status.Phase == corev1.PodRunning {
 		const scheme = "https://"
 		host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
 		if ctrl.isKubevirtContentType(pvc) {
@@ -647,6 +640,7 @@ func (ctrl *VMExportController) base64EncodeExportCa() (string, error) {
 	ctrl.ConfigMapInformer.GetStore().GetByKey(key)
 	obj, exists, err := ctrl.ConfigMapInformer.GetStore().GetByKey(key)
 	if err != nil || !exists {
+		log.DefaultLogger().Infof("CA Config Map not found, %v", ctrl.ConfigMapInformer.GetStore().ListKeys())
 		return "", err
 	}
 	cm := obj.(*corev1.ConfigMap).DeepCopy()

@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -38,6 +39,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -169,7 +171,7 @@ var _ = SIGDescribe("Export", func() {
 				MountPath: "/data",
 			})
 		}
-		return tests.RunPod(pod)
+		return tests.RunPodAndExpectCompletion(pod)
 	}
 
 	isWaitForFirstConsumer := func(storageClassName string) bool {
@@ -251,8 +253,8 @@ var _ = SIGDescribe("Export", func() {
 
 	populateKubeVirtContent := func(sc string) (*k8sv1.PersistentVolumeClaim, string) {
 		By("Creating source volume")
-		dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
-		_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() *k8sv1.PersistentVolumeClaim {
 			pvc, _ = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -351,7 +353,7 @@ var _ = SIGDescribe("Export", func() {
 
 	DescribeTable("should make a PVC export available", func(populateFunction func(string) (*k8sv1.PersistentVolumeClaim, string),
 		verifyFunction func(string, string, *k8sv1.Pod), expectedFormat exportv1.ExportVolumeFormat, urlTemplate string) {
-		sc, exists := tests.GetRWOFileSystemStorageClass()
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
@@ -363,7 +365,7 @@ var _ = SIGDescribe("Export", func() {
 		apiGroup := "v1"
 		vmExport := &exportv1.VirtualMachineExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("test-export-%s", pvc.Name),
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
 				Namespace: pvc.Namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
@@ -396,7 +398,7 @@ var _ = SIGDescribe("Export", func() {
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("target-pvc-%s", pvc.Name),
+				Name:      fmt.Sprintf("target-pvc-%s", rand.String(12)),
 				Namespace: pvc.Namespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{

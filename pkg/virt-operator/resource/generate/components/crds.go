@@ -549,8 +549,8 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "TargetKind", Type: "string", JSONPath: ".spec.target.kind"},
-		{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
+		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
+		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
 		{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 	})
 	if err != nil {

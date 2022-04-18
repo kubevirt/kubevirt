@@ -112,7 +112,7 @@ var _ = Describe("Template", func() {
 				virtClient,
 				config,
 				qemuGid,
-				"kubervirt/vmexport",
+				"kubevirt/vmexport",
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
