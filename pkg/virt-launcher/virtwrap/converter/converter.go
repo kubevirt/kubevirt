@@ -1918,8 +1918,6 @@ func getPrefixFromBus(bus string) string {
 		return "vd"
 	case "sata", "scsi":
 		return "sd"
-	case "fdc":
-		return "fd"
 	default:
 		log.Log.Errorf("Unrecognized bus '%s'", bus)
 		return ""
