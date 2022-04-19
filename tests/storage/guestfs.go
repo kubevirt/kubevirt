@@ -69,11 +69,10 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		return f
 	}
 
-	runGuestfsOnPVC := func(pvcClaim string) {
+	runGuestfsOnPVC := func(pvcClaim string, options ...string) {
 		podName := libguestsTools + pvcClaim
-		guestfsCmd := clientcmd.NewVirtctlCommand("guestfs",
-			pvcClaim,
-			"--namespace", util.NamespaceTestDefault)
+		o := append([]string{"guestfs", pvcClaim, "--namespace", util.NamespaceTestDefault}, options...)
+		guestfsCmd := clientcmd.NewVirtctlCommand(o...)
 		go func() {
 			defer GinkgoRecover()
 			Expect(guestfsCmd.Execute()).ToNot(HaveOccurred())
@@ -92,7 +91,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		}, 90*time.Second, 2*time.Second).Should(BeTrue())
 		// Verify that the appliance has been extracted before running any tests by checking the done file
 		Eventually(func() bool {
-			_, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/done"})
+			_, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/appliance/done"})
 			if err != nil {
 				return false
 			}
@@ -166,6 +165,23 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			tests.CreateBlockPVC(virtClient, pvcClaim, size)
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
+			Expect(stderr).To(Equal(""))
+			Expect(stdout).To(Equal(""))
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+		It("Should successfully run guestfs command on a filesystem-based PVC with root", func() {
+			f := createFakeAttacher()
+			defer f.closeChannel()
+			pvcClaim = "pvc-fs-with-different-uid"
+			podName := libguestsTools + pvcClaim
+			createPVCFilesystem(pvcClaim)
+			runGuestfsOnPVC(pvcClaim, "--root")
+			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
+			Expect(stderr).To(Equal(""))
+			Expect(stdout).To(ContainSubstring("Formatting"))
+			Expect(err).ToNot(HaveOccurred())
+			stdout, stderr, err = execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/disk/disk.img", "run"})
 			Expect(stderr).To(Equal(""))
 			Expect(stdout).To(Equal(""))
 			Expect(err).ToNot(HaveOccurred())
