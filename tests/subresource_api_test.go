@@ -91,6 +91,21 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 		})
 	})
 
+	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Guestfs Command", func() {
+		resource := "guestfs"
+
+		Context("with authenticated user", func() {
+			It("should be allowed to access subresource guestfs endpoint", func() {
+				testClientJob(virtCli, true, resource)
+			})
+		})
+		Context("Without permissions", func() {
+			It("should be able to access subresource guestfs endpoint", func() {
+				testClientJob(virtCli, false, resource)
+			})
+		})
+	})
+
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
 			It("[test_id:1304] should restart a VM", func() {
@@ -375,7 +390,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 	if withServiceAccount {
 		job.Spec.ServiceAccountName = tests.SubresourceServiceAccountName
 		expectedPhase = k8sv1.PodSucceeded
-	} else if resource == "version" {
+	} else if resource == "version" || resource == "guestfs" {
 		expectedPhase = k8sv1.PodSucceeded
 	}
 
