@@ -42,12 +42,13 @@ const (
 )
 
 var (
-	pvc        string
-	image      string
-	timeout    = 500 * time.Second
-	pullPolicy string
-	kvm        bool
-	podName    string
+	pvc           string
+	image         string
+	ExportedImage string
+	timeout       = 500 * time.Second
+	pullPolicy    string
+	kvm           bool
+	podName       string
 )
 
 type guestfsCommand struct {
@@ -113,22 +114,37 @@ func SetDefaulAttacher() {
 // ImageSet is a function to set the setImage
 type ImageSet func(virtClient kubecli.KubevirtClient) error
 
-var imageSetFunc ImageSet
+// ImageInfoGet is a function to get image info
+type ImageInfoGet func(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error)
 
-// SetClient allows overriding the default Kubernetes client. Useful for creating a mock function for the testing.
+var ImageSetFunc ImageSet
+var ImageInfoGetFunc ImageInfoGet
+
+// SetImageSetFunc sets the function to set the image
 func SetImageSetFunc(f ImageSet) {
-	imageSetFunc = f
+	ImageSetFunc = f
 }
 
 // SetDefaultImageSet sets the default function to set the image
 func SetDefaultImageSet() {
-	imageSetFunc = setImage
+	ImageSetFunc = setImage
+}
+
+// SetImageInfoGetFunc sets the function to get image info
+func SetImageInfoGetFunc(f ImageInfoGet) {
+	ImageInfoGetFunc = f
+}
+
+// SetDefaultImageInfoGetFunc sets the default function to get image info
+func SetDefaultImageInfoGetFunc() {
+	ImageInfoGetFunc = getImageInfo
 }
 
 func init() {
 	SetDefaulClient()
 	SetDefaulAttacher()
 	SetDefaultImageSet()
+	SetDefaultImageInfoGetFunc()
 }
 
 func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
@@ -141,7 +157,7 @@ func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
 	if pullPolicy != string(corev1.PullAlways) &&
 		pullPolicy != string(corev1.PullNever) &&
 		pullPolicy != string(corev1.PullIfNotPresent) {
-		return fmt.Errorf("Not valide pull policy: %s", pullPolicy)
+		return fmt.Errorf("Invalid pull policy: %s", pullPolicy)
 	}
 	var inUse bool
 	conf, err := c.clientConfig.ClientConfig()
@@ -153,7 +169,7 @@ func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if image == "" {
-		if err = imageSetFunc(client.VirtClient); err != nil {
+		if err = ImageSetFunc(client.VirtClient); err != nil {
 			return err
 		}
 	}
@@ -188,26 +204,39 @@ type K8sClient struct {
 // setImage sets the image name based on the information retrieved by the KubeVirt server.
 func setImage(virtClient kubecli.KubevirtClient) error {
 	var imageName string
-	info, err := virtClient.GuestfsVersion().Get()
+	info, err := ImageInfoGetFunc(virtClient)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get guestfs image info: %v", err)
 	}
+	// Set image name including prefix if available
+	imageName = fmt.Sprintf("%s%s", info.ImagePrefix, defaultImageName)
 	// Set the image version.
 	if info.Digest != "" {
-		imageName = fmt.Sprintf("%s@%s", defaultImageName, info.Digest)
+		imageName = fmt.Sprintf("%s@%s", imageName, info.Digest)
 	} else if info.Tag != "" {
-		imageName = fmt.Sprintf("%s:%s", defaultImageName, info.Tag)
+		imageName = fmt.Sprintf("%s:%s", imageName, info.Tag)
 	} else {
 		return fmt.Errorf("Either the digest or the tag for the image have been specified")
 	}
 
 	// Set the registry
+	image = imageName
 	if info.Registry != "" {
 		image = fmt.Sprintf("%s/%s", info.Registry, imageName)
-		return nil
 	}
-	image = imageName
+	ExportedImage = image
+
 	return nil
+}
+
+// getImageInfo gets the image info based on the information on KubeVirt CR
+func getImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
+	info, err := virtClient.GuestfsVersion().Get()
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
 
 func createClient(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*K8sClient, error) {
