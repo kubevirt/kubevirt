@@ -89,6 +89,12 @@ type VirtualMachineFlavorSpec struct {
 	// +listType=atomic
 	GPUs []v1.GPU `json:"gpus,omitempty"`
 
+	// Optionally defines any HostDevices associated with the flavor.
+	//
+	// +optional
+	// +listType=atomic
+	HostDevices []v1.HostDevice `json:"hostDevices,omitempty"`
+
 	// Optionally defines the IOThreadsPolicy to be used by the flavor.
 	//
 	// +optional

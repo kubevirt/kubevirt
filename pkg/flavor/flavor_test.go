@@ -559,6 +559,44 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 		})
 
+		Context("flavor.Spec.HostDevices", func() {
+
+			BeforeEach(func() {
+				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
+					HostDevices: []v1.HostDevice{
+						v1.HostDevice{
+							Name:       "foobar",
+							DeviceName: "vendor.com/device_name",
+						},
+					},
+				}
+			})
+
+			It("in full to VMI", func() {
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(0))
+
+				Expect(vmi.Spec.Domain.Devices.HostDevices).To(Equal(flavorSpec.HostDevices))
+
+			})
+
+			It("detects HostDevice conflict", func() {
+
+				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+					v1.HostDevice{
+						Name:       "foobar",
+						DeviceName: "vendor.com/device_name",
+					},
+				}
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.devices.hostDevices"))
+
+			})
+		})
+
 		// TODO - break this up into smaller more targeted tests
 		Context("Preference.Devices ", func() {
 

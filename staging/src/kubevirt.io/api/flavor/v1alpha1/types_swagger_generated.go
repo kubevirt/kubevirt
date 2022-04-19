@@ -32,6 +32,7 @@ func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true",
 		"gpus":            "Optionally defines any GPU devices associated with the flavor.\n\n+optional\n+listType=atomic",
+		"hostDevices":     "Optionally defines any HostDevices associated with the flavor.\n\n+optional\n+listType=atomic",
 		"ioThreadsPolicy": "Optionally defines the IOThreadsPolicy to be used by the flavor.\n\n+optional",
 		"launchSecurity":  "Optionally defines the LaunchSecurity to be used by the flavor.\n\n+optional",
 	}

@@ -6903,6 +6903,26 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        hostDevices:
+          description: Optionally defines any HostDevices associated with the flavor.
+          items:
+            properties:
+              deviceName:
+                description: DeviceName is the resource name of the host device exposed
+                  by a device plugin
+                type: string
+              name:
+                type: string
+              tag:
+                description: If specified, the virtual network interface address and
+                  its tag will be provided to the guest via config drive
+                type: string
+            required:
+            - deviceName
+            - name
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the flavor.
           type: string
@@ -7517,6 +7537,26 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                     type: object
                 type: object
+            required:
+            - deviceName
+            - name
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        hostDevices:
+          description: Optionally defines any HostDevices associated with the flavor.
+          items:
+            properties:
+              deviceName:
+                description: DeviceName is the resource name of the host device exposed
+                  by a device plugin
+                type: string
+              name:
+                type: string
+              tag:
+                description: If specified, the virtual network interface address and
+                  its tag will be provided to the guest via config drive
+                type: string
             required:
             - deviceName
             - name

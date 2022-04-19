@@ -492,6 +492,11 @@ func (in *VirtualMachineFlavorSpec) DeepCopyInto(out *VirtualMachineFlavorSpec) 
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.HostDevices != nil {
+		in, out := &in.HostDevices, &out.HostDevices
+		*out = make([]v1.HostDevice, len(*in))
+		copy(*out, *in)
+	}
 	if in.IOThreadsPolicy != nil {
 		in, out := &in.IOThreadsPolicy, &out.IOThreadsPolicy
 		*out = new(v1.IOThreadsPolicy)
