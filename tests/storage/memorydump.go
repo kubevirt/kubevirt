@@ -296,7 +296,10 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	memoryDumpVirtctl := func(name, namespace, claimName string) {
 		By("Invoking virtlctl memory dump")
-		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, name, fmt.Sprintf(virtCtlClaimName, claimName), virtCtlNamespace, namespace}
+		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", name, virtCtlNamespace, namespace}
+		if claimName != "" {
+			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
+		}
 		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return memorydumpCommand()
@@ -311,7 +314,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	removeMemoryDumpVirtctl := func(name, namespace string) {
 		By("Invoking virtlctl remove memory dump")
-		commandAndArgs := []string{virtctl.COMMAND_REMOVE_MEMORYDUMP, name, virtCtlNamespace, namespace}
+		commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "remove", name, virtCtlNamespace, namespace}
 		removeMemorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Eventually(func() error {
 			return removeMemorydumpCommand()
@@ -381,7 +384,11 @@ var _ = SIGDescribe("Memory dump", func() {
 			previousOutput := ""
 			for i := 0; i < 3; i++ {
 				By("Running memory dump number: " + strconv.Itoa(i))
-				memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName)
+				if i > 0 {
+					memoryDumpVirtctl(vm.Name, vm.Namespace, "")
+				} else {
+					memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName)
+				}
 
 				waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 				verifyMemoryDumpNotOnVMI(vm, memoryDumpPVCName)
@@ -468,7 +475,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			By("Trying to get memory dump with small pvc")
 			size, _ := resource.ParseQuantity("200Mi")
 			memoryDumpSmallPVC = createMemoryDumpPVC(memoryDumpSmallPVCName, sc, size)
-			commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
+			commandAndArgs := []string{virtctl.COMMAND_MEMORYDUMP, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() string {
 				err := memorydumpCommand()

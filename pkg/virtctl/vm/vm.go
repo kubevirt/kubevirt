@@ -38,18 +38,17 @@ import (
 )
 
 const (
-	COMMAND_START             = "start"
-	COMMAND_STOP              = "stop"
-	COMMAND_RESTART           = "restart"
-	COMMAND_MIGRATE           = "migrate"
-	COMMAND_MIGRATE_CANCEL    = "migrate-cancel"
-	COMMAND_GUESTOSINFO       = "guestosinfo"
-	COMMAND_USERLIST          = "userlist"
-	COMMAND_FSLIST            = "fslist"
-	COMMAND_MEMORYDUMP        = "memory-dump"
-	COMMAND_REMOVE_MEMORYDUMP = "remove-memory-dump"
-	COMMAND_ADDVOLUME         = "addvolume"
-	COMMAND_REMOVEVOLUME      = "removevolume"
+	COMMAND_START          = "start"
+	COMMAND_STOP           = "stop"
+	COMMAND_RESTART        = "restart"
+	COMMAND_MIGRATE        = "migrate"
+	COMMAND_MIGRATE_CANCEL = "migrate-cancel"
+	COMMAND_GUESTOSINFO    = "guestosinfo"
+	COMMAND_USERLIST       = "userlist"
+	COMMAND_FSLIST         = "fslist"
+	COMMAND_MEMORYDUMP     = "memory-dump"
+	COMMAND_ADDVOLUME      = "addvolume"
+	COMMAND_REMOVEVOLUME   = "removevolume"
 
 	volumeNameArg         = "volume-name"
 	claimNameArg          = "claim-name"
@@ -207,10 +206,10 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "memory-dump (VMI)",
+		Use:     "memory-dump get/remove (VM)",
 		Short:   "Dump the memory of a running VM to a given pvc",
 		Example: usageMemoryDump(),
-		Args:    templates.ExactArgs("memory-dump", 1),
+		Args:    templates.ExactArgs("memory-dump", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MEMORYDUMP, clientConfig: clientConfig}
 			return c.Run(args)
@@ -218,23 +217,6 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
-	cmd.MarkFlagRequired(claimNameArg)
-
-	return cmd
-}
-
-func NewRemoveMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "remove-memory-dump",
-		Short:   "Remove the association of the memory dump pvc",
-		Example: usageRemoveMemoryDump(),
-		Args:    templates.ExactArgs("remove-memory-dump", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_REMOVE_MEMORYDUMP, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }
@@ -324,15 +306,14 @@ func usage(cmd string) string {
 }
 
 func usageMemoryDump() string {
-	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an pvc called 'memoryvolume'.
-  {{ProgramName}} memory-dump myvm --claim-name=memoryvolume
-  `
-	return usage
-}
+	usage := `  #Dump memory of a virtual machine instance called 'myvm' to a pvc called 'memoryvolume'.
+  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume
 
-func usageRemoveMemoryDump() string {
-	usage := `  #Remove the association of the last memory dump pvc.
-  {{ProgramName}} remove-memory-dump myvm
+  #Dump memory again to the same virtual machine with an already associated pvc(existing memory dump on vm status).
+  {{ProgramName}} memory-dump get myvm
+
+  #Remove the association of the memory dump pvc.
+  {{ProgramName}} memory-dump remove myvm
   `
 	return usage
 }
@@ -414,17 +395,29 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 	return nil
 }
 
-func memoryDump(vmName, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
-	memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
-		ClaimName: claimName,
-		Phase:     v1.MemoryDumpAssociating,
+func memoryDump(args []string, claimName, namespace string, virtClient kubecli.KubevirtClient) error {
+	vmName := args[1]
+	switch args[0] {
+	case "get":
+		memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
+			ClaimName: claimName,
+		}
+
+		err := virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+		if err != nil {
+			return fmt.Errorf("error dumping vm memory, %v", err)
+		}
+		fmt.Printf("Successfully submitted memory dump request of VM %s\n", vmName)
+	case "remove":
+		err := virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
+		if err != nil {
+			return fmt.Errorf("error removing memory dump association, %v", err)
+		}
+		fmt.Printf("Successfully submitted remove memory dump association of VM %s\n", vmName)
+	default:
+		return fmt.Errorf("invalid action type %s", args[0])
 	}
 
-	err := virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
-	if err != nil {
-		return fmt.Errorf("error dumping vm memory, %v", err)
-	}
-	fmt.Printf("Successfully submitted memory dump request of VM %s to pvc %s\n", vmName, claimName)
 	return nil
 }
 
@@ -579,14 +572,7 @@ func (o *Command) Run(args []string) error {
 	case COMMAND_REMOVEVOLUME:
 		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_MEMORYDUMP:
-		return memoryDump(args[0], claimName, namespace, virtClient)
-	case COMMAND_REMOVE_MEMORYDUMP:
-		err = virtClient.VirtualMachine(namespace).RemoveMemoryDump(args[0])
-		if err != nil {
-			return fmt.Errorf("error removing memory dump association, %v", err)
-		}
-		fmt.Printf("Successfully submitted remove memory dump association of VM %s\n", args[0])
-		return nil
+		return memoryDump(args, claimName, namespace, virtClient)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)

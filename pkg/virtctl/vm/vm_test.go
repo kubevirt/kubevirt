@@ -574,8 +574,20 @@ var _ = Describe("VirtualMachine", func() {
 				Return(vmInterface).
 				Times(1)
 			vmInterface.EXPECT().MemoryDump(vmName, gomock.Any()).DoAndReturn(func(arg0, arg1 interface{}) interface{} {
+				Expect(arg0.(string)).To(Equal(vmName))
 				Expect(arg1.(*v1.VirtualMachineMemoryDumpRequest).ClaimName).To(Equal(claimName))
-				Expect(arg1.(*v1.VirtualMachineMemoryDumpRequest).Phase).To(Equal(v1.MemoryDumpAssociating))
+				return nil
+			})
+		}
+
+		expectVMEndpointRemoveMemoryDump := func(vmName string) {
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachine(k8smetav1.NamespaceDefault).
+				Return(vmInterface).
+				Times(1)
+			vmInterface.EXPECT().RemoveMemoryDump(vmName).DoAndReturn(func(arg0 interface{}) interface{} {
+				Expect(arg0.(string)).To(Equal(vmName))
 				return nil
 			})
 		}
@@ -589,15 +601,30 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(res.Error()).To(ContainSubstring(errorString))
 		},
 			Entry("memorydump no args", "argument validation failed"),
-			Entry("memorydump name, missing required claim-name", "required flag(s)", "testvm"),
+			Entry("memorydump missing action arg", "argument validation failed", "testvm"),
+			Entry("memorydump missing vm name arg", "argument validation failed", "get"),
+			Entry("memorydump wrong action arg", "invalid action type create", "create", "testvm"),
 			Entry("memorydump name, invalid extra parameter", "unknown flag", "testvm", "--claim-name=blah", "--invalid=test"),
 		)
 		It("should call memory dump subresource", func() {
 			expectVMEndpointMemoryDump("testvm", "testvolume")
-			commandAndArgs := []string{"memory-dump", "testvm", "--claim-name=testvolume"}
+			commandAndArgs := []string{"memory-dump", "get", "testvm", "--claim-name=testvolume"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(BeNil())
 		})
 
+		It("should call memory dump subresource without claim-name", func() {
+			expectVMEndpointMemoryDump("testvm", "")
+			commandAndArgs := []string{"memory-dump", "get", "testvm"}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
+		It("should call remove memory dump subresource", func() {
+			expectVMEndpointRemoveMemoryDump("testvm")
+			commandAndArgs := []string{"memory-dump", "remove", "testvm"}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(BeNil())
+		})
 	})
 })

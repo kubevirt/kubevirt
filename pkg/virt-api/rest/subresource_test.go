@@ -1092,6 +1092,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			patchedVM := vm.DeepCopy()
 			patchedVM.Status.MemoryDumpRequest = memDumpReq
+			patchedVM.Status.MemoryDumpRequest.Phase = v1.MemoryDumpAssociating
 
 			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).AnyTimes()
 			vmi := &v1.VirtualMachineInstance{}
@@ -1123,38 +1124,73 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		},
 			Entry("VM with a valid memory dump request should succeed", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-				Phase:     v1.MemoryDumpAssociating,
 			}, http.StatusAccepted, true, true, createTestPVC("2Gi", fs)),
-			Entry("VM with an invalid memory dump request that's missing a claim name should fail", &v1.VirtualMachineMemoryDumpRequest{
-				Phase: v1.MemoryDumpAssociating,
-			}, http.StatusBadRequest, true, true, createTestPVC("2Gi", fs)),
-			Entry("VM with an invalid memory dump request that's missing a phase should fail", &v1.VirtualMachineMemoryDumpRequest{
-				ClaimName: testPVCName,
-			}, http.StatusBadRequest, true, true, createTestPVC("2Gi", fs)),
-			Entry("VM with an invalid memory dump request that's has phase different then 'Associating' should fail", &v1.VirtualMachineMemoryDumpRequest{
-				Phase:     v1.MemoryDumpCompleted,
-				ClaimName: testPVCName,
-			}, http.StatusBadRequest, true, true, createTestPVC("2Gi", fs)),
 			Entry("VM with a valid memory dump request but no feature gate should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-				Phase:     v1.MemoryDumpAssociating,
 			}, http.StatusBadRequest, false, true, createTestPVC("2Gi", fs)),
 			Entry("VM with a valid memory dump request vmi not running should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-				Phase:     v1.MemoryDumpAssociating,
 			}, http.StatusConflict, true, false, createTestPVC("2Gi", fs)),
 			Entry("VM with a memory dump request with a non existing PVC", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-				Phase:     v1.MemoryDumpAssociating,
 			}, http.StatusNotFound, true, true, nil),
 			Entry("VM with a memory dump request pvc block mode should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-				Phase:     v1.MemoryDumpAssociating,
 			}, http.StatusConflict, true, true, createTestPVC("2Gi", block)),
 			Entry("VM with a memory dump request pvc size too small should fail", &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName: testPVCName,
-				Phase:     v1.MemoryDumpAssociating,
 			}, http.StatusConflict, true, true, createTestPVC("1Gi", fs)),
+		)
+
+		DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
+			enableFeatureGate(virtconfig.HotplugVolumesGate)
+			request.Request.Body = newMemoryDumpBody(memDumpReq)
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = k8smetav1.NamespaceDefault
+			if prevMemDumpReq != nil {
+				vm.Status.MemoryDumpRequest = prevMemDumpReq
+			}
+
+			patchedVM := vm.DeepCopy()
+			patchedVM.Status.MemoryDumpRequest = memDumpReq
+			patchedVM.Status.MemoryDumpRequest.Phase = v1.MemoryDumpAssociating
+
+			vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).AnyTimes()
+			vmi := api.NewMinimalVMI(testVMIName)
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("1Gi"),
+			}
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+				_, ok := action.(testing.GetAction)
+				Expect(ok).To(BeTrue())
+				return true, createTestPVC("2Gi", fs), nil
+			})
+			vmiClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+			vmClient.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
+					return patchedVM, nil
+				}).AnyTimes()
+			app.MemoryDumpVMRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(statusCode))
+		},
+			Entry("VM with a memory dump request without claim name with assocaited memory dump should succeed",
+				&v1.VirtualMachineMemoryDumpRequest{},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     v1.MemoryDumpCompleted,
+				}, http.StatusAccepted),
+			Entry("VM with a memory dump request missing claim name without previous memory dump should fail",
+				&v1.VirtualMachineMemoryDumpRequest{}, nil, http.StatusBadRequest),
+			Entry("VM with a memory dump request with claim name different then assocaited memory dump should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "diffPVCName",
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     v1.MemoryDumpCompleted,
+				}, http.StatusConflict),
 		)
 
 		DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatch string, expectError bool, removeReq bool) {
@@ -1217,17 +1253,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"",
 				true, false),
-			Entry("add memory dump request to a different vol while another exists should fail",
-				&v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: "vol2",
-					Phase:     v1.MemoryDumpAssociating,
-				},
-				&v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: "vol1",
-					Phase:     v1.MemoryDumpCompleted,
-				},
-				"",
-				true, false),
 			Entry("add memory dump request to the same vol while it is being dissociated should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
@@ -1253,6 +1278,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpInProgress,
+				},
+				"",
+				true, true),
+			Entry("remove memory dump request while already in state Dissociating should fail",
+				&v1.VirtualMachineMemoryDumpRequest{
+					Phase: v1.MemoryDumpDissociating,
+				},
+				&v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "vol1",
+					Phase:     v1.MemoryDumpDissociating,
 				},
 				"",
 				true, true),
