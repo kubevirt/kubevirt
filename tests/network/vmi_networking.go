@@ -611,7 +611,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		}
 
 		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-
 			networkData, err := libnet.NewNetworkData(
 				libnet.WithEthernet("eth0",
 					libnet.WithDHCP4Enabled(),
@@ -864,36 +863,22 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily, ports []v1.Port) {
-				libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+			DescribeTable("[Conformance] preserves connectivity - IPv4", func(ports []v1.Port) {
+				libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 
 				var err error
-				var loginMethod console.LoginToFunction
 
 				By("Create VMI")
-				if ipFamily == k8sv1.IPv4Protocol {
-					vmi = masqueradeVMI(ports, "")
-					loginMethod = console.LoginToCirros
-				} else {
-					vmi, err = fedoraMasqueradeVMI(ports, "")
-					Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
-					loginMethod = console.LoginToFedora
-				}
+				vmi = masqueradeVMI(ports, "")
 
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.WaitUntilVMIReady(vmi, loginMethod)
-
-				if ipFamily == k8sv1.IPv6Protocol {
-					err = configureIpv6(vmi, api.DefaultVMIpv6CIDR)
-					Expect(err).ToNot(HaveOccurred(), "failed to configure ipv6 on vmi")
-				}
-
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Check connectivity")
-				podIP := libnet.GetPodIpByFamily(virtHandlerPod, ipFamily)
+				podIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
 				By("Execute migration")
@@ -906,21 +891,54 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				Expect(ping(podIP)).To(Succeed())
 
-				By("Restarting the vmi")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo reboot\n"},
-					&expect.BExp{R: "reboot: Restarting system"},
-				}, 10)).To(Succeed(), "failed to restart the vmi")
-				tests.WaitUntilVMIReady(vmi, loginMethod)
-				if ipFamily == k8sv1.IPv6Protocol {
-					Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi after restart")
-				}
+				By("Initiating DHCP client request after migration")
+
+				Expect(console.RunCommand(vmi, "sudo cirros-dhcpc down eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to release dhcp client")
+				Expect(console.RunCommand(vmi, "sudo cirros-dhcpc up eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
+
 				Expect(ping(podIP)).To(Succeed())
 			},
-				Entry("IPv4", k8sv1.IPv4Protocol, []v1.Port{}),
-				Entry("IPv4 with explicit ports used by live migration", k8sv1.IPv4Protocol, portsUsedByLiveMigration()),
-				Entry("IPv6", k8sv1.IPv6Protocol, []v1.Port{}),
+				Entry("without a specific port number", []v1.Port{}),
+				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
 			)
+
+			It("[Conformance] should preserve connectivity - IPv6", func() {
+				libnet.SkipWhenClusterNotSupportIpv6(virtClient)
+
+				var err error
+
+				By("Create VMI")
+				vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				virtHandlerPod, err := getVirtHandlerPod()
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).ToNot(HaveOccurred())
+
+				By("Check connectivity")
+				podIP := libnet.GetPodIpByFamily(virtHandlerPod, k8sv1.IPv6Protocol)
+				Expect(ping(podIP)).To(Succeed())
+
+				By("Execute migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
+				Expect(ping(podIP)).To(Succeed())
+
+				By("Initiating DHCP client request after migration")
+				Expect(console.RunCommand(vmi, "sudo dhclient -6 -r eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to release dhcp client")
+				Expect(console.RunCommand(vmi, "sudo dhclient -6 eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
+
+				Expect(ping(podIP)).To(Succeed())
+			})
 		})
 
 		Context("MTU verification", func() {
