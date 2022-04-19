@@ -194,12 +194,9 @@ API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-ap
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ClaimPropertySet,AccessModes
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataImportCronList,Items
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataImportCronStatus,Conditions
-API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataImportCronStatus,CurrentImports
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataSourceList,Items
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataSourceStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeList,Items
-API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSourceHTTP,ExtraHeaders
-API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSourceHTTP,SecretExtraHeaders
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSpec,Checkpoints
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ObjectTransferList,Items
@@ -294,5 +291,3 @@ API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSourceImageIO,DiskID
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ImportProxy,HTTPProxy
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ImportProxy,HTTPSProxy
-API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ImportStatus,DataVolumeName
-API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ImportStatus,Digest

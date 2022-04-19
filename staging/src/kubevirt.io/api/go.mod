@@ -8,7 +8,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.23.1
 	k8s.io/apimachinery v0.23.1
 	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
-	kubevirt.io/containerized-data-importer-api v1.42.0
+	kubevirt.io/containerized-data-importer-api v1.41.0
 )
 
 require (

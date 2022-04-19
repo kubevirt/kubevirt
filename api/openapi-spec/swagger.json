@@ -17254,20 +17254,6 @@
       "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
       "type": "string"
      },
-     "extraHeaders": {
-      "description": "ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "secretExtraHeaders": {
-      "description": "SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
      "secretRef": {
       "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
       "type": "string"
