@@ -11,7 +11,6 @@ go_library(
         "jobspec.go",
         "jobstatus.go",
         "jobtemplatespec.go",
-        "uncountedterminatedpods.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/batch/v1",
     importpath = "k8s.io/client-go/applyconfigurations/batch/v1",

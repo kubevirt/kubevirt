@@ -181,7 +181,6 @@ func (config *DirectClientConfig) ClientConfig() (*restclient.Config, error) {
 	if len(configAuthInfo.Impersonate) > 0 {
 		clientConfig.Impersonate = restclient.ImpersonationConfig{
 			UserName: configAuthInfo.Impersonate,
-			UID:      configAuthInfo.ImpersonateUID,
 			Groups:   configAuthInfo.ImpersonateGroups,
 			Extra:    configAuthInfo.ImpersonateUserExtra,
 		}
@@ -256,7 +255,6 @@ func (config *DirectClientConfig) getUserIdentificationPartialConfig(configAuthI
 	if len(configAuthInfo.Impersonate) > 0 {
 		mergedConfig.Impersonate = restclient.ImpersonationConfig{
 			UserName: configAuthInfo.Impersonate,
-			UID:      configAuthInfo.ImpersonateUID,
 			Groups:   configAuthInfo.ImpersonateGroups,
 			Extra:    configAuthInfo.ImpersonateUserExtra,
 		}

@@ -107,11 +107,7 @@ func (cml *ConfigMapLock) RecordEvent(s string) {
 		return
 	}
 	events := fmt.Sprintf("%v %v", cml.LockConfig.Identity, s)
-	subject := &v1.ConfigMap{ObjectMeta: cml.cm.ObjectMeta}
-	// Populate the type meta, so we don't have to get it from the schema
-	subject.Kind = "ConfigMap"
-	subject.APIVersion = v1.SchemeGroupVersion.String()
-	cml.LockConfig.EventRecorder.Eventf(subject, v1.EventTypeNormal, "LeaderElection", events)
+	cml.LockConfig.EventRecorder.Eventf(&v1.ConfigMap{ObjectMeta: cml.cm.ObjectMeta}, v1.EventTypeNormal, "LeaderElection", events)
 }
 
 // Describe is used to convert details on current resource lock

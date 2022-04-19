@@ -127,7 +127,7 @@ type FIFO struct {
 
 	// Indication the queue is closed.
 	// Used to indicate a queue is closed so a control loop can exit when a queue is empty.
-	// Currently, not used to gate any of CRUD operations.
+	// Currently, not used to gate any of CRED operations.
 	closed bool
 }
 
@@ -263,7 +263,10 @@ func (f *FIFO) GetByKey(key string) (item interface{}, exists bool, err error) {
 func (f *FIFO) IsClosed() bool {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	return f.closed
+	if f.closed {
+		return true
+	}
+	return false
 }
 
 // Pop waits until an item is ready and processes it. If multiple items are

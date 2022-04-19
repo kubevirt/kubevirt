@@ -36,5 +36,9 @@ func ValidateEventType(eventtype string) bool {
 func IsKeyNotFoundError(err error) bool {
 	statusErr, _ := err.(*errors.StatusError)
 
-	return statusErr != nil && statusErr.Status().Code == http.StatusNotFound
+	if statusErr != nil && statusErr.Status().Code == http.StatusNotFound {
+		return true
+	}
+
+	return false
 }

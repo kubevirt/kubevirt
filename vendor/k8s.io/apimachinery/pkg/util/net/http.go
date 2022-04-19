@@ -39,7 +39,6 @@ import (
 
 	"golang.org/x/net/http2"
 	"k8s.io/klog/v2"
-	netutils "k8s.io/utils/net"
 )
 
 // JoinPreservingTrailingSlash does a path.Join of the specified elements,
@@ -114,7 +113,6 @@ func SetOldTransportDefaults(t *http.Transport) *http.Transport {
 		t.Proxy = NewProxierWithNoProxyCIDR(http.ProxyFromEnvironment)
 	}
 	// If no custom dialer is set, use the default context dialer
-	//lint:file-ignore SA1019 Keep supporting deprecated Dial method of custom transports
 	if t.DialContext == nil && t.Dial == nil {
 		t.DialContext = defaultTransport.DialContext
 	}
@@ -238,29 +236,6 @@ func DialerFor(transport http.RoundTripper) (DialFunc, error) {
 	}
 }
 
-// CloseIdleConnectionsFor close idles connections for the Transport.
-// If the Transport is wrapped it iterates over the wrapped round trippers
-// until it finds one that implements the CloseIdleConnections method.
-// If the Transport does not have a CloseIdleConnections method
-// then this function does nothing.
-func CloseIdleConnectionsFor(transport http.RoundTripper) {
-	if transport == nil {
-		return
-	}
-	type closeIdler interface {
-		CloseIdleConnections()
-	}
-
-	switch transport := transport.(type) {
-	case closeIdler:
-		transport.CloseIdleConnections()
-	case RoundTripperWrapper:
-		CloseIdleConnectionsFor(transport.WrappedRoundTripper())
-	default:
-		klog.Warningf("unknown transport type: %T", transport)
-	}
-}
-
 type TLSClientConfigHolder interface {
 	TLSClientConfig() *tls.Config
 }
@@ -313,7 +288,7 @@ func SourceIPs(req *http.Request) []net.IP {
 		// Use the first valid one.
 		parts := strings.Split(hdrForwardedFor, ",")
 		for _, part := range parts {
-			ip := netutils.ParseIPSloppy(strings.TrimSpace(part))
+			ip := net.ParseIP(strings.TrimSpace(part))
 			if ip != nil {
 				srcIPs = append(srcIPs, ip)
 			}
@@ -323,7 +298,7 @@ func SourceIPs(req *http.Request) []net.IP {
 	// Try the X-Real-Ip header.
 	hdrRealIp := hdr.Get("X-Real-Ip")
 	if hdrRealIp != "" {
-		ip := netutils.ParseIPSloppy(hdrRealIp)
+		ip := net.ParseIP(hdrRealIp)
 		// Only append the X-Real-Ip if it's not already contained in the X-Forwarded-For chain.
 		if ip != nil && !containsIP(srcIPs, ip) {
 			srcIPs = append(srcIPs, ip)
@@ -335,11 +310,11 @@ func SourceIPs(req *http.Request) []net.IP {
 	// Remote Address in Go's HTTP server is in the form host:port so we need to split that first.
 	host, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err == nil {
-		remoteIP = netutils.ParseIPSloppy(host)
+		remoteIP = net.ParseIP(host)
 	}
 	// Fallback if Remote Address was just IP.
 	if remoteIP == nil {
-		remoteIP = netutils.ParseIPSloppy(req.RemoteAddr)
+		remoteIP = net.ParseIP(req.RemoteAddr)
 	}
 
 	// Don't duplicate remote IP if it's already the last address in the chain.
@@ -406,7 +381,7 @@ func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error
 
 	cidrs := []*net.IPNet{}
 	for _, noProxyRule := range noProxyRules {
-		_, cidr, _ := netutils.ParseCIDRSloppy(noProxyRule)
+		_, cidr, _ := net.ParseCIDR(noProxyRule)
 		if cidr != nil {
 			cidrs = append(cidrs, cidr)
 		}
@@ -417,7 +392,7 @@ func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error
 	}
 
 	return func(req *http.Request) (*url.URL, error) {
-		ip := netutils.ParseIPSloppy(req.URL.Hostname())
+		ip := net.ParseIP(req.URL.Hostname())
 		if ip == nil {
 			return delegate(req)
 		}
