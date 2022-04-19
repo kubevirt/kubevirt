@@ -1,9 +1,10 @@
 #!/bin/bash -xe
 
-DIR=/usr/local/lib/guestfs
-LIBGUEST_APPLIANCE=${DIR}/downloaded
-tar -Jxf ${LIBGUEST_APPLIANCE} -C ${DIR}
+LIBGUESTFS_PATH=${LIBGUESTFS_PATH:=/tmp/guestfs}
+LIBGUEST_APPLIANCE=/usr/local/lib/guestfs/downloaded
+mkdir -p ${LIBGUESTFS_PATH}
+tar -Jxf ${LIBGUEST_APPLIANCE} -C ${LIBGUESTFS_PATH} --strip-components=1
 
-touch ${DIR}/done
+touch ${LIBGUESTFS_PATH}/done
 
 /bin/bash
