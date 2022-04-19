@@ -531,7 +531,7 @@ func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     flavor.PluralResourceName,
 			Singular:   flavor.SingularResourceName,
-			ShortNames: []string{"vmflavor", "vmflavors"},
+			ShortNames: []string{"vmflavor", "vmflavors", "vmf", "vmfs"},
 			Kind:       "VirtualMachineFlavor",
 			Categories: []string{"all"},
 		},
@@ -558,7 +558,7 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     flavor.ClusterPluralResourceName,
 			Singular:   flavor.ClusterSingularResourceName,
-			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
+			ShortNames: []string{"vmclusterflavor", "vmclusterflavors", "vmcf", "vmcfs"},
 			Kind:       "VirtualMachineClusterFlavor",
 			Categories: []string{"all"},
 		},
