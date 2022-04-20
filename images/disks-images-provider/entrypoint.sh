@@ -43,12 +43,6 @@ cp -r /hostImages/custom hostImages/custom3
 rm -rf /hostImages/custom
 chmod -R 777 /hostImages
 
-# When the host is ubuntu, by default, selinux is not used, so chcon is not necessary.
-# If selinux tag is set, use chcon to change /hostImages privileges.
-if [ ${SELINUX_TAG:0:1} != "?" ]; then
-    chcon -Rt svirt_sandbox_file_t /hostImages
-fi
-
 # Create a 4Gi blank disk image
 dd if=/dev/zero of=/local-storage/hp_file.img bs=4k count=1024k
 ls -al /local-storage/hp_file.img
@@ -63,7 +57,8 @@ mkdir -p /host/tmp/hostImages/mount_hp/test
 # When the host is ubuntu, by default, selinux is not used, so chcon is not necessary.
 # If selinux tag is set, use chcon to change /hostImages privileges.
 if [ ${SELINUX_TAG:0:1} != "?" ]; then
-    chcon -Rt svirt_sandbox_file_t /host/tmp/hostImages/mount_hp
+    chcon -Rt svirt_sandbox_file_t /host/tmp/hostImages
+    chcon -R unconfined_u:object_r:svirt_sandbox_file_t:s0 /host/mnt/local-storage/
 fi
 chmod 777 /host/tmp/hostImages/mount_hp
 chmod 777 /host/tmp/hostImages/mount_hp/test
