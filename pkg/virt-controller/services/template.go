@@ -460,6 +460,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		volumeOpts = append(volumeOpts, withHugepages())
 	}
 
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		volumeOpts = append(volumeOpts, withHotplugSupport(t.hotplugDiskDir))
+	}
+
 	volumeRenderer, err := NewVolumeRenderer(
 		namespace,
 		t.ephemeralDiskDir,
@@ -488,15 +492,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	gracePeriodSeconds := gracePeriodInSeconds(vmi)
-
-	prop := k8sv1.MountPropagationHostToContainer
-	if !vmi.Spec.Domain.Devices.DisableHotplug {
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:             hotplugDisks,
-			MountPath:        t.hotplugDiskDir,
-			MountPropagation: &prop,
-		})
-	}
 
 	imagePullSecrets := imgPullSecrets(vmi.Spec.Volumes...)
 	if t.imagePullSecret != "" {
@@ -839,14 +834,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
-	if !vmi.Spec.Domain.Devices.DisableHotplug {
-		volumes = append(volumes, k8sv1.Volume{
-			Name: hotplugDisks,
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-			},
-		})
-	}
 
 	for k, v := range vmi.Spec.NodeSelector {
 		nodeSelector[k] = v

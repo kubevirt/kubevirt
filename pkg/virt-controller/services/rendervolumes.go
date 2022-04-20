@@ -440,6 +440,24 @@ func withHugepages() VolumeRendererOption {
 	}
 }
 
+func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		prop := k8sv1.MountPropagationHostToContainer
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+			Name:             hotplugDisks,
+			MountPath:        hotplugDiskDir,
+			MountPropagation: &prop,
+		})
+		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+			Name: hotplugDisks,
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+		return nil
+	}
+}
+
 func imgPullSecrets(volumes ...v1.Volume) []k8sv1.LocalObjectReference {
 	var imagePullSecrets []k8sv1.LocalObjectReference
 	for _, volume := range volumes {
