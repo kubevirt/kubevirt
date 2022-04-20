@@ -62,6 +62,10 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		emptyDirVolume("private"),
 		emptyDirVolume("public"),
 		emptyDirVolume("sockets"),
+		emptyDirVolume(virtBinDir),
+		emptyDirVolume("libvirt-runtime"),
+		emptyDirVolume("ephemeral-disks"),
+		emptyDirVolume(containerDisks),
 	}
 	return append(volumes, vr.podVolumes...)
 }
