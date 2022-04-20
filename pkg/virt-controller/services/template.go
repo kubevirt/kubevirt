@@ -1136,8 +1136,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	computeContainerOpts := []Option{
-		WithVolumeDevices(volumeDevices),
-		WithVolumeMounts(volumeMounts),
+		WithVolumeDevices(volumeDevices...),
+		WithVolumeMounts(volumeMounts...),
 		WithResourceRequirements(resources),
 		WithPorts(vmi),
 		WithCapabilities(vmi),
@@ -1330,11 +1330,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
 
-		initContainerVolumeMounts := []k8sv1.VolumeMount{
-			{
-				Name:      virtBinDir,
-				MountPath: "/init/usr/bin",
-			},
+		initContainerVolumeMount := k8sv1.VolumeMount{
+			Name:      virtBinDir,
+			MountPath: "/init/usr/bin",
 		}
 
 		initContainerResources := k8sv1.ResourceRequirements{}
@@ -1360,7 +1358,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 		const containerDisk = "container-disk-binary"
 		cpInitContainerOpts := []Option{
-			WithVolumeMounts(initContainerVolumeMounts),
+			WithVolumeMounts(initContainerVolumeMount),
 			WithResourceRequirements(initContainerResources),
 		}
 
@@ -1472,12 +1470,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	return &pod, nil
 }
 
-func sidecarVolumeMount() []k8sv1.VolumeMount {
-	return []k8sv1.VolumeMount{
-		{
-			Name:      hookSidecarSocks,
-			MountPath: hooks.HookSocketsSharedDirectory,
-		},
+func sidecarVolumeMount() k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      hookSidecarSocks,
+		MountPath: hooks.HookSocketsSharedDirectory,
 	}
 }
 

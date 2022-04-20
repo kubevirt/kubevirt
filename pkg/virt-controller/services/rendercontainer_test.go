@@ -145,7 +145,7 @@ var _ = Describe("Container spec renderer", func() {
 		)
 
 		DescribeTable("the expected `VolumeDevice`s are rendered into the container", func(devices ...k8sv1.VolumeDevice) {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithVolumeDevices(devices))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithVolumeDevices(devices...))
 			Expect(specRenderer.Render(exampleCommand).VolumeDevices).To(ConsistOf(devices))
 		},
 			Entry("no volume devices are passed as options"),
@@ -160,7 +160,7 @@ var _ = Describe("Container spec renderer", func() {
 		)
 
 		DescribeTable("the expected `VolumeMount`s are rendered into the container", func(mounts ...k8sv1.VolumeMount) {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithVolumeMounts(mounts))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithVolumeMounts(mounts...))
 			Expect(specRenderer.Render(exampleCommand).VolumeMounts).To(ConsistOf(mounts))
 		},
 			Entry("no volume devices are passed as options"),

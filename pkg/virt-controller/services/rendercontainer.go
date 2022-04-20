@@ -83,13 +83,13 @@ func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	}
 }
 
-func WithVolumeDevices(devices []k8sv1.VolumeDevice) Option {
+func WithVolumeDevices(devices ...k8sv1.VolumeDevice) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.volumeDevices = devices
 	}
 }
 
-func WithVolumeMounts(mounts []k8sv1.VolumeMount) Option {
+func WithVolumeMounts(mounts ...k8sv1.VolumeMount) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.volumeMounts = mounts
 	}
