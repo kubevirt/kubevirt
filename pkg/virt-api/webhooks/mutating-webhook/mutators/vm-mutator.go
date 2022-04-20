@@ -20,8 +20,11 @@ package mutators
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -35,23 +38,14 @@ type VMsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
-// until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
-// the mutating webhook must pass silently on errors instead of returning errors
-func emptyValidResponse() *admissionv1.AdmissionResponse {
-	return &admissionv1.AdmissionResponse{
-		Allowed: true,
-	}
-}
-
 func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
-		log.Log.V(1).Warningf("vm-mutator: received invalid request")
-		return emptyValidResponse()
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	if resp := webhookutils.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
-		log.Log.V(1).Warningf("vm-mutator: received invalid object in request")
-		return emptyValidResponse()
+		return resp
 	}
 
 	raw := ar.Request.Object.Raw
@@ -59,8 +53,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
-		log.Log.V(1).Warningf("vm-mutator: unable to unmarshal object in request")
-		return emptyValidResponse()
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	// Set VM defaults
@@ -85,8 +78,13 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		log.Log.V(1).Warningf("vm-mutator: unable to marshal object in request")
-		return emptyValidResponse()
+		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
+		return &admissionv1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+				Code:    http.StatusInternalServerError,
+			},
+		}
 	}
 
 	jsonPatchType := admissionv1.PatchTypeJSONPatch
