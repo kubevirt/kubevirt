@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
-	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -450,7 +449,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		t.containerDiskDir,
 		t.virtShareDir,
 		withVMIVolumes(
-			t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus))
+			t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
+		withAccessCredentials(vmi.Spec.AccessCredentials))
 
 	if err != nil {
 		return nil, err
@@ -480,33 +480,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			Name:             hotplugDisks,
 			MountPath:        t.hotplugDiskDir,
 			MountPropagation: &prop,
-		})
-	}
-
-	for _, accessCred := range vmi.Spec.AccessCredentials {
-		secretName := ""
-		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
-			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
-		} else if accessCred.UserPassword != nil && accessCred.UserPassword.Source.Secret != nil {
-			secretName = accessCred.UserPassword.Source.Secret.SecretName
-		}
-
-		if secretName == "" {
-			continue
-		}
-		volumeName := secretName + "-access-cred"
-		volumes = append(volumes, k8sv1.Volume{
-			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: secretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      volumeName,
-			MountPath: filepath.Join(config.SecretSourceDir, volumeName),
-			ReadOnly:  true,
 		})
 	}
 

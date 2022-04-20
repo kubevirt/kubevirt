@@ -371,6 +371,38 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 	}
 }
 
+func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		for _, accessCred := range accessCredentials {
+			secretName := ""
+			if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
+				secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+			} else if accessCred.UserPassword != nil && accessCred.UserPassword.Source.Secret != nil {
+				secretName = accessCred.UserPassword.Source.Secret.SecretName
+			}
+
+			if secretName == "" {
+				continue
+			}
+			volumeName := secretName + "-access-cred"
+			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+				Name: volumeName,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: secretName,
+					},
+				},
+			})
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				MountPath: filepath.Join(config.SecretSourceDir, volumeName),
+				ReadOnly:  true,
+			})
+		}
+		return nil
+	}
+}
+
 func imgPullSecrets(volumes ...v1.Volume) []k8sv1.LocalObjectReference {
 	var imagePullSecrets []k8sv1.LocalObjectReference
 	for _, volume := range volumes {
