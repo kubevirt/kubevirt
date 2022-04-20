@@ -443,14 +443,26 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	nodeSelector := map[string]string{}
 
+	// Read requested hookSidecars from VMI meta
+	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	volumeOpts := []VolumeRendererOption{
+		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
+		withAccessCredentials(vmi.Spec.AccessCredentials),
+	}
+	if len(requestedHookSidecarList) != 0 {
+		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
+	}
+
 	volumeRenderer, err := NewVolumeRenderer(
 		namespace,
 		t.ephemeralDiskDir,
 		t.containerDiskDir,
 		t.virtShareDir,
-		withVMIVolumes(
-			t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
-		withAccessCredentials(vmi.Spec.AccessCredentials))
+		volumeOpts...)
 
 	if err != nil {
 		return nil, err
@@ -612,25 +624,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			memoryLimit.Add(*memoryOverhead)
 			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
 		}
-	}
-
-	// Read requested hookSidecars from VMI meta
-	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(requestedHookSidecarList) != 0 {
-		volumes = append(volumes, k8sv1.Volume{
-			Name: hookSidecarSocks,
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-			},
-		})
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      hookSidecarSocks,
-			MountPath: hooks.HookSocketsSharedDirectory,
-		})
 	}
 
 	// Handle CPU pinning

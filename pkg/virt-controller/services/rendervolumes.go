@@ -11,6 +11,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -397,6 +398,24 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 				Name:      volumeName,
 				MountPath: filepath.Join(config.SecretSourceDir, volumeName),
 				ReadOnly:  true,
+			})
+		}
+		return nil
+	}
+}
+
+func withSidecarVolumes(hookSidecars hooks.HookSidecarList) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		if len(hookSidecars) != 0 {
+			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+				Name: hookSidecarSocks,
+				VolumeSource: k8sv1.VolumeSource{
+					EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+				},
+			})
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      hookSidecarSocks,
+				MountPath: hooks.HookSocketsSharedDirectory,
 			})
 		}
 		return nil
