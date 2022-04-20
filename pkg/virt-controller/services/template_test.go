@@ -1949,8 +1949,14 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+				Expect(pod.Spec.Volumes).To(
+					ContainElement(
+						kubev1.Volume{
+							Name: "hugepages",
+							VolumeSource: kubev1.VolumeSource{
+								EmptyDir: &kubev1.EmptyDirVolumeSource{Medium: kubev1.StorageMediumHugePages},
+							},
+						}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
@@ -2012,11 +2018,22 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
-				Expect(pod.Spec.Volumes[3].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+				Expect(pod.Spec.Volumes).To(
+					ContainElement(
+						kubev1.Volume{
+							Name: "hugepages",
+							VolumeSource: kubev1.VolumeSource{
+								EmptyDir: &kubev1.EmptyDirVolumeSource{Medium: kubev1.StorageMediumHugePages},
+							},
+						}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7))
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+					ContainElement(
+						kubev1.VolumeMount{
+							Name:      "hugepages",
+							MountPath: "/dev/hugepages"},
+					))
 			},
 				Entry("on amd64", "amd64", 223),
 				Entry("on arm64", "arm64", 357),
