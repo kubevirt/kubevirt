@@ -5000,6 +5000,36 @@ var CRDsValidation map[string]string = map[string]string{
                                   should be used. Supported values are: native, default,
                                   threads.'
                                 type: string
+                              iotune:
+                                description: If specified, The iotune element provides
+                                  the ability to provide additional per-device I/O
+                                  tuning
+                                properties:
+                                  readBytesSec:
+                                    type: integer
+                                  readBytesSecMax:
+                                    type: integer
+                                  readIopsSec:
+                                    type: integer
+                                  readIopsSecMax:
+                                    type: integer
+                                  totalBytesSec:
+                                    type: integer
+                                  totalBytesSecMax:
+                                    type: integer
+                                  totalIopsSec:
+                                    type: integer
+                                  totalIopsSecMax:
+                                    type: integer
+                                  writeBytesSec:
+                                    type: integer
+                                  writeBytesSecMax:
+                                    type: integer
+                                  writeIopsSec:
+                                    type: integer
+                                  writeIopsSecMax:
+                                    type: integer
+                                type: object
                               lun:
                                 description: Attach a volume as a LUN to the vmi.
                                 properties:
@@ -6637,6 +6667,35 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
                         type: string
+                      iotune:
+                        description: If specified, The iotune element provides the
+                          ability to provide additional per-device I/O tuning
+                        properties:
+                          readBytesSec:
+                            type: integer
+                          readBytesSecMax:
+                            type: integer
+                          readIopsSec:
+                            type: integer
+                          readIopsSecMax:
+                            type: integer
+                          totalBytesSec:
+                            type: integer
+                          totalBytesSecMax:
+                            type: integer
+                          totalIopsSec:
+                            type: integer
+                          totalIopsSecMax:
+                            type: integer
+                          writeBytesSec:
+                            type: integer
+                          writeBytesSecMax:
+                            type: integer
+                          writeIopsSec:
+                            type: integer
+                          writeIopsSecMax:
+                            type: integer
+                        type: object
                       lun:
                         description: Attach a volume as a LUN to the vmi.
                         properties:
@@ -8250,6 +8309,35 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
                         type: string
+                      iotune:
+                        description: If specified, The iotune element provides the
+                          ability to provide additional per-device I/O tuning
+                        properties:
+                          readBytesSec:
+                            type: integer
+                          readBytesSecMax:
+                            type: integer
+                          readIopsSec:
+                            type: integer
+                          readIopsSecMax:
+                            type: integer
+                          totalBytesSec:
+                            type: integer
+                          totalBytesSecMax:
+                            type: integer
+                          totalIopsSec:
+                            type: integer
+                          totalIopsSecMax:
+                            type: integer
+                          writeBytesSec:
+                            type: integer
+                          writeBytesSecMax:
+                            type: integer
+                          writeIopsSec:
+                            type: integer
+                          writeIopsSecMax:
+                            type: integer
+                        type: object
                       lun:
                         description: Attach a volume as a LUN to the vmi.
                         properties:
@@ -10374,6 +10462,35 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
                         type: string
+                      iotune:
+                        description: If specified, The iotune element provides the
+                          ability to provide additional per-device I/O tuning
+                        properties:
+                          readBytesSec:
+                            type: integer
+                          readBytesSecMax:
+                            type: integer
+                          readIopsSec:
+                            type: integer
+                          readIopsSecMax:
+                            type: integer
+                          totalBytesSec:
+                            type: integer
+                          totalBytesSecMax:
+                            type: integer
+                          totalIopsSec:
+                            type: integer
+                          totalIopsSecMax:
+                            type: integer
+                          writeBytesSec:
+                            type: integer
+                          writeBytesSecMax:
+                            type: integer
+                          writeIopsSec:
+                            type: integer
+                          writeIopsSecMax:
+                            type: integer
+                        type: object
                       lun:
                         description: Attach a volume as a LUN to the vmi.
                         properties:
@@ -12450,6 +12567,36 @@ var CRDsValidation map[string]string = map[string]string{
                                   should be used. Supported values are: native, default,
                                   threads.'
                                 type: string
+                              iotune:
+                                description: If specified, The iotune element provides
+                                  the ability to provide additional per-device I/O
+                                  tuning
+                                properties:
+                                  readBytesSec:
+                                    type: integer
+                                  readBytesSecMax:
+                                    type: integer
+                                  readIopsSec:
+                                    type: integer
+                                  readIopsSecMax:
+                                    type: integer
+                                  totalBytesSec:
+                                    type: integer
+                                  totalBytesSecMax:
+                                    type: integer
+                                  totalIopsSec:
+                                    type: integer
+                                  totalIopsSecMax:
+                                    type: integer
+                                  writeBytesSec:
+                                    type: integer
+                                  writeBytesSecMax:
+                                    type: integer
+                                  writeIopsSec:
+                                    type: integer
+                                  writeIopsSecMax:
+                                    type: integer
+                                type: object
                               lun:
                                 description: Attach a volume as a LUN to the vmi.
                                 properties:
@@ -16060,6 +16207,36 @@ var CRDsValidation map[string]string = map[string]string{
                                           IO mode should be used. Supported values
                                           are: native, default, threads.'
                                         type: string
+                                      iotune:
+                                        description: If specified, The iotune element
+                                          provides the ability to provide additional
+                                          per-device I/O tuning
+                                        properties:
+                                          readBytesSec:
+                                            type: integer
+                                          readBytesSecMax:
+                                            type: integer
+                                          readIopsSec:
+                                            type: integer
+                                          readIopsSecMax:
+                                            type: integer
+                                          totalBytesSec:
+                                            type: integer
+                                          totalBytesSecMax:
+                                            type: integer
+                                          totalIopsSec:
+                                            type: integer
+                                          totalIopsSecMax:
+                                            type: integer
+                                          writeBytesSec:
+                                            type: integer
+                                          writeBytesSecMax:
+                                            type: integer
+                                          writeIopsSec:
+                                            type: integer
+                                          writeIopsSecMax:
+                                            type: integer
+                                        type: object
                                       lun:
                                         description: Attach a volume as a LUN to the
                                           vmi.
@@ -20050,6 +20227,36 @@ var CRDsValidation map[string]string = map[string]string{
                                               disk IO mode should be used. Supported
                                               values are: native, default, threads.'
                                             type: string
+                                          iotune:
+                                            description: If specified, The iotune
+                                              element provides the ability to provide
+                                              additional per-device I/O tuning
+                                            properties:
+                                              readBytesSec:
+                                                type: integer
+                                              readBytesSecMax:
+                                                type: integer
+                                              readIopsSec:
+                                                type: integer
+                                              readIopsSecMax:
+                                                type: integer
+                                              totalBytesSec:
+                                                type: integer
+                                              totalBytesSecMax:
+                                                type: integer
+                                              totalIopsSec:
+                                                type: integer
+                                              totalIopsSecMax:
+                                                type: integer
+                                              writeBytesSec:
+                                                type: integer
+                                              writeBytesSecMax:
+                                                type: integer
+                                              writeIopsSec:
+                                                type: integer
+                                              writeIopsSecMax:
+                                                type: integer
+                                            type: object
                                           lun:
                                             description: Attach a volume as a LUN
                                               to the vmi.
@@ -21846,6 +22053,36 @@ var CRDsValidation map[string]string = map[string]string{
                                       mode should be used. Supported values are: native,
                                       default, threads.'
                                     type: string
+                                  iotune:
+                                    description: If specified, The iotune element
+                                      provides the ability to provide additional per-device
+                                      I/O tuning
+                                    properties:
+                                      readBytesSec:
+                                        type: integer
+                                      readBytesSecMax:
+                                        type: integer
+                                      readIopsSec:
+                                        type: integer
+                                      readIopsSecMax:
+                                        type: integer
+                                      totalBytesSec:
+                                        type: integer
+                                      totalBytesSecMax:
+                                        type: integer
+                                      totalIopsSec:
+                                        type: integer
+                                      totalIopsSecMax:
+                                        type: integer
+                                      writeBytesSec:
+                                        type: integer
+                                      writeBytesSecMax:
+                                        type: integer
+                                      writeIopsSec:
+                                        type: integer
+                                      writeIopsSecMax:
+                                        type: integer
+                                    type: object
                                   lun:
                                     description: Attach a volume as a LUN to the vmi.
                                     properties:

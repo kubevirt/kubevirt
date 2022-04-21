@@ -234,7 +234,33 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
 		disk.Driver.IOMMU = "on"
 	}
+	if diskDevice.IoTune != nil {
+		disk.IoTune = &api.DiskIOTune{}
 
+		disk.IoTune.TotalBytesSec = diskDevice.IoTune.TotalBytesSec
+		if disk.IoTune.TotalBytesSec == 0 {
+			disk.IoTune.ReadBytesSec = diskDevice.IoTune.ReadBytesSec
+			disk.IoTune.WriteBytesSec = diskDevice.IoTune.WriteBytesSec
+		}
+
+		disk.IoTune.TotalIopsSec = diskDevice.IoTune.TotalIopsSec
+		if disk.IoTune.TotalIopsSec == 0 {
+			disk.IoTune.ReadIopsSec = diskDevice.IoTune.ReadIopsSec
+			disk.IoTune.WriteIopsSec = diskDevice.IoTune.WriteIopsSec
+		}
+
+		disk.IoTune.TotalBytesSecMax = diskDevice.IoTune.TotalBytesSecMax
+		if disk.IoTune.TotalBytesSecMax == 0 {
+			disk.IoTune.ReadBytesSecMax = diskDevice.IoTune.ReadBytesSecMax
+			disk.IoTune.WriteBytesSecMax = diskDevice.IoTune.WriteBytesSecMax
+		}
+
+		disk.IoTune.TotalIopsSecMax = diskDevice.IoTune.TotalIopsSecMax
+		if disk.IoTune.TotalIopsSecMax == 0 {
+			disk.IoTune.ReadIopsSecMax = diskDevice.IoTune.ReadIopsSecMax
+			disk.IoTune.WriteIopsSecMax = diskDevice.IoTune.WriteIopsSecMax
+		}
+	}
 	return nil
 }
 

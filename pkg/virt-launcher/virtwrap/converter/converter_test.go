@@ -2715,6 +2715,70 @@ var _ = Describe("Converter", func() {
 				"expected number of queues to equal number of requested vCPUs")
 		})
 	})
+
+	Context("disk io tune", func() {
+		var vmi *v1.VirtualMachineInstance
+		var context *ConverterContext
+
+		BeforeEach(func() {
+			context = &ConverterContext{UseVirtioTransitional: false}
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "mydisk",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "mydisk",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			}
+
+			vmi.Spec.Domain.Devices.BlockMultiQueue = True()
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+			}
+		})
+
+		It("should assign io tune to a device if requested", func() {
+			v1Disk := v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "virtio"},
+				},
+				IoTune: &v1.DiskIOTune{
+					TotalBytesSec: 10000000,
+					ReadBytesSec:  400000,
+					WriteBytesSec: 500000,
+				},
+			}
+			apiDisk := api.Disk{}
+			devicePerBus := map[string]deviceNamer{}
+			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+			Expect(apiDisk.IoTune.TotalBytesSec).To(Equal(uint(10000000)), "expected io tune to be defined")
+			Expect(apiDisk.IoTune.ReadBytesSec).To(Equal(uint(400000)), "expected io tune to be defined")
+			Expect(apiDisk.IoTune.WriteBytesSec).To(Equal(uint(500000)), "expected io tune to be defined")
+		})
+	})
+
 	Context("Correctly handle iothreads with dedicated cpus", func() {
 		var vmi *v1.VirtualMachineInstance
 

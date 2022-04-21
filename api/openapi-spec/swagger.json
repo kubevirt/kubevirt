@@ -12982,6 +12982,10 @@
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
       "type": "string"
      },
+     "iotune": {
+      "description": "If specified, The iotune element provides the ability to provide additional per-device I/O tuning",
+      "$ref": "#/definitions/v1.DiskIOTune"
+     },
      "lun": {
       "description": "Attach a volume as a LUN to the vmi.",
       "$ref": "#/definitions/v1.LunTarget"
@@ -13001,6 +13005,60 @@
      "tag": {
       "description": "If specified, disk address and its tag will be provided to the guest via config drive metadata",
       "type": "string"
+     }
+    }
+   },
+   "v1.DiskIOTune": {
+    "description": "DiskIOTune provides the option to provide additional per-device I/O tuning",
+    "type": "object",
+    "properties": {
+     "readBytesSec": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "readBytesSecMax": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "readIopsSec": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "readIopsSecMax": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "totalBytesSec": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "totalBytesSecMax": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "totalIopsSec": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "totalIopsSecMax": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "writeBytesSec": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "writeBytesSecMax": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "writeIopsSec": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "writeIopsSecMax": {
+      "type": "integer",
+      "format": "int32"
      }
     }
    },
