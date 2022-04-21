@@ -132,6 +132,32 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 				}
 			}
 		}
+
+		if iface.Inbound != nil {
+			if domainIface.BandWidth == nil {
+				domainIface.BandWidth = &api.BandWidth{}
+			}
+
+			domainIface.BandWidth.Inbound = &api.Inbound{
+				Average: iface.Inbound.Average,
+				Peak:    iface.Inbound.Peak,
+				Burst:   iface.Inbound.Burst,
+				Floor:   iface.Inbound.Floor,
+			}
+		}
+
+		if iface.Outbound != nil {
+			if domainIface.BandWidth == nil {
+				domainIface.BandWidth = &api.BandWidth{}
+			}
+
+			domainIface.BandWidth.Outbound = &api.Outbound{
+				Average: iface.Outbound.Average,
+				Peak:    iface.Outbound.Peak,
+				Burst:   iface.Outbound.Burst,
+			}
+		}
+
 		domainInterfaces = append(domainInterfaces, domainIface)
 	}
 

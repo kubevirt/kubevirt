@@ -734,6 +734,21 @@ type LinkState struct {
 }
 
 type BandWidth struct {
+	Inbound  *Inbound  `xml:"inbound,omitempty"`
+	Outbound *Outbound `xml:"outbound,omitempty"`
+}
+
+type Inbound struct {
+	Average string `xml:"average,attr"`
+	Peak    string `xml:"peak,attr,omitempty"`
+	Burst   string `xml:"burst,attr,omitempty"`
+	Floor   string `xml:"floor,attr,omitempty"`
+}
+
+type Outbound struct {
+	Average string `xml:"average,attr"`
+	Peak    string `xml:"peak,attr,omitempty"`
+	Burst   string `xml:"burst,attr,omitempty"`
 }
 
 type BootOrder struct {
