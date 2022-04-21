@@ -222,15 +222,10 @@ func NewUpdateSubresourceAction(resource schema.GroupVersionResource, subresourc
 }
 
 func NewRootDeleteAction(resource schema.GroupVersionResource, name string) DeleteActionImpl {
-	return NewRootDeleteActionWithOptions(resource, name, metav1.DeleteOptions{})
-}
-
-func NewRootDeleteActionWithOptions(resource schema.GroupVersionResource, name string, opts metav1.DeleteOptions) DeleteActionImpl {
 	action := DeleteActionImpl{}
 	action.Verb = "delete"
 	action.Resource = resource
 	action.Name = name
-	action.DeleteOptions = opts
 
 	return action
 }
@@ -246,16 +241,11 @@ func NewRootDeleteSubresourceAction(resource schema.GroupVersionResource, subres
 }
 
 func NewDeleteAction(resource schema.GroupVersionResource, namespace, name string) DeleteActionImpl {
-	return NewDeleteActionWithOptions(resource, namespace, name, metav1.DeleteOptions{})
-}
-
-func NewDeleteActionWithOptions(resource schema.GroupVersionResource, namespace, name string, opts metav1.DeleteOptions) DeleteActionImpl {
 	action := DeleteActionImpl{}
 	action.Verb = "delete"
 	action.Resource = resource
 	action.Namespace = namespace
 	action.Name = name
-	action.DeleteOptions = opts
 
 	return action
 }
@@ -401,7 +391,6 @@ type UpdateAction interface {
 type DeleteAction interface {
 	Action
 	GetName() string
-	GetDeleteOptions() metav1.DeleteOptions
 }
 
 type DeleteCollectionAction interface {
@@ -594,23 +583,17 @@ func (a PatchActionImpl) DeepCopy() Action {
 
 type DeleteActionImpl struct {
 	ActionImpl
-	Name          string
-	DeleteOptions metav1.DeleteOptions
+	Name string
 }
 
 func (a DeleteActionImpl) GetName() string {
 	return a.Name
 }
 
-func (a DeleteActionImpl) GetDeleteOptions() metav1.DeleteOptions {
-	return a.DeleteOptions
-}
-
 func (a DeleteActionImpl) DeepCopy() Action {
 	return DeleteActionImpl{
-		ActionImpl:    a.ActionImpl.DeepCopy().(ActionImpl),
-		Name:          a.Name,
-		DeleteOptions: *a.DeleteOptions.DeepCopy(),
+		ActionImpl: a.ActionImpl.DeepCopy().(ActionImpl),
+		Name:       a.Name,
 	}
 }
 

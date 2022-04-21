@@ -33,7 +33,6 @@ import (
 	"time"
 
 	"k8s.io/client-go/util/keyutil"
-	netutils "k8s.io/utils/net"
 )
 
 const duration365d = time.Hour * 24 * 365
@@ -63,7 +62,6 @@ func NewSelfSignedCACert(cfg Config, key crypto.Signer) (*x509.Certificate, erro
 			CommonName:   cfg.CommonName,
 			Organization: cfg.Organization,
 		},
-		DNSNames:              []string{cfg.CommonName},
 		NotBefore:             now.UTC(),
 		NotAfter:              now.Add(duration365d * 10).UTC(),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
@@ -158,7 +156,7 @@ func GenerateSelfSignedCertKeyWithFixtures(host string, alternateIPs []net.IP, a
 		BasicConstraintsValid: true,
 	}
 
-	if ip := netutils.ParseIPSloppy(host); ip != nil {
+	if ip := net.ParseIP(host); ip != nil {
 		template.IPAddresses = append(template.IPAddresses, ip)
 	} else {
 		template.DNSNames = append(template.DNSNames, host)

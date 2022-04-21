@@ -911,7 +911,7 @@ var _ = SIGDescribe("Storage", func() {
 					cmd := "mkdir -p " + mountDir + " && mkdir -p " + srcDir + " && chcon -t container_file_t " + srcDir + " && mount --bind " + srcDir + " " + mountDir + " && while true; do sleep 1; done"
 					pod = tests.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{tests.UsrBinBash, "-c"}, []string{cmd})
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
-						PreStop: &k8sv1.LifecycleHandler{
+						PreStop: &k8sv1.Handler{
 							Exec: &k8sv1.ExecAction{
 								Command: []string{
 									tests.UsrBinBash, "-c",

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -400,8 +399,7 @@ func (t *tracker) add(gvr schema.GroupVersionResource, obj runtime.Object, ns st
 	if _, ok = t.objects[gvr][namespacedName]; ok {
 		if replaceExisting {
 			for _, w := range t.getWatches(gvr, ns) {
-				// To avoid the object from being accidentally modified by watcher
-				w.Modify(obj.DeepCopyObject())
+				w.Modify(obj)
 			}
 			t.objects[gvr][namespacedName] = obj
 			return nil
@@ -417,8 +415,7 @@ func (t *tracker) add(gvr schema.GroupVersionResource, obj runtime.Object, ns st
 	t.objects[gvr][namespacedName] = obj
 
 	for _, w := range t.getWatches(gvr, ns) {
-		// To avoid the object from being accidentally modified by watcher
-		w.Add(obj.DeepCopyObject())
+		w.Add(obj)
 	}
 
 	return nil
@@ -458,7 +455,7 @@ func (t *tracker) Delete(gvr schema.GroupVersionResource, ns, name string) error
 
 	delete(objs, namespacedName)
 	for _, w := range t.getWatches(gvr, ns) {
-		w.Delete(obj.DeepCopyObject())
+		w.Delete(obj)
 	}
 	return nil
 }
@@ -512,8 +509,12 @@ func (r *SimpleReactor) Handles(action Action) bool {
 	if !verbCovers {
 		return false
 	}
+	resourceCovers := r.Resource == "*" || r.Resource == action.GetResource().Resource
+	if !resourceCovers {
+		return false
+	}
 
-	return resourceCovers(r.Resource, action)
+	return true
 }
 
 func (r *SimpleReactor) React(action Action) (bool, runtime.Object, error) {
@@ -529,7 +530,12 @@ type SimpleWatchReactor struct {
 }
 
 func (r *SimpleWatchReactor) Handles(action Action) bool {
-	return resourceCovers(r.Resource, action)
+	resourceCovers := r.Resource == "*" || r.Resource == action.GetResource().Resource
+	if !resourceCovers {
+		return false
+	}
+
+	return true
 }
 
 func (r *SimpleWatchReactor) React(action Action) (bool, watch.Interface, error) {
@@ -545,27 +551,14 @@ type SimpleProxyReactor struct {
 }
 
 func (r *SimpleProxyReactor) Handles(action Action) bool {
-	return resourceCovers(r.Resource, action)
+	resourceCovers := r.Resource == "*" || r.Resource == action.GetResource().Resource
+	if !resourceCovers {
+		return false
+	}
+
+	return true
 }
 
 func (r *SimpleProxyReactor) React(action Action) (bool, restclient.ResponseWrapper, error) {
 	return r.Reaction(action)
-}
-
-func resourceCovers(resource string, action Action) bool {
-	if resource == "*" {
-		return true
-	}
-
-	if resource == action.GetResource().Resource {
-		return true
-	}
-
-	if index := strings.Index(resource, "/"); index != -1 &&
-		resource[:index] == action.GetResource().Resource &&
-		resource[index+1:] == action.GetSubresource() {
-		return true
-	}
-
-	return false
 }

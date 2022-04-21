@@ -2,7 +2,7 @@
 // source: api_v1alpha2.proto
 
 /*
-Package v1alpha2 is a generated protocol buffer package.
+Package kubevirt_hooks_v1alpha2 is a generated protocol buffer package.
 
 It is generated from these files:
 	api_v1alpha2.proto
@@ -13,7 +13,7 @@ It has these top-level messages:
 	PreCloudInitIsoParams
 	PreCloudInitIsoResult
 */
-package v1alpha2
+package kubevirt_hooks_v1alpha2
 
 import (
 	fmt "fmt"

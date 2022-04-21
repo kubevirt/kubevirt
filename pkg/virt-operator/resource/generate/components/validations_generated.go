@@ -69,45 +69,12 @@ var CRDsValidation map[string]string = map[string]string{
             dataSource:
               description: 'This field can be used to specify either: * An existing
                 VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An
-                existing PVC (PersistentVolumeClaim) If the provisioner or an external
-                controller can support the specified data source, it will create a
-                new volume based on the contents of the specified data source. If
-                the AnyVolumeDataSource feature gate is enabled, this field will always
-                have the same contents as the DataSourceRef field.'
-              properties:
-                apiGroup:
-                  description: APIGroup is the group for the resource being referenced.
-                    If APIGroup is not specified, the specified Kind must be in the
-                    core API group. For any other third-party types, APIGroup is required.
-                  type: string
-                kind:
-                  description: Kind is the type of resource being referenced
-                  type: string
-                name:
-                  description: Name is the name of resource being referenced
-                  type: string
-              required:
-              - kind
-              - name
-              type: object
-            dataSourceRef:
-              description: 'Specifies the object from which to populate the volume
-                with data, if a non-empty volume is desired. This may be any local
-                object from a non-empty API group (non core object) or a PersistentVolumeClaim
-                object. When this field is specified, volume binding will only succeed
-                if the type of the specified object matches some installed volume
-                populator or dynamic provisioner. This field will replace the functionality
-                of the DataSource field and as such if both fields are non-empty,
-                they must have the same value. For backwards compatibility, both fields
-                (DataSource and DataSourceRef) will be set to the same value automatically
-                if one of them is empty and the other is non-empty. There are two
-                important differences between DataSource and DataSourceRef: * While
-                DataSource only allows two specific types of objects, DataSourceRef   allows
-                any non-core object, as well as PersistentVolumeClaim objects. * While
-                DataSource ignores disallowed values (dropping them), DataSourceRef   preserves
-                all values, and generates an error if a disallowed value is   specified.
-                (Alpha) Using this field requires the AnyVolumeDataSource feature
-                gate to be enabled.'
+                existing PVC (PersistentVolumeClaim) * An existing custom resource
+                that implements data population (Alpha) In order to use custom resource
+                types that implement data population, the AnyVolumeDataSource feature
+                gate must be enabled. If the provisioner or an external controller
+                can support the specified data source, it will create a new volume
+                based on the contents of the specified data source.'
               properties:
                 apiGroup:
                   description: APIGroup is the group for the resource being referenced.
@@ -126,10 +93,7 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             resources:
               description: 'Resources represents the minimum resources the volume
-                should have. If RecoverVolumeExpansionFailure feature is enabled users
-                are allowed to specify resource requirements that are lower than previous
-                value but must still be higher than capacity recorded in the status
-                field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
               properties:
                 limits:
                   additionalProperties:
@@ -227,19 +191,6 @@ var CRDsValidation map[string]string = map[string]string{
                     a Certificate Authority(CA) public key, and a base64 encoded pem
                     certificate
                   type: string
-                extraHeaders:
-                  description: ExtraHeaders is a list of strings containing extra
-                    headers to include with HTTP transfer requests
-                  items:
-                    type: string
-                  type: array
-                secretExtraHeaders:
-                  description: SecretExtraHeaders is a list of Secret references,
-                    each containing an extra HTTP header that may include sensitive
-                    information
-                  items:
-                    type: string
-                  type: array
                 secretRef:
                   description: SecretRef A Secret reference, the secret should contain
                     accessKeyId (user name) base64 encoded, and secretKey (password)
@@ -1291,7 +1242,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -1449,7 +1400,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -1607,7 +1558,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -1765,7 +1716,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -2251,7 +2202,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -2409,7 +2360,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -2567,7 +2518,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -2725,7 +2676,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -3182,50 +3133,13 @@ var CRDsValidation map[string]string = map[string]string{
                       dataSource:
                         description: 'This field can be used to specify either: *
                           An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                          * An existing PVC (PersistentVolumeClaim) If the provisioner
-                          or an external controller can support the specified data
-                          source, it will create a new volume based on the contents
-                          of the specified data source. If the AnyVolumeDataSource
-                          feature gate is enabled, this field will always have the
-                          same contents as the DataSourceRef field.'
-                        properties:
-                          apiGroup:
-                            description: APIGroup is the group for the resource being
-                              referenced. If APIGroup is not specified, the specified
-                              Kind must be in the core API group. For any other third-party
-                              types, APIGroup is required.
-                            type: string
-                          kind:
-                            description: Kind is the type of resource being referenced
-                            type: string
-                          name:
-                            description: Name is the name of resource being referenced
-                            type: string
-                        required:
-                        - kind
-                        - name
-                        type: object
-                      dataSourceRef:
-                        description: 'Specifies the object from which to populate
-                          the volume with data, if a non-empty volume is desired.
-                          This may be any local object from a non-empty API group
-                          (non core object) or a PersistentVolumeClaim object. When
-                          this field is specified, volume binding will only succeed
-                          if the type of the specified object matches some installed
-                          volume populator or dynamic provisioner. This field will
-                          replace the functionality of the DataSource field and as
-                          such if both fields are non-empty, they must have the same
-                          value. For backwards compatibility, both fields (DataSource
-                          and DataSourceRef) will be set to the same value automatically
-                          if one of them is empty and the other is non-empty. There
-                          are two important differences between DataSource and DataSourceRef:
-                          * While DataSource only allows two specific types of objects,
-                          DataSourceRef   allows any non-core object, as well as PersistentVolumeClaim
-                          objects. * While DataSource ignores disallowed values (dropping
-                          them), DataSourceRef   preserves all values, and generates
-                          an error if a disallowed value is   specified. (Alpha) Using
-                          this field requires the AnyVolumeDataSource feature gate
-                          to be enabled.'
+                          * An existing PVC (PersistentVolumeClaim) * An existing
+                          custom resource that implements data population (Alpha)
+                          In order to use custom resource types that implement data
+                          population, the AnyVolumeDataSource feature gate must be
+                          enabled. If the provisioner or an external controller can
+                          support the specified data source, it will create a new
+                          volume based on the contents of the specified data source.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -3245,11 +3159,7 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                       resources:
                         description: 'Resources represents the minimum resources the
-                          volume should have. If RecoverVolumeExpansionFailure feature
-                          is enabled users are allowed to specify resource requirements
-                          that are lower than previous value but must still be higher
-                          than capacity recorded in the status field of the claim.
-                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                          volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                         properties:
                           limits:
                             additionalProperties:
@@ -3352,19 +3262,6 @@ var CRDsValidation map[string]string = map[string]string{
                               a Certificate Authority(CA) public key, and a base64
                               encoded pem certificate
                             type: string
-                          extraHeaders:
-                            description: ExtraHeaders is a list of strings containing
-                              extra headers to include with HTTP transfer requests
-                            items:
-                              type: string
-                            type: array
-                          secretExtraHeaders:
-                            description: SecretExtraHeaders is a list of Secret references,
-                              each containing an extra HTTP header that may include
-                              sensitive information
-                            items:
-                              type: string
-                            type: array
                           secretRef:
                             description: SecretRef A Secret reference, the secret
                               should contain accessKeyId (user name) base64 encoded,
@@ -4068,7 +3965,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -4226,7 +4123,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -4384,7 +4281,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -4542,7 +4439,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -7378,7 +7275,7 @@ var CRDsValidation map[string]string = map[string]string{
                               ones listed in the namespaces field. null selector and
                               null or empty namespaces list means "this pod's namespace".
                               An empty selector ({}) matches all namespaces. This
-                              field is beta-level and is only honored when PodAffinityNamespaceSelector
+                              field is alpha-level and is only honored when PodAffinityNamespaceSelector
                               feature is enabled.
                             properties:
                               matchExpressions:
@@ -7524,7 +7421,7 @@ var CRDsValidation map[string]string = map[string]string{
                           the namespaces selected by this field and the ones listed
                           in the namespaces field. null selector and null or empty
                           namespaces list means "this pod's namespace". An empty selector
-                          ({}) matches all namespaces. This field is beta-level and
+                          ({}) matches all namespaces. This field is alpha-level and
                           is only honored when PodAffinityNamespaceSelector feature
                           is enabled.
                         properties:
@@ -7668,7 +7565,7 @@ var CRDsValidation map[string]string = map[string]string{
                               ones listed in the namespaces field. null selector and
                               null or empty namespaces list means "this pod's namespace".
                               An empty selector ({}) matches all namespaces. This
-                              field is beta-level and is only honored when PodAffinityNamespaceSelector
+                              field is alpha-level and is only honored when PodAffinityNamespaceSelector
                               feature is enabled.
                             properties:
                               matchExpressions:
@@ -7814,7 +7711,7 @@ var CRDsValidation map[string]string = map[string]string{
                           the namespaces selected by this field and the ones listed
                           in the namespaces field. null selector and null or empty
                           namespaces list means "this pod's namespace". An empty selector
-                          ({}) matches all namespaces. This field is beta-level and
+                          ({}) matches all namespaces. This field is alpha-level and
                           is only honored when PodAffinityNamespaceSelector feature
                           is enabled.
                         properties:
@@ -11477,7 +11374,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -11635,7 +11532,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -11793,7 +11690,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       field. null selector and null or empty namespaces
                                       list means "this pod's namespace". An empty
                                       selector ({}) matches all namespaces. This field
-                                      is beta-level and is only honored when PodAffinityNamespaceSelector
+                                      is alpha-level and is only honored when PodAffinityNamespaceSelector
                                       feature is enabled.
                                     properties:
                                       matchExpressions:
@@ -11951,7 +11848,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   and the ones listed in the namespaces field. null
                                   selector and null or empty namespaces list means
                                   "this pod's namespace". An empty selector ({}) matches
-                                  all namespaces. This field is beta-level and is
+                                  all namespaces. This field is alpha-level and is
                                   only honored when PodAffinityNamespaceSelector feature
                                   is enabled.
                                 properties:
@@ -14037,56 +13934,14 @@ var CRDsValidation map[string]string = map[string]string{
                               dataSource:
                                 description: 'This field can be used to specify either:
                                   * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                                  * An existing PVC (PersistentVolumeClaim) If the
-                                  provisioner or an external controller can support
-                                  the specified data source, it will create a new
-                                  volume based on the contents of the specified data
-                                  source. If the AnyVolumeDataSource feature gate
-                                  is enabled, this field will always have the same
-                                  contents as the DataSourceRef field.'
-                                properties:
-                                  apiGroup:
-                                    description: APIGroup is the group for the resource
-                                      being referenced. If APIGroup is not specified,
-                                      the specified Kind must be in the core API group.
-                                      For any other third-party types, APIGroup is
-                                      required.
-                                    type: string
-                                  kind:
-                                    description: Kind is the type of resource being
-                                      referenced
-                                    type: string
-                                  name:
-                                    description: Name is the name of resource being
-                                      referenced
-                                    type: string
-                                required:
-                                - kind
-                                - name
-                                type: object
-                              dataSourceRef:
-                                description: 'Specifies the object from which to populate
-                                  the volume with data, if a non-empty volume is desired.
-                                  This may be any local object from a non-empty API
-                                  group (non core object) or a PersistentVolumeClaim
-                                  object. When this field is specified, volume binding
-                                  will only succeed if the type of the specified object
-                                  matches some installed volume populator or dynamic
-                                  provisioner. This field will replace the functionality
-                                  of the DataSource field and as such if both fields
-                                  are non-empty, they must have the same value. For
-                                  backwards compatibility, both fields (DataSource
-                                  and DataSourceRef) will be set to the same value
-                                  automatically if one of them is empty and the other
-                                  is non-empty. There are two important differences
-                                  between DataSource and DataSourceRef: * While DataSource
-                                  only allows two specific types of objects, DataSourceRef   allows
-                                  any non-core object, as well as PersistentVolumeClaim
-                                  objects. * While DataSource ignores disallowed values
-                                  (dropping them), DataSourceRef   preserves all values,
-                                  and generates an error if a disallowed value is   specified.
-                                  (Alpha) Using this field requires the AnyVolumeDataSource
-                                  feature gate to be enabled.'
+                                  * An existing PVC (PersistentVolumeClaim) * An existing
+                                  custom resource that implements data population
+                                  (Alpha) In order to use custom resource types that
+                                  implement data population, the AnyVolumeDataSource
+                                  feature gate must be enabled. If the provisioner
+                                  or an external controller can support the specified
+                                  data source, it will create a new volume based on
+                                  the contents of the specified data source.'
                                 properties:
                                   apiGroup:
                                     description: APIGroup is the group for the resource
@@ -14109,11 +13964,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               resources:
                                 description: 'Resources represents the minimum resources
-                                  the volume should have. If RecoverVolumeExpansionFailure
-                                  feature is enabled users are allowed to specify
-                                  resource requirements that are lower than previous
-                                  value but must still be higher than capacity recorded
-                                  in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                                  the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                 properties:
                                   limits:
                                     additionalProperties:
@@ -14221,20 +14072,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       containing a Certificate Authority(CA) public
                                       key, and a base64 encoded pem certificate
                                     type: string
-                                  extraHeaders:
-                                    description: ExtraHeaders is a list of strings
-                                      containing extra headers to include with HTTP
-                                      transfer requests
-                                    items:
-                                      type: string
-                                    type: array
-                                  secretExtraHeaders:
-                                    description: SecretExtraHeaders is a list of Secret
-                                      references, each containing an extra HTTP header
-                                      that may include sensitive information
-                                    items:
-                                      type: string
-                                    type: array
                                   secretRef:
                                     description: SecretRef A Secret reference, the
                                       secret should contain accessKeyId (user name)
@@ -14987,7 +14824,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               field. null selector and null or empty
                                               namespaces list means "this pod's namespace".
                                               An empty selector ({}) matches all namespaces.
-                                              This field is beta-level and is only
+                                              This field is alpha-level and is only
                                               honored when PodAffinityNamespaceSelector
                                               feature is enabled.
                                             properties:
@@ -15162,7 +14999,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           in the namespaces field. null selector and
                                           null or empty namespaces list means "this
                                           pod's namespace". An empty selector ({})
-                                          matches all namespaces. This field is beta-level
+                                          matches all namespaces. This field is alpha-level
                                           and is only honored when PodAffinityNamespaceSelector
                                           feature is enabled.
                                         properties:
@@ -15335,7 +15172,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               field. null selector and null or empty
                                               namespaces list means "this pod's namespace".
                                               An empty selector ({}) matches all namespaces.
-                                              This field is beta-level and is only
+                                              This field is alpha-level and is only
                                               honored when PodAffinityNamespaceSelector
                                               feature is enabled.
                                             properties:
@@ -15511,7 +15348,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           in the namespaces field. null selector and
                                           null or empty namespaces list means "this
                                           pod's namespace". An empty selector ({})
-                                          matches all namespaces. This field is beta-level
+                                          matches all namespaces. This field is alpha-level
                                           and is only honored when PodAffinityNamespaceSelector
                                           feature is enabled.
                                         properties:
@@ -17905,59 +17742,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: 'This field can be used to specify
                                       either: * An existing VolumeSnapshot object
                                       (snapshot.storage.k8s.io/VolumeSnapshot) * An
-                                      existing PVC (PersistentVolumeClaim) If the
-                                      provisioner or an external controller can support
-                                      the specified data source, it will create a
-                                      new volume based on the contents of the specified
-                                      data source. If the AnyVolumeDataSource feature
-                                      gate is enabled, this field will always have
-                                      the same contents as the DataSourceRef field.'
-                                    properties:
-                                      apiGroup:
-                                        description: APIGroup is the group for the
-                                          resource being referenced. If APIGroup is
-                                          not specified, the specified Kind must be
-                                          in the core API group. For any other third-party
-                                          types, APIGroup is required.
-                                        type: string
-                                      kind:
-                                        description: Kind is the type of resource
-                                          being referenced
-                                        type: string
-                                      name:
-                                        description: Name is the name of resource
-                                          being referenced
-                                        type: string
-                                    required:
-                                    - kind
-                                    - name
-                                    type: object
-                                  dataSourceRef:
-                                    description: 'Specifies the object from which
-                                      to populate the volume with data, if a non-empty
-                                      volume is desired. This may be any local object
-                                      from a non-empty API group (non core object)
-                                      or a PersistentVolumeClaim object. When this
-                                      field is specified, volume binding will only
-                                      succeed if the type of the specified object
-                                      matches some installed volume populator or dynamic
-                                      provisioner. This field will replace the functionality
-                                      of the DataSource field and as such if both
-                                      fields are non-empty, they must have the same
-                                      value. For backwards compatibility, both fields
-                                      (DataSource and DataSourceRef) will be set to
-                                      the same value automatically if one of them
-                                      is empty and the other is non-empty. There are
-                                      two important differences between DataSource
-                                      and DataSourceRef: * While DataSource only allows
-                                      two specific types of objects, DataSourceRef   allows
-                                      any non-core object, as well as PersistentVolumeClaim
-                                      objects. * While DataSource ignores disallowed
-                                      values (dropping them), DataSourceRef   preserves
-                                      all values, and generates an error if a disallowed
-                                      value is   specified. (Alpha) Using this field
-                                      requires the AnyVolumeDataSource feature gate
-                                      to be enabled.'
+                                      existing PVC (PersistentVolumeClaim) * An existing
+                                      custom resource that implements data population
+                                      (Alpha) In order to use custom resource types
+                                      that implement data population, the AnyVolumeDataSource
+                                      feature gate must be enabled. If the provisioner
+                                      or an external controller can support the specified
+                                      data source, it will create a new volume based
+                                      on the contents of the specified data source.'
                                     properties:
                                       apiGroup:
                                         description: APIGroup is the group for the
@@ -17980,12 +17772,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   resources:
                                     description: 'Resources represents the minimum
-                                      resources the volume should have. If RecoverVolumeExpansionFailure
-                                      feature is enabled users are allowed to specify
-                                      resource requirements that are lower than previous
-                                      value but must still be higher than capacity
-                                      recorded in the status field of the claim. More
-                                      info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                                      resources the volume should have. More info:
+                                      https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                     properties:
                                       limits:
                                         additionalProperties:
@@ -18098,21 +17886,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           reference, containing a Certificate Authority(CA)
                                           public key, and a base64 encoded pem certificate
                                         type: string
-                                      extraHeaders:
-                                        description: ExtraHeaders is a list of strings
-                                          containing extra headers to include with
-                                          HTTP transfer requests
-                                        items:
-                                          type: string
-                                        type: array
-                                      secretExtraHeaders:
-                                        description: SecretExtraHeaders is a list
-                                          of Secret references, each containing an
-                                          extra HTTP header that may include sensitive
-                                          information
-                                        items:
-                                          type: string
-                                        type: array
                                       secretRef:
                                         description: SecretRef A Secret reference,
                                           the secret should contain accessKeyId (user
@@ -18901,7 +18674,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   and null or empty namespaces list
                                                   means "this pod's namespace". An
                                                   empty selector ({}) matches all
-                                                  namespaces. This field is beta-level
+                                                  namespaces. This field is alpha-level
                                                   and is only honored when PodAffinityNamespaceSelector
                                                   feature is enabled.
                                                 properties:
@@ -19090,7 +18863,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               field. null selector and null or empty
                                               namespaces list means "this pod's namespace".
                                               An empty selector ({}) matches all namespaces.
-                                              This field is beta-level and is only
+                                              This field is alpha-level and is only
                                               honored when PodAffinityNamespaceSelector
                                               feature is enabled.
                                             properties:
@@ -19277,7 +19050,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   and null or empty namespaces list
                                                   means "this pod's namespace". An
                                                   empty selector ({}) matches all
-                                                  namespaces. This field is beta-level
+                                                  namespaces. This field is alpha-level
                                                   and is only honored when PodAffinityNamespaceSelector
                                                   feature is enabled.
                                                 properties:
@@ -19466,7 +19239,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               field. null selector and null or empty
                                               namespaces list means "this pod's namespace".
                                               An empty selector ({}) matches all namespaces.
-                                              This field is beta-level and is only
+                                              This field is alpha-level and is only
                                               honored when PodAffinityNamespaceSelector
                                               feature is enabled.
                                             properties:
@@ -21915,50 +21688,13 @@ var CRDsValidation map[string]string = map[string]string{
                       dataSource:
                         description: 'This field can be used to specify either: *
                           An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                          * An existing PVC (PersistentVolumeClaim) If the provisioner
-                          or an external controller can support the specified data
-                          source, it will create a new volume based on the contents
-                          of the specified data source. If the AnyVolumeDataSource
-                          feature gate is enabled, this field will always have the
-                          same contents as the DataSourceRef field.'
-                        properties:
-                          apiGroup:
-                            description: APIGroup is the group for the resource being
-                              referenced. If APIGroup is not specified, the specified
-                              Kind must be in the core API group. For any other third-party
-                              types, APIGroup is required.
-                            type: string
-                          kind:
-                            description: Kind is the type of resource being referenced
-                            type: string
-                          name:
-                            description: Name is the name of resource being referenced
-                            type: string
-                        required:
-                        - kind
-                        - name
-                        type: object
-                      dataSourceRef:
-                        description: 'Specifies the object from which to populate
-                          the volume with data, if a non-empty volume is desired.
-                          This may be any local object from a non-empty API group
-                          (non core object) or a PersistentVolumeClaim object. When
-                          this field is specified, volume binding will only succeed
-                          if the type of the specified object matches some installed
-                          volume populator or dynamic provisioner. This field will
-                          replace the functionality of the DataSource field and as
-                          such if both fields are non-empty, they must have the same
-                          value. For backwards compatibility, both fields (DataSource
-                          and DataSourceRef) will be set to the same value automatically
-                          if one of them is empty and the other is non-empty. There
-                          are two important differences between DataSource and DataSourceRef:
-                          * While DataSource only allows two specific types of objects,
-                          DataSourceRef   allows any non-core object, as well as PersistentVolumeClaim
-                          objects. * While DataSource ignores disallowed values (dropping
-                          them), DataSourceRef   preserves all values, and generates
-                          an error if a disallowed value is   specified. (Alpha) Using
-                          this field requires the AnyVolumeDataSource feature gate
-                          to be enabled.'
+                          * An existing PVC (PersistentVolumeClaim) * An existing
+                          custom resource that implements data population (Alpha)
+                          In order to use custom resource types that implement data
+                          population, the AnyVolumeDataSource feature gate must be
+                          enabled. If the provisioner or an external controller can
+                          support the specified data source, it will create a new
+                          volume based on the contents of the specified data source.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -21978,11 +21714,7 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                       resources:
                         description: 'Resources represents the minimum resources the
-                          volume should have. If RecoverVolumeExpansionFailure feature
-                          is enabled users are allowed to specify resource requirements
-                          that are lower than previous value but must still be higher
-                          than capacity recorded in the status field of the claim.
-                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                          volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                         properties:
                           limits:
                             additionalProperties:

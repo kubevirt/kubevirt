@@ -167,7 +167,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 3,
-		ProbeHandler: corev1.ProbeHandler{
+		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
@@ -182,7 +182,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		PeriodSeconds:       45,
 	}
 	container.ReadinessProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
+		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{

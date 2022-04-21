@@ -33,7 +33,7 @@ type EventExpansion interface {
 	// UpdateWithEventNamespace is the same as a Update
 	// except that it sends the request to the event.Namespace.
 	UpdateWithEventNamespace(event *v1beta1.Event) (*v1beta1.Event, error)
-	// PatchWithEventNamespace is the same as a Patch
+	// PatchWithEventNamespace is the same as an Update
 	// except that it sends the request to the event.Namespace.
 	PatchWithEventNamespace(event *v1beta1.Event, data []byte) (*v1beta1.Event, error)
 }

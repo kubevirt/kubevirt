@@ -92,12 +92,10 @@ func (DataVolumeSourceRegistry) SwaggerDoc() map[string]string {
 
 func (DataVolumeSourceHTTP) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs",
-		"url":                "URL is the URL of the http(s) endpoint",
-		"secretRef":          "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded\n+optional",
-		"certConfigMap":      "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate\n+optional",
-		"extraHeaders":       "ExtraHeaders is a list of strings containing extra headers to include with HTTP transfer requests\n+optional",
-		"secretExtraHeaders": "SecretExtraHeaders is a list of Secret references, each containing an extra HTTP header that may include sensitive information\n+optional",
+		"":              "DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs",
+		"url":           "URL is the URL of the http(s) endpoint",
+		"secretRef":     "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded\n+optional",
+		"certConfigMap": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate\n+optional",
 	}
 }
 
@@ -223,12 +221,6 @@ func (DataSourceCondition) SwaggerDoc() map[string]string {
 	}
 }
 
-func (ConditionState) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "ConditionState represents the state of a condition",
-	}
-}
-
 func (DataSourceList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "DataSourceList provides the needed parameters to do request a list of Data Sources from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
@@ -245,30 +237,25 @@ func (DataImportCron) SwaggerDoc() map[string]string {
 func (DataImportCronSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "DataImportCronSpec defines specification for DataImportCron",
-		"template":          "Template specifies template for the DVs to be created",
+		"source":            "Source specifies where to poll disk images from",
 		"schedule":          "Schedule specifies in cron format when and how often to look for new imports",
-		"garbageCollect":    "GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported.\nOptions are currently \"Outdated\" and \"Never\", defaults to \"Outdated\".\n+optional",
-		"importsToKeep":     "Number of import PVCs to keep when garbage collecting. Default is 3.\n+optional",
+		"garbageCollect":    "GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported.\nOptions are currently \"Never\" and \"Outdated\", defaults to \"Never\".\n+optional",
 		"managedDataSource": "ManagedDataSource specifies the name of the corresponding DataSource this cron will manage.\nDataSource has to be in the same namespace.",
-		"retentionPolicy":   "RetentionPolicy specifies whether the created DataVolumes and DataSources are retained when their DataImportCron is deleted. Default is RatainAll.\n+optional",
+	}
+}
+
+func (DataImportCronSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataImportCronSource defines where to poll and import disk images from",
 	}
 }
 
 func (DataImportCronStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "DataImportCronStatus provides the most recently observed status of the DataImportCron",
-		"currentImports":         "CurrentImports are the imports in progress. Currently only a single import is supported.",
 		"lastImportedPVC":        "LastImportedPVC is the last imported PVC",
 		"lastExecutionTimestamp": "LastExecutionTimestamp is the time of the last polling",
 		"lastImportTimestamp":    "LastImportTimestamp is the time of the last import",
-	}
-}
-
-func (ImportStatus) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":               "ImportStatus of a currently in progress import",
-		"DataVolumeName": "DataVolumeName is the currently in progress import DataVolume",
-		"Digest":         "Digest of the currently imported image",
 	}
 }
 

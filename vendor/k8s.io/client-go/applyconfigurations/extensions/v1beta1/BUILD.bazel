@@ -47,7 +47,6 @@ go_library(
         "runasgroupstrategyoptions.go",
         "runasuserstrategyoptions.go",
         "runtimeclassstrategyoptions.go",
-        "scale.go",
         "selinuxstrategyoptions.go",
         "supplementalgroupsstrategyoptions.go",
     ],

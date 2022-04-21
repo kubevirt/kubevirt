@@ -27,7 +27,6 @@ import (
 	v15 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	v1beta12 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	v16 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
-	v2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
 	v2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
 	v2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	v17 "k8s.io/client-go/kubernetes/typed/batch/v1"
@@ -44,7 +43,6 @@ import (
 	v1beta18 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	v1alpha10 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
 	v1beta19 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
-	v1beta20 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	v113 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	v1beta110 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	v114 "k8s.io/client-go/kubernetes/typed/node/v1"
@@ -486,16 +484,6 @@ func (_mr *_MockKubevirtClientRecorder) AutoscalingV1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AutoscalingV1")
 }
 
-func (_m *MockKubevirtClient) AutoscalingV2() v2.AutoscalingV2Interface {
-	ret := _m.ctrl.Call(_m, "AutoscalingV2")
-	ret0, _ := ret[0].(v2.AutoscalingV2Interface)
-	return ret0
-}
-
-func (_mr *_MockKubevirtClientRecorder) AutoscalingV2() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AutoscalingV2")
-}
-
 func (_m *MockKubevirtClient) AutoscalingV2beta1() v2beta1.AutoscalingV2beta1Interface {
 	ret := _m.ctrl.Call(_m, "AutoscalingV2beta1")
 	ret0, _ := ret[0].(v2beta1.AutoscalingV2beta1Interface)
@@ -654,16 +642,6 @@ func (_m *MockKubevirtClient) FlowcontrolV1beta1() v1beta19.FlowcontrolV1beta1In
 
 func (_mr *_MockKubevirtClientRecorder) FlowcontrolV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FlowcontrolV1beta1")
-}
-
-func (_m *MockKubevirtClient) FlowcontrolV1beta2() v1beta20.FlowcontrolV1beta2Interface {
-	ret := _m.ctrl.Call(_m, "FlowcontrolV1beta2")
-	ret0, _ := ret[0].(v1beta20.FlowcontrolV1beta2Interface)
-	return ret0
-}
-
-func (_mr *_MockKubevirtClientRecorder) FlowcontrolV1beta2() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FlowcontrolV1beta2")
 }
 
 func (_m *MockKubevirtClient) NetworkingV1() v113.NetworkingV1Interface {
