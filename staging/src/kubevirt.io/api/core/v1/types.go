@@ -834,6 +834,12 @@ const (
 	// ClusterFlavorAnnotation is the name of a VirtualMachineClusterFlavor
 	ClusterFlavorAnnotation string = "kubevirt.io/cluster-flavor-name"
 
+	// FlavorAnnotation is the name of a VirtualMachinePreference
+	PreferenceAnnotation string = "kubevirt.io/preference-name"
+
+	// ClusterFlavorAnnotation is the name of a VirtualMachinePreferenceFlavor
+	ClusterPreferenceAnnotation string = "kubevirt.io/cluster-preference-name"
+
 	// VirtualMachinePoolRevisionName is used to store the vmpool revision's name this object
 	// originated from.
 	VirtualMachinePoolRevisionName string = "kubevirt.io/vm-pool-revision-name"

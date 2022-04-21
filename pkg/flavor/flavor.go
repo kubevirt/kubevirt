@@ -245,6 +245,22 @@ func AddFlavorNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
 	}
 }
 
+func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
+	if vm.Spec.Preference == nil {
+		return
+	}
+
+	if target.GetAnnotations() == nil {
+		target.SetAnnotations(make(map[string]string))
+	}
+	switch strings.ToLower(vm.Spec.Preference.Kind) {
+	case apiflavor.PluralPreferenceResourceName, apiflavor.SingularPreferenceResourceName:
+		target.GetAnnotations()[virtv1.PreferenceAnnotation] = vm.Spec.Preference.Name
+	case "", apiflavor.ClusterPluralPreferenceResourceName, apiflavor.ClusterSingularPreferenceResourceName:
+		target.GetAnnotations()[virtv1.ClusterPreferenceAnnotation] = vm.Spec.Preference.Name
+	}
+}
+
 func applyMemory(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 
 	if flavorSpec.Memory.Guest == nil {

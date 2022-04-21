@@ -213,6 +213,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
 			Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
+			Expect(vmi.Annotations[v1.PreferenceAnnotation]).To(Equal(preference.Name))
+			Expect(vmi.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
 		})
 
 		It("[test_id:TODO] should fail if flavor and VM define CPU", func() {

@@ -1145,6 +1145,7 @@ func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	flavor.AddFlavorNameAnnotations(vm, vmi)
+	flavor.AddPreferenceNameAnnotations(vm, vmi)
 
 	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, preferenceSpec, &vmi.Spec)
 	if len(conflicts) == 0 {

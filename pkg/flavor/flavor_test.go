@@ -336,6 +336,45 @@ var _ = Describe("Flavor and Preferences", func() {
 		})
 	})
 
+	Context("Add preference name annotations", func() {
+		const preferenceName = "preference-name"
+
+		BeforeEach(func() {
+			vm = kubecli.NewMinimalVM("testvm")
+			vm.Spec.Preference = &v1.PreferenceMatcher{Name: preferenceName}
+		})
+
+		It("should add preference name annotation", func() {
+			vm.Spec.Preference.Kind = apiflavor.SingularPreferenceResourceName
+
+			meta := &metav1.ObjectMeta{}
+			flavor.AddPreferenceNameAnnotations(vm, meta)
+
+			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(preferenceName))
+			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
+		})
+
+		It("should add cluster preference name annotation", func() {
+			vm.Spec.Preference.Kind = apiflavor.ClusterSingularPreferenceResourceName
+
+			meta := &metav1.ObjectMeta{}
+			flavor.AddPreferenceNameAnnotations(vm, meta)
+
+			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(""))
+			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
+		})
+
+		It("should add cluster name annotation, if preference.kind is empty", func() {
+			vm.Spec.Preference.Kind = ""
+
+			meta := &metav1.ObjectMeta{}
+			flavor.AddPreferenceNameAnnotations(vm, meta)
+
+			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(""))
+			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
+		})
+	})
+
 	Context("Apply", func() {
 
 		var (
