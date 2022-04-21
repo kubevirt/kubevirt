@@ -336,7 +336,7 @@ var _ = Describe("Flavor and Preferences", func() {
 		})
 	})
 
-	Context("Apply flavor Spec to VMI", func() {
+	Context("Apply", func() {
 
 		var (
 			flavorSpec     *flavorv1alpha1.VirtualMachineFlavorSpec
@@ -355,7 +355,7 @@ var _ = Describe("Flavor and Preferences", func() {
 			field = k8sfield.NewPath("spec", "template", "spec")
 		})
 
-		Context("Apply flavor.spec.CPU and preference.spec.CPU", func() {
+		Context("flavor.spec.CPU and preference.spec.CPU", func() {
 
 			BeforeEach(func() {
 
@@ -374,13 +374,11 @@ var _ = Describe("Flavor and Preferences", func() {
 					},
 				}
 				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
-					CPU: &flavorv1alpha1.CPUPreferences{
-						PreferredCPUTopology: flavorv1alpha1.PreferCores,
-					},
+					CPU: &flavorv1alpha1.CPUPreferences{},
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should default to PreferCores", func() {
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -396,7 +394,61 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 
-			It("detects CPU conflict", func() {
+			It("should apply in full with PreferCores selected", func() {
+
+				preferenceSpec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferCores
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(flavorSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(flavorSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(flavorSpec.CPU.IsolateEmulatorThread))
+				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*flavorSpec.CPU.NUMA))
+				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*flavorSpec.CPU.Realtime))
+
+			})
+
+			It("should apply in full with PreferThreads selected", func() {
+
+				preferenceSpec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferThreads
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(flavorSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(flavorSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(flavorSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(flavorSpec.CPU.IsolateEmulatorThread))
+				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*flavorSpec.CPU.NUMA))
+				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*flavorSpec.CPU.Realtime))
+
+			})
+
+			It("should apply in full with PreferSockets selected", func() {
+
+				preferenceSpec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferSockets
+
+				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(flavorSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(flavorSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(flavorSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(flavorSpec.CPU.IsolateEmulatorThread))
+				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*flavorSpec.CPU.NUMA))
+				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*flavorSpec.CPU.Realtime))
+
+			})
+
+			It("should return a conflict if vmi.Spec.Domain.CPU already defined", func() {
 
 				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
 					CPU: flavorv1alpha1.CPUFlavor{
@@ -415,22 +467,8 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
 
 			})
-
-			It("defaults to PreferCores if no CPUPreferences are defined", func() {
-
-				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
-					CPU: &flavorv1alpha1.CPUPreferences{},
-				}
-
-				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(BeEmpty())
-				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(flavorSpec.CPU.Guest))
-				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-
-			})
 		})
-		Context("Apply flavor.Spec.Memory", func() {
+		Context("flavor.Spec.Memory", func() {
 			BeforeEach(func() {
 				flavorMem := resource.MustParse("512M")
 				flavorSpec = &flavorv1alpha1.VirtualMachineFlavorSpec{
@@ -443,7 +481,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -453,7 +491,7 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 
-			It("detects memory count conflict", func() {
+			It("should detect memory conflict", func() {
 
 				vmiMemGuest := resource.MustParse("512M")
 				vmi.Spec.Domain.Memory = &v1.Memory{
@@ -477,14 +515,14 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(0))
 
 				Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(*flavorSpec.IOThreadsPolicy))
 			})
 
-			It("detects IOThreadsPolicy conflict", func() {
+			It("should detect IOThreadsPolicy conflict", func() {
 				vmi.Spec.Domain.IOThreadsPolicy = &flavorPolicy
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
@@ -503,14 +541,14 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(0))
 
 				Expect(*vmi.Spec.Domain.LaunchSecurity).To(Equal(*flavorSpec.LaunchSecurity))
 			})
 
-			It("detects LaunchSecurity conflict", func() {
+			It("should detect LaunchSecurity conflict", func() {
 				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 					SEV: &v1.SEV{},
 				}
@@ -534,7 +572,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(0))
@@ -543,7 +581,7 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 
-			It("detects GPU conflict", func() {
+			It("should detect GPU conflict", func() {
 
 				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 					v1.GPU{
@@ -572,7 +610,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(0))
@@ -581,7 +619,7 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 
-			It("detects HostDevice conflict", func() {
+			It("should detect HostDevice conflict", func() {
 
 				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 					v1.HostDevice{
@@ -598,7 +636,7 @@ var _ = Describe("Flavor and Preferences", func() {
 		})
 
 		// TODO - break this up into smaller more targeted tests
-		Context("Preference.Devices ", func() {
+		Context("Preference.Devices", func() {
 
 			var userDefinedBlockSize *v1.BlockSize
 
@@ -702,7 +740,7 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(0))
@@ -743,7 +781,7 @@ var _ = Describe("Flavor and Preferences", func() {
 
 			})
 
-			It("When passed Preference and a disk doesn't have a DiskDevice target defined", func() {
+			It("Should apply when a VMI disk doesn't have a DiskDevice target defined", func() {
 
 				vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk = nil
 
@@ -755,7 +793,7 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 		})
 
-		Context("Preference.Features ", func() {
+		Context("Preference.Features", func() {
 
 			BeforeEach(func() {
 				spinLockRetries := uint32(32)
@@ -800,7 +838,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 				conflicts := flavorMethods.ApplyToVmi(field, flavorSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(0))
 
@@ -812,7 +850,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Features.SMM).To(Equal(*preferenceSpec.Features.PreferredSmm))
 			})
 
-			It("when passed Preference with some HyperV features already defined in the VMI", func() {
+			It("should apply when some HyperV features already defined in the VMI", func() {
 
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
@@ -830,9 +868,9 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 		})
 
-		Context("Preference.Firmware ", func() {
+		Context("Preference.Firmware", func() {
 
-			It("in BIOS preferences full to VMI", func() {
+			It("should apply BIOS preferences full to VMI", func() {
 				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
 					Firmware: &flavorv1alpha1.FirmwarePreferences{
 						PreferredUseBios:       pointer.Bool(true),
@@ -848,7 +886,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(Equal(*preferenceSpec.Firmware.PreferredUseBiosSerial))
 			})
 
-			It("in SecureBoot preferences full to VMI", func() {
+			It("should apply SecureBoot preferences full to VMI", func() {
 				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
 					Firmware: &flavorv1alpha1.FirmwarePreferences{
 						PreferredUseBios:       pointer.Bool(false),
@@ -865,9 +903,9 @@ var _ = Describe("Flavor and Preferences", func() {
 			})
 		})
 
-		Context("Preference.Machine ", func() {
+		Context("Preference.Machine", func() {
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
 					Machine: &flavorv1alpha1.MachinePreferences{
 						PreferredMachineType: "q35-rhel-8.0",
@@ -880,9 +918,9 @@ var _ = Describe("Flavor and Preferences", func() {
 				Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
 			})
 		})
-		Context("Preference.Clock ", func() {
+		Context("Preference.Clock", func() {
 
-			It("in full to VMI", func() {
+			It("should apply to VMI", func() {
 				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
 					Clock: &flavorv1alpha1.ClockPreferences{
 						PreferredClockOffset: &v1.ClockOffset{

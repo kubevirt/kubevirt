@@ -14,6 +14,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	flavorapi "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -22,10 +23,6 @@ import (
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Flavor and Preferences", func() {
-	const (
-		namespacedFlavorKind     = "VirtualMachineFlavor"
-		namespacedPreferenceKind = "VirtualMachinePreference"
-	)
 
 	var (
 		virtClient kubecli.KubevirtClient
@@ -82,7 +79,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: "non-existing-flavor",
-				Kind: namespacedFlavorKind,
+				Kind: flavorapi.SingularResourceName,
 			}
 
 			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -123,7 +120,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm := tests.NewRandomVirtualMachine(vmi, false)
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "non-existing-preference",
-				Kind: namespacedPreferenceKind,
+				Kind: flavorapi.SingularPreferenceResourceName,
 			}
 
 			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -178,11 +175,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			// Add the flavor and preference matchers to the VM spec
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: flavor.Name,
-				Kind: namespacedFlavorKind,
+				Kind: flavorapi.SingularResourceName,
 			}
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: preference.Name,
-				Kind: namespacedPreferenceKind,
+				Kind: flavorapi.SingularPreferenceResourceName,
 			}
 
 			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -230,7 +227,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
 			vm.Spec.Flavor = &v1.FlavorMatcher{
 				Name: flavor.Name,
-				Kind: namespacedFlavorKind,
+				Kind: flavorapi.SingularResourceName,
 			}
 
 			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
