@@ -96,7 +96,8 @@ var _ = Describe("Mutating Webhook Presets", func() {
 							Watchdog: &v1.Watchdog{Name: "testcase",
 								WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}},
 							Disks: []v1.Disk{{Name: "testdisk",
-								DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
+								DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
+									Bus: v1.DiskBusVirtio, ReadOnly: true}}}}},
 					},
 				},
 			}

@@ -1928,16 +1928,16 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			vmi := tests.NewRandomVMI()
 
 			By("adding disks to a VMI")
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk5", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk5", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tmpHostDiskDir := tests.RandTmpDir()
 			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
@@ -1986,17 +1986,17 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			By("adding disks to a VMI")
 			// disk[0]:  File, sparsed, no user-input, cache=none
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 
 			// disk[1]:  Block, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", dataVolume.Name)
+			tests.AddPVCDisk(vmi, "block-pvc", v1.DiskBusVirtio, dataVolume.Name)
 
 			// disk[2]: File, not-sparsed, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
+			tests.AddPVCDisk(vmi, "hostpath-pvc", v1.DiskBusVirtio, tests.DiskAlpineHostPath)
 
 			// disk[3]:  File, sparsed, user-input=threads, cache=none
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
@@ -2174,7 +2174,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			// virtio - added by NewRandomVMIWithEphemeralDisk
 			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
-			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
+			tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusSATA, containerImage)
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string) {
@@ -2206,7 +2206,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		It("[test_id:3906]should configure custom Pci address", func() {
 			By("checking disk1 Pci address")
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:00:10.0"
-			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusVirtio
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -2220,7 +2220,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			wrongPciAddress := "0000:04:10.0"
 
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = wrongPciAddress
-			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusVirtio
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2772,12 +2772,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("With ephemeral CD-ROM", func() {
 		var vmi *v1.VirtualMachineInstance
+		var DiskBusIDE v1.DiskBus = "ide"
 
 		BeforeEach(func() {
 			vmi = tests.NewRandomFedoraVMIWithDmidecode()
 		})
 
-		DescribeTable("For various bus types", func(bus string, errMsg string) {
+		DescribeTable("For various bus types", func(bus v1.DiskBus, errMsg string) {
 			tests.AddEphemeralCdrom(vmi, "cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By(fmt.Sprintf("Starting a VMI with a %s CD-ROM", bus))
@@ -2789,10 +2790,10 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err.Error()).To(ContainSubstring(errMsg))
 			}
 		},
-			Entry("[test_id:3777] Should be accepted when using sata", "sata", ""),
-			Entry("[test_id:3809] Should be accepted when using scsi", "scsi", ""),
-			Entry("[test_id:3776] Should be rejected when using virtio", "virtio", "Bus type virtio is invalid"),
-			Entry("[test_id:3808] Should be rejected when using ide", "ide", "IDE bus is not supported"),
+			Entry("[test_id:3777] Should be accepted when using sata", v1.DiskBusSATA, ""),
+			Entry("[test_id:3809] Should be accepted when using scsi", v1.DiskBusSCSI, ""),
+			Entry("[test_id:3776] Should be rejected when using virtio", v1.DiskBusVirtio, "Bus type virtio is invalid"),
+			Entry("[test_id:3808] Should be rejected when using ide", DiskBusIDE, "IDE bus is not supported"),
 		)
 	})
 
@@ -2814,7 +2815,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						Name: fmt.Sprintf("test%v", i),
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{
-								Bus: "virtio",
+								Bus: v1.DiskBusVirtio,
 							},
 						},
 					})

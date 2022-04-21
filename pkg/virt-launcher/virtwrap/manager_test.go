@@ -432,7 +432,7 @@ var _ = Describe("Manager", func() {
 					Name: "permvolume1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					Cache: "none",
@@ -464,7 +464,7 @@ var _ = Describe("Manager", func() {
 						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
 					},
 					Target: api.DiskTarget{
-						Bus:    "virtio",
+						Bus:    v1.DiskBusVirtio,
 						Device: "vda",
 					},
 					Driver: &api.DiskDriver{
@@ -503,7 +503,7 @@ var _ = Describe("Manager", func() {
 					Name: "permvolume1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					Cache: "none",
@@ -572,7 +572,7 @@ var _ = Describe("Manager", func() {
 						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
 					},
 					Target: api.DiskTarget{
-						Bus:    "virtio",
+						Bus:    v1.DiskBusVirtio,
 						Device: "vda",
 					},
 					Driver: &api.DiskDriver{
@@ -632,7 +632,7 @@ var _ = Describe("Manager", func() {
 					Name: "permvolume1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					Cache: "none",
@@ -742,7 +742,7 @@ var _ = Describe("Manager", func() {
 					Name: "permvolume1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					Cache: "none",
@@ -821,7 +821,7 @@ var _ = Describe("Manager", func() {
 					Name: "permvolume1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: "virtio",
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 					Cache: "none",
@@ -890,7 +890,7 @@ var _ = Describe("Manager", func() {
 						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
 					},
 					Target: api.DiskTarget{
-						Bus:    "virtio",
+						Bus:    v1.DiskBusVirtio,
 						Device: "vda",
 					},
 					Driver: &api.DiskDriver{
@@ -2478,7 +2478,7 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 		IO:    v1.IONative,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "virtio",
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})

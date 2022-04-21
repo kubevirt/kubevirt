@@ -96,8 +96,8 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 			// The disk that came with the VMI
 			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
 
-			tests.AddEphemeralDisk(vmi, "shr1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -149,13 +149,13 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 
 			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
 
-			tests.AddEphemeralDisk(vmi, "ded2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ded2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[1].DedicatedIOThread = &dedicated
 
-			tests.AddEphemeralDisk(vmi, "shr1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr4", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr3", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr4", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
@@ -239,8 +239,8 @@ var _ = Describe("[sig-compute]IOThreads", func() {
 				IsolateEmulatorThread: true,
 			}
 
-			tests.AddEphemeralDisk(vmi, "disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "ded2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ded2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
 
 			By("Starting a VirtualMachineInstance")

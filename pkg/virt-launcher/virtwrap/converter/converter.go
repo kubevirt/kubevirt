@@ -166,7 +166,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address.Unit = strconv.Itoa(unit)
 		}
 		if diskDevice.Disk.PciAddress != "" {
-			if diskDevice.Disk.Bus != "virtio" {
+			if diskDevice.Disk.Bus != v1.DiskBusVirtio {
 				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
 			}
 			addr, err := device.NewPciAddressField(diskDevice.Disk.PciAddress)
@@ -175,7 +175,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			}
 			disk.Address = addr
 		}
-		if diskDevice.Disk.Bus == "virtio" {
+		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
 			disk.Model = translateModel(c, "virtio")
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
@@ -224,14 +224,14 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 		disk.ExpandDisksEnabled = c.ExpandDisksEnabled
 	}
-	if numQueues != nil && disk.Target.Bus == "virtio" {
+	if numQueues != nil && disk.Target.Bus == v1.DiskBusVirtio {
 		disk.Driver.Queues = numQueues
 	}
 	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
-	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
+	if c.UseLaunchSecurity && disk.Target.Bus == v1.DiskBusVirtio {
 		disk.Driver.IOMMU = "on"
 	}
 
@@ -513,7 +513,7 @@ func (n *deviceNamer) getExistingTargetValue(key string) (string, bool) {
 	return "", false
 }
 
-func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) (string, int) {
+func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]deviceNamer) (string, int) {
 	prefix := getPrefixFromBus(bus)
 	if _, ok := prefixMap[prefix]; !ok {
 		// This should never happen since the prefix map is populated from all disks.
@@ -1912,14 +1912,12 @@ func needsSCSIControler(vmi *v1.VirtualMachineInstance) bool {
 	return !vmi.Spec.Domain.Devices.DisableHotplug
 }
 
-func getPrefixFromBus(bus string) string {
+func getPrefixFromBus(bus v1.DiskBus) string {
 	switch bus {
-	case "virtio":
+	case v1.DiskBusVirtio:
 		return "vd"
-	case "sata", "scsi":
+	case v1.DiskBusSATA, v1.DiskBusSCSI:
 		return "sd"
-	case "fdc":
-		return "fd"
 	default:
 		log.Log.Errorf("Unrecognized bus '%s'", bus)
 		return ""

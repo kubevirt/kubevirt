@@ -131,12 +131,11 @@ func newRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceNam
 }
 
 func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
-	bus := "virtio"
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
 		Name: diskName,
 		DiskDevice: v13.DiskDevice{
 			Disk: &v13.DiskTarget{
-				Bus: bus,
+				Bus: v13.DiskBusVirtio,
 			},
 		},
 	})

@@ -655,8 +655,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:  &v1.DiskTarget{},
-					CDRom: &v1.CDRomTarget{Bus: "sata"},
+					Disk: &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBusSATA,
+					},
 				},
 			})
 
@@ -2729,7 +2731,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						PciAddress: "0000:04:10.0",
-						Bus:        "scsi"},
+						Bus:        v1.DiskBusSCSI},
 				},
 			})
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -2745,7 +2747,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						PciAddress: "0000:81:100.a",
-						Bus:        "virtio"},
+						Bus:        v1.DiskBusVirtio,
+					},
 				},
 			})
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -2781,7 +2784,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testcdrom",
 				DiskDevice: v1.DiskDevice{
 					CDRom: &v1.CDRomTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			})
@@ -2838,7 +2841,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk1",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			})
@@ -2846,7 +2849,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk2",
 				DiskDevice: v1.DiskDevice{
 					LUN: &v1.LunTarget{
-						Bus: "sata",
+						Bus: v1.DiskBusSATA,
 					},
 				},
 			})
@@ -2854,7 +2857,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk3",
 				DiskDevice: v1.DiskDevice{
 					CDRom: &v1.CDRomTarget{
-						Bus: "scsi",
+						Bus: v1.DiskBusSCSI,
 					},
 				},
 			})
@@ -3019,21 +3022,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name:              "disk-with-dedicated-io-thread-and-sata",
 					DedicatedIOThread: &_true,
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
-						Bus: "sata",
+						Bus: v1.DiskBusSATA,
 					}},
 				},
 				v1.Disk{
 					Name:              "disk-with-dedicated-io-thread-and-virtio",
 					DedicatedIOThread: &_true,
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
-						Bus: "virtio",
+						Bus: v1.DiskBusVirtio,
 					}},
 				},
 				v1.Disk{
 					Name:              "disk-without-dedicated-io-thread-and-with-sata",
 					DedicatedIOThread: &_false,
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
-						Bus: "sata",
+						Bus: v1.DiskBusSATA,
 					}},
 				},
 			)

@@ -1996,7 +1996,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 									Name: "disk1",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
-											Bus: "virtio",
+											Bus: v1.DiskBusVirtio,
 										},
 									},
 								},

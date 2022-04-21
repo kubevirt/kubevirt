@@ -954,7 +954,7 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 					Message: fmt.Sprintf("DownwardMetrics volume must be mapped to a disk, but disk is not set on %v.", field.Child("domain", "devices", "disks").Index(idx).Child("disk").String()),
 					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("disk").String(),
 				})
-			} else if disk.Disk != nil && disk.Disk.Bus != "virtio" && disk.Disk.Bus != "" {
+			} else if disk.Disk != nil && disk.Disk.Bus != v1.DiskBusVirtio && disk.Disk.Bus != "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("DownwardMetrics volume must be mapped to virtio bus, but %v is set to %v", field.Child("domain", "devices", "disks").Index(idx).Child("disk").Child("bus").String(), disk.Disk.Bus),
@@ -2189,7 +2189,8 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
-		var diskType, bus string
+		var diskType string
+		var bus v1.DiskBus
 		if disk.Disk != nil {
 			deviceTargetSetCount++
 			diskType = "disk"
@@ -2218,7 +2219,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 
 		// Verify pci address
 		if disk.Disk != nil && disk.Disk.PciAddress != "" {
-			if disk.Disk.Bus != "virtio" {
+			if disk.Disk.Bus != v1.DiskBusVirtio {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("disk %s - setting a PCI address is only possible with bus type virtio.", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String()),
@@ -2254,7 +2255,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 					Field:   field.Index(idx).Child(diskType, "bus").String(),
 				})
 			} else {
-				buses := []string{"virtio", "sata", "scsi"}
+				buses := []v1.DiskBus{v1.DiskBusVirtio, v1.DiskBusSCSI, v1.DiskBusSATA}
 				validBus := false
 				for _, b := range buses {
 					if b == bus {
@@ -2270,7 +2271,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				}
 
 				// special case. virtio is incompatible with CD-ROM for q35 machine types
-				if diskType == "cdrom" && bus == "virtio" {
+				if diskType == "cdrom" && bus == v1.DiskBusVirtio {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("Bus type %s is invalid for CD-ROM device", bus),
@@ -2283,7 +2284,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			// Reject defining DedicatedIOThread to a disk with SATA bus since this configuration
 			// is not supported in libvirt.
 			isIOThreadsWithSataBus := disk.DedicatedIOThread != nil && *disk.DedicatedIOThread &&
-				(disk.DiskDevice.Disk != nil) && strings.EqualFold(disk.DiskDevice.Disk.Bus, "sata")
+				(disk.DiskDevice.Disk != nil) && (disk.DiskDevice.Disk.Bus == v1.DiskBusSATA)
 			if isIOThreadsWithSataBus {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,

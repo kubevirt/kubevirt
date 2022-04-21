@@ -21,13 +21,14 @@ package libvmi
 
 import (
 	kvirtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 // WithContainerImage specifies the name of the container image to be used.
 func WithContainerImage(name string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		diskName, bus := "disk0", "virtio"
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, newDisk(diskName, bus))
+		diskName := "disk0"
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, newDisk(diskName, v1.DiskBusVirtio))
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newContainerVolume(diskName, name))
 	}
 }
@@ -71,7 +72,7 @@ func volumeExists(vmi *kvirtv1.VirtualMachineInstance, volume kvirtv1.Volume) bo
 	return false
 }
 
-func newDisk(name, bus string) kvirtv1.Disk {
+func newDisk(name string, bus v1.DiskBus) kvirtv1.Disk {
 	return kvirtv1.Disk{
 		Name: name,
 		DiskDevice: kvirtv1.DiskDevice{

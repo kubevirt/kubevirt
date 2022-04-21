@@ -380,12 +380,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi := tests.NewRandomVMI()
 
 				diskName := "disk0"
-				bus := "virtio"
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: diskName,
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: bus,
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				})
@@ -426,12 +425,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vmi := tests.NewRandomVMI()
 
 				diskName := "disk0"
-				bus := "virtio"
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: diskName,
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus: bus,
+							Bus: v1.DiskBusVirtio,
 						},
 					},
 				})
