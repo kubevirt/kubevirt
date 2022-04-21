@@ -87,6 +87,7 @@ const (
 	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
 	CAP_SYS_PTRACE       = "SYS_PTRACE"
+	CAP_NET_ADMIN        = "NET_ADMIN"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -1825,6 +1826,12 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	// https://github.com/libvirt/libvirt/commit/a9c500d2b50c5c041a1bb6ae9724402cf1cec8fe
 	capabilities = append(capabilities, CAP_SYS_PTRACE)
 
+	for _, nic := range vmi.Spec.Domain.Devices.Interfaces {
+		if nic.Outbound != nil || nic.Inbound != nil {
+			capabilities = append(capabilities, CAP_NET_ADMIN)
+			break
+		}
+	}
 	return capabilities
 }
 

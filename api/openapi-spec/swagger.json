@@ -13581,6 +13581,27 @@
      }
     }
    },
+   "v1.Inbound": {
+    "description": "The inbound bandwidth to use in the interface.",
+    "type": "object",
+    "required": [
+     "average"
+    ],
+    "properties": {
+     "average": {
+      "type": "string"
+     },
+     "burst": {
+      "type": "string"
+     },
+     "floor": {
+      "type": "string"
+     },
+     "peak": {
+      "type": "string"
+     }
+    }
+   },
    "v1.Input": {
     "type": "object",
     "required": [
@@ -13620,6 +13641,10 @@
       "description": "If specified the network interface will pass additional DHCP options to the VMI",
       "$ref": "#/definitions/v1.DHCPOptions"
      },
+     "inbound": {
+      "description": "If specified, the virtual network interface allows setting the inbound bandwidth",
+      "$ref": "#/definitions/v1.Inbound"
+     },
      "macAddress": {
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
       "type": "string"
@@ -13637,6 +13662,10 @@
      "name": {
       "description": "Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.",
       "type": "string"
+     },
+     "outbound": {
+      "description": "If specified, the virtual network interface allows setting the outbound bandwidth",
+      "$ref": "#/definitions/v1.Outbound"
      },
      "pciAddress": {
       "description": "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
@@ -14383,6 +14412,24 @@
       "items": {
        "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
       }
+     }
+    }
+   },
+   "v1.Outbound": {
+    "description": "The outbound bandwidth to use in the interface.",
+    "type": "object",
+    "required": [
+     "average"
+    ],
+    "properties": {
+     "average": {
+      "type": "string"
+     },
+     "burst": {
+      "type": "string"
+     },
+     "peak": {
+      "type": "string"
      }
     }
    },

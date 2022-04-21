@@ -1134,6 +1134,27 @@ type Interface struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If specified, the virtual network interface allows setting the inbound bandwidth
+	// +optional
+	Inbound *Inbound `json:"inbound,omitempty"`
+	// If specified, the virtual network interface allows setting the outbound bandwidth
+	// +optional
+	Outbound *Outbound `json:"outbound,omitempty"`
+}
+
+// The inbound bandwidth to use in the interface.
+type Inbound struct {
+	Average string `json:"average"`
+	Peak    string `json:"peak,omitempty"`
+	Burst   string `json:"burst,omitempty"`
+	Floor   string `json:"floor,omitempty"`
+}
+
+// The outbound bandwidth to use in the interface.
+type Outbound struct {
+	Average string `json:"average"`
+	Peak    string `json:"peak,omitempty"`
+	Burst   string `json:"burst,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.
