@@ -577,6 +577,9 @@ type Disk struct {
 	// If specified the disk is made sharable and multiple write from different VMs are permitted
 	// +optional
 	Shareable *bool `json:"shareable,omitempty"`
+	// If specified, The iotune element provides the ability to provide additional per-device I/O tuning
+	// +optional
+	IoTune *DiskIOTune `json:"iotune,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
@@ -590,6 +593,22 @@ type CustomBlockSize struct {
 type BlockSize struct {
 	Custom      *CustomBlockSize `json:"custom,omitempty"`
 	MatchVolume *FeatureState    `json:"matchVolume,omitempty"`
+}
+
+// DiskIOTune provides the option to provide additional per-device I/O tuning
+type DiskIOTune struct {
+	TotalBytesSec    uint `json:"totalBytesSec,omitempty"`
+	ReadBytesSec     uint `json:"readBytesSec,omitempty"`
+	WriteBytesSec    uint `json:"writeBytesSec,omitempty"`
+	TotalIopsSec     uint `json:"totalIopsSec,omitempty"`
+	ReadIopsSec      uint `json:"readIopsSec,omitempty"`
+	WriteIopsSec     uint `json:"writeIopsSec,omitempty"`
+	TotalBytesSecMax uint `json:"totalBytesSecMax,omitempty"`
+	ReadBytesSecMax  uint `json:"readBytesSecMax,omitempty"`
+	WriteBytesSecMax uint `json:"writeBytesSecMax,omitempty"`
+	TotalIopsSecMax  uint `json:"totalIopsSecMax,omitempty"`
+	ReadIopsSecMax   uint `json:"readIopsSecMax,omitempty"`
+	WriteIopsSecMax  uint `json:"writeIopsSecMax,omitempty"`
 }
 
 // Represents the target of a volume to mount.

@@ -598,6 +598,7 @@ type Disk struct {
 	Capacity           *int64         `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
 	Shareable          *Shareable     `xml:"shareable,omitempty"`
+	IoTune             *DiskIOTune    `xml:"iotune,omitempty"`
 }
 
 type DiskAuth struct {
@@ -658,6 +659,22 @@ type BackingStoreFormat struct {
 type BlockIO struct {
 	LogicalBlockSize  uint `xml:"logical_block_size,attr,omitempty"`
 	PhysicalBlockSize uint `xml:"physical_block_size,attr,omitempty"`
+}
+
+type DiskIOTune struct {
+	TotalBytesSec uint `xml:"total_bytes_sec,omitempty"`
+	ReadBytesSec  uint `xml:"read_bytes_sec,omitempty"`
+	WriteBytesSec uint `xml:"write_bytes_sec,omitempty"`
+	TotalIopsSec  uint `xml:"total_iops_sec,omitempty"`
+	ReadIopsSec   uint `xml:"read_iops_sec,omitempty"`
+	WriteIopsSec  uint `xml:"write_iops_sec,omitempty"`
+
+	TotalBytesSecMax uint `xml:"total_bytes_sec_max,omitempty"`
+	ReadBytesSecMax  uint `xml:"read_bytes_sec_max,omitempty"`
+	WriteBytesSecMax uint `xml:"write_bytes_sec_max,omitempty"`
+	TotalIopsSecMax  uint `xml:"total_iops_sec_max,omitempty"`
+	ReadIopsSecMax   uint `xml:"read_iops_sec_max,omitempty"`
+	WriteIopsSecMax  uint `xml:"write_iops_sec_max,omitempty"`
 }
 
 // END Disk -----------------------------
