@@ -6814,10 +6814,10 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: VirtualMachineFlavorSpec for the flavor
+      description: Required spec describing the flavor
       properties:
         cpu:
-          description: CPUFlavor
+          description: Required CPU related attributes of the flavor.
           properties:
             dedicatedCPUPlacement:
               description: DedicatedCPUPlacement requests the scheduler to place the
@@ -6825,9 +6825,9 @@ var CRDsValidation map[string]string = map[string]string{
                 the vCPUs to it.
               type: boolean
             guest:
-              description: Number of vCPUs to expose to the guest. The resulting CPU
-                topology being derived from the optional PreferredCPUTopology attribute
-                of CPUPreferences.
+              description: "Required number of vCPUs to expose to the guest. \n The
+                resulting CPU topology being derived from the optional PreferredCPUTopology
+                attribute of CPUPreferences that itself defaults to PreferCores."
               format: int32
               type: integer
             isolateEmulatorThread:
@@ -6934,18 +6934,18 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         memory:
-          description: FlavorMemory
+          description: Required Memory related attributes of the flavor.
           properties:
             guest:
               anyOf:
               - type: integer
               - type: string
-              description: Guest allows to specifying the amount of memory which is
-                visible inside the Guest OS.
+              description: Required amount of memory which is visible inside the guest
+                OS.
               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
               x-kubernetes-int-or-string: true
             hugepages:
-              description: Hugepages allow to use hugepages for the VirtualMachineInstance
+              description: Optionally enables the use of hugepages for the VirtualMachineInstance
                 instead of regular memory.
               properties:
                 pageSize:
@@ -6963,7 +6963,8 @@ var CRDsValidation map[string]string = map[string]string{
   type: object
 `,
 	"virtualmachineclusterpreference": `openAPIV3Schema:
-  description: VirtualMachineClusterPreference
+  description: VirtualMachineClusterPreference is a cluster scoped version of the
+    VirtualMachinePreference resource.
   properties:
     apiVersion:
       description: 'APIVersion defines the versioned schema of this representation
@@ -6978,10 +6979,11 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: VirtualMachinePreferenceSpec
+      description: Required spec describing the preferences
       properties:
         clock:
-          description: ClockPreferences contains various optional defaults for Clock.
+          description: Clock optionally defines preferences associated with the Clock
+            attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredClockOffset:
               description: ClockOffset allows specifying the UTC offset or the timezone
@@ -7072,14 +7074,17 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         cpu:
-          description: PreferencesCPU
+          description: CPU optionally defines preferences associated with the CPU
+            attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredCPUTopology:
-              description: Defaults to
+              description: PreferredCPUTopology optionally defines the preferred guest
+                visible CPU topology, defaults to PreferCores.
               type: string
           type: object
         devices:
-          description: DevicePreferences contains various optional defaults for Devices.
+          description: Devices optionally defines preferences associated with the
+            Devices attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredAutoattachGraphicsDevice:
               description: PreferredAutoattachGraphicsDevice optionally defines the
@@ -7210,7 +7215,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         features:
-          description: FeaturePreferences contains various optional defaults for Features.
+          description: Features optionally defines preferences associated with the
+            Features attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredAcpi:
               description: PreferredAcpi optionally enables the ACPI feature
@@ -7405,8 +7411,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         firmware:
-          description: FirmwarePreferences contains various optional defaults for
-            Firmware.
+          description: Firmware optionally defines preferences associated with the
+            Firmware attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredUseBios:
               description: PreferredUseBios optionally enables BIOS
@@ -7425,7 +7431,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: boolean
           type: object
         machine:
-          description: MachinePreferences contains various optional defaults for Machine.
+          description: Machine optionally defines preferences associated with the
+            Machine attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredMachineType:
               description: PreferredMachineType optionally defines the preferred machine
@@ -7438,8 +7445,8 @@ var CRDsValidation map[string]string = map[string]string{
   type: object
 `,
 	"virtualmachineflavor": `openAPIV3Schema:
-  description: VirtualMachineFlavor resource contains common VirtualMachine configuration
-    that can be used by multiple VirtualMachine resources.
+  description: VirtualMachineFlavor resource contains quantitative and resource related
+    VirtualMachine configuration that can be used by multiple VirtualMachine resources.
   properties:
     apiVersion:
       description: 'APIVersion defines the versioned schema of this representation
@@ -7454,10 +7461,10 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: VirtualMachineFlavorSpec for the flavor
+      description: Required spec describing the flavor
       properties:
         cpu:
-          description: CPUFlavor
+          description: Required CPU related attributes of the flavor.
           properties:
             dedicatedCPUPlacement:
               description: DedicatedCPUPlacement requests the scheduler to place the
@@ -7465,9 +7472,9 @@ var CRDsValidation map[string]string = map[string]string{
                 the vCPUs to it.
               type: boolean
             guest:
-              description: Number of vCPUs to expose to the guest. The resulting CPU
-                topology being derived from the optional PreferredCPUTopology attribute
-                of CPUPreferences.
+              description: "Required number of vCPUs to expose to the guest. \n The
+                resulting CPU topology being derived from the optional PreferredCPUTopology
+                attribute of CPUPreferences that itself defaults to PreferCores."
               format: int32
               type: integer
             isolateEmulatorThread:
@@ -7574,18 +7581,18 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         memory:
-          description: FlavorMemory
+          description: Required Memory related attributes of the flavor.
           properties:
             guest:
               anyOf:
               - type: integer
               - type: string
-              description: Guest allows to specifying the amount of memory which is
-                visible inside the Guest OS.
+              description: Required amount of memory which is visible inside the guest
+                OS.
               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
               x-kubernetes-int-or-string: true
             hugepages:
-              description: Hugepages allow to use hugepages for the VirtualMachineInstance
+              description: Optionally enables the use of hugepages for the VirtualMachineInstance
                 instead of regular memory.
               properties:
                 pageSize:
@@ -18255,7 +18262,8 @@ var CRDsValidation map[string]string = map[string]string{
   type: object
 `,
 	"virtualmachinepreference": `openAPIV3Schema:
-  description: VirtualMachinePreference
+  description: VirtualMachinePreference resource contains optional preferences related
+    to the VirtualMachine.
   properties:
     apiVersion:
       description: 'APIVersion defines the versioned schema of this representation
@@ -18270,10 +18278,11 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: VirtualMachinePreferenceSpec
+      description: Required spec describing the preferences
       properties:
         clock:
-          description: ClockPreferences contains various optional defaults for Clock.
+          description: Clock optionally defines preferences associated with the Clock
+            attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredClockOffset:
               description: ClockOffset allows specifying the UTC offset or the timezone
@@ -18364,14 +18373,17 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         cpu:
-          description: PreferencesCPU
+          description: CPU optionally defines preferences associated with the CPU
+            attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredCPUTopology:
-              description: Defaults to
+              description: PreferredCPUTopology optionally defines the preferred guest
+                visible CPU topology, defaults to PreferCores.
               type: string
           type: object
         devices:
-          description: DevicePreferences contains various optional defaults for Devices.
+          description: Devices optionally defines preferences associated with the
+            Devices attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredAutoattachGraphicsDevice:
               description: PreferredAutoattachGraphicsDevice optionally defines the
@@ -18502,7 +18514,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         features:
-          description: FeaturePreferences contains various optional defaults for Features.
+          description: Features optionally defines preferences associated with the
+            Features attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredAcpi:
               description: PreferredAcpi optionally enables the ACPI feature
@@ -18697,8 +18710,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
         firmware:
-          description: FirmwarePreferences contains various optional defaults for
-            Firmware.
+          description: Firmware optionally defines preferences associated with the
+            Firmware attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredUseBios:
               description: PreferredUseBios optionally enables BIOS
@@ -18717,7 +18730,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: boolean
           type: object
         machine:
-          description: MachinePreferences contains various optional defaults for Machine.
+          description: Machine optionally defines preferences associated with the
+            Machine attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredMachineType:
               description: PreferredMachineType optionally defines the preferred machine

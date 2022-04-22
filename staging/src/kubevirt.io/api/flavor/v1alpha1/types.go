@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// VirtualMachineFlavor resource contains common VirtualMachine configuration
+// VirtualMachineFlavor resource contains quantitative and resource related VirtualMachine configuration
 // that can be used by multiple VirtualMachine resources.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -37,7 +37,7 @@ type VirtualMachineFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// VirtualMachineFlavorSpec for the flavor
+	// Required spec describing the flavor
 	Spec VirtualMachineFlavorSpec `json:"spec"`
 }
 
@@ -61,7 +61,7 @@ type VirtualMachineClusterFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// VirtualMachineFlavorSpec for the flavor
+	// Required spec describing the flavor
 	Spec VirtualMachineFlavorSpec `json:"spec"`
 }
 
@@ -75,12 +75,17 @@ type VirtualMachineClusterFlavorList struct {
 	Items           []VirtualMachineClusterFlavor `json:"items"`
 }
 
-// VirtualMachineFlavorSpec
+// VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.
+//
+// CPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.
 //
 // +k8s:openapi-gen=true
 type VirtualMachineFlavorSpec struct {
+
+	// Required CPU related attributes of the flavor.
 	CPU CPUFlavor `json:"cpu"`
 
+	// Required Memory related attributes of the flavor.
 	Memory MemoryFlavor `json:"memory"`
 
 	// Optionally defines any GPU devices associated with the flavor.
@@ -106,13 +111,16 @@ type VirtualMachineFlavorSpec struct {
 	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
 }
 
-// CPUFlavor
+// CPUFlavor contains the CPU related configuration of a given VirtualMachineFlavorSpec.
+//
+// Guest is a required attribute and defines the number of vCPUs to be exposed to the guest by the flavor.
 //
 // +k8s:openapi-gen=true
 type CPUFlavor struct {
 
-	// Number of vCPUs to expose to the guest.
-	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.
+	// Required number of vCPUs to expose to the guest.
+	//
+	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.
 	Guest uint32 `json:"guest"`
 
 	// Model specifies the CPU model inside the VMI.
@@ -142,20 +150,22 @@ type CPUFlavor struct {
 	Realtime *v1.Realtime `json:"realtime,omitempty"`
 }
 
-// FlavorMemory
+// MemoryFlavor contains the Memory related configuration of a given VirtualMachineFlavorSpec.
+//
+// Guest is a required attribute and defines the amount of RAM to be exposed to the guest by the flavor.
 //
 // +k8s:openapi-gen=true
 type MemoryFlavor struct {
 
-	// Guest allows to specifying the amount of memory which is visible inside the Guest OS.
+	// Required amount of memory which is visible inside the guest OS.
 	Guest *resource.Quantity `json:"guest,omitempty"`
 
-	// Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
+	// Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.
 	// +optional
 	Hugepages *v1.Hugepages `json:"hugepages,omitempty"`
 }
 
-// VirtualMachinePreference
+// VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
@@ -164,6 +174,7 @@ type VirtualMachinePreference struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// Required spec describing the preferences
 	Spec VirtualMachinePreferenceSpec `json:"spec"`
 }
 
@@ -178,7 +189,7 @@ type VirtualMachinePreferenceList struct {
 	Items []VirtualMachinePreference `json:"items"`
 }
 
-// VirtualMachineClusterPreference
+// VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
@@ -188,6 +199,7 @@ type VirtualMachineClusterPreference struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// Required spec describing the preferences
 	Spec VirtualMachinePreferenceSpec `json:"spec"`
 }
 
@@ -202,50 +214,71 @@ type VirtualMachineClusterPreferenceList struct {
 	Items []VirtualMachineClusterPreference `json:"items"`
 }
 
-// VirtualMachinePreferenceSpec
+// VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.
 //
 // +k8s:openapi-gen=true
 type VirtualMachinePreferenceSpec struct {
 
+	// Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec
+	//
 	//+optional
 	Clock *ClockPreferences `json:"clock,omitempty"`
 
+	// CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec
+	//
 	//+optional
 	CPU *CPUPreferences `json:"cpu,omitempty"`
 
+	// Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec
+	//
 	//+optional
 	Devices *DevicePreferences `json:"devices,omitempty"`
 
+	// Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec
+	//
 	//+optional
 	Features *FeaturePreferences `json:"features,omitempty"`
 
+	// Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec
+	//
 	//+optional
 	Firmware *FirmwarePreferences `json:"firmware,omitempty"`
 
+	// Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec
+	//
 	//+optional
 	Machine *MachinePreferences `json:"machine,omitempty"`
 }
 
+// PreferredCPUTopology defines a preferred CPU topology to be exposed to the guest
+//
 // +k8s:openapi-gen=true
 type PreferredCPUTopology string
 
 const (
+
+	// Prefer vCPUs to be exposed as cores to the guest, this is the default for the PreferredCPUTopology attribute of CPUPreferences.
+	PreferCores PreferredCPUTopology = "preferCores"
+
+	// Prefer vCPUs to be exposed as sockets to the guest
 	PreferSockets PreferredCPUTopology = "preferSockets"
-	PreferCores   PreferredCPUTopology = "preferCores"
+
+	// Prefer vCPUs to be exposed as threads to the guest
 	PreferThreads PreferredCPUTopology = "preferThreads"
 )
 
-// PreferencesCPU
+// CPUPreferences contains various optional CPU preferences.
 //
 // +k8s:openapi-gen=true
 type CPUPreferences struct {
 
-	// Defaults to
+	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.
+	//
 	//+optional
 	PreferredCPUTopology PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 }
 
-// DevicePreferences contains various optional defaults for Devices.
+// DevicePreferences contains various optional Device preferences.
 //
 // +k8s:openapi-gen=true
 type DevicePreferences struct {

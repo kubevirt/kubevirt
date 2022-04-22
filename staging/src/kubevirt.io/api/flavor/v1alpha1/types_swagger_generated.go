@@ -4,8 +4,8 @@ package v1alpha1
 
 func (VirtualMachineFlavor) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "VirtualMachineFlavor resource contains common VirtualMachine configuration\nthat can be used by multiple VirtualMachine resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
-		"spec": "VirtualMachineFlavorSpec for the flavor",
+		"":     "VirtualMachineFlavor resource contains quantitative and resource related VirtualMachine configuration\nthat can be used by multiple VirtualMachine resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
+		"spec": "Required spec describing the flavor",
 	}
 }
 
@@ -18,7 +18,7 @@ func (VirtualMachineFlavorList) SwaggerDoc() map[string]string {
 func (VirtualMachineClusterFlavor) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
-		"spec": "VirtualMachineFlavorSpec for the flavor",
+		"spec": "Required spec describing the flavor",
 	}
 }
 
@@ -30,7 +30,9 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineFlavorSpec\n\n+k8s:openapi-gen=true",
+		"":                "VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.\n\n+k8s:openapi-gen=true",
+		"cpu":             "Required CPU related attributes of the flavor.",
+		"memory":          "Required Memory related attributes of the flavor.",
 		"gpus":            "Optionally defines any GPU devices associated with the flavor.\n\n+optional\n+listType=atomic",
 		"hostDevices":     "Optionally defines any HostDevices associated with the flavor.\n\n+optional\n+listType=atomic",
 		"ioThreadsPolicy": "Optionally defines the IOThreadsPolicy to be used by the flavor.\n\n+optional",
@@ -40,8 +42,8 @@ func (VirtualMachineFlavorSpec) SwaggerDoc() map[string]string {
 
 func (CPUFlavor) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                      "CPUFlavor\n\n+k8s:openapi-gen=true",
-		"guest":                 "Number of vCPUs to expose to the guest.\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.",
+		"":                      "CPUFlavor contains the CPU related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the flavor.\n\n+k8s:openapi-gen=true",
+		"guest":                 "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.",
 		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
 		"dedicatedCPUPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
@@ -52,15 +54,16 @@ func (CPUFlavor) SwaggerDoc() map[string]string {
 
 func (MemoryFlavor) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "FlavorMemory\n\n+k8s:openapi-gen=true",
-		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.",
-		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"":          "MemoryFlavor contains the Memory related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the flavor.\n\n+k8s:openapi-gen=true",
+		"guest":     "Required amount of memory which is visible inside the guest OS.",
+		"hugepages": "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
 	}
 }
 
 func (VirtualMachinePreference) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachinePreference\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
+		"":     "VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
+		"spec": "Required spec describing the preferences",
 	}
 }
 
@@ -73,7 +76,8 @@ func (VirtualMachinePreferenceList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineClusterPreference) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineClusterPreference\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
+		"":     "VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
+		"spec": "Required spec describing the preferences",
 	}
 }
 
@@ -86,26 +90,26 @@ func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "VirtualMachinePreferenceSpec\n\n+k8s:openapi-gen=true",
-		"clock":    "+optional",
-		"cpu":      "+optional",
-		"devices":  "+optional",
-		"features": "+optional",
-		"firmware": "+optional",
-		"machine":  "+optional",
+		"":         "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.\n\n+k8s:openapi-gen=true",
+		"clock":    "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"cpu":      "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"devices":  "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"features": "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"firmware": "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"machine":  "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 	}
 }
 
 func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                     "PreferencesCPU\n\n+k8s:openapi-gen=true",
-		"preferredCPUTopology": "Defaults to\n+optional",
+		"":                     "CPUPreferences contains various optional CPU preferences.\n\n+k8s:openapi-gen=true",
+		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.\n\n+optional",
 	}
 }
 
 func (DevicePreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                                    "DevicePreferences contains various optional defaults for Devices.\n\n+k8s:openapi-gen=true",
+		"":                                    "DevicePreferences contains various optional Device preferences.\n\n+k8s:openapi-gen=true",
 		"preferredAutoattachGraphicsDevice":   "PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice\n\n+optional",
 		"preferredAutoattachMemBalloon":       "PreferredAutoattachMemBalloon optionally defines the preferred value of AutoattachMemBalloon\n\n+optional",
 		"preferredAutoattachPodInterface":     "PreferredAutoattachPodInterface optionally defines the preferred value of AutoattachPodInterface\n\n+optional",

@@ -22171,12 +22171,12 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUFlavor(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CPUFlavor",
+				Description: "CPUFlavor contains the CPU related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the flavor.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"guest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Number of vCPUs to expose to the guest. The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.",
+							Description: "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -22227,12 +22227,12 @@ func schema_kubevirtio_api_flavor_v1alpha1_CPUPreferences(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PreferencesCPU",
+				Description: "CPUPreferences contains various optional CPU preferences.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"preferredCPUTopology": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Defaults to",
+							Description: "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -22274,7 +22274,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_DevicePreferences(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DevicePreferences contains various optional defaults for Devices.",
+				Description: "DevicePreferences contains various optional Device preferences.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"preferredAutoattachGraphicsDevice": {
@@ -22551,18 +22551,18 @@ func schema_kubevirtio_api_flavor_v1alpha1_MemoryFlavor(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "FlavorMemory",
+				Description: "MemoryFlavor contains the Memory related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the flavor.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"guest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Guest allows to specifying the amount of memory which is visible inside the Guest OS.",
+							Description: "Required amount of memory which is visible inside the guest OS.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"hugepages": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+							Description: "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.",
 							Ref:         ref("kubevirt.io/api/core/v1.Hugepages"),
 						},
 					},
@@ -22602,7 +22602,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref commo
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineFlavorSpec for the flavor",
+							Description: "Required spec describing the flavor",
 							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec"),
 						},
 					},
@@ -22666,7 +22666,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterPreference(ref c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineClusterPreference",
+				Description: "VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -22690,7 +22690,8 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterPreference(ref c
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"),
+							Description: "Required spec describing the preferences",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"),
 						},
 					},
 				},
@@ -22758,7 +22759,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineFlavor resource contains common VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
+				Description: "VirtualMachineFlavor resource contains quantitative and resource related VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -22782,7 +22783,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref common.Refer
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineFlavorSpec for the flavor",
+							Description: "Required spec describing the flavor",
 							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec"),
 						},
 					},
@@ -22846,17 +22847,19 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineFlavorSpec",
+				Description: "VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUFlavor"),
+							Description: "Required CPU related attributes of the flavor.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.CPUFlavor"),
 						},
 					},
 					"memory": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"),
+							Description: "Required Memory related attributes of the flavor.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.MemoryFlavor"),
 						},
 					},
 					"gpus": {
@@ -22921,7 +22924,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreference(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachinePreference",
+				Description: "VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -22945,7 +22948,8 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreference(ref common.R
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"),
+							Description: "Required spec describing the preferences",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachinePreferenceSpec"),
 						},
 					},
 				},
@@ -23013,37 +23017,43 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachinePreferenceSpec(ref comm
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachinePreferenceSpec",
+				Description: "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"clock": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.ClockPreferences"),
+							Description: "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.ClockPreferences"),
 						},
 					},
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.CPUPreferences"),
+							Description: "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.CPUPreferences"),
 						},
 					},
 					"devices": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.DevicePreferences"),
+							Description: "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.DevicePreferences"),
 						},
 					},
 					"features": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.FeaturePreferences"),
+							Description: "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.FeaturePreferences"),
 						},
 					},
 					"firmware": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences"),
+							Description: "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.FirmwarePreferences"),
 						},
 					},
 					"machine": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/flavor/v1alpha1.MachinePreferences"),
+							Description: "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.MachinePreferences"),
 						},
 					},
 				},

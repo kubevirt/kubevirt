@@ -17591,7 +17591,7 @@
     }
    },
    "v1alpha1.CPUFlavor": {
-    "description": "CPUFlavor",
+    "description": "CPUFlavor contains the CPU related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the flavor.",
     "type": "object",
     "required": [
      "guest"
@@ -17602,7 +17602,7 @@
       "type": "boolean"
      },
      "guest": {
-      "description": "Number of vCPUs to expose to the guest. The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences.",
+      "description": "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.",
       "type": "integer",
       "format": "int64"
      },
@@ -17625,11 +17625,11 @@
     }
    },
    "v1alpha1.CPUPreferences": {
-    "description": "PreferencesCPU",
+    "description": "CPUPreferences contains various optional CPU preferences.",
     "type": "object",
     "properties": {
      "preferredCPUTopology": {
-      "description": "Defaults to",
+      "description": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.",
       "type": "string"
      }
     }
@@ -17683,7 +17683,7 @@
     }
    },
    "v1alpha1.DevicePreferences": {
-    "description": "DevicePreferences contains various optional defaults for Devices.",
+    "description": "DevicePreferences contains various optional Device preferences.",
     "type": "object",
     "properties": {
      "preferredAutoattachGraphicsDevice": {
@@ -17851,15 +17851,15 @@
     }
    },
    "v1alpha1.MemoryFlavor": {
-    "description": "FlavorMemory",
+    "description": "MemoryFlavor contains the Memory related configuration of a given VirtualMachineFlavorSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the flavor.",
     "type": "object",
     "properties": {
      "guest": {
-      "description": "Guest allows to specifying the amount of memory which is visible inside the Guest OS.",
+      "description": "Required amount of memory which is visible inside the guest OS.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "hugepages": {
-      "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+      "description": "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
      }
     }
@@ -18013,7 +18013,7 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
-      "description": "VirtualMachineFlavorSpec for the flavor",
+      "description": "Required spec describing the flavor",
       "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorSpec"
      }
     }
@@ -18045,7 +18045,7 @@
     }
    },
    "v1alpha1.VirtualMachineClusterPreference": {
-    "description": "VirtualMachineClusterPreference",
+    "description": "VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.",
     "type": "object",
     "required": [
      "spec"
@@ -18063,6 +18063,7 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
+      "description": "Required spec describing the preferences",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePreferenceSpec"
      }
     }
@@ -18095,7 +18096,7 @@
     }
    },
    "v1alpha1.VirtualMachineFlavor": {
-    "description": "VirtualMachineFlavor resource contains common VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
+    "description": "VirtualMachineFlavor resource contains quantitative and resource related VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
     "type": "object",
     "required": [
      "spec"
@@ -18113,7 +18114,7 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
-      "description": "VirtualMachineFlavorSpec for the flavor",
+      "description": "Required spec describing the flavor",
       "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorSpec"
      }
     }
@@ -18145,7 +18146,7 @@
     }
    },
    "v1alpha1.VirtualMachineFlavorSpec": {
-    "description": "VirtualMachineFlavorSpec",
+    "description": "VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.",
     "type": "object",
     "required": [
      "cpu",
@@ -18153,6 +18154,7 @@
     ],
     "properties": {
      "cpu": {
+      "description": "Required CPU related attributes of the flavor.",
       "$ref": "#/definitions/v1alpha1.CPUFlavor"
      },
      "gpus": {
@@ -18180,6 +18182,7 @@
       "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "memory": {
+      "description": "Required Memory related attributes of the flavor.",
       "$ref": "#/definitions/v1alpha1.MemoryFlavor"
      }
     }
@@ -18317,7 +18320,7 @@
     }
    },
    "v1alpha1.VirtualMachinePreference": {
-    "description": "VirtualMachinePreference",
+    "description": "VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.",
     "type": "object",
     "required": [
      "spec"
@@ -18335,6 +18338,7 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
+      "description": "Required spec describing the preferences",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePreferenceSpec"
      }
     }
@@ -18367,25 +18371,31 @@
     }
    },
    "v1alpha1.VirtualMachinePreferenceSpec": {
-    "description": "VirtualMachinePreferenceSpec",
+    "description": "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
     "type": "object",
     "properties": {
      "clock": {
+      "description": "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha1.ClockPreferences"
      },
      "cpu": {
+      "description": "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha1.CPUPreferences"
      },
      "devices": {
+      "description": "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha1.DevicePreferences"
      },
      "features": {
+      "description": "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha1.FeaturePreferences"
      },
      "firmware": {
+      "description": "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha1.FirmwarePreferences"
      },
      "machine": {
+      "description": "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1alpha1.MachinePreferences"
      }
     }
