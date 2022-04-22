@@ -19,8 +19,8 @@
 set -e
 
 _docker_prefix="quay.io/kubevirt/"
-_perfscale_workload="tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml"
-_perfscale_workload_warmup="tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density-warmup.yaml"
+_perfscale_workload="tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-burst-100.yaml"
+_perfscale_workload_warmup="tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-primer.yaml"
 
 export DOCKER_PREFIX=${DOCKER_PREFIX:-${_docker_prefix}}
 export DOCKER_TAG=${DOCKER_TAG:-"latest"}

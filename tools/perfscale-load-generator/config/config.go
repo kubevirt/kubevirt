@@ -26,66 +26,82 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 )
 
-const RequestTimeout = 15 * time.Second
+const (
+	DefaultMinSleepChurn = 20 * time.Second
+	RequestTimeout       = 15 * time.Second
 
-// NewConfig returns a new config object
-func NewConfig() *TestConfig {
-	t := &TestConfig{}
-	t.LoadWorkloadConfig(flags.WorkloadConfigFile)
-	t.LoadObjTemplate()
-	t.LoadKubeClient()
-	return t
-}
+	// Set no limit for QPS and Burst
+	Burst = 0
+	QPS   = 0
+)
 
-//LoadWorkloadConfig reads the test configuration file
-func (t *TestConfig) LoadWorkloadConfig(testConfigPath string) {
+//NewWorkload reads the test configuration file
+func NewWorkload(testConfigPath string) *Workload {
 	data, err := ioutil.ReadFile(testConfigPath)
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
-	if err := yaml.Unmarshal(data, t); err != nil {
+	w := &Workload{}
+	if err := yaml.Unmarshal(data, w); err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
+	w.LoadObjTemplate()
+	return w
 }
 
-// LoadObjTemplate reads an YAML file with the object template for each object defined in the workload's jobs
-func (t *TestConfig) LoadObjTemplate() {
+// LoadObjTemplate reads a YAML file with the object template for each object defined in the workload's jobs
+func (w *Workload) LoadObjTemplate() {
 	rootDir := flags.GetRootConfigDir()
-	for _, workload := range t.Workloads {
-		for _, obj := range workload.Objects {
-			templateFilePath := fmt.Sprintf("%s/%s", rootDir, obj.TemplateFile)
-			f, err := os.Open(templateFilePath)
-			if err != nil {
-				panic(fmt.Errorf("unexpected error opening file %s: %v", templateFilePath, err))
-			}
-			objectTemplate, err := ioutil.ReadAll(f)
-			if err != nil {
-				panic(fmt.Errorf("unexpected error reading file %s: %v", templateFilePath, err))
-			}
-			obj.ObjectTemplate = objectTemplate
+
+	if w.Object != nil {
+		templateFilePath := fmt.Sprintf("%s/%s", rootDir, w.Object.TemplateFile)
+		f, err := os.Open(templateFilePath)
+		if err != nil {
+			panic(fmt.Errorf("unexpected error opening file %s: %v", templateFilePath, err))
 		}
+		objectTemplate, err := ioutil.ReadAll(f)
+		if err != nil {
+			panic(fmt.Errorf("unexpected error reading file %s: %v", templateFilePath, err))
+		}
+		w.Object.ObjectTemplate = objectTemplate
 	}
 }
 
-// LoadKubeClient configured the kubernetes client-go
-func (t *TestConfig) LoadKubeClient() {
+// NewKubeClient
+func NewKubevirtClient() kubecli.KubevirtClient {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.Kubeconfig)
 	if err != nil {
 		panic(err)
 	}
-	config.QPS = float32(t.Global.QPS)
-	config.Burst = t.Global.Burst
+	config.QPS = QPS
+	config.Burst = Burst
 	config.Timeout = RequestTimeout
 	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(config)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error creating kubevirt client: %v", err))
 	}
-	t.Global.Client = clientSet
+	return clientSet
+}
+
+func GetListOpts(label string, uuid string) *metav1.ListOptions {
+	listOpts := &metav1.ListOptions{}
+	listOpts.LabelSelector = fmt.Sprintf("%s=%s", label, uuid)
+	return listOpts
+}
+
+func AddLabels(obj *unstructured.Unstructured, uuid string) {
+	labels := map[string]string{
+		WorkloadLabel: uuid,
+	}
+	obj.SetLabels(labels)
 }

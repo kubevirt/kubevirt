@@ -1,0 +1,11 @@
+name: kubevirt-burst-test
+timeout: 5m
+count: 5
+type: "burst"
+object:
+  templateFile: vmi-ephemeral.yaml
+  inputVars:
+    containerPrefix: quay.io/kubevirt
+    containerImg: cirros-container-disk-demo
+    containerTag: ""
+    namespace: default

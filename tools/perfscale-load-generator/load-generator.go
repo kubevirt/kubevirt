@@ -20,17 +20,46 @@
 package main
 
 import (
+	"time"
+
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/api"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/burst"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/executor"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
+	steadyState "kubevirt.io/kubevirt/tools/perfscale-load-generator/steady-state"
 )
 
 func main() {
 	log.Log.SetVerbosityLevel(flags.Verbosity)
 
-	log.Log.V(1).Infof("Running Load Generator Banchmark")
-	conf := config.NewConfig()
-	ex := executor.NewExecutor(*conf)
-	ex.Run()
+	log.Log.V(1).Infof("Running Load Generator")
+
+	workload := config.NewWorkload(flags.WorkloadConfigFile)
+	client := config.NewKubevirtClient()
+	if workload.Type == "" {
+		workload.Type = config.Type
+	}
+	// Minimum 30s timeout
+	if workload.Timeout.Duration <= time.Duration(30*time.Second) {
+		workload.Timeout.Duration = config.Timeout
+	}
+
+	var lg api.LoadGenerator
+	timeout := time.After(workload.Timeout.Duration)
+	if workload.Type == "burst" {
+		lg = &burst.BurstLoadGenerator{Done: timeout}
+	} else if workload.Type == "steady-state" {
+		lg = &steadyState.SteadyStateLoadGenerator{Done: timeout}
+	} else {
+		log.Log.V(1).Errorf("Load Generator doesn't have type %s", workload.Type)
+		return
+	}
+
+	if flags.Delete {
+		lg.Delete(client, workload)
+	} else {
+		lg.Run(client, workload)
+	}
+	return
 }
