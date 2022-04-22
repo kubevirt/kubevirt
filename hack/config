@@ -15,9 +15,7 @@ CSI_SNAPSHOT_VERSION="v4.2.1"
 CSI_SIG_STORAGE_PROVISIONER_VERSION="v2.2.1"
 KUBE_RBAC_PROXY_VERSION="4.10"
 
-# TODO: change the image in images.csv to quay.io/kubevirt-ui/kubevirt-plugin and add to bump-bot once
-# a release is available at https://github.com/kubevirt-ui/kubevirt-plugin/releases
-KUBEVIRT_CONSOLE_PLUGIN_VERSION="v0.0.1"
+KUBEVIRT_CONSOLE_PLUGIN_VERSION="v0.0.2"
 
 CONTAINER_REGISTRY="quay.io/kubevirt"
 

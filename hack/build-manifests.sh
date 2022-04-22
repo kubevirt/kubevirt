@@ -364,11 +364,8 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \
   --webhook-image-name="${HCO_WEBHOOK_IMAGE}" \
+  --kubevirt-consoleplugin-image-name="${KUBEVIRT_CONSOLE_PLUGIN_IMAGE}" \
   --cli-downloads-image-name="${HCO_DOWNLOADS_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
-
-  # TODO: add the following parameter above once a release is available at https://github.com/kubevirt-ui/kubevirt-plugin/releases
-  # until then, the "KV_CONSOLE_PLUGIN_IMAGE" won't be populated and the kubevirt console plugin won't be active.
-  # --kubevirt-consoleplugin-image-name="${KUBEVIRT_CONSOLE_PLUGIN_IMAGE}" \
 
 rendered_csv="$(cat "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}")"
 rendered_keywords="$(echo "$rendered_csv" |grep 'keywords' -A 3)"

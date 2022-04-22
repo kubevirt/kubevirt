@@ -77,6 +77,7 @@ function get_current_versions {
     ["NMO"]=""
     ["HPPO"]=""
     ["HPP"]=""
+    ["KUBEVIRT_CONSOLE_PLUGIN"]=""
   )
 
   for component in "${!CURRENT_VERSIONS[@]}"; do
@@ -94,6 +95,7 @@ function get_updated_versions {
     ["NMO"]="kubevirt/node-maintenance-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
+    ["KUBEVIRT_CONSOLE_PLUGIN"]="kubevirt-ui/kubevirt-plugin"
   )
 
   IMPORT_REPOS=(
