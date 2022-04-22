@@ -420,7 +420,7 @@ var _ = Describe("HostDisk", func() {
 			By("Replacing PVCs with hostdisks")
 			ReplacePVCByHostDisk(vmi)
 
-			Expect(len(vmi.Spec.Volumes)).To(Equal(1), "There should still be 1 volume")
+			Expect(vmi.Spec.Volumes).To(HaveLen(1), "There should still be 1 volume")
 
 			if mode == k8sv1.PersistentVolumeFilesystem && pvcReferenceObj == "disk" {
 				Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
