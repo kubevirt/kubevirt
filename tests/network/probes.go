@@ -26,6 +26,11 @@ const (
 	specifyingVMLivenessProbe  = "Specifying a VMI with a liveness probe"
 )
 
+const (
+	startAgent = "start"
+	stopAgent  = "stop"
+)
+
 var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	var (
 		err           error
@@ -65,10 +70,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
-		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
-		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
+		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily corev1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+
 			if ipFamily == corev1.IPv6Protocol {
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
@@ -82,7 +87,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
-			} else if !isExecProbe {
+			} else if !isExecProbe(readinessProbe) {
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
@@ -92,8 +97,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By(specifyingVMReadinessProbe)
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.ReadinessProbe = readinessProbe
+				vmi = libvmi.NewFedora(
+					withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(readinessProbe))...)
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
@@ -101,41 +106,50 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			}
 
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
+		},
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
+		)
 
-			if disableEnableCycle {
+		Context("guest agent ping", func() {
+			const (
+				guestAgentConnectTimeout    = 120
+				guestAgentDisconnectTimeout = 300 // Marking the status to not ready can take a little more time
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.NewFedora(
+					withMasqueradeNetworkingAndFurtherUserConfig(
+						withReadinessProbe(
+							createGuestAgentPingProbe(period, initialSeconds)))...)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				By("Waiting for agent to connect")
+				tests.WaitAgentConnected(virtClient, vmi)
+				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
 				By("Disabling the guest-agent")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				Expect(stopGuestAgent(vmi)).To(Succeed())
+				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentDisconnectTimeout)
+			})
 
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo systemctl stop qemu-guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
-				}, 120)).ToNot(HaveOccurred())
+			When("the guest agent is enabled, after being disabled", func() {
+				BeforeEach(func() {
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
+					Expect(startGuestAgent(vmi)).To(Succeed())
+				})
 
-				// Marking the status to not ready can take a little more time
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 300)
-
-				By("Enabling the guest-agent again")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
-				}, 120)).ToNot(HaveOccurred())
-
-				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, 120)
-			}
-		},
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false, false),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
-			Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, true, false),
-			Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
-		)
+				It("[test_id:6741] the VMI enters `Ready` state once again", func() {
+					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceReady, guestAgentConnectTimeout)
+				})
+			})
+		})
 
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By(specifyingVMReadinessProbe)
-			vmi = vmiFactory()
-			vmi.Spec.ReadinessProbe = readinessProbe
+			vmi = vmiFactory(withReadinessProbe(readinessProbe))
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is consistently non-ready")
@@ -161,8 +175,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily, isExecProbe bool) {
+		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily corev1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIpFamily(virtClient, ipFamily)
+
 			if ipFamily == corev1.IPv6Protocol {
 
 				By("Create a support pod which will reply to kubelet's probes ...")
@@ -177,7 +192,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By(specifyingVMLivenessProbe)
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
-			} else if !isExecProbe {
+			} else if !isExecProbe(livenessProbe) {
 				By(specifyingVMLivenessProbe)
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
@@ -185,8 +200,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By(specifyingVMLivenessProbe)
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.LivenessProbe = livenessProbe
+				vmi = libvmi.NewFedora(
+					withMasqueradeNetworkingAndFurtherUserConfig(
+						withLivelinessProbe(livenessProbe))...)
 				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
@@ -200,17 +216,16 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol),
+			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol),
+			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
-			vmi = vmiFactory()
-			vmi.Spec.LivenessProbe = livenessProbe
+			vmi = vmiFactory(withLivelinessProbe(livenessProbe))
 			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 			By("Checking that the VMI is in a final state after a while")
@@ -227,12 +242,35 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	})
 })
 
+func isExecProbe(probe *v1.Probe) bool {
+	return probe.Exec != nil
+}
+
+func startGuestAgent(vmi *v1.VirtualMachineInstance) error {
+	return guestAgentOperation(vmi, startAgent)
+}
+
+func stopGuestAgent(vmi *v1.VirtualMachineInstance) error {
+	return guestAgentOperation(vmi, stopAgent)
+}
+
+func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation string) error {
+	if startStopOperation != startAgent && startStopOperation != stopAgent {
+		return fmt.Errorf("invalid qemu-guest-agent request: %s. Allowed values are: '%s' *or* '%s'", startStopOperation, startAgent, stopAgent)
+	}
+	guestAgentSysctlString := fmt.Sprintf("sudo systemctl %s qemu-guest-agent\n", startStopOperation)
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: guestAgentSysctlString},
+		&expect.BExp{R: console.PromptExpression},
+	}, 120)
+}
+
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		withLivelinessProbe(probe),
 	)
-	vmi.Spec.ReadinessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -241,8 +279,8 @@ func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineIn
 	vmi := libvmi.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		withLivelinessProbe(probe),
 	)
-	vmi.Spec.LivenessProbe = probe
 
 	return tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -318,4 +356,27 @@ func getVMIConditions(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return readVmi.Status.Conditions
+}
+
+func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
+	networkData, _ := libnet.CreateDefaultCloudInitNetworkData()
+
+	return append(
+		[]libvmi.Option{
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+		}, opts...)
+}
+
+func withReadinessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.ReadinessProbe = probe
+	}
+}
+
+func withLivelinessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.LivenessProbe = probe
+	}
 }
