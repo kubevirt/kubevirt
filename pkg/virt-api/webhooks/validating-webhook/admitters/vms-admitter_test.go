@@ -23,7 +23,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -829,25 +828,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
-		})
-		It("should reject volume count > arrayLenMax", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			for i := 0; i <= arrayLenMax; i++ {
-				name := strconv.Itoa(i)
-
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "testvolume" + name,
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: testutils.NewFakeContainerDiskSource(),
-					},
-				})
-			}
-
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake list exceeds the %d element limit in length", arrayLenMax)))
 		})
 
 		DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {

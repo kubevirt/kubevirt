@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"kubevirt.io/client-go/api"
@@ -2940,22 +2939,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("writethrough", v1.CacheWriteThrough),
 			Entry("writeback", v1.CacheWriteBack),
 		)
-
-		It("should reject disk count > arrayLenMax", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			for i := 0; i <= arrayLenMax; i++ {
-				name := strconv.Itoa(i)
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "testdisk" + name, DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}})
-			}
-
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
-			Expect(causes).To(HaveLen(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake list exceeds the %d "+
-				"element limit in length", arrayLenMax)))
-		})
 
 		It("should reject invalid SN characters", func() {
 			vmi := api.NewMinimalVMI("testvmi")
