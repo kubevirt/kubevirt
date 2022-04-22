@@ -188,7 +188,7 @@ var _ = Describe("Notify", func() {
 				case event := <-eventChan:
 					newDomain, _ := event.Object.(*api.Domain)
 					newInterfaceStatuses := newDomain.Status.Interfaces
-					Expect(len(newInterfaceStatuses)).To(Equal(1))
+					Expect(newInterfaceStatuses).To(HaveLen(1))
 					Expect(equality.Semantic.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
