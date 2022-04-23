@@ -382,6 +382,9 @@ github.com/pkg/diff
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
+# github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
+## explicit; go 1.15
+github.com/povsister/scp
 # github.com/prometheus/client_golang v1.11.1
 ## explicit; go 1.13
 github.com/prometheus/client_golang/api

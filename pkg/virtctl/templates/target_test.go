@@ -55,4 +55,44 @@ var _ = Describe("Target", func() {
 		Entry("only separators", "@/.", "", "", "", "", false),
 		Entry("only at", "@", "", "", "", "", false),
 	)
+	DescribeTable("ParseSCPTargets", func(arg0, arg1 string, expLocal templates.LocalSCPArgument, expRemote templates.RemoteSCPArgument, expToRemote bool) {
+		local, remote, toRemote, err := templates.ParseSCPArguments(arg0, arg1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(local).To(Equal(expLocal))
+		Expect(remote).To(Equal(expRemote))
+		if expToRemote {
+			Expect(toRemote).To(BeTrue())
+		} else {
+			Expect(toRemote).To(BeFalse())
+		}
+	},
+		Entry("copy to remote location",
+			"myfile.yaml", "cirros@remote.mynamespace:myfile.yaml",
+			templates.LocalSCPArgument{Path: "myfile.yaml"},
+			templates.RemoteSCPArgument{
+				Kind: "vmi", Namespace: "mynamespace", Name: "remote", Username: "cirros", Path: "myfile.yaml",
+			},
+			true,
+		),
+		Entry("copy from remote location",
+			"cirros@remote.mynamespace:myfile.yaml", "myfile.yaml",
+			templates.LocalSCPArgument{Path: "myfile.yaml"},
+			templates.RemoteSCPArgument{
+				Kind: "vmi", Namespace: "mynamespace", Name: "remote", Username: "cirros", Path: "myfile.yaml",
+			},
+			false,
+		),
+	)
+
+	DescribeTable("ParseSCPTargets should fail", func(arg0, arg1 string) {
+		_, _, _, err := templates.ParseSCPArguments(arg0, arg1)
+		Expect(err).To(HaveOccurred())
+	},
+		Entry("when two local locations are specified",
+			"myfile.yaml", "otherfile.yaml",
+		),
+		Entry("when two remote locations are specified",
+			"remotenode:myfile.yaml", "othernode:otherfile.yaml",
+		),
+	)
 })

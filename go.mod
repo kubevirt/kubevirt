@@ -47,6 +47,7 @@ require (
 	github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349
 	github.com/pborman/uuid v1.2.0
 	github.com/pkg/errors v0.9.1
+	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
 	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.28.0
