@@ -1547,7 +1547,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(len(causes)).To(Equal(1), "unexpected number of errors")
+			Expect(causes).To(HaveLen(1), "unexpected number of errors")
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0].name"))
 		})
 		It("should reject networks with a pod network source and slirp interface with bad protocol type", func() {
@@ -3878,7 +3878,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
-		Expect(len(causes)).To(Equal(2), "should return error")
+		Expect(causes).To(HaveLen(2), "should return error")
 		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "type should equal")
 		Expect(causes[0].Field).To(Equal("spec.domain.features.hyperv.evmcs"), "field should equal")
 		Expect(causes[1].Type).To(Equal(metav1.CauseTypeFieldValueRequired), "type should equal")
@@ -3904,7 +3904,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
-		Expect(len(causes)).To(Equal(1), "should return error")
+		Expect(causes).To(HaveLen(1), "should return error")
 		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "type should equal")
 		Expect(causes[0].Field).To(Equal("spec.domain.features.hyperv.evmcs"), "field should equal")
 	})
@@ -3924,7 +3924,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
-		Expect(len(causes)).To(Equal(1), "should return error")
+		Expect(causes).To(HaveLen(1), "should return error")
 		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired), "type should equal")
 		Expect(causes[0].Field).To(Equal("spec.domain.cpu.features"), "field should equal")
 	})
@@ -3952,7 +3952,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
-		Expect(len(causes)).To(Equal(1), "should return error")
+		Expect(causes).To(HaveLen(1), "should return error")
 		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "type should equal")
 		Expect(causes[0].Field).To(Equal("spec.domain.cpu.features[0].policy"), "field should equal")
 	})
@@ -3980,7 +3980,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
-		Expect(len(causes)).To(Equal(0), "should not return error")
+		Expect(causes).To(BeEmpty(), "should not return error")
 	})
 
 	It("Should not validate VMIs with broken hyperv deps", func() {
