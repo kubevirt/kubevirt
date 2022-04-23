@@ -6,7 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
@@ -23,31 +22,28 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		if !checks.HasFeature(virtconfig.NonRoot) {
-			Skip("Test specific to NonRoot featureGate that is not enabled")
-		}
-
 		tests.BeforeTestCleanup()
 	})
 
-	virtioFsVM := func() *v1.VirtualMachineInstance {
-		name := "test"
-		return tests.NewRandomVMIWithPVCFS(name)
-	}
+	Context("should cause fail in creating of vmi with", func() {
+		BeforeEach(func() {
+			if !checks.HasFeature(virtconfig.NonRoot) {
+				Skip("Test specific to NonRoot featureGate that is not enabled")
+			}
+		})
 
-	DescribeTable("should cause fail in creating of vmi with", func(createVMI func() *v1.VirtualMachineInstance, neededFeature, feature string) {
-		if neededFeature != "" && !checks.HasFeature(neededFeature) {
-			Skip(fmt.Sprintf("Missing %s, enable %s featureGate.", neededFeature, neededFeature))
-		}
+		It("[test_id:7127]VirtioFS", func() {
+			if !checks.HasFeature(virtconfig.VirtIOFSGate) {
+				Skip(fmt.Sprintf("Missing %s, enable %s featureGate.", virtconfig.VirtIOFSGate, virtconfig.VirtIOFSGate))
+			}
 
-		vmi := createVMI()
-		_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(And(ContainSubstring(feature), ContainSubstring("nonroot")))
+			vmi := tests.NewRandomVMIWithPVCFS("test")
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(And(ContainSubstring("VirtioFS"), ContainSubstring("nonroot")))
 
-	},
-		Entry("[test_id:7127]VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
-	)
+		})
+	})
 
 	Context("[verify-nonroot] NonRoot feature", func() {
 		It("Fails if can't be tested", func() {
