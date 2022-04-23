@@ -53,6 +53,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -3484,6 +3485,43 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			By("deleting the last paused pod")
 			err = virtClient.CoreV1().Pods(pausedPod.Namespace).Delete(context.Background(), pausedPod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("with a live-migration in flight", func() {
+		It("there should always be a single active migration per VMI", func() {
+			By("Starting a VMI")
+			vmi := libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi = runVMIAndExpectLaunch(vmi, 240)
+
+			By("Checking that there always is at most one migration running")
+			Consistently(func() int {
+				vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				// not checking err as the migration creation will be blocked immediately by virt-api's validating webhook
+				// if another one is currently running
+				vmim, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(vmim, &metav1.CreateOptions{})
+
+				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
+				Expect(err).ToNot(HaveOccurred())
+				listOptions := &metav1.ListOptions{
+					LabelSelector: labelSelector.String(),
+				}
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).List(listOptions)
+				Expect(err).ToNot(HaveOccurred())
+
+				activeMigrations := 0
+				for _, migration := range migrations.Items {
+					switch migration.Status.Phase {
+					case v1.MigrationScheduled, v1.MigrationPreparingTarget, v1.MigrationTargetReady, v1.MigrationRunning:
+						activeMigrations += 1
+					}
+				}
+				return activeMigrations
+
+			}, time.Second*30, time.Second*1).Should(BeNumerically("<=", 1))
 		})
 	})
 })
