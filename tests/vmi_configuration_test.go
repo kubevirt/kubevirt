@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -28,6 +29,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -273,7 +276,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				if computeContainer == nil {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(296)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(339)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -2933,6 +2936,73 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				&expect.BSnd{S: "$(sudo /usr/libexec/virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)).To(Succeed())
+		})
+	})
+	Context("virt-launcher processes memory usage", func() {
+		It("should be lower than allocated size", func() {
+			By("Starting a VirtualMachineInstance")
+			vmi := tests.NewRandomFedoraVMI()
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Expecting console")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			By("Running ps in virt-launcher")
+			pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
+			})
+			Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
+			var stdout, stderr string
+			errorMassageFormat := "failed after running the `ps` command with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+			Eventually(func() error {
+				stdout, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+					[]string{
+						"ps",
+						"--no-header",
+						"axo",
+						"rss,command",
+					})
+				return err
+			}, time.Second, 50*time.Millisecond).Should(BeNil(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
+
+			By("Parsing the output of ps")
+			processRss := make(map[string]resource.Quantity)
+			scanner := bufio.NewScanner(strings.NewReader(stdout))
+			for scanner.Scan() {
+				fields := strings.Fields(scanner.Text())
+				Expect(len(fields)).To(BeNumerically(">=", 2))
+				rss := fields[0]
+				command := filepath.Base(fields[1])
+				switch command {
+				case "virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu-kvm":
+					Expect(processRss).ToNot(HaveKey(command), "multiple %s processes found", command)
+					value := resource.MustParse(rss + "Ki")
+					processRss[command] = value
+				}
+			}
+			for _, process := range []string{"virt-launcher-monitor", "virt-launcher", "virtlogd", "libvirtd", "qemu-kvm"} {
+				Expect(processRss).To(HaveKey(process), "no %s process found", process)
+			}
+
+			By("Ensuring no process is using too much ram")
+			expected := resource.MustParse(services.VirtLauncherMonitorOverhead)
+			actual := processRss["virt-launcher-monitor"]
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virt-launcher-monitor process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			expected = resource.MustParse(services.VirtLauncherOverhead)
+			actual = processRss["virt-launcher"]
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the /usr/bin/virt-launcher process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			expected = resource.MustParse(services.VirtlogdOverhead)
+			actual = processRss["virtlogd"]
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virtlogd process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			expected = resource.MustParse(services.LibvirtdOverhead)
+			actual = processRss["libvirtd"]
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the libvirtd process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			expected = resource.MustParse(services.QemuOverhead)
+			expected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
+			actual = processRss["qemu-kvm"]
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the qemu-kvm process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
 		})
 	})
 })
