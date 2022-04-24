@@ -32,6 +32,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,8 +95,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 	var migrateClient *kubecli.MockVirtualMachineInstanceMigrationInterface
 
-	running := Running
-	notRunning := NotRunning
 	gracePeriodZero := int64(0)
 
 	kv := &v1.KubeVirt{
@@ -435,7 +435,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vm := v1.VirtualMachine{
 					Spec: v1.VirtualMachineSpec{
-						Running: &notRunning,
+						Running: pointer.Bool(NotRunning),
 					},
 				}
 
@@ -455,7 +455,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(&running)
+				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
 				}
@@ -512,7 +512,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(body)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(&running)
+				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
 				}
@@ -538,7 +538,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(&running)
+				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
@@ -559,7 +559,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(&running)
+				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
 				vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
 				vmClient.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
@@ -581,7 +581,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(stopOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(&running)
+				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -1713,7 +1713,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Namespace: k8smetav1.NamespaceDefault,
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running:  &notRunning,
+					Running:  pointer.Bool(NotRunning),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
 				},
 			}
