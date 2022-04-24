@@ -60,8 +60,6 @@ var (
 
 var Arch string
 
-var schedulableNode = ""
-
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
@@ -123,7 +121,7 @@ func BeforeTestSuitSetup(_ []byte) {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			idx := rand.Intn(len(nodes.Items))
-			schedulableNode = nodes.Items[idx].Name
+			libnode.SchedulableNode = nodes.Items[idx].Name
 		}
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")

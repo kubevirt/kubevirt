@@ -702,7 +702,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 								{
 									Key:      KubernetesIoHostName,
 									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{schedulableNode},
+									Values:   []string{libnode.SchedulableNode},
 								},
 							},
 						},
@@ -716,7 +716,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 	if !errors.IsAlreadyExists(err) {
 		util2.PanicOnError(err)
 	}
-	return schedulableNode
+	return libnode.SchedulableNode
 }
 
 func GetListOfManifests(pathToManifestsDir string) []string {
