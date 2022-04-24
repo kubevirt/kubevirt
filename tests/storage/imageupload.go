@@ -39,7 +39,7 @@ const (
 	insecure             = "--insecure"
 )
 
-var _ = SIGDescribe("[Serial]ImageUpload", func() {
+var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	var kubectlCmd *exec.Cmd
 
 	pvcSize := "100Mi"

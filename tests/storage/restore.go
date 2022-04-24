@@ -41,7 +41,7 @@ const (
 	creatingSnapshot          = "creating snapshot"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
+var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", Serial, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

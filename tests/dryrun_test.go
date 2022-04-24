@@ -491,7 +491,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
-		It("[Serial][test_id:7648]delete a KubeVirt CR", func() {
+		It("[Serial][test_id:7648]delete a KubeVirt CR", Serial, func() {
 			By("Make a Dry-Run request to delete a KubeVirt CR")
 			deletePolicy := metav1.DeletePropagationForeground
 			opts := metav1.DeleteOptions{

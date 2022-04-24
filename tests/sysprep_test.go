@@ -286,7 +286,7 @@ const (
 	windowsSysprepedVMIPassword = "Gauranga"
 )
 
-var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", func() {
+var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

@@ -226,7 +226,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	})
 
 	Describe("VirtualMachineInstance definition", func() {
-		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
+		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
 
@@ -403,7 +403,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}, 60)).To(Succeed(), "should report number of threads")
 			})
 
-			It("[Serial][test_id:1664]should map cores to virtio block queues", func() {
+			It("[Serial][test_id:1664]should map cores to virtio block queues", Serial, func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
@@ -482,7 +482,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
-		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", func() {
+		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", Serial, func() {
 			BeforeEach(func() {
 				kv := util.GetCurrentKv(virtClient)
 
@@ -583,8 +583,8 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", Serial, `OVMF_CODE(\.secboot)?\.fd`),
+			Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", Serial, `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
@@ -1114,9 +1114,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", "64Mi"),
+				Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", Serial, "None"),
+				Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", Serial, "None"),
+				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", "2Mi", "70Mi", Serial, "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
@@ -1295,7 +1295,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					"Agent condition should be gone")
 			})
 
-			Context("[Serial]with cluster config changes", func() {
+			Context("[Serial]with cluster config changes", Serial, func() {
 				BeforeEach(func() {
 					kv := util.GetCurrentKv(virtClient)
 
@@ -1624,7 +1624,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		})
 
-		Context("[Serial]using defaultRuntimeClass configuration", func() {
+		Context("[Serial]using defaultRuntimeClass configuration", Serial, func() {
 			runtimeClassName := "custom-runtime-class"
 
 			BeforeEach(func() {
@@ -1799,7 +1799,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", func() {
+	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", Serial, func() {
 		BeforeEach(func() {
 			kv := util.GetCurrentKv(virtClient)
 
@@ -1839,7 +1839,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("[Serial][test_id:3126]should set machine type from kubevirt-config", func() {
+		It("[Serial][test_id:3126]should set machine type from kubevirt-config", Serial, func() {
 			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
@@ -1889,7 +1889,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
 
-		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", func() {
+		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", Serial, func() {
 			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
@@ -1907,7 +1907,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, func() {
 		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
@@ -2274,7 +2274,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			}
 		})
 
-		Context("[Serial]with cpu pinning enabled", func() {
+		Context("[Serial]with cpu pinning enabled", Serial, func() {
 
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
@@ -2578,7 +2578,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
-		Context("[Serial]cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", func() {
+		Context("[Serial]cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", Serial, func() {
 
 			var cpuvmi, vmi *v1.VirtualMachineInstance
 			var node string
@@ -2664,7 +2664,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
-		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", func() {
+		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", Serial, func() {
 			vmi := tests.NewRandomFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
@@ -2692,7 +2692,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", func() {
+	Context("[Serial][rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", Serial, func() {
 
 		var vmi *v1.VirtualMachineInstance
 

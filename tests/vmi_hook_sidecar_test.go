@@ -147,7 +147,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 			})
 		})
 
-		Context("[Serial]with sidecar feature gate disabled", func() {
+		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
 			BeforeEach(func() {
 				tests.DisableFeatureGate(virtconfig.SidecarGate)
 			})

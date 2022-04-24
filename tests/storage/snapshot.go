@@ -39,7 +39,7 @@ const (
 	operationComplete        = "Operation complete"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
+var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", Serial, func() {
 
 	var (
 		err        error

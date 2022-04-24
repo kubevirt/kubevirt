@@ -688,7 +688,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("[Serial] with bandwidth limitations", func() {
+		Context("[Serial] with bandwidth limitations", Serial, func() {
 
 			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {
 				var migrationDurationTotal time.Duration
@@ -1291,7 +1291,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("[Serial] with auto converge enabled", func() {
+		Context("[Serial] with auto converge enabled", Serial, func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
@@ -1645,7 +1645,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
-		Context("[Serial] migration to nonroot", func() {
+		Context("[Serial] migration to nonroot", Serial, func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
 
@@ -1745,7 +1745,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			)
 		})
 		Context("migration security", func() {
-			Context("[Serial] with TLS disabled", func() {
+			Context("[Serial] with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
@@ -1940,7 +1940,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
-		Context("[Serial] migration postcopy", func() {
+		Context("[Serial] migration postcopy", Serial, func() {
 			var dv *cdiv1.DataVolume
 
 			BeforeEach(func() {
@@ -2010,7 +2010,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
-		Context("[Serial] migration monitor", func() {
+		Context("[Serial] migration monitor", Serial, func() {
 			var createdPods []string
 			AfterEach(func() {
 				for _, podName := range createdPods {
@@ -2697,7 +2697,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
 			})
 
-			Context("[Serial]Should trigger event", func() {
+			Context("[Serial]Should trigger event", Serial, func() {
 
 				var originalNodeLabels map[string]string
 				var originalNodeAnnotations map[string]string
@@ -2791,7 +2791,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		})
 
-		Context("[Serial] with migration policies", func() {
+		Context("[Serial] with migration policies", Serial, func() {
 
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Verifying the VMI's configuration source")
@@ -3043,7 +3043,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
-			Context("[Serial] with node tainted during node drain", func() {
+			Context("[Serial] with node tainted during node drain", Serial, func() {
 
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
@@ -3311,7 +3311,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 			})
 		})
-		Context("[Serial]with multiple VMIs with eviction policies set", func() {
+		Context("[Serial]with multiple VMIs with eviction policies set", Serial, func() {
 
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
@@ -3389,7 +3389,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	})
 
-	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", func() {
+	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", Serial, func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {
@@ -3457,7 +3457,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 	})
 
-	Context("[Serial] With Huge Pages", func() {
+	Context("[Serial] With Huge Pages", Serial, func() {
 		var hugepagesVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -3521,7 +3521,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		)
 	})
 
-	Context("[Serial] with CPU pinning and huge pages", func() {
+	Context("[Serial] with CPU pinning and huge pages", Serial, func() {
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
@@ -3830,7 +3830,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 	})
 
-	Context("[Serial]with a dedicated migration network", func() {
+	Context("[Serial]with a dedicated migration network", Serial, func() {
 		BeforeEach(func() {
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())

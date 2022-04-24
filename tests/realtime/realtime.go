@@ -61,7 +61,7 @@ func byConfiguringTheVMIForRealtime(vmi *v1.VirtualMachineInstance, realtimeMask
 	}
 }
 
-var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
+var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, func() {
 
 	var (
 		vmi        *v1.VirtualMachineInstance

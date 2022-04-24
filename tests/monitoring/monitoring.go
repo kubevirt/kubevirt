@@ -44,7 +44,7 @@ const (
 	virtOperatorDeploymentName = "virt-operator"
 )
 
-var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
+var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

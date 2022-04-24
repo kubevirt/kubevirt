@@ -284,8 +284,8 @@ var _ = SIGDescribe("Storage", func() {
 					Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil, true),
 					Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil, true),
 					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
-					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
-					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
+					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", Serial, k8sv1.IPv6Protocol, true),
+					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", Serial, k8sv1.IPv4Protocol, false),
 				)
 			})
 
@@ -673,7 +673,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[Serial]With feature gates disabled for", func() {
+		Context("[Serial]With feature gates disabled for", Serial, func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.HostDiskGate)
 				vmi = tests.NewRandomVMIWithHostDisk("somepath", virtv1.HostDiskExistsOrCreate, "")
@@ -979,7 +979,7 @@ var _ = SIGDescribe("Storage", func() {
 				}
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[Serial][test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
+				It("[Serial][test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", Serial, func() {
 
 					configureToleration(10)
 
@@ -997,7 +997,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[Serial][test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
+				It("[Serial][test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", Serial, func() {
 
 					configureToleration(30)
 
