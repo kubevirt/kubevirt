@@ -63,45 +63,18 @@ function functest() {
     _out/tests/ginkgo -timeout=3h -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
 }
 
+additional_test_args=""
+if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
+    additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
+fi
+
+if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
+    additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
+fi
+
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
-    parallel_test_args=""
-    serial_test_args=""
-
-    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]|${KUBEVIRT_E2E_SKIP}"
-        serial_test_args="${serial_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
-    else
-        parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]"
-    fi
-
-    if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-        parallel_test_args="${parallel_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
-        serial_test_args="${serial_test_args} --focus=\\[Serial\\].*(${KUBEVIRT_E2E_FOCUS})|(${KUBEVIRT_E2E_FOCUS}).*\\[Serial\\]"
-    else
-        serial_test_args="${serial_test_args} --focus=\\[Serial\\]"
-    fi
-
-    return_value=0
-    set +e
-    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
-    return_value="$?"
-    set -e
-    if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
-        exit "$return_value"
-    fi
-    KUBEVIRT_FUNC_TEST_SUITE_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
-    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
-    exit "$return_value"
+    functest --procs=${KUBEVIRT_E2E_PARALLEL_NODES} ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 else
-    additional_test_args=""
-    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
-    fi
-
-    if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-        additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
-    fi
-
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 fi
