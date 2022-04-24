@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -211,7 +212,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
 				tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
-				defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
+				defer tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi = startVmi(vmi)

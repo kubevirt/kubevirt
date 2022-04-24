@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package testsuite
 
 const (
 	KubevirtIoTest = "kubevirt.io/test"

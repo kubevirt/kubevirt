@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
@@ -424,7 +425,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
-				if tests.ShouldAllowEmulation(virtClient) {
+				if testsuite.ShouldAllowEmulation(virtClient) {
 					Skip("Software emulation should not be enabled for this test to run")
 				}
 

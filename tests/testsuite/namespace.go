@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package testsuite
 
 import (
 	"context"
@@ -52,7 +52,7 @@ var NamespaceTestOperator = "kubevirt-test-operator"
 
 var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 
-func cleanNamespaces() {
+func CleanNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 

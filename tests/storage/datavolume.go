@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -744,7 +745,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when RWOFileSystem storage class is not present")
 				}
 				var err error
-				dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				tests.SetDataVolumeForceBindAnnotation(dv)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -756,7 +757,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
 						ServiceAccount: &v1.ServiceAccountVolumeSource{
-							ServiceAccountName: tests.AdminServiceAccountName,
+							ServiceAccountName: testsuite.AdminServiceAccountName,
 						},
 					},
 				}
@@ -831,9 +832,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				cloneRole, cloneRoleBinding = addClonePermission(
 					virtClient,
 					explicitCloneRole,
-					tests.AdminServiceAccountName,
+					testsuite.AdminServiceAccountName,
 					util.NamespaceTestDefault,
-					tests.NamespaceTestAlternative,
+					testsuite.NamespaceTestAlternative,
 				)
 
 				createVmSuccess()
@@ -850,7 +851,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Authorization failed, message is:"))
 
-				saName := tests.AdminServiceAccountName
+				saName := testsuite.AdminServiceAccountName
 				saNamespace := util.NamespaceTestDefault
 
 				if allServiceAccounts {
@@ -861,7 +862,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				// add permission
-				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, tests.NamespaceTestAlternative)
+				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, testsuite.NamespaceTestAlternative)
 
 				createVmSuccess()
 

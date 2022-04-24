@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package testsuite
 
 import (
 	"context"
@@ -69,7 +69,7 @@ func SynchronizedAfterTestSuiteCleanup() {
 func AfterTestSuitCleanup() {
 
 	cleanupServiceAccounts()
-	cleanNamespaces()
+	CleanNamespaces()
 
 	if flags.DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
@@ -133,7 +133,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
-func ensureKubevirtInfra() {
+func EnsureKubevirtInfra() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 	kv := util.GetCurrentKv(virtClient)

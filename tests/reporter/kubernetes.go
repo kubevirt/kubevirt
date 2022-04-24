@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -104,7 +105,7 @@ func (r *KubernetesReporter) JustAfterEach(specReport types.SpecReport) {
 }
 
 func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {
-	r.dumpNamespaces(duration, tests.TestNamespaces)
+	r.dumpNamespaces(duration, testsuite.TestNamespaces)
 }
 
 func (r *KubernetesReporter) DumpAllNamespaces(duration time.Duration) {

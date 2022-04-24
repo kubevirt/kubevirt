@@ -25,6 +25,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -166,9 +167,9 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected bool) {
 		roleToUser := map[string]string{
-			"view":    tests.ViewServiceAccountName,
-			"edit":    tests.EditServiceAccountName,
-			"admin":   tests.AdminServiceAccountName,
+			"view":    testsuite.ViewServiceAccountName,
+			"edit":    testsuite.EditServiceAccountName,
+			"admin":   testsuite.AdminServiceAccountName,
 			"default": "default",
 		}
 		userName, exists := roleToUser[role]

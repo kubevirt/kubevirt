@@ -106,6 +106,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"github.com/Masterminds/semver"
 	"github.com/google/go-github/v32/github"
@@ -413,11 +414,11 @@ func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType
 }
 
 func BeforeTestCleanup() {
-	cleanNamespaces()
+	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
-	ensureKubevirtInfra()
-	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
+	testsuite.EnsureKubevirtInfra()
+	CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 }
 
@@ -542,7 +543,7 @@ func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVol
 	name := fmt.Sprintf("disk-%s", os)
 
 	selector := map[string]string{
-		KubevirtIoTest: os,
+		testsuite.KubevirtIoTest: os,
 	}
 
 	// If the PV is not recycled, it will have a namespace related test label which  we should match
@@ -606,7 +607,7 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
 			Labels: map[string]string{
-				KubevirtIoTest: osName,
+				testsuite.KubevirtIoTest:                                  osName,
 				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
 			},
 		},
@@ -669,7 +670,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, util2.NamespaceTestDefault),
 			Labels: map[string]string{
-				KubevirtIoTest: osName,
+				testsuite.KubevirtIoTest:                                  osName,
 				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
 			},
 		},
@@ -1032,7 +1033,7 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 			Masquerade: &v1.InterfaceMasquerade{}}}}}
 
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	if checks.IsARM64(Arch) {
+	if checks.IsARM64(testsuite.Arch) {
 		// Cirros image need 256M to boot on ARM64,
 		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
 		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
@@ -2006,21 +2007,21 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 }
 
 func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
-	dstPath = HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, HostPathAlpine)}
+	dstPath = testsuite.HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
 
 	By("creating an image with without qemu permissions")
-	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
 	return
 }
 
 func DeleteAlpineWithNonQEMUPermissions() {
-	nonQemuAlpinePath := HostPathAlpine + "-nopriv"
+	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
 
-	pod := RenderHostPathPod("remove-tmp-image-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	RunPodAndExpectCompletion(pod)
 }
@@ -2369,7 +2370,7 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				KubevirtIoTest:                           os,
+				testsuite.KubevirtIoTest:                 os,
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
@@ -2413,7 +2414,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					KubevirtIoTest:                           os,
+					testsuite.KubevirtIoTest:                 os,
 					cleanup.TestLabelForNamespace(namespace): "",
 				},
 			},
@@ -2838,7 +2839,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	kv := UpdateKubeVirtConfigValue(kvConfig)
+	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
 
 	waitForConfigToBePropagated(kv.ResourceVersion)
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
@@ -2857,7 +2858,7 @@ func resetToDefaultConfig() {
 		return
 	}
 
-	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
+	UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 }
 
 type compare func(string, string) bool
