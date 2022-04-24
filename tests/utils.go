@@ -3527,7 +3527,8 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	}
 
 	suiteConfig, _ := GinkgoConfiguration()
-	if suiteConfig.ParallelTotal > 1 {
+	// ginkgo runs all the specs with the Serial decorator in process #1.
+	if (suiteConfig.ParallelTotal > 1) && (GinkgoParallelProcess() != 1) {
 		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
 	}
 
@@ -3561,7 +3562,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
 	suiteConfig, _ := GinkgoConfiguration()
-	if suiteConfig.ParallelTotal > 1 {
+	if (suiteConfig.ParallelTotal > 1) && (GinkgoParallelProcess() != 1) {
 		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
 		// we can just skip the restore step.
 		return
