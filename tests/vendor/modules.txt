@@ -146,7 +146,7 @@ github.com/json-iterator/go
 ## explicit; go 1.12
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
-# github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
+# github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 => github.com/kubernetes-csi/external-snapshotter/v2 v2.1.3
 ## explicit; go 1.12
 github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1
 # github.com/kubevirt/cluster-network-addons-operator v0.73.0 => github.com/kubevirt/cluster-network-addons-operator v0.74.0
@@ -1011,6 +1011,7 @@ sigs.k8s.io/yaml
 # bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
 # github.com/dgrijalva/jwt-go => github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 # github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
+# github.com/kubernetes-csi/external-snapshotter/v2 => github.com/kubernetes-csi/external-snapshotter/v2 v2.1.3
 # golang.org/x/crypto => golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 # golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20201221181555-eec23a3978ad
 # github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
