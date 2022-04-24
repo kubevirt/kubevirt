@@ -174,3 +174,7 @@ func HasDataVolumeCRD() bool {
 	}
 	return true
 }
+
+func HasCDI() bool {
+	return HasDataVolumeCRD()
+}

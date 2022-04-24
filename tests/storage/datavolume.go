@@ -76,7 +76,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		if !tests.HasCDI() {
+		if !libstorage.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
 	})
@@ -84,7 +84,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Context("[storage-req]PVC expansion", func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
-			if !tests.HasCDI() {
+			if !libstorage.HasCDI() {
 				Skip("Skip DataVolume tests when CDI is not present")
 			}
 			var sc string
