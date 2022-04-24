@@ -51,6 +51,9 @@ digraph "managed-by" {
 	"deployment/kubemacpool-mac-controller-manager" [label="deployment/kubemacpool-mac-controller-manager"]
 	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
 	"deployment/cluster-network-addons-operator" -> "deployment/kubemacpool-mac-controller-manager"
+	"deployment/kubevirt-plugin" [label="deployment/kubevirt-plugin"]
+	"deployment/hco-operator" [label="deployment/hco-operator"]
+	"deployment/hco-operator" -> "deployment/kubevirt-plugin"
 	"deployment/node-maintenance-operator" [label="deployment/node-maintenance-operator"]
 	olm [label=olm]
 	olm -> "deployment/node-maintenance-operator"

@@ -14,6 +14,7 @@ digraph component {
 		"deployment/hco-operator" [label="deployment/hco-operator"]
 		"deployment/hco-webhook" [label="deployment/hco-webhook"]
 		"deployment/hyperconverged-cluster-cli-download" [label="deployment/hyperconverged-cluster-cli-download"]
+		"deployment/kubevirt-plugin" [label="deployment/kubevirt-plugin"]
 	}
 	subgraph cluster_network {
 		fontname="Courier-Bold" fontsize=42 group=network label=network rank=same style=dashed
