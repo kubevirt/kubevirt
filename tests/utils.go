@@ -1492,7 +1492,7 @@ func cleanNamespaces() {
 
 		// Remove PVCs
 		util2.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error())
-		if HasCDI() {
+		if libstorage.HasCDI() {
 			// Remove DataVolumes
 			util2.PanicOnError(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error())
 		}
@@ -1653,7 +1653,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 }
 
 func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	if !HasCDI() {
+	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
 	sc, exists := libstorage.GetRWOFileSystemStorageClass()
@@ -1668,7 +1668,7 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 }
 
 func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	if !HasCDI() {
+	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
 	sc, exists := libstorage.GetRWOBlockStorageClass()
@@ -3349,10 +3349,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
 
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
-func HasCDI() bool {
-	return libstorage.HasDataVolumeCRD()
 }
 
 func VolumeExpansionAllowed(sc string) bool {

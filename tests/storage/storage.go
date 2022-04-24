@@ -453,7 +453,7 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				checks.SkipIfNonRoot("VirtioFS")
-				if !tests.HasCDI() {
+				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 				dataVolume = libstorage.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
