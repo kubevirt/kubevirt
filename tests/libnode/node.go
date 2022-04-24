@@ -24,14 +24,14 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
-	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
-	v13 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -47,14 +47,14 @@ var SchedulableNode = ""
 func CleanNodes() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	nodes := util.GetAllSchedulableNodes(virtCli).Items
+	nodes := GetAllSchedulableNodes(virtCli).Items
 
 	clusterDrainKey := GetNodeDrainKey()
 
 	for _, node := range nodes {
 
 		old, err := json.Marshal(node)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 		new := node.DeepCopy()
 
 		k8sClient := clientcmd.GetK8sCmdClient()
@@ -65,15 +65,15 @@ func CleanNodes() {
 		}
 
 		found := false
-		taints := []v1.Taint{}
+		taints := []k8sv1.Taint{}
 		for _, taint := range node.Spec.Taints {
 
-			if taint.Key == clusterDrainKey && taint.Effect == v1.TaintEffectNoSchedule {
+			if taint.Key == clusterDrainKey && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				found = true
-			} else if taint.Key == "kubevirt.io/drain" && taint.Effect == v1.TaintEffectNoSchedule {
+			} else if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				// this key is used as a fallback if the original drain key is built-in
 				found = true
-			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == v1.TaintEffectNoSchedule {
+			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				// this key is used in testing as a custom alternate drain key
 				found = true
 			} else {
@@ -98,13 +98,13 @@ func CleanNodes() {
 			continue
 		}
 		newJson, err := json.Marshal(new)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
-		_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, v12.PatchOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
@@ -123,85 +123,85 @@ func GetNodeDrainKey() string {
 func AddLabelToNode(nodeName string, key string, value string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, v12.GetOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	old, err := json.Marshal(node)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	new := node.DeepCopy()
 	new.Labels[key] = value
 
 	newJson, err := json.Marshal(new)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, v12.PatchOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func RemoveLabelFromNode(nodeName string, key string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, v12.GetOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	if _, exists := node.Labels[key]; !exists {
 		return
 	}
 
 	old, err := json.Marshal(node)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	new := node.DeepCopy()
 	delete(new.Labels, key)
 
 	newJson, err := json.Marshal(new)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, v12.PatchOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 }
 
-func Taint(nodeName string, key string, effect v1.TaintEffect) {
+func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, v12.GetOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	old, err := json.Marshal(node)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	new := node.DeepCopy()
-	new.Spec.Taints = append(new.Spec.Taints, v1.Taint{
+	new.Spec.Taints = append(new.Spec.Taints, k8sv1.Taint{
 		Key:    key,
 		Effect: effect,
 	})
 
 	newJson, err := json.Marshal(new)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, v12.PatchOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 }
 
-func GetNodesWithKVM() []*v1.Node {
+func GetNodesWithKVM() []*k8sv1.Node {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	listOptions := v12.ListOptions{LabelSelector: v13.AppLabel + "=virt-handler"}
+	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
-	nodes := make([]*v1.Node, 0)
+	nodes := make([]*k8sv1.Node, 0)
 	// cluster is not ready until all nodes are ready.
 	for _, pod := range virtHandlerPods.Items {
-		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, v12.GetOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
 		if ok {
@@ -209,4 +209,45 @@ func GetNodesWithKVM() []*v1.Node {
 		}
 	}
 	return nodes
+}
+
+func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+	return nodes
+}
+
+func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
+	var cpus int64
+
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	for _, node := range nodes.Items {
+		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
+			cpus = v.Value()
+		}
+	}
+
+	return int(cpus)
+}
+
+func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	for _, node := range nodes.Items {
+		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
+			return &node
+		}
+	}
+	return nil
+}
+
+func GetArch() string {
+	virtCli, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := GetAllSchedulableNodes(virtCli).Items
+	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
+	return nodes[0].Status.NodeInfo.Architecture
 }

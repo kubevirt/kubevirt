@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -153,7 +154,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		tests.BeforeTestCleanup()
 
-		nodes = util.GetAllSchedulableNodes(virtClient)
+		nodes = libnode.GetAllSchedulableNodes(virtClient)
 		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100

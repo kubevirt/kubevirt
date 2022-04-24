@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -651,7 +652,7 @@ func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName str
 }
 
 func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceName string) []k8sv1.Node {
-	nodes := util.GetAllSchedulableNodes(virtClient)
+	nodes := libnode.GetAllSchedulableNodes(virtClient)
 	filteredNodes := []k8sv1.Node{}
 	for _, node := range nodes.Items {
 		resourceList := node.Status.Allocatable

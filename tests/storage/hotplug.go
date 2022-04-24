@@ -931,7 +931,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				// a node without CPU manager.
 				sourceNode = ""
 				targetNode = ""
-				for _, node := range util.GetAllSchedulableNodes(virtClient).Items {
+				for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
 					labels := node.GetLabels()
 					if val, ok := labels[v1.CPUManager]; ok && val == "true" {
 						// Use a node with CPU manager as migration source

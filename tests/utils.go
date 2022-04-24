@@ -587,7 +587,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	var err error
 	libstorage.Config, err = libstorage.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
-	Arch = getArch()
+	Arch = libnode.GetArch()
 
 	// Customize host disk paths
 	// Right now we support three nodes. More image copying needs to happen
@@ -600,7 +600,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
-		nodes := util2.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			idx := rand.Intn(len(nodes.Items))
 			schedulableNode = nodes.Items[idx].Name
@@ -919,7 +919,7 @@ func CreateAllSeparateDeviceHostPathPvs(osName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 	Eventually(func() int {
-		nodes := util2.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			for _, node := range nodes.Items {
 				createSeparateDeviceHostPathPv(osName, node.Name)
@@ -2911,21 +2911,6 @@ func DeprecatedBeforeAll(fn func()) {
 	})
 }
 
-func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
-	var cpus int64
-
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	for _, node := range nodes.Items {
-		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
-			cpus = v.Value()
-		}
-	}
-
-	return int(cpus)
-}
-
 func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vm)
 	if err != nil {
@@ -3144,18 +3129,6 @@ func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathTy
 	})
 
 	return pod
-}
-
-func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	for _, node := range nodes.Items {
-		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
-			return &node
-		}
-	}
-	return nil
 }
 
 // CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
@@ -3380,14 +3353,6 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 
 func HasCDI() bool {
 	return libstorage.HasDataVolumeCRD()
-}
-
-func getArch() string {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	nodes := util2.GetAllSchedulableNodes(virtCli).Items
-	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
-	return nodes[0].Status.NodeInfo.Architecture
 }
 
 func VolumeExpansionAllowed(sc string) bool {

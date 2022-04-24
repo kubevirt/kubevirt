@@ -153,7 +153,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 		It("[QUARANTINE]on the virt handler rate limiter should lead to delayed VMI running states", func() {
 			By("first getting the basetime for a replicaset")
-			targetNode := util.GetAllSchedulableNodes(virtClient).Items[0]
+			targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 			vmi := libvmi.NewCirros(
 				libvmi.WithResourceMemory("1Mi"),
 				libvmi.WithNodeSelectorFor(&targetNode),
@@ -427,7 +427,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
 
 				By("finding all schedulable nodes")
-				schedulableNodesList := util.GetAllSchedulableNodes(virtClient)
+				schedulableNodesList := libnode.GetAllSchedulableNodes(virtClient)
 				schedulableNodes := map[string]*k8sv1.Node{}
 				for _, node := range schedulableNodesList.Items {
 					schedulableNodes[node.Name] = node.DeepCopy()

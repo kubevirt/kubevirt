@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -157,7 +158,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 
-			nodeList = util.GetAllSchedulableNodes(virtCli).Items
+			nodeList = libnode.GetAllSchedulableNodes(virtCli).Items
 			for _, node := range nodeList {
 				setNodeUnschedulable(node.Name)
 			}

@@ -62,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -230,7 +231,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+				availableNumberOfCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
 
 				requiredNumberOfCpus := 3
 				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
@@ -1077,7 +1078,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
 				}
 
-				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, hugepageType)
+				nodeWithHugepages := libnode.GetNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
 					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
@@ -1695,7 +1696,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		}
 
 		BeforeEach(func() {
-			nodes = util.GetAllSchedulableNodes(virtClient)
+			nodes = libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -2584,7 +2585,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			BeforeEach(func() {
 
-				nodes := util.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 
