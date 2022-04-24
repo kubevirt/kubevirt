@@ -1199,7 +1199,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 	EventuallyWithOffset(1, func() bool {
 		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 		return errors.IsNotFound(err)
-	}, seconds, 1*time.Second).Should(BeTrue())
+	}, seconds, 1*time.Second).Should(BeTrue(), fmt.Sprintf("migration %s was expected to dissapear after %d seconds, but it did not", migration.Name, seconds))
 }
 
 func WaitForSuccessfulVMIStart(vmi runtime.Object) *v1.VirtualMachineInstance {
