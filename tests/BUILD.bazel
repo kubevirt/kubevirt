@@ -7,6 +7,7 @@ go_library(
         "io_utils.go",
         "job.go",
         "kubevirtresource.go",
+        "label.go",
         "manifest.go",
         "migration.go",
         "namespace.go",

@@ -112,7 +112,6 @@ import (
 )
 
 const (
-	KubevirtIoTest               = "kubevirt.io/test"
 	KubernetesIoHostName         = "kubernetes.io/hostname"
 	BinBash                      = "/bin/bash"
 	DefaultPvcMountPath          = "/pvc"
@@ -168,10 +167,6 @@ const (
 )
 
 const VMIResource = "virtualmachineinstances"
-
-const (
-	SecretLabel = "kubevirt.io/secret"
-)
 
 const (
 	tmpPath = "/var/provision/kubevirt.io/tests"
