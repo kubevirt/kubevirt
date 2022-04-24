@@ -95,7 +95,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 	var migrateClient *kubecli.MockVirtualMachineInstanceMigrationInterface
 
-	gracePeriodZero := int64(0)
+	gracePeriodZero := pointer.Int64(0)
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -498,8 +498,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				Entry("with default", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero}),
-				Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: &gracePeriodZero, DryRun: getDryRunOption()}),
+				Entry("with default", &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
+				Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 
 			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func() {
@@ -616,10 +616,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
-				Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero}),
-				Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
-				Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: &gracePeriodZero, DryRun: getDryRunOption()}),
+				Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: gracePeriodZero}),
+				Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: gracePeriodZero}),
+				Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: gracePeriodZero, DryRun: getDryRunOption()}),
+				Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: gracePeriodZero, DryRun: getDryRunOption()}),
 			)
 		})
 	})
