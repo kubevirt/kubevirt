@@ -3,7 +3,7 @@
     "storageClassWindows":     "rook-ceph-block",
     "storageRWXFileSystem":    "nfs-csi",
     "storageRWXBlock":         "rook-ceph-block",
-    "storageRWOFileSystem":    "local",
+    "storageRWOFileSystem":    "nfs-csi",
     "storageRWOBlock":         "rook-ceph-block",
     "storageSnapshot":         "rook-ceph-block"
 }
