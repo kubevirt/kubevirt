@@ -144,6 +144,18 @@ var (
 			name:        vmiMemoryUsedBytes,
 			description: vmiMemoryUsedBytesDesc,
 		},
+		{
+			name:        domainstats.MigrateVmiDataProcessedMetricName,
+			description: "The total Guest OS data processed and migrated to the new VM.",
+		},
+		{
+			name:        domainstats.MigrateVmiDataRemainingMetricName,
+			description: "The remaining guest OS data to be migrated to the new VM.",
+		},
+		{
+			name:        domainstats.MigrateVmiDirtyMemoryRateMetricName,
+			description: "The rate of memory being dirty in the Guest OS.",
+		},
 	}
 )
 

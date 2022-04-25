@@ -4443,3 +4443,24 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	}
 	return ExecuteCommandOnPodV2(virtCli, virtHandlerPod, components.VirtHandlerName, command)
 }
+
+func GetKubevirtVMMetricsFunc(virtClient *kubecli.KubevirtClient, pod *k8sv1.Pod) func(string) string {
+	return func(ip string) string {
+		metricsURL := PrepareMetricsURL(ip, 8443)
+		stdout, _, err := ExecuteCommandOnPodV2(*virtClient,
+			pod,
+			"virt-handler",
+			[]string{
+				"curl",
+				"-L",
+				"-k",
+				metricsURL,
+			})
+		Expect(err).ToNot(HaveOccurred())
+		return stdout
+	}
+}
+
+func PrepareMetricsURL(ip string, port int) string {
+	return fmt.Sprintf("https://%s/metrics", net.JoinHostPort(ip, strconv.Itoa(port)))
+}
