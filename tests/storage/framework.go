@@ -23,10 +23,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func SIGDescribe(text string, body ...interface{}) bool {
-	return Describe("[sig-storage] "+text, body...)
+func SIGDescribe(text string, args ...interface{}) bool {
+	return Describe("[sig-storage] "+text, args...)
 }
 
-func FSIGDescribe(text string, body ...interface{}) bool {
-	return FDescribe("[sig-storage] "+text, body...)
+func FSIGDescribe(text string, args ...interface{}) bool {
+	return FDescribe("[sig-storage] "+text, args...)
 }

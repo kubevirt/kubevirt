@@ -22,7 +22,6 @@ package performance
 import (
 	"flag"
 	"os"
-	"reflect"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,8 +32,6 @@ var (
 	cyclicTestDurationInSeconds uint
 	RunPerfRealtime             bool
 	realtimeThreshold           uint
-
-	serialType = reflect.TypeOf(Serial)
 )
 
 func init() {
@@ -56,27 +53,14 @@ func init() {
 	}
 }
 
-func SIGDescribe(text string, body ...interface{}) bool {
-	if !isIncludeSerial(body...) {
-		body = append(body, Serial)
-	}
-	return Describe("[sig-performance][Serial] "+text, body...)
+func SIGDescribe(text string, args ...interface{}) bool {
+	args = append(args, Serial)
+	return Describe("[sig-performance][Serial] "+text, args...)
 }
 
-func FSIGDescribe(text string, body ...interface{}) bool {
-	if !isIncludeSerial(body...) {
-		body = append(body, Serial)
-	}
-	return FDescribe("[sig-performance][Serial] "+text, body...)
-}
-
-func isIncludeSerial(body ...interface{}) bool {
-	for _, item := range body {
-		if reflect.TypeOf(item) == serialType && item == Serial {
-			return true
-		}
-	}
-	return false
+func FSIGDescribe(text string, args ...interface{}) bool {
+	args = append(args, Serial)
+	return FDescribe("[sig-performance][Serial] "+text, args...)
 }
 
 func skipIfNoPerformanceTests() {

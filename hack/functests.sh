@@ -73,7 +73,7 @@ if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
 fi
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
-    trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
+    trap "mv ${ARTIFACTS}/partial.*.xml ${ARTIFACTS}/junit.functest.xml" EXIT
     functest --procs=${KUBEVIRT_E2E_PARALLEL_NODES} ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 else
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
