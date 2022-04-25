@@ -3145,7 +3145,7 @@ var _ = Describe("Template", func() {
 			Entry("when there is slirp interface", "slirp"),
 		)
 
-		It("should not require NET_BIND_SERVICE", func() {
+		It("should require capabilites which we set on virt-launcher binary", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface("test")}
 
@@ -3154,7 +3154,8 @@ var _ = Describe("Template", func() {
 
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
-					Expect(container.SecurityContext.Capabilities.Add).NotTo(ContainElement(kubev1.Capability("NET_BIND_SERVICE")))
+					Expect(container.SecurityContext.Capabilities.Add).To(
+						ContainElements(kubev1.Capability("NET_BIND_SERVICE"), kubev1.Capability("SYS_PTRACE")))
 					return
 				}
 			}
