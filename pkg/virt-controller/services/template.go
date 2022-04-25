@@ -64,6 +64,7 @@ const (
 	hotplugDisks     = "hotplug-disks"
 	hookSidecarSocks = "hook-sidecar-sockets"
 	varRun           = "/var/run"
+	homeQemu         = "/home/qemu"
 	virtBinDir       = "virt-bin-share-dir"
 	hotplugDisk      = "hotplug-disk"
 )
@@ -551,7 +552,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
-		MountPath: "/var/run/libvirt",
+		MountPath: filepath.Join(varRun, "libvirt"),
 	})
 
 	// virt-launcher cmd socket dir
@@ -1163,11 +1164,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		compute.Env = append(compute.Env,
 			k8sv1.EnvVar{
 				Name:  "XDG_CACHE_HOME",
-				Value: varRun,
+				Value: homeQemu,
 			},
 			k8sv1.EnvVar{
 				Name:  "XDG_CONFIG_HOME",
-				Value: varRun,
+				Value: homeQemu,
 			},
 			k8sv1.EnvVar{
 				Name:  "XDG_RUNTIME_DIR",
