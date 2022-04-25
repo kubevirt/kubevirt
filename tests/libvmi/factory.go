@@ -23,6 +23,8 @@ import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 // Default VMI values
@@ -53,7 +55,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		WithResourceMemory("128Mi"),
+		WithResourceMemory(cirrosMemory()),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
@@ -70,4 +72,11 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	}
 	alpineOpts = append(alpineOpts, opts...)
 	return New(RandName(DefaultVmiName), alpineOpts...)
+}
+
+func cirrosMemory() string {
+	if checks.IsARM64(testsuite.Arch) {
+		return "256Mi"
+	}
+	return "128Mi"
 }
