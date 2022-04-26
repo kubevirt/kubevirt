@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strings"
 
 	"k8s.io/utils/pointer"
 
@@ -167,8 +166,7 @@ func NewKvUiPluginSvc(hc *hcov1beta1.HyperConverged) *corev1.Service {
 	}
 }
 
-func NewKvUiNginxCm(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
-	nginxConfig := `error_log /dev/stdout info;
+var nginxConfig = fmt.Sprintf(`error_log /dev/stdout info;
 events {}
 http {
 	access_log         /dev/stdout;
@@ -176,14 +174,15 @@ http {
 	default_type       application/octet-stream;
 	keepalive_timeout  65;
 		server {
-			listen              $SERVER_PORT ssl;
+			listen              %d ssl;
 			ssl_certificate     /var/serving-cert/tls.crt;
 			ssl_certificate_key /var/serving-cert/tls.key;
 			root                /usr/share/nginx/html;
 		}
 	}
-`
-	nginxConfig = strings.ReplaceAll(nginxConfig, "$SERVER_PORT", string(hcoutil.UiPluginServerPort))
+`, hcoutil.UiPluginServerPort)
+
+func NewKvUiNginxCm(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nginxConfigMapName,
