@@ -60,7 +60,22 @@ function functest() {
         KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
 
-    _out/tests/ginkgo -timeout=3h -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
+    _out/tests/ginkgo -timeout=3h -r --junit-report="${ARTIFACTS}/junit.functest.xml" -slow-spec-threshold=60s $@ _out/tests/tests.test -- \
+        -kubeconfig=${kubeconfig} \
+        -container-tag=${docker_tag} \
+        -container-tag-alt=${docker_tag_alt} \
+        -container-prefix=${functest_docker_prefix} \
+        -image-prefix-alt=${image_prefix_alt} \
+        -oc-path=${oc} -kubectl-path=${kubectl} \
+        -gocli-path=${gocli} \
+        -installed-namespace=${namespace} \
+        -previous-release-tag=${PREVIOUS_RELEASE_TAG} \
+        -previous-release-registry=${previous_release_registry} \
+        -deploy-testing-infra=${deploy_testing_infra} \
+        -config=${kubevirt_test_config} \
+        --artifacts=${ARTIFACTS} \
+        --operator-manifest-path=${OPERATOR_MANIFEST_PATH} \
+        ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
 }
 
 additional_test_args=""
@@ -73,7 +88,6 @@ if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
 fi
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
-    trap "mv ${ARTIFACTS}/partial.*.xml ${ARTIFACTS}/junit.functest.xml" EXIT
     functest --procs=${KUBEVIRT_E2E_PARALLEL_NODES} ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 else
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
