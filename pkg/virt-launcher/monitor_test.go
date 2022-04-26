@@ -45,15 +45,17 @@ var _ = Describe("VirtLauncher", func() {
 	var cmd *exec.Cmd
 	var cmdLock sync.Mutex
 	var gracefulShutdownChannel chan struct{}
-	var cmdlineMatchStr string
+	var fakeUuid string
+	var pidDir string
 	var processStarted bool
+	var err error
 
 	StartProcess := func() {
 		cmdLock.Lock()
 		defer cmdLock.Unlock()
 
-		cmd = exec.Command(fakeQEMUBinary, "--uuid", cmdlineMatchStr)
-		err := cmd.Start()
+		cmd = exec.Command(fakeQEMUBinary, "--uuid", fakeUuid, "--pidfile", filepath.Join(pidDir, "fakens_fakevmi.pid"))
+		err = cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
 
 		currentPid := cmd.Process.Pid
@@ -105,7 +107,9 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
-		cmdlineMatchStr = uuid.New().String()
+		fakeUuid = uuid.New().String()
+		pidDir = GinkgoT().TempDir()
+
 		processStarted = false
 		if !strings.Contains(fakeQEMUBinary, "../../") {
 			fakeQEMUBinary = filepath.Join("../../", fakeQEMUBinary)
@@ -122,7 +126,8 @@ var _ = Describe("VirtLauncher", func() {
 			close(gracefulShutdownChannel)
 		}
 		mon = &monitor{
-			cmdlineMatchStr:          cmdlineMatchStr,
+			domainName:               "fakens_fakevmi",
+			pidDir:                   pidDir,
 			gracePeriod:              30,
 			finalShutdownCallback:    shutdownCallback,
 			gracefulShutdownCallback: gracefulShutdownCallback,

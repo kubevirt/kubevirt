@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -30,14 +31,24 @@ import (
 )
 
 func main() {
-	uuid := pflag.String("uuid", "", "some fake arg")
+	uuid := pflag.String("uuid", "", "the UUID of the fake qemu process")
+	pidFile := pflag.String("pidfile", "", "the path of the PID file to create")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGTERM,
 	)
 
 	pflag.Parse()
-	fmt.Printf("Started fake qemu process with uuid %s\n", *uuid)
+	fmt.Printf("Started fake qemu process with uuid %s and pidfile %s\n", *uuid, *pidFile)
+
+	if *pidFile != "" {
+		pid := os.Getpid()
+		err := os.WriteFile(*pidFile, []byte(strconv.Itoa(pid)), 0644)
+		if err != nil {
+			fmt.Printf("Could not write to PID file %s: %v\n", *pidFile, err)
+			os.Exit(1)
+		}
+	}
 
 	timeout := time.After(60 * time.Second)
 	select {

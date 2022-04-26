@@ -473,12 +473,14 @@ func main() {
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
-		// The first argument to NewProcessMonitor will end up being grepped in /proc/*/cmdline
-		// to find what is hopefully the qemu process.
-		// If any other process includes that string, it might wrongly be considered.
-		// FIXME: just read the pidfile libvirt creates for qemu instead of grepping /proc
-		// See: https://github.com/kubevirt/kubevirt/issues/7067
-		mon := virtlauncher.NewProcessMonitor("uuid="+domain.Spec.UUID,
+		var pidDir string
+		if *runWithNonRoot {
+			pidDir = "/run/libvirt/qemu/run"
+		} else {
+			pidDir = "/run/libvirt/qemu"
+		}
+		mon := virtlauncher.NewProcessMonitor(domainName,
+			pidDir,
 			*gracePeriodSeconds,
 			finalShutdownCallback,
 			gracefulShutdownCallback)
