@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -117,6 +118,7 @@ type VMExportController struct {
 	VMExportInformer  cache.SharedIndexInformer
 	PVCInformer       cache.SharedIndexInformer
 	PodInformer       cache.SharedIndexInformer
+	VMInformer        cache.SharedIndexInformer
 	ConfigMapInformer cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
@@ -275,9 +277,65 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 				return 0, err
 			}
 		}
-		return ctrl.updateVMExportPvcStatus(vmExport, pvc, pod, service, inUse)
+		return ctrl.updateVMExportPvcStatus(vmExport, pvcs, pod, service, inUse)
+	} else if ctrl.isSourceVM(&vmExport.Spec) {
+		pvcs, err := ctrl.getPvcsFromVm(vmExport)
+		log.DefaultLogger().Infof("Found %d pvcs for VM %s", len(pvcs), vmExport.Spec.Source.Name)
+		if err != nil {
+			return 0, err
+		}
+		anyInUse := false
+		for _, pvc := range pvcs {
+			inUse, err := ctrl.isPVCInUse(vmExport, pvc)
+			if err != nil {
+				return retry, err
+			}
+			if inUse {
+				log.DefaultLogger().Infof("PVC %s is in use", pvc.Name)
+				anyInUse = true
+			}
+		}
+		var pod *corev1.Pod
+		if !anyInUse && len(pvcs) > 0 {
+			pod, err = ctrl.getOrCreateExporterPod(vmExport, pvcs)
+			if err != nil {
+				return 0, err
+			}
+		}
+		return ctrl.updateVMExportPvcStatus(vmExport, pvcs, pod, service, anyInUse)
 	}
 	return retry, nil
+}
+
+func (ctrl *VMExportController) getPvcsFromVm(vmExport *exportv1.VirtualMachineExport) ([]*corev1.PersistentVolumeClaim, error) {
+	res := make([]*corev1.PersistentVolumeClaim, 0)
+	item, exists, err := ctrl.VMInformer.GetStore().GetByKey(controller.NamespacedKey(vmExport.Namespace, vmExport.Spec.Source.Name))
+	if err != nil {
+		return res, err
+	}
+	if !exists {
+		return res, fmt.Errorf("virtual machine %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)
+	}
+	vm, ok := item.(*virtv1.VirtualMachine)
+	if !ok {
+		return res, fmt.Errorf("%v not a Virtual Machine", item)
+	}
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			pvc, err := ctrl.getPvc(vmExport.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+			if err != nil {
+				return make([]*corev1.PersistentVolumeClaim, 0), err
+			}
+			res = append(res, pvc)
+		} else if volume.VolumeSource.DataVolume != nil {
+			pvc, err := ctrl.getPvc(vmExport.Namespace, volume.VolumeSource.DataVolume.Name)
+			if err != nil {
+				return make([]*corev1.PersistentVolumeClaim, 0), err
+			}
+			res = append(res, pvc)
+		}
+	}
+	return res, nil
 }
 
 func (ctrl *VMExportController) getOrCreateTokenCertSecret(vmExport *exportv1.VirtualMachineExport) (*corev1.Secret, error) {
@@ -537,7 +595,7 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	return ann[annContentType] == string(cdiv1.DataVolumeKubeVirt) || ann[annContentType] == ""
 }
 
-func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) (time.Duration, error) {
+func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, pvcInUse bool) (time.Duration, error) {
 	var retry time.Duration
 	vmExportCopy := vmExport.DeepCopy()
 	if vmExportCopy.Status == nil {
@@ -573,11 +631,11 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		}
 	}
 
-	if pvc == nil {
-		log.Log.V(1).Info("PVC not found, updating status to not found")
+	if len(pvcs) == 0 {
+		log.Log.V(1).Info("PVC(s) not found, updating status to not found")
 		updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason), true)
 	} else {
-		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvc), true)
+		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvcs), true)
 	}
 	internalCert, err := ctrl.base64EncodeExportCa()
 	if err != nil {
@@ -589,40 +647,41 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 		Volumes: []exportv1.VirtualMachineExportVolume{},
 		Cert:    internalCert,
 	}
-	if pvc != nil && exporterPod != nil && exporterPod.Status.Phase == corev1.PodRunning {
-		const scheme = "https://"
-		host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
-		if ctrl.isKubevirtContentType(pvc) {
-			vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
-				Name: pvc.Name,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    scheme + path.Join(host, rawURI(pvc)),
+	for _, pvc := range pvcs {
+		if pvc != nil && exporterPod != nil && exporterPod.Status.Phase == corev1.PodRunning {
+			const scheme = "https://"
+			host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
+			if ctrl.isKubevirtContentType(pvc) {
+				vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
+					Name: pvc.Name,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    scheme + path.Join(host, rawURI(pvc)),
+						},
+						{
+							Format: exportv1.KubeVirtGz,
+							Url:    scheme + path.Join(host, rawGzipURI(pvc)),
+						},
 					},
-					{
-						Format: exportv1.KubeVirtGz,
-						Url:    scheme + path.Join(host, rawGzipURI(pvc)),
+				})
+			} else {
+				vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
+					Name: pvc.Name,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{
+						{
+							Format: exportv1.Archive,
+							Url:    scheme + path.Join(host, dirURI(pvc)),
+						},
+						{
+							Format: exportv1.ArchiveGz,
+							Url:    scheme + path.Join(host, archiveURI(pvc)),
+						},
 					},
-				},
-			})
-		} else {
-			vmExportCopy.Status.Links.Internal.Volumes = append(vmExportCopy.Status.Links.Internal.Volumes, exportv1.VirtualMachineExportVolume{
-				Name: pvc.Name,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{
-					{
-						Format: exportv1.Archive,
-						Url:    scheme + path.Join(host, dirURI(pvc)),
-					},
-					{
-						Format: exportv1.ArchiveGz,
-						Url:    scheme + path.Join(host, archiveURI(pvc)),
-					},
-				},
-			})
+				})
+			}
 		}
 	}
-	//	updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 	if !equality.Semantic.DeepEqual(vmExport, vmExportCopy) {
 		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
 			return retry, err
@@ -650,6 +709,10 @@ func (ctrl *VMExportController) base64EncodeExportCa() (string, error) {
 
 func (ctrl *VMExportController) isSourcePvc(source *exportv1.VirtualMachineExportSpec) bool {
 	return source != nil && source.Source.APIGroup != nil && *source.Source.APIGroup == "v1" && source.Source.Kind == "PersistentVolumeClaim"
+}
+
+func (ctrl *VMExportController) isSourceVM(source *exportv1.VirtualMachineExportSpec) bool {
+	return source != nil && source.Source.APIGroup != nil && *source.Source.APIGroup == "kubevirt.io" && source.Source.Kind == "VirtualMachine"
 }
 
 func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
@@ -698,12 +761,22 @@ func updateCondition(conditions []exportv1.Condition, c exportv1.Condition, incl
 	return conditions
 }
 
-func (ctrl *VMExportController) pvcConditionFromPVC(pvc *corev1.PersistentVolumeClaim) exportv1.Condition {
+func (ctrl *VMExportController) pvcConditionFromPVC(pvcs []*corev1.PersistentVolumeClaim) exportv1.Condition {
 	cond := exportv1.Condition{
 		Type:               exportv1.ConditionPVC,
 		LastTransitionTime: *currentTime(),
 	}
-	switch pvc.Status.Phase {
+	phase := corev1.ClaimBound
+	// Figure out most severe status.
+	// Bound least, pending more, lost is most severe status
+	for _, pvc := range pvcs {
+		if pvc.Status.Phase == corev1.ClaimPending && phase != corev1.ClaimLost {
+			phase = corev1.ClaimPending
+		} else if pvc.Status.Phase == corev1.ClaimLost {
+			phase = corev1.ClaimLost
+		}
+	}
+	switch phase {
 	case corev1.ClaimBound:
 		cond.Status = corev1.ConditionTrue
 		cond.Reason = pvcBoundReason

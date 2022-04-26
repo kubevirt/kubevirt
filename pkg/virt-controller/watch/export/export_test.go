@@ -465,7 +465,7 @@ var _ = Describe("Export controlleer", func() {
 			},
 		}
 		expectedCond := newPvcCondition(status, reason)
-		condRes := controller.pvcConditionFromPVC(pvc)
+		condRes := controller.pvcConditionFromPVC([]*k8sv1.PersistentVolumeClaim{pvc})
 		Expect(condRes.Type).To(Equal(expectedCond.Type))
 		Expect(condRes.Status).To(Equal(expectedCond.Status))
 		Expect(condRes.Reason).To(Equal(expectedCond.Reason))

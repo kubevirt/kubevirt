@@ -127,6 +127,24 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
 		})
 
+		It("should reject unknown kind", func() {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "unknown",
+						Name:     "test",
+					},
+				},
+			}
+
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(config).Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
+		})
+
 		It("should reject spec update", func() {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
@@ -183,6 +201,25 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			resp := createTestVMExportAdmitter(config).Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
+
+		DescribeTable("it should allow", func(apiGroup, kind string) {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     kind,
+						Name:     "test",
+					},
+				},
+			}
+
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(config).Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+		},
+			Entry("persistent volume claim", "v1", "PersistentVolumeClaim"),
+			// Entry("virtual machine", "kubevirt.io", "VirtualMachine"),
+		)
 
 	})
 })

@@ -183,6 +183,7 @@ var _ = Describe("Application", func() {
 			VMExportInformer:  vmExportInformer,
 			PVCInformer:       pvcInformer,
 			PodInformer:       podInformer,
+			VMInformer:        vmInformer,
 			ConfigMapInformer: configMapInformer,
 			Recorder:          recorder,
 		}
