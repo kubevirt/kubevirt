@@ -17,7 +17,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-set -e
+set -ex
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
