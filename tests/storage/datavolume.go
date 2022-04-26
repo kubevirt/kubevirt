@@ -304,39 +304,31 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					k8sv1.PersistentVolumeFilesystem,
 				)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-				vm := tests.NewRandomVirtualMachine(vmi, false)
+				vmSpec := tests.NewRandomVirtualMachine(vmi, false)
 
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(vmSpec)
 				Expect(err).ToNot(HaveOccurred())
-				defer func() {
-					err := virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}()
 
-				Eventually(func() bool {
+				Eventually(func() v1.VirtualMachinePrintableStatus {
 					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus == v1.VirtualMachineStatusStopped
-				}, 180*time.Second, 2*time.Second).Should(BeTrue())
+					return vm.Status.PrintableStatus
+				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				defer func() {
-					err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}()
 
-				Eventually(func() bool {
+				Eventually(func() v1.VirtualMachinePrintableStatus {
 					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus == v1.VirtualMachineStatusProvisioning
-				}, 180*time.Second, 1*time.Second).Should(BeTrue())
+					return vm.Status.PrintableStatus
+				}, 180*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineStatusProvisioning))
 
-				Eventually(func() bool {
+				Eventually(func() v1.VirtualMachinePrintableStatus {
 					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus == v1.VirtualMachineStatusStopped
-				}, 180*time.Second, 2*time.Second).Should(BeTrue())
+					return vm.Status.PrintableStatus
+				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 			})
 		})
 
