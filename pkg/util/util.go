@@ -188,7 +188,7 @@ func GetCSVfromPod(pod *corev1.Pod, c client.Reader, logger logr.Logger) (*csvv1
 	return csv, nil
 }
 
-// ToUnstructured convers an arbitrary object (which MUST obey the
+// ToUnstructured converts an arbitrary object (which MUST obey the
 // k8s object conventions) to an Unstructured
 func ToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	b, err := json.Marshal(obj)

@@ -894,8 +894,8 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 
 			r.upgradeMode = false
 			req.ComponentUpgradeInProgress = false
-			req.Logger.Info(fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
-			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "UpgradeHCO", fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
+			req.Logger.Info(fmt.Sprintf("Successfully upgraded to version %s", r.ownVersion))
+			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "UpgradeHCO", fmt.Sprintf("Successfully upgraded to version %s", r.ownVersion))
 		}
 
 		// If not in upgrade mode, then we're ready, because all the operators reported positive conditions.
