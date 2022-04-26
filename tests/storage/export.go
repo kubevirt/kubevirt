@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/pointer"
 
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -51,6 +52,7 @@ const (
 	caBundleKey = "ca-bundle"
 	caCertPath  = "/cacerts"
 	dataPath    = "/data"
+	diskImage   = "disk.img"
 
 	// annContentType is an annotation on a PVC indicating the content type. This is populated by CDI.
 	annContentType = "cdi.kubevirt.io/storage.contentType"
@@ -76,6 +78,31 @@ var _ = SIGDescribe("Export", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	addBlockVolume := func(pod *k8sv1.Pod, volumeName string) *k8sv1.Pod {
+		pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
+			Name:       volumeName,
+			DevicePath: "/dev/volume",
+		})
+		return pod
+	}
+
+	addFilesystemVolume := func(pod *k8sv1.Pod, volumeName string) *k8sv1.Pod {
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			MountPath: "/data",
+		})
+		return pod
+	}
+
+	addCertVolume := func(pod *k8sv1.Pod) *k8sv1.Pod {
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+			Name:      "cacerts",
+			ReadOnly:  true,
+			MountPath: "/cacerts",
+		})
+		return pod
+	}
+
 	createDownloadPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim, caConfigMap *k8sv1.ConfigMap) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := "download-pod"
@@ -100,21 +127,11 @@ var _ = SIGDescribe("Export", func() {
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
-			pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
-				Name:       volumeName,
-				DevicePath: "/dev/volume",
-			})
+			addBlockVolume(pod, volumeName)
 		} else {
-			pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-				Name:      volumeName,
-				MountPath: "/data",
-			})
+			addFilesystemVolume(pod, volumeName)
 		}
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-			Name:      "cacerts",
-			ReadOnly:  true,
-			MountPath: "/cacerts",
-		})
+		addCertVolume(pod)
 		return tests.RunPod(pod)
 	}
 
@@ -133,15 +150,9 @@ var _ = SIGDescribe("Export", func() {
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
-			pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
-				Name:       volumeName,
-				DevicePath: "/dev/volume",
-			})
+			addBlockVolume(pod, volumeName)
 		} else {
-			pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-				Name:      volumeName,
-				MountPath: "/data",
-			})
+			addFilesystemVolume(pod, volumeName)
 		}
 		return tests.RunPod(pod)
 	}
@@ -161,15 +172,9 @@ var _ = SIGDescribe("Export", func() {
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
-			pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
-				Name:       volumeName,
-				DevicePath: "/dev/volume",
-			})
+			addBlockVolume(pod, volumeName)
 		} else {
-			pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-				Name:      volumeName,
-				MountPath: "/data",
-			})
+			addFilesystemVolume(pod, volumeName)
 		}
 		return tests.RunPodAndExpectCompletion(pod)
 	}
@@ -183,6 +188,7 @@ var _ = SIGDescribe("Export", func() {
 	ensurePVCBound := func(pvc *k8sv1.PersistentVolumeClaim) {
 		namespace := pvc.Namespace
 		if !isWaitForFirstConsumer(*pvc.Spec.StorageClassName) {
+			By("Checking for bound claim on non-WFFC storage")
 			// Not WFFC, pvc will be bound
 			Eventually(func() k8sv1.PersistentVolumeClaimPhase {
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
@@ -191,19 +197,22 @@ var _ = SIGDescribe("Export", func() {
 			}, 15*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
 			return
 		}
+		By("Checking the PVC is pending for WFFC storage")
 		Eventually(func() k8sv1.PersistentVolumeClaimPhase {
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return pvc.Status.Phase
 		}, 15*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimPending))
 
+		By("Creating trigger pod to bind WFFC storage")
 		triggerPod := createTriggerPodForPvc(pvc)
+		By("Checking the PVC was bound")
 		Eventually(func() k8sv1.PersistentVolumeClaimPhase {
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return pvc.Status.Phase
 		}, 30*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
-		// Delete trigger pod
+		By("Deleting the trigger pod")
 		immediate := int64(0)
 		virtClient.CoreV1().Pods(triggerPod.Namespace).Delete(context.Background(), triggerPod.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: &immediate,
@@ -251,37 +260,40 @@ var _ = SIGDescribe("Export", func() {
 		return cm
 	}
 
+	md5Command := func(fileName string) []string {
+		return []string{
+			"md5sum",
+			filepath.Join(dataPath, fileName),
+		}
+	}
+
 	populateKubeVirtContent := func(sc string) (*k8sv1.PersistentVolumeClaim, string) {
 		By("Creating source volume")
 		dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
-		Eventually(func() *k8sv1.PersistentVolumeClaim {
-			pvc, _ = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			return pvc
-		}, 15*time.Second, 1*time.Second).ShouldNot(BeNil())
-		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			return err
+		}, 15*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
 		Eventually(func() cdiv1.DataVolumePhase {
-			dv, _ = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
 			return dv.Status.Phase
 		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
 
 		pod := createSourcePodChecker(pvc)
-		command := []string{
-			"md5sum",
-			filepath.Join(dataPath, "disk.img"),
-		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, diskImage)))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 
-		immediate := int64(0)
 		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: &immediate,
+			GracePeriodSeconds: pointer.Int64(0),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		return pvc, md5sum
@@ -298,18 +310,14 @@ var _ = SIGDescribe("Export", func() {
 		return pvc, md5sum
 	}
 
-	verifyKubeVirtRawContent := func(fileName, comparison string, downloadPod *k8sv1.Pod) {
-		command := []string{
-			"md5sum",
-			filepath.Join(dataPath, fileName),
-		}
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+	verifyKubeVirtRawContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, fileName)))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
-		Expect(md5sum).To(Equal(comparison))
+		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
-	verifyKubeVirtGzContent := func(fileName, comparison string, downloadPod *k8sv1.Pod) {
+	verifyKubeVirtGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
 		command := []string{
 			"/usr/bin/gzip",
 			"-d",
@@ -319,17 +327,13 @@ var _ = SIGDescribe("Export", func() {
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileName = strings.Replace(fileName, ".gz", "", 1)
-		command = []string{
-			"md5sum",
-			filepath.Join(dataPath, fileName),
-		}
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, fileName)))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
-		Expect(md5sum).To(Equal(comparison))
+		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
-	verifyArchiveGzContent := func(fileName, comparison string, downloadPod *k8sv1.Pod) {
+	verifyArchiveGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
 		command := []string{
 			"/usr/bin/tar",
 			"-xzvf",
@@ -340,19 +344,16 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
-		fileName = "disk.img"
-		command = []string{
-			"md5sum",
-			filepath.Join(dataPath, fileName),
-		}
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, diskImage)))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
-		Expect(md5sum).To(Equal(comparison))
+		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
-	DescribeTable("should make a PVC export available", func(populateFunction func(string) (*k8sv1.PersistentVolumeClaim, string),
-		verifyFunction func(string, string, *k8sv1.Pod), expectedFormat exportv1.ExportVolumeFormat, urlTemplate string) {
+	type populateFunction func(string) (*k8sv1.PersistentVolumeClaim, string)
+	type verifyFunction func(string, string, *k8sv1.Pod)
+	DescribeTable("should make a PVC export available", func(populateFunction populateFunction ,
+		verifyFunction verifyFunction, expectedFormat exportv1.ExportVolumeFormat, urlTemplate string) {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
@@ -393,7 +394,7 @@ var _ = SIGDescribe("Export", func() {
 				}
 			}
 			return condReady
-		}, 30*time.Second, 1*time.Second).Should(BeTrue())
+		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{

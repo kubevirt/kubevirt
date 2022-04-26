@@ -75,6 +75,8 @@ type VirtualMachineExportStatus struct {
 	Links *VirtualMachineExportLinks `json:"links,omitempty"`
 
 	// +optional
+	// ServiceName is the name of the service created associated with the Virtual Machine export. It will be used to
+	// create the internal URLs for downloading the images
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// +optional

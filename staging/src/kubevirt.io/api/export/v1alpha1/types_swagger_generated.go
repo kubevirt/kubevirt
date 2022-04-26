@@ -28,7 +28,7 @@ func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 		"":            "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
 		"phase":       "+optional",
 		"links":       "+optional",
-		"serviceName": "+optional",
+		"serviceName": "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
 		"conditions":  "+optional\n+listType=atomic",
 	}
 }
