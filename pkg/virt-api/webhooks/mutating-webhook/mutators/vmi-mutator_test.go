@@ -24,6 +24,8 @@ import (
 	"fmt"
 	rt "runtime"
 
+	"k8s.io/utils/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -56,8 +58,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var namespaceLimitInformer cache.SharedIndexInformer
 	var kvInformer cache.SharedIndexInformer
 	var mutator *VMIsMutator
-	var _true bool = true
-	var _false bool = false
 
 	memoryLimit := "128M"
 	cpuModelFromConfig := "Haswell"
@@ -587,7 +587,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 			},
 		}
@@ -627,13 +627,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 				Runtime: &v1.FeatureState{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 				Reset: &v1.FeatureState{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 			},
 		}
@@ -642,13 +642,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			Runtime: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			Reset: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 		}
 
@@ -666,10 +666,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 			},
 		}
@@ -678,16 +678,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			VPIndex: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 		}
 
@@ -705,14 +705,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				VPIndex: &v1.FeatureState{
-					Enabled: &_false,
+					Enabled: pointer.Bool(false),
 				},
 				// should enable SyNIC
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 				EVMCS: &v1.FeatureState{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 			},
 		}
@@ -724,19 +724,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			VPIndex: &v1.FeatureState{
-				Enabled: &_false,
+				Enabled: pointer.Bool(false),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			EVMCS: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 			VAPIC: &v1.FeatureState{
-				Enabled: &_true,
+				Enabled: pointer.Bool(true),
 			},
 		}
 
@@ -808,7 +808,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: &_true,
+					Enabled: pointer.Bool(true),
 				},
 			}, nil),
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,8 +33,6 @@ var _ = Describe("VirtualMachine", func() {
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var ctrl *gomock.Controller
 
-	running := true
-	notRunning := false
 	runStrategyAlways := v1.RunStrategyAlways
 	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
@@ -76,7 +76,7 @@ var _ = Describe("VirtualMachine", func() {
 	Context("should patch VM", func() {
 		It("with spec:running:true", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = &notRunning
+			vm.Spec.Running = pointer.Bool(false)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
@@ -87,7 +87,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("with spec:running:false", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = &running
+			vm.Spec.Running = pointer.Bool(true)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
@@ -98,7 +98,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("with spec:running:false when it's false already ", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = &notRunning
+			vm.Spec.Running = pointer.Bool(false)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
@@ -288,7 +288,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not start VM", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = &notRunning
+			vm.Spec.Running = pointer.Bool(false)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
@@ -299,7 +299,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not restart VM", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = &running
+			vm.Spec.Running = pointer.Bool(true)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Restart(vm.Name, &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
@@ -310,7 +310,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not stop VM", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = &running
+			vm.Spec.Running = pointer.Bool(true)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Stop(vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
