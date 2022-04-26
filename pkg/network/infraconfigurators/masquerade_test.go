@@ -467,13 +467,13 @@ func getVMPrimaryInterfacePortList(vmi v1.VirtualMachineInstance) []int {
 }
 
 func mockNetfilterIPTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
-	handler.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("nft not found"))
+	handler.EXPECT().NftablesCreateBaseChains(proto).Return(fmt.Errorf("nft not found"))
 	handler.EXPECT().HasNatIptables(proto).Return(true)
 	mockIPTablesBackend(handler, proto, nftIPString, vmIP, gwIP, portList, isMigrationOverSockets)
 }
 
 func mockNetfilterNFTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
-	handler.EXPECT().NftablesLoad(proto).Return(nil)
+	handler.EXPECT().NftablesCreateBaseChains(proto).Return(nil)
 	handler.EXPECT().HasNatIptables(proto).Return(true).Times(0)
 	handler.EXPECT().HasNatIptables(proto).Return(false).Times(0)
 	mockNFTablesFrontend(handler, proto, nftIPString, vmIP, gwIP, portList, vmiAnnotations, isMigrationOverSockets)

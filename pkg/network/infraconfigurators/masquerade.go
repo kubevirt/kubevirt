@@ -222,10 +222,13 @@ func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Prot
 		return err
 	}
 
-	if b.handler.NftablesLoad(protocol) == nil {
+	if err = b.handler.NftablesCreateBaseChains(protocol); err == nil {
 		return b.createNatRulesUsingNftables(protocol)
-	} else if b.handler.HasNatIptables(protocol) {
-		return b.createNatRulesUsingIptables(protocol)
+	} else {
+		log.Log.V(5).Reason(err).Infof("failed to create nftables base chains")
+		if b.handler.HasNatIptables(protocol) {
+			return b.createNatRulesUsingIptables(protocol)
+		}
 	}
 	return fmt.Errorf("Couldn't configure ip nat rules")
 }

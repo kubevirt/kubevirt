@@ -77,9 +77,10 @@ type NetworkHandler interface {
 	ConfigureIpv4ArpIgnore() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
-	NftablesNewChain(proto iptables.Protocol, table, chain string) error
+	NftablesNewTable(proto iptables.Protocol, table string) error
+	NftablesCreateBaseChains(proto iptables.Protocol) error
+	NftablesNewChain(proto iptables.Protocol, table, chain string, chainspec ...string) error
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
-	NftablesLoad(proto iptables.Protocol) error
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
@@ -227,13 +228,43 @@ func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table,
 	return iptablesObject.Append(table, chain, rulespec...)
 }
 
-func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
-	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(proto), table, chain).CombinedOutput()
+func (h *NetworkUtilsHandler) NftablesNewTable(proto iptables.Protocol, table string) error {
+	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ip6" or "ip" strings
+	output, err := exec.Command("nft", "add", "table", h.GetNFTIPString(proto), table).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
 
+	return nil
+}
+
+func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string, chainspec ...string) error {
+	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ip6" or "ip" strings
+	cmd := append([]string{"add", "chain", h.GetNFTIPString(proto), table, chain}, chainspec...)
+	output, err := exec.Command("nft", cmd...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", string(output))
+	}
+
+	return nil
+}
+
+func (h *NetworkUtilsHandler) NftablesCreateBaseChains(proto iptables.Protocol) error {
+	if err := h.NftablesNewTable(proto, "nat"); err != nil {
+		return err
+	}
+	if err := h.NftablesNewChain(proto, "nat", "prerouting", "{ type nat hook prerouting priority -100; }"); err != nil {
+		return err
+	}
+	if err := h.NftablesNewChain(proto, "nat", "input", "{ type nat hook input priority 100; }"); err != nil {
+		return err
+	}
+	if err := h.NftablesNewChain(proto, "nat", "output", "{ type nat hook output priority -100; }"); err != nil {
+		return err
+	}
+	if err := h.NftablesNewChain(proto, "nat", "postrouting", "{ type nat hook postrouting priority 100; }"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -253,31 +284,6 @@ func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
 		return "ip6"
 	}
 	return "ip"
-}
-
-func (h *NetworkUtilsHandler) NftablesLoad(proto iptables.Protocol) error {
-	ipVersion := "4"
-	if proto == iptables.ProtocolIPv6 {
-		ipVersion = "6"
-	}
-	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
-	output, err := composeNftablesLoad(proto).CombinedOutput()
-	if err != nil {
-		log.Log.V(5).Reason(err).Infof("failed to load nftable %s", fnName)
-		return fmt.Errorf("failed to load nftable %s error %s", fnName, string(output))
-	}
-
-	return nil
-}
-
-func composeNftablesLoad(proto iptables.Protocol) *exec.Cmd {
-	ipVersion := "4"
-	if proto == iptables.ProtocolIPv6 {
-		ipVersion = "6"
-	}
-	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
-	// #nosec g204 no risk to use Sprintf as  argument as it uses two static strings (fname limited to ipv4-nat or ipv6-nat)
-	return exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName))
 }
 
 func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
