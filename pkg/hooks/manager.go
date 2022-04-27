@@ -195,7 +195,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 
 	vmiJSON, err := json.Marshal(vmi)
 	if err != nil {
-		return "", fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
+		return "", fmt.Errorf("failed to marshal VMI spec: %v, err: %v", vmi, err)
 	}
 
 	for _, callback := range callbacks {
@@ -211,7 +211,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML, vmiJSON []byte) ([]byte, error) {
 	conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 	if err != nil {
-		log.Log.Reason(err).Infof(dialSockErr, callback.SocketPath)
+		log.Log.Reason(err).Errorf(dialSockErr, callback.SocketPath)
 		return nil, err
 	}
 	defer conn.Close()
@@ -227,6 +227,7 @@ func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML
 			Vmi:       vmiJSON,
 		})
 		if err != nil {
+			log.Log.Reason(err).Error("Failed to call OnDefineDomain")
 			return nil, err
 		}
 		domainSpecXML = result.GetDomainXML()
@@ -237,6 +238,7 @@ func (m *Manager) onDefineDomainCallback(callback *callBackClient, domainSpecXML
 			Vmi:       vmiJSON,
 		})
 		if err != nil {
+			log.Log.Reason(err).Error("Failed to call OnDefineDomain")
 			return nil, err
 		}
 		domainSpecXML = result.GetDomainXML()
