@@ -58,9 +58,9 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, &out)
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, &out)).
+				To(Succeed())
 
-			Expect(err).To(BeNil())
 			Expect(out.Name).To(Equal("testName"))
 			Expect(out.UUID).To(Equal("testUUID"))
 		})
@@ -75,9 +75,9 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, &out)
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, &out)).
+				To(Succeed())
 
-			Expect(err).To(BeNil())
 			// very very basic sanity check
 			Expect(out.Cpu).To(Not(BeNil()))
 			Expect(out.Memory).To(Not(BeNil()))
@@ -97,21 +97,18 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &inJobInfo, &out)
-
-			Expect(err).To(BeNil())
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &inJobInfo, &out)).
+				To(Succeed())
 
 			loaded := new(bytes.Buffer)
 			enc := json.NewEncoder(loaded)
-			err = enc.Encode(out)
-			Expect(err).To(BeNil())
+			Expect(enc.Encode(out)).To(Succeed())
 
 			equal, err := JSONEqual(loaded, strings.NewReader(util.Testdataexpected))
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			if !equal {
 				enc := json.NewEncoder(os.Stderr)
-				err = enc.Encode(out)
-				Expect(err).To(BeNil())
+				Expect(enc.Encode(out)).To(Succeed())
 			}
 			Expect(equal).To(BeTrue())
 		})

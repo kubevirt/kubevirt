@@ -36,12 +36,12 @@ var _ = Describe("EFI environment detection", func() {
 
 	createEFIRoms := func(efiRoms ...string) string {
 		ovmfPath, err := os.MkdirTemp("", "kubevirt-ovmf")
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		for i := range efiRoms {
 			if efiRoms[i] != "" {
 				f, err := os.Create(path.Join(ovmfPath, efiRoms[i]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				f.Close()
 			}
 		}

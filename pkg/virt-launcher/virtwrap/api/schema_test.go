@@ -412,11 +412,10 @@ var _ = ginkgo.Describe("Schema", func() {
 		ginkgo.It("Generate expected libvirt xml", func() {
 			domain := NewMinimalDomainSpec("mynamespace_testvmi")
 			buf, err := xml.Marshal(domain)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			newDomain := DomainSpec{}
-			err = xml.Unmarshal(buf, &newDomain)
-			Expect(err).To(BeNil())
+			Expect(xml.Unmarshal(buf, &newDomain)).To(Succeed())
 
 			domain.XMLName.Local = "domain"
 			Expect(newDomain).To(Equal(*domain))
@@ -425,10 +424,9 @@ var _ = ginkgo.Describe("Schema", func() {
 	unmarshalTest := func(arch, domainStr string, domain *Domain) {
 		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
 		newDomain := DomainSpec{}
-		err := xml.Unmarshal([]byte(domainStr), &newDomain)
+		Expect(xml.Unmarshal([]byte(domainStr), &newDomain)).To(Succeed())
 		newDomain.XMLName.Local = ""
 		newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-		Expect(err).To(BeNil())
 
 		Expect(newDomain).To(Equal(domain.Spec))
 	}
@@ -436,7 +434,7 @@ var _ = ginkgo.Describe("Schema", func() {
 	marshalTest := func(arch, domainStr string, domain *Domain) {
 		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
 		buf, err := xml.MarshalIndent(domain.Spec, "", "  ")
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(string(buf)).To(Equal(domainStr))
 	}
 	ginkgo.Context("With example schema", func() {
@@ -563,8 +561,7 @@ var _ = ginkgo.Describe("Schema", func() {
 
 		ginkgo.It("Unmarshal into struct", func() {
 			newCpuTune := CPUTune{}
-			err := xml.Unmarshal([]byte(testXML), &newCpuTune)
-			Expect(err).To(BeNil())
+			Expect(xml.Unmarshal([]byte(testXML), &newCpuTune)).To(Succeed())
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
 		})
 	})

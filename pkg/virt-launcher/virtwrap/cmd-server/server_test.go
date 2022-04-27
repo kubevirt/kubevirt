@@ -86,44 +86,38 @@ var _ = Describe("Virt remote commands", func() {
 			domain := api.NewMinimalDomain("testvmi")
 			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, &cmdv1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
 
-			err := client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 
 		It("should kill a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().KillVMI(vmi)
 
-			err := client.KillVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.KillVirtualMachine(vmi)).To(Succeed())
 		})
 
 		It("should shutdown a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().SignalShutdownVMI(vmi)
-			err := client.ShutdownVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.ShutdownVirtualMachine(vmi)).To(Succeed())
 		})
 
 		It("should freeze a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().FreezeVMI(vmi, int32(0))
-			err := client.FreezeVirtualMachine(vmi, int32(0))
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.FreezeVirtualMachine(vmi, int32(0))).To(Succeed())
 		})
 
 		It("should unfreeze a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().UnfreezeVMI(vmi)
-			err := client.UnfreezeVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.UnfreezeVirtualMachine(vmi)).To(Succeed())
 		})
 
 		It("should soft reboot a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().SoftRebootVMI(vmi)
-			err := client.SoftRebootVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.SoftRebootVirtualMachine(vmi)).To(Succeed())
 		})
 
 		It("should call memory dump", func() {
@@ -137,15 +131,13 @@ var _ = Describe("Virt remote commands", func() {
 		It("should pause a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().PauseVMI(vmi)
-			err := client.PauseVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.PauseVirtualMachine(vmi)).To(Succeed())
 		})
 
 		It("should unpause a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().UnpauseVMI(vmi)
-			err := client.UnpauseVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.UnpauseVirtualMachine(vmi)).To(Succeed())
 		})
 
 		It("should list domains when no guest agent info exists", func() {
@@ -201,8 +193,7 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("client should return disconnected after server stops", func() {
-			err := client.Ping()
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.Ping()).To(Succeed())
 
 			close(stop)
 			stopped = true
@@ -210,7 +201,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			client.Close()
 
-			err = client.Ping()
+			err := client.Ping()
 			Expect(err).To(HaveOccurred())
 			Expect(cmdclient.IsDisconnected(err)).To(BeTrue())
 
@@ -341,19 +332,19 @@ var _ = Describe("Virt remote commands", func() {
 			It("does not return exit code errors", func() {
 				expectExec().Times(1).Return("", agent.ExecExitCode{ExitCode: 1})
 				_, err := server.Exec(context.TODO(), execRequest())
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 			It("returns non-zero exit code and stdOut if possible", func() {
 				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
 				resp, err := server.Exec(context.TODO(), execRequest())
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.ExitCode).To(BeEquivalentTo(1))
 				Expect(resp.StdOut).To(Equal(testStdOut))
 			})
 			It("returns zero exit code and stdOut if possible", func() {
 				expectExec().Times(1).Return(testStdOut, nil)
 				resp, err := server.Exec(context.TODO(), execRequest())
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.ExitCode).To(BeEquivalentTo(0))
 				Expect(resp.StdOut).To(Equal(testStdOut))
 			})
@@ -364,7 +355,7 @@ var _ = Describe("Virt remote commands", func() {
 				// then success should not be true.
 				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
 				resp, err := server.Exec(context.TODO(), execRequest())
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
 			It("should call guest ping", func() {
@@ -381,7 +372,7 @@ var _ = Describe("Virt remote commands", func() {
 			It("returns zero exit code", func() {
 				expectGuestPing().Times(1).Return(nil)
 				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
 		})

@@ -216,8 +216,7 @@ var _ = Describe("Converter", func() {
   <blockio logical_block_size="1234" physical_block_size="1234"></blockio>
 </Disk>`
 			libvirtDisk := &api.Disk{}
-			err := Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)).To(Succeed())
 			data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
 			xml := string(data)
@@ -1921,20 +1920,17 @@ var _ = Describe("Converter", func() {
 		DescribeTable("Validate that QEMU SeaBios debug logs are ",
 			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
 
-				var err error
 				if toDefineVerbosityEnvVariable {
-					err = os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))
-					Expect(err).To(BeNil())
+					Expect(os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))).
+						To(Succeed())
 					defer func() {
-						err = os.Unsetenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
-						Expect(err).To(BeNil())
+						Expect(os.Unsetenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)).To(Succeed())
 					}()
 				}
 
 				domain := api.Domain{}
 
-				err = Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)
-				Expect(err).To(BeNil())
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)).To(Succeed())
 
 				if domain.Spec.QEMUCmd == nil || (domain.Spec.QEMUCmd.QEMUArg == nil) {
 					return
@@ -2007,8 +2003,7 @@ var _ = Describe("Converter", func() {
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
-			err := configPortForward(&qemuArg, iface)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(configPortForward(&qemuArg, iface)).To(Succeed())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80", iface.Name)))
 		})
 		It("should not fail for duplicate port with different protocol configuration", func() {
@@ -2016,8 +2011,7 @@ var _ = Describe("Converter", func() {
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
-			err := configPortForward(&qemuArg, iface)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(configPortForward(&qemuArg, iface)).To(Succeed())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80,hostfwd=udp::80-:80", iface.Name)))
 		})
 		It("Should create network configuration for slirp device", func() {
@@ -2698,8 +2692,8 @@ var _ = Describe("Converter", func() {
 			}
 			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
-			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
-			Expect(err).ToNot(HaveOccurred())
+			Expect(Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).
+				To(Succeed())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
@@ -2771,8 +2765,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "5,6,7"},
 				{IOThread: 2, CPUSet: "8,9,10"},
@@ -2804,8 +2797,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "6"},
 				{IOThread: 2, CPUSet: "5"},
@@ -3299,14 +3291,12 @@ var _ = Describe("direct IO checker", func() {
 		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
 		Expect(err).ToNot(HaveOccurred())
 		existingFile = filepath.Join(tmpDir, "disk.img")
-		err = ioutil.WriteFile(existingFile, []byte("test"), 0644)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(ioutil.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
 		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
 	})
 
 	AfterEach(func() {
-		err = os.RemoveAll(tmpDir)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	It("should not fail when file/device exists", func() {
@@ -3426,10 +3416,9 @@ func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.Domai
 
 func xmlToDomainSpec(data string) *api.DomainSpec {
 	newDomain := &api.DomainSpec{}
-	err := xml.Unmarshal([]byte(data), newDomain)
+	ExpectWithOffset(1, xml.Unmarshal([]byte(data), newDomain)).To(Succeed())
 	newDomain.XMLName.Local = ""
 	newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-	Expect(err).To(BeNil())
 	return newDomain
 }
 
