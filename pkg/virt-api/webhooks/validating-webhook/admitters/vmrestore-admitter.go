@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -76,6 +77,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	}
 
 	var causes []metav1.StatusCause
+	var targetVMExists bool
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
@@ -95,7 +97,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes, targetUID, err = admitter.validateCreateVM(targetField, ar.Request.Namespace, vmRestore.Spec.Target.Name)
+					causes, targetUID, targetVMExists, err = admitter.validateCreateVM(k8sfield.NewPath("spec"), vmRestore)
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
@@ -124,6 +126,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			ar.Request.Namespace,
 			vmRestore.Spec.VirtualMachineSnapshotName,
 			targetUID,
+			targetVMExists,
 		)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
@@ -179,51 +182,85 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, *types.UID, error) {
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, uid *types.UID, targetVMExists bool, err error) {
+	vmName := vmRestore.Spec.Target.Name
+	namespace := vmRestore.Namespace
+
+	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
+
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q does not exist", name),
-				Field:   field.String(),
-			},
-		}, nil, nil
+		// If the target VM does not exist it would be automatically created by the restore controller
+		return nil, nil, false, nil
 	}
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
-
-	var causes []metav1.StatusCause
 
 	rs, err := vm.RunStrategy()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, true, err
 	}
 
 	if rs != v1.RunStrategyHalted {
 		var cause metav1.StatusCause
+		targetField := field.Child("target")
 		if vm.Spec.Running != nil && *vm.Spec.Running {
 			cause = metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q is not stopped", name),
-				Field:   field.String(),
+				Message: fmt.Sprintf("VirtualMachine %q is not stopped", vmName),
+				Field:   targetField.String(),
 			}
 		} else {
 			cause = metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", name, v1.RunStrategyHalted),
-				Field:   field.String(),
+				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted),
+				Field:   targetField.String(),
 			}
 		}
 		causes = append(causes, cause)
 	}
 
-	return causes, &vm.UID, nil
+	return causes, &vm.UID, true, nil
 }
 
-func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string, targetUID *types.UID) ([]metav1.StatusCause, error) {
+func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sfield.Path) (causes []metav1.StatusCause) {
+	// Validate patches are on elements under "/spec/" path only
+	for _, patch := range patches {
+		for _, patchKeyValue := range strings.Split(strings.Trim(patch, "{}"), ",") {
+			// For example, if the original patch is {"op": "replace", "path": "/metadata/name", "value": "someValue"}
+			// now we're iterating on [`"op": "replace"`, `"path": "/metadata/name"`, `"value": "someValue"`]
+			keyValSlice := strings.Split(patchKeyValue, ":")
+			if len(keyValSlice) != 2 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf(`patch format is not valid - one ":" expected in a single key-value json patch: %s`, patchKeyValue),
+					Field:   field.String(),
+				})
+				continue
+			}
+
+			key := strings.TrimSpace(keyValSlice[0])
+			value := strings.TrimSpace(keyValSlice[1])
+
+			if key == `"path"` {
+				if !strings.HasPrefix(value, `"/spec/`) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("patching is valid only for elements under /spec/ only: %s", patchKeyValue),
+						Field:   field.String(),
+					})
+				}
+				break
+			}
+		}
+	}
+
+	return causes
+}
+
+func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string, targetUID *types.UID, targetVMExists bool) ([]metav1.StatusCause, error) {
 	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
@@ -259,10 +296,11 @@ func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namesp
 		causes = append(causes, cause)
 	}
 
-	if targetUID != nil && snapshot.Status != nil && snapshot.Status.SourceUID != nil && *targetUID != *snapshot.Status.SourceUID {
+	sourceTargetVmsAreDifferent := targetUID != nil && snapshot.Status != nil && snapshot.Status.SourceUID != nil && *targetUID != *snapshot.Status.SourceUID
+	if sourceTargetVmsAreDifferent && targetVMExists {
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("VirtualMachineSnapshot source UID is %q but target UID is %q", *snapshot.Status.SourceUID, *targetUID),
+			Message: fmt.Sprintf("when shapsnot source and restore target VMs are different - target VM must not exist"),
 			Field:   field.String(),
 		}
 		causes = append(causes, cause)
