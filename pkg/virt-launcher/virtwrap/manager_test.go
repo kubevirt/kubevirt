@@ -1862,8 +1862,7 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 			doms, err := manager.ListAllDomains()
 			Expect(err).NotTo(HaveOccurred())
-
-			Expect(len(doms)).To(Equal(1))
+			Expect(doms).To(HaveLen(1))
 
 			domain := doms[0]
 			domain.Spec.XMLName = xml.Name{}
@@ -1895,7 +1894,7 @@ var _ = Describe("Manager", func() {
 			domStats, err := manager.GetDomainStats()
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(domStats)).To(Equal(1))
+			Expect(domStats).To(HaveLen(1))
 		})
 	})
 

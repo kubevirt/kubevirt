@@ -71,7 +71,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
 			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).To(Succeed())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails to register a callback", func() {
@@ -81,7 +81,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
 			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).ToNot(Succeed())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails to detach device", func() {
@@ -91,7 +91,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c.sendEvent("foo")
 			d := deviceDetacherStub{fail: true}
 			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 0)).ToNot(Succeed())
-			Expect(len(c.EventChannel())).To(Equal(1))
+			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
 		It("fails on timeout due to no detach event", func() {
@@ -109,7 +109,7 @@ var _ = Describe("Hot(un)Plug HostDevice", func() {
 			c.sendEvent("unknown-device")
 			d := deviceDetacherStub{}
 			Expect(hostdevice.SafelyDetachHostDevices(domainSpec.Devices.HostDevices, c, d, 10*time.Millisecond)).ToNot(Succeed())
-			Expect(len(c.EventChannel())).To(Equal(0))
+			Expect(c.EventChannel()).To(BeEmpty())
 		})
 
 		// Failure to deregister the callback only emits a logging error.

@@ -238,7 +238,7 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		secretDirs := getSecretDirs(vmi)
-		Expect(len(secretDirs)).To(Equal(1))
+		Expect(secretDirs).To(HaveLen(1))
 		Expect(secretDirs[0]).To(Equal(fmt.Sprintf("%s/%s-access-cred", tmpDir, secretID)))
 
 		for _, dir := range secretDirs {

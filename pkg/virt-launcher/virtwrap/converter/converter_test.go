@@ -1740,7 +1740,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Sound = nil
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(0))
+			Expect(domain.Spec.Devices.SoundCards).To(BeEmpty())
 		})
 
 		It("should enable default sound card with existing but empty sound devices", func() {
@@ -1750,7 +1750,7 @@ var _ = Describe("Converter", func() {
 				Name: name,
 			}
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
+			Expect(domain.Spec.Devices.SoundCards).To(HaveLen(1))
 			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
 				Alias: api.NewUserDefinedAlias(name),
 				Model: "ich9",
@@ -1765,7 +1765,7 @@ var _ = Describe("Converter", func() {
 				Model: "ac97",
 			}
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
+			Expect(domain.Spec.Devices.SoundCards).To(HaveLen(1))
 			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
 				Alias: api.NewUserDefinedAlias(name),
 				Model: "ac97",
@@ -1776,7 +1776,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.Redirs)).To(Equal(4))
+			Expect(domain.Spec.Devices.Redirs).To(HaveLen(4))
 			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "usb",
 				Index: "0",
@@ -2026,7 +2026,7 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
-			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
+			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
 		})
 		It("Should create two network configuration for slirp device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -2048,7 +2048,7 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
-			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
+			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(4))
 		})
 		It("Should create two network configuration one for slirp device and one for bridge device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -2070,8 +2070,8 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
-			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(2))
+			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio-non-transitional"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
@@ -3092,7 +3092,7 @@ var _ = Describe("Converter", func() {
 
 		It("should automatically add virtio-scsi controller", func() {
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(3))
+			Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
 			foundScsiController := false
 			for _, controller := range domain.Spec.Devices.Controllers {
 				if controller.Type == "scsi" {
@@ -3107,7 +3107,7 @@ var _ = Describe("Converter", func() {
 		It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
 			vmi.Spec.Domain.Devices.DisableHotplug = true
 			domain := vmiToDomain(vmi, c)
-			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
+			Expect(domain.Spec.Devices.Controllers).To(HaveLen(2))
 		})
 
 		DescribeTable("should convert",

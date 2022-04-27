@@ -82,9 +82,9 @@ var _ = Describe("StatsConverter", func() {
 			Expect(out.Cpu).To(Not(BeNil()))
 			Expect(out.Memory).To(Not(BeNil()))
 			Expect(out.MigrateDomainJobInfo).To(Not(BeNil()))
-			Expect(len(out.Vcpu)).To(Equal(len(testStats[0].Vcpu)))
-			Expect(len(out.Net)).To(Equal(len(testStats[0].Net)))
-			Expect(len(out.Block)).To(Equal(len(testStats[0].Block)))
+			Expect(out.Vcpu).To(HaveLen(len(testStats[0].Vcpu)))
+			Expect(out.Net).To(HaveLen(len(testStats[0].Net)))
+			Expect(out.Block).To(HaveLen(len(testStats[0].Block)))
 		})
 
 		It("should convert valid input", func() {
