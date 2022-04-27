@@ -7,9 +7,9 @@ Conditions are..
 
 Kubernetes conditions [documentation](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status).
 
-The HCO’s CR is a representation of the all the underlying component operators'
+The HCO's CR is a representation of the all the underlying component operators'
 state.  In theory, if the HCO's CR exists, then all component CRs _should_
-exist, and all applications _should_ exist.  If the object doesn’t exist, then
+exist, and all applications _should_ exist.  If the object doesn't exist, then
 all component CRs _should not_ exist, and all applications _should not_ exist.
 However, the CR existence can only can tell us if the application should exist and
 doesn't help us observe the application's health. This is where the HCO and
@@ -19,7 +19,7 @@ watched by the HCO and the HCO will store conditions that reflect the
 [worst state](https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/docs/conditions.md#hco-conditions) of all component operator conditions.
 
 ## Outlook Model
-There's a long running [discussion](https://github.com/kubernetes/kubernetes/issues/7856) in the Kubernetes
+There's a long-running [discussion](https://github.com/kubernetes/kubernetes/issues/7856) in the Kubernetes
 community about the use of Phases, Conditions, and using controllers as
 state machines that hasn't been resolved.  This design document follows the
 "outlook" approach described in this [comment](https://github.com/kubernetes/kubernetes/issues/7856#issuecomment-99667941), which
@@ -116,7 +116,7 @@ degraded.
 
 ## Readiness Probe
 With a standardized set of conditions, the HCO should report the health of the
-overall application back to OLM and the user.  This will be critial for sensitive
+overall application back to OLM and the user.  This will be critical for sensitive
 operations like upgrade, because OLM needs to know it shouldn't replace an
 operator when it is in the middle of important work.
 

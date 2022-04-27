@@ -62,13 +62,13 @@ for consolidating status in the `Reconcile()` functions is as follows:
       expect.
    1. If we find the resource and `found.Status.Conditions != nil`, then we
       iterate over the conditions.
-      1. If !Available then set the in-memory representation !Avaible with
+      1. If !Available then set the in-memory representation !Available with
          reason `"${component}NotAvailable"` and add the components condition
          message to ours, `"${component} is not available: "`.
       1. If Progressing then set the in-memory representation Progressing with
          reason `"${component}Progressing"` and add the components condition
          message to ours, `"${component} is progressing: "`. __Also__ set the
-         in-memory represenation !Upgradeable with the same reason and message.
+         in-memory representation !Upgradeable with the same reason and message.
       1. If Degraded then set the in-memory representation Degraded with
          reason `"${component}Degraded"` and add the components condition
          message to ours, `"${component} is degraded: "`.

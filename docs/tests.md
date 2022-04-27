@@ -30,7 +30,7 @@ However, it is recommended to use the `ginkgo` tool itself get better output and
 to set the `KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION` environment variable. The `./hack/ginkgo.sh` script is a 
 ginkgo wrapper that adds this environment variable and pass all the command line parameters to the `ginkgo` tool.
 
-Full documentation of using the `ginkgo` tool may be found in the [ginkgo web site](https://onsi.github.io/ginkgo/#the-ginkgo-cli), But 
+Full documentation of using the `ginkgo` tool may be found in the [ginkgo website](https://onsi.github.io/ginkgo/#the-ginkgo-cli), But 
 here are some useful ways to run the unit tests:
 
 Running all the unit tests:
@@ -57,7 +57,7 @@ The `make sanity` command performs the following:
 * check for changes - if one of the above caused a change in the local git repository, the script will fail. In this
   case review the changes and if needed, commit them and run again the `make sanity` command.
 
-When pushing a PR, the above sanity check is running, and must pass in order to merge the PR. The PR sanity is a github
+When pushing a PR, the above sanity check is running, and must pass in order to merge the PR. The PR sanity is a GitHub
 action that defined [here](../.github/workflows/pr-sanity.yaml). In addition to the
 `make sanity` the PR sanity action also runs the following:
 * the `golangci-lint` linter
@@ -75,11 +75,11 @@ The functional tests source code are in the [../tests/func-tests](../tests/func-
 [ginkgo testing framework](https://onsi.github.io/ginkgo/), and built as a runnable.
 
 The functional tests contains the following tests:
-#### [test_id:5674]should get the created priority class for critical workloads
+#### [test_id:5674] should get the created priority class for critical workloads
 #### [test_id:5677] all expected 'workloads' pod must be on infra node
 #### [test_id:5678] all expected 'infra' pod must be on infra node
 #### [test_id:5679] should create, verify and delete VMIs with correct node placements
-#### [test_id:5883]should create ConsoleQuickStart objects"
+#### [test_id:5883] should create ConsoleQuickStart objects
 #### [test_id:5696] should create, verify and delete VMIs
 
 ### Running the Functional Tests Using a Docker Container
@@ -119,6 +119,6 @@ There are three type of tests:
 The `pull-hyperconverged-cluster-operator-e2e-k8s-1.19` is running again after merging the PR to the required branch
 
 ### Periodic Tests
-This test run every night. It builds and deploy the latest version from the main branch, together with the KubeVirt
+This test runs every night. It builds and deploys the latest version from the main branch, together with the KubeVirt
 latest version from kubevirt. The result of the nightly test is
 [here](https://prow.ci.kubevirt.io/?repo=kubevirt%2Fhyperconverged-cluster-operator&type=periodic).  

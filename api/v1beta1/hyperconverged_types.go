@@ -34,12 +34,12 @@ type HyperConvergedSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// LocalStorageClassName the name of the local storage class.
+	// Deprecated: LocalStorageClassName the name of the local storage class.
 	LocalStorageClassName string `json:"localStorageClassName,omitempty"`
 
 	// infra HyperConvergedConfig influences the pod configuration (currently only placement)
 	// for all the infra components needed on the virtualization enabled cluster
-	// but not necessarely directly on each node running VMs/VMIs.
+	// but not necessarily directly on each node running VMs/VMIs.
 	// +optional
 	Infra HyperConvergedConfig `json:"infra,omitempty"`
 
@@ -121,7 +121,7 @@ type HyperConvergedSpec struct {
 	// UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist.
 	// BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist.
 	// BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised.
-	// RemoveWorkloads will cause all the workloads to be cascading deleted on uninstall.
+	// RemoveWorkloads will cause all the workloads to be cascading deleted on uninstallation.
 	// WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted.
 	// Please correctly consider the implications of this option before setting it.
 	// BlockUninstallIfWorkloadsExist is the default behaviour.
@@ -314,7 +314,7 @@ type MediatedHostDevice struct {
 	Disabled bool `json:"disabled,omitempty"`
 }
 
-// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 // +k8s:openapi-gen=true
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
@@ -324,7 +324,7 @@ type MediatedDevicesConfiguration struct {
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
 }
 
-// NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+// NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.
 // +k8s:openapi-gen=true
 type NodeMediatedDeviceTypesConfig struct {
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
@@ -390,7 +390,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	WorkloadUpdateMethods []string `json:"workloadUpdateMethods,omitempty"`
 
 	// BatchEvictionSize Represents the number of VMIs that can be forced updated per
-	// the BatchShutdownInteral interval
+	// the BatchShutdownInterval interval
 	//
 	// +kubebuilder:default=10
 	// +optional
@@ -485,7 +485,7 @@ const (
 
 	// ConditionUpgradeable indicates whether the resources maintained by the operator are in a state that is safe to upgrade.
 	// When `False`, the resources maintained by the operator should not be upgraded and the
-	// message field should contain a human readable description of what the administrator should do to
+	// message field should contain a human-readable description of what the administrator should do to
 	// allow the operator to successfully update the resources maintained by the operator.
 	ConditionUpgradeable = "Upgradeable"
 

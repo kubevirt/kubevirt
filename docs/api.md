@@ -147,8 +147,8 @@ HyperConvergedSpec defines the desired state of HyperConverged
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| localStorageClassName | LocalStorageClassName the name of the local storage class. | string |  | false |
-| infra | infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
+| localStorageClassName | Deprecated: LocalStorageClassName the name of the local storage class. | string |  | false |
+| infra | infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarily directly on each node running VMs/VMIs. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
 | workloads | workloads HyperConvergedConfig influences the pod configuration (currently only placement) of components which need to be running on a node where virtualization workloads should be able to run. Changes to Workloads HyperConvergedConfig can be applied only without existing workload. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
 | featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) | {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": true, "deployTektonTaskResources": false} | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) | {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150} | false |
@@ -164,7 +164,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | workloadUpdateStrategy | WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates | *[HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy) | {"workloadUpdateMethods": {"LiveMigrate"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"} | false |
 | dataImportCronTemplates | DataImportCronTemplates holds list of data import cron templates (golden images) | []sspv1beta1.DataImportCronTemplate |  | false |
 | filesystemOverhead | FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5 percent overhead) | *cdiv1beta1.FilesystemOverhead |  | false |
-| uninstallStrategy | UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstall. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour. | *HyperConvergedUninstallStrategy | BlockUninstallIfWorkloadsExist | false |
+| uninstallStrategy | UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstallation. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour. | *HyperConvergedUninstallStrategy | BlockUninstallIfWorkloadsExist | false |
 | logVerbosityConfig | LogVerbosityConfig configures the verbosity level of Kubevirt's different components. The higher the value - the higher the log verbosity. | *[LogVerbosityConfiguration](#logverbosityconfiguration) |  | false |
 | tlsSecurityProfile | TLSSecurityProfile specifies the settings for TLS connections to be propagated to all kubevirt-hyperconverged components. If unset, the hyperconverged cluster operator will consume the value set on the APIServer CR on OCP/OKD or Intermediate if on vanilla k8s. Note that only Old, Intermediate and Custom profiles are currently supported, and the maximum available MinTLSVersions is VersionTLS12. | *openshiftconfigv1.TLSSecurityProfile |  | false |
 | tektonPipelinesNamespace | TektonPipelinesNamespace defines namespace in which example pipelines will be deployed. | *string |  | false |
@@ -193,7 +193,7 @@ HyperConvergedWorkloadUpdateStrategy defines options related to updating a KubeV
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | workloadUpdateMethods | WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating. LiveMigrate is ignored on SNO clusters. | []string | {"LiveMigrate"} | false |
-| batchEvictionSize | BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval | *int | 10 | false |
+| batchEvictionSize | BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInterval interval | *int | 10 | false |
 | batchEvictionInterval | BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns | *metav1.Duration | "1m0s" | false |
 
 [Back to TOC](#table-of-contents)
@@ -225,7 +225,7 @@ LogVerbosityConfiguration configures log verbosity for different components
 
 ## MediatedDevicesConfiguration
 
-MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
@@ -249,7 +249,7 @@ MediatedHostDevice represents a host mediated device allowed for passthrough
 
 ## NodeMediatedDeviceTypesConfig
 
-NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.
+NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |

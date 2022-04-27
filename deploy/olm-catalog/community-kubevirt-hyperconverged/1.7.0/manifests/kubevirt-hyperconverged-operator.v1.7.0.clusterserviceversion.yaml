@@ -10,7 +10,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.7.0-unstable
-    createdAt: "2022-04-21 10:58:24"
+    createdAt: "2022-04-26 23:53:40"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -114,7 +114,7 @@ spec:
       version: v1beta1
   description: |-
     **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
-    Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
+    Specifically, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
     Containerized Data Importer (CDI), Virtual Machine import operator and Cluster Network Addons (CNA) operators.
 
     **KubeVirt** is a virtual machine management add-on for Kubernetes.

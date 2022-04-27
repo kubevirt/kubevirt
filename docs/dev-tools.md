@@ -10,7 +10,7 @@ make quay-token
 ### tools/quay-registry.sh
 Setup an OperatorSource for Marketplace to pull content from.  This is useful
 when a developer wants to test content from something other than the default
-Quay Applicaiton Regisitries.
+Quay Application Registries.
 
 ```
 make bundleRegistry

@@ -362,7 +362,7 @@ spec:
 
 ## Filesystem Overhead
 
-By default when using DataVolumes with storage profiles (spec.storage is non-empty), the size of a Filesystem
+By default, when using DataVolumes with storage profiles (spec.storage is non-empty), the size of a Filesystem
 PVC chosen is bigger, ensuring 5.5% of the space isn't used. This is to account for root reserved blocks as
 well as to avoid reaching full capacity, as file systems often have degraded performance and perhaps weak
 guarantees about the amount of space that can be fully occupied.
@@ -471,7 +471,7 @@ spec:
 
 ## CPU Plugin Configurations
 You can schedule a virtual machine (VM) on a node where the CPU model and policy attribute of the VM are compatible with
-the CPU models and policy attributes that the node supports. By specifying a list of obsolete CPU models in a the 
+the CPU models and policy attributes that the node supports. By specifying a list of obsolete CPU models in the 
 HyperConverged custom resource, you can exclude them from the list of labels created for CPU models.
 
 Through the process of iteration, the list of base CPU features in the minimum CPU model are eliminated from the list of
@@ -553,7 +553,7 @@ The `workloadUpdateStrategy` fields are:
 
   The Default value is `1m`
   
-* `batchEvictionSize` - Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval
+* `batchEvictionSize` - Represents the number of VMIs that can be forced updated per the BatchShutdownInterval interval
 
   The default value is `10`
 
@@ -699,7 +699,7 @@ spec:
 ```
 
 ## Log verbosity
-Currently logging verbosity is only supported for Kubevirt.
+Currently, logging verbosity is only supported for Kubevirt.
 
 ### Kubevirt
 In order to define logging verbosity for Kubevirt, it's possible to define per-component (e.g. `virt-handler`,
@@ -731,7 +731,7 @@ can be applied.
 `UninstallStrategy` defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist:
 - `BlockUninstallIfWorkloadsExist` will prevent the CR from being removed when workloads still exist. 
 BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised.
-- `RemoveWorkloads` will cause all the workloads to be cascading deleted on uninstall.
+- `RemoveWorkloads` will cause all the workloads to be cascading deleted on uninstallation.
 **WARNING**: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted.
 Please correctly consider the implications of this option before setting it.
 
@@ -814,7 +814,7 @@ metadata:
       ]
 ```
 
-From CLI it will be:
+From CLI, it will be:
 ```bash
 $ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged \
   kubevirt.kubevirt.io/jsonpatch='[{"op": "add", \
@@ -929,7 +929,7 @@ FIELDS:
   <truncated>
 ```
 
-To inspect lower-level objects onder `spec`, they can be specified in `kubectl explain`, recursively. e.g.  
+To inspect lower-level objects under `spec`, they can be specified in `kubectl explain`, recursively. e.g.  
 ```yaml
 $ kubectl explain kv.spec.configuration.network
 KIND:     KubeVirt

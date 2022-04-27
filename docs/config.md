@@ -12,7 +12,7 @@ The component variable:
 The HCO is responsible for mapping a "top level" variable to the component
 operator's variable that express the same description.
 
-For example, KubeVirt exposes on it's CR `imageTag`.  The variable `imageTag` is
+For example, KubeVirt exposes on its CR `imageTag`.  The variable `imageTag` is
 the version of KubeVirt that will be deployed. The mapping for the HCO `Version`
 to KubeVirt is:
 ```
@@ -61,7 +61,7 @@ Removing configuration options
 Adding configuration options
  - Configuration option is available from all relevant component operators
  - Option is __on__ by default
- - Option __may__ be visable on the HCO CR if all operators use it
+ - Option __may__ be visible on the HCO CR if all operators use it
 
 Removing configuration options
  - Configuration option is __removed__ from all component operators
