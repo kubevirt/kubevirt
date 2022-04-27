@@ -242,7 +242,7 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 				var resultData *cloudinit.CloudInitData
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
-					return cloudInitData, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
+					return cloudInitData, fmt.Errorf("failed to marshal VMI spec: %v, err: %v", vmi, err)
 				}
 
 				// To be backward compatible to sidecar hooks still expecting to receive the cloudinit data as a CloudInitNoCloudSource object,
@@ -253,17 +253,17 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 				}
 				cloudInitNoCloudSourceJSON, err := json.Marshal(cloudInitNoCloudSource)
 				if err != nil {
-					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitNoCloudSource)
+					return cloudInitData, fmt.Errorf("failed to marshal CloudInitNoCloudSource: %v, err: %v", cloudInitNoCloudSource, err)
 				}
 
 				cloudInitDataJSON, err := json.Marshal(cloudInitData)
 				if err != nil {
-					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitData: %v", cloudInitData)
+					return cloudInitData, fmt.Errorf("failed to marshal CloudInitData: %v, err: %v", cloudInitData, err)
 				}
 
 				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 				if err != nil {
-					log.Log.Reason(err).Infof(dialSockErr, callback.SocketPath)
+					log.Log.Reason(err).Errorf(dialSockErr, callback.SocketPath)
 					return cloudInitData, err
 				}
 				defer conn.Close()
@@ -277,12 +277,13 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 					Vmi:                    vmiJSON,
 				})
 				if err != nil {
+					log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
 					return cloudInitData, err
 				}
 
 				err = json.Unmarshal(result.GetCloudInitData(), &resultData)
 				if err != nil {
-					log.Log.Reason(err).Infof("Failed to unmarshal CloudInitData result")
+					log.Log.Reason(err).Error("Failed to unmarshal CloudInitData result")
 					return cloudInitData, err
 				}
 				if !cloudinit.IsValidCloudInitData(resultData) {
@@ -290,7 +291,7 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 					var resultNoCloudSourceData *v1.CloudInitNoCloudSource
 					err = json.Unmarshal(result.GetCloudInitNoCloudSource(), &resultNoCloudSourceData)
 					if err != nil {
-						log.Log.Reason(err).Infof("Failed to unmarshal CloudInitNoCloudSource result")
+						log.Log.Reason(err).Error("Failed to unmarshal CloudInitNoCloudSource result")
 						return cloudInitData, err
 					}
 					resultData = &cloudinit.CloudInitData{
