@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -96,7 +97,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes, targetUID, targetVMExists, err = admitter.validateCreateVM(targetField, ar.Request.Namespace, vmRestore.Spec.Target.Name)
+					causes, targetUID, targetVMExists, err = admitter.validateCreateVM(k8sfield.NewPath("spec"), vmRestore)
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
@@ -181,8 +182,13 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) (causes []metav1.StatusCause, uid *types.UID, targetVMExists bool, err error) {
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, uid *types.UID, targetVMExists bool, err error) {
+	vmName := vmRestore.Spec.Target.Name
+	namespace := vmRestore.Namespace
+
+	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
+
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the target VM does not exist it would be automatically created by the restore controller
 		return nil, nil, false, nil
@@ -199,23 +205,59 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 
 	if rs != v1.RunStrategyHalted {
 		var cause metav1.StatusCause
+		targetField := field.Child("target")
 		if vm.Spec.Running != nil && *vm.Spec.Running {
 			cause = metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q is not stopped", name),
-				Field:   field.String(),
+				Message: fmt.Sprintf("VirtualMachine %q is not stopped", vmName),
+				Field:   targetField.String(),
 			}
 		} else {
 			cause = metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", name, v1.RunStrategyHalted),
-				Field:   field.String(),
+				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted),
+				Field:   targetField.String(),
 			}
 		}
 		causes = append(causes, cause)
 	}
 
 	return causes, &vm.UID, true, nil
+}
+
+func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sfield.Path) (causes []metav1.StatusCause) {
+	// Validate patches are on elements under "/spec/" path only
+	for _, patch := range patches {
+		for _, patchKeyValue := range strings.Split(strings.Trim(patch, "{}"), ",") {
+			// For example, if the original patch is {"op": "replace", "path": "/metadata/name", "value": "someValue"}
+			// now we're iterating on [`"op": "replace"`, `"path": "/metadata/name"`, `"value": "someValue"`]
+			keyValSlice := strings.Split(patchKeyValue, ":")
+			if len(keyValSlice) != 2 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf(`patch format is not valid - one ":" expected in a single key-value json patch: %s`, patchKeyValue),
+					Field:   field.String(),
+				})
+				continue
+			}
+
+			key := strings.TrimSpace(keyValSlice[0])
+			value := strings.TrimSpace(keyValSlice[1])
+
+			if key == `"path"` {
+				if !strings.HasPrefix(value, `"/spec/`) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("patching is valid only for elements under /spec/ only: %s", patchKeyValue),
+						Field:   field.String(),
+					})
+				}
+				break
+			}
+		}
+	}
+
+	return causes
 }
 
 func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string, targetUID *types.UID, targetVMExists bool) ([]metav1.StatusCause, error) {

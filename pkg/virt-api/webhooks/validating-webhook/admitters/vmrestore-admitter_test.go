@@ -540,6 +540,68 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Entry("should reject if target exists", true),
 			)
 
+			Context("when using Patches", func() {
+
+				var restore *snapshotv1.VirtualMachineRestore
+
+				BeforeEach(func() {
+					restore = &snapshotv1.VirtualMachineRestore{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "restore",
+							Namespace: "default",
+						},
+						Spec: snapshotv1.VirtualMachineRestoreSpec{
+							Target: corev1.TypedLocalObjectReference{
+								APIGroup: &apiGroup,
+								Kind:     "VirtualMachine",
+								Name:     vmName,
+							},
+							VirtualMachineSnapshotName: vmSnapshotName,
+						},
+					}
+				})
+
+				DescribeTable("should reject patching elements not under /spec/:", func(patch string) {
+					restore.Spec.Patches = []string{patch}
+
+					ar := createRestoreAdmissionReview(restore)
+					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+					Expect(resp.Allowed).To(BeFalse())
+					Expect(resp.Result.Details.Causes).To(HaveLen(1))
+					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
+				},
+					Entry("patch to replace metadata", `{"op": "replace", "path": "/metadata", "value": "some-value"}`),
+					Entry("patch to replace name", `{"op": "replace", "path": "/metadata/name", "value": "some-value"}`),
+					Entry("patch to replace kind", `{"op": "replace", "path": "/kind", "value": "some-value"}`),
+					Entry("patch to remove api version", `{"op": "remove", "path": "/apiVersion"`),
+					Entry("patch to replace status", `{"op": "replace", "path": "/status", "value": "some-value"}`),
+					Entry("patch to add ready status", `{"op": "add", "path": "/status/ready", "value": "some-value"}`),
+				)
+
+				DescribeTable("should allow patching elements under /spec/:", func(patch string) {
+					restore.Spec.Patches = []string{patch}
+
+					ar := createRestoreAdmissionReview(restore)
+					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+					Expect(resp.Allowed).To(BeTrue())
+				},
+					Entry("patch to replace MAC", `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "some-value"}`),
+					Entry("patch to add running", `{"op": "add", "path": "/spec/running", "value": "some-value"}`),
+					Entry("patch to remove flavor", `{"op": "remove", "path": "/spec/flavor"`),
+				)
+
+				It("should reject an invalid patch", func() {
+					const invalidPatch = `{"op": "remove", "path": "/spec/running" : "illegal-field"}`
+					restore.Spec.Patches = []string{invalidPatch}
+
+					ar := createRestoreAdmissionReview(restore)
+					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+					Expect(resp.Allowed).To(BeFalse())
+					Expect(resp.Result.Details.Causes).To(HaveLen(1))
+					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
+				})
+			})
+
 		})
 	})
 })
