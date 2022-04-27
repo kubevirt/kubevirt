@@ -150,7 +150,7 @@ var _ = Describe("LibvirtHelper", func() {
 			//delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		expectedLines := []map[string]string{}
 		scanner = bufio.NewScanner(strings.NewReader(formattedLogs))
@@ -160,7 +160,7 @@ var _ = Describe("LibvirtHelper", func() {
 			//delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		Expect(loggedLines).To(Equal(expectedLines))
 	})
@@ -187,7 +187,7 @@ var _ = Describe("LibvirtHelper", func() {
 			delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		expectedLines := []map[string]string{}
 		scanner = bufio.NewScanner(strings.NewReader(qemuFormattedLogs))
@@ -197,7 +197,7 @@ var _ = Describe("LibvirtHelper", func() {
 			delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
-		Expect(scanner.Err()).To(Not(HaveOccurred()))
+		Expect(scanner.Err()).ToNot(HaveOccurred())
 
 		Expect(loggedLines).To(Equal(expectedLines))
 	})

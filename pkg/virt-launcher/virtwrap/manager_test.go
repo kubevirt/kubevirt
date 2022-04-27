@@ -2044,9 +2044,8 @@ var _ = Describe("Manager", func() {
 		// we need the non-typecast object to make the function we want to test available
 		libvirtmanager := manager.(*LibvirtDomainManager)
 
-		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetGuestInfo()
+		_, err := libvirtmanager.GetGuestInfo()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeNil())
 	})
 
 	It("executes GetUsers", func() {
@@ -2066,7 +2065,7 @@ var _ = Describe("Manager", func() {
 
 		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetUsers()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeNil())
+		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeEmpty())
 	})
 
 	It("executes GetFilesystems", func() {
@@ -2088,7 +2087,7 @@ var _ = Describe("Manager", func() {
 
 		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetFilesystems()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeNil())
+		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeEmpty())
 	})
 
 	It("executes generateCloudInitEmptyISO and succeeds", func() {

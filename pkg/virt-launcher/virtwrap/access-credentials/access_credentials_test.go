@@ -240,7 +240,7 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(secretDirs[0]).To(Equal(fmt.Sprintf("%s/%s-access-cred", tmpDir, secretID)))
 
 		for _, dir := range secretDirs {
-			os.Mkdir(dir, 0755)
+			Expect(os.Mkdir(dir, 0755)).To(Succeed())
 			Expect(manager.watcher.Add(dir)).To(Succeed())
 		}
 
