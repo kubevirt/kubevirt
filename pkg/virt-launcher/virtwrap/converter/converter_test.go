@@ -1836,9 +1836,7 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should calculate mebibyte from a quantity", func(quantity string, mebibyte int) {
 			mi64, _ := resource.ParseQuantity(quantity)
-			q, err := vcpu.QuantityToMebiByte(mi64)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(q).To(BeNumerically("==", mebibyte))
+			Expect(vcpu.QuantityToMebiByte(mi64)).To(BeNumerically("==", mebibyte))
 		},
 			Entry("when 0M is given", "0M", 0),
 			Entry("when 0 is given", "0", 0),

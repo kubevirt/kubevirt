@@ -96,9 +96,7 @@ var _ = Describe("AccessCredentials", func() {
 		mockConn.EXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
 		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
 
-		res, err := manager.agentGuestExec(domName, command, args)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal("ssh somekey123 test-key\n"))
+		Expect(manager.agentGuestExec(domName, command, args)).To(Equal("ssh somekey123 test-key\n"))
 	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {
