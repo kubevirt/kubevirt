@@ -22,6 +22,7 @@ package converter
 import (
 	"encoding/xml"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
@@ -3310,29 +3311,24 @@ var _ = Describe("direct IO checker", func() {
 		_, err := directIOChecker.CheckFile(nonExistingFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Stat(nonExistingFile)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 	})
 
 	It("should fail when device does not exist", func() {
 		_, err := directIOChecker.CheckBlockDevice(nonExistingFile)
 		Expect(err).To(HaveOccurred())
 		_, err = os.Stat(nonExistingFile)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 	})
 
 	It("should fail when the path does not exist", func() {
 		nonExistingPath := "/non/existing/path/disk.img"
 		_, err = directIOChecker.CheckFile(nonExistingPath)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 		_, err = directIOChecker.CheckBlockDevice(nonExistingPath)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 		_, err = os.Stat(nonExistingPath)
-		Expect(err).To(HaveOccurred())
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(fs.ErrNotExist))
 	})
 })
 

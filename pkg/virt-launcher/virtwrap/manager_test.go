@@ -2160,8 +2160,7 @@ var _ = Describe("Manager", func() {
 		}
 
 		err := libvirtmanager.generateCloudInitEmptyISO(vmi, nil)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to find the status of volume test1"))
+		Expect(err).To(MatchError(ContainSubstring("failed to find the status of volume test1")))
 	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts

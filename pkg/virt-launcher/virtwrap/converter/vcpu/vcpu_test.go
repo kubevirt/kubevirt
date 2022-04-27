@@ -108,8 +108,7 @@ var _ = Describe("VCPU pinning", func() {
 			shuffleCPUSet(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
 		)
 		_, err := pool.FitCores()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("not enough exclusive threads provided, could not fit 1 core(s)"))
+		Expect(err).To(MatchError(ContainSubstring("not enough exclusive threads provided, could not fit 1 core(s)")))
 	})
 
 	It("should fail assigning vCPUs with the strict policy if cores can't fully be place on a numa node", func() {
@@ -124,8 +123,7 @@ var _ = Describe("VCPU pinning", func() {
 			shuffleCPUSet(0, 1, 2, 6, 7, 8),
 		)
 		_, err := pool.FitCores()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("could not fit 1 core(s) without crossing numa cell boundaries for individual cores"))
+		Expect(err).To(MatchError(ContainSubstring("could not fit 1 core(s) without crossing numa cell boundaries for individual cores")))
 	})
 
 	It("should pass assigning vCPUs with the relaxed policy if cores can't fully be place on a numa node", func() {
