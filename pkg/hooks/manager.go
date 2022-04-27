@@ -258,75 +258,82 @@ func (m *hookManager) onDefineDomainCallback(callback *callBackClient, domainSpe
 }
 
 func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error) {
-	if callbacks, found := m.CallbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
-		for _, callback := range callbacks {
-			if callback.Version == hooksV1alpha2.Version {
-				var resultData *cloudinit.CloudInitData
-				vmiJSON, err := json.Marshal(vmi)
-				if err != nil {
-					return cloudInitData, fmt.Errorf("failed to marshal VMI spec: %v, err: %v", vmi, err)
-				}
+	callbacks, found := m.CallbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]
+	if !found {
+		return cloudInitData, nil
+	}
 
-				// To be backward compatible to sidecar hooks still expecting to receive the cloudinit data as a CloudInitNoCloudSource object,
-				// we need to construct a CloudInitNoCloudSource object with the user- and networkdata from the cloudInitData object.
-				cloudInitNoCloudSource := v1.CloudInitNoCloudSource{
-					UserData:    cloudInitData.UserData,
-					NetworkData: cloudInitData.NetworkData,
-				}
-				cloudInitNoCloudSourceJSON, err := json.Marshal(cloudInitNoCloudSource)
-				if err != nil {
-					return cloudInitData, fmt.Errorf("failed to marshal CloudInitNoCloudSource: %v, err: %v", cloudInitNoCloudSource, err)
-				}
+	if len(callbacks) == 0 {
+		return cloudInitData, nil
+	}
 
-				cloudInitDataJSON, err := json.Marshal(cloudInitData)
-				if err != nil {
-					return cloudInitData, fmt.Errorf("failed to marshal CloudInitData: %v, err: %v", cloudInitData, err)
-				}
+	callback := callbacks[0]
+	if callback.Version != hooksV1alpha2.Version {
+		panic("Should never happen, version compatibility check is done during Info call")
+	}
 
-				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
-				if err != nil {
-					log.Log.Reason(err).Errorf(dialSockErr, callback.SocketPath)
-					return cloudInitData, err
-				}
-				defer conn.Close()
+	vmiJSON, err := json.Marshal(vmi)
+	if err != nil {
+		return cloudInitData, fmt.Errorf("failed to marshal VMI spec: %v, err: %v", vmi, err)
+	}
 
-				client := hooksV1alpha2.NewCallbacksClient(conn)
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				defer cancel()
-				result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
-					CloudInitData:          cloudInitDataJSON,
-					CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
-					Vmi:                    vmiJSON,
-				})
-				if err != nil {
-					log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
-					return cloudInitData, err
-				}
+	// To be backward compatible to sidecar hooks still expecting to receive the cloudinit data as a CloudInitNoCloudSource object,
+	// we need to construct a CloudInitNoCloudSource object with the user- and networkdata from the cloudInitData object.
+	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{
+		UserData:    cloudInitData.UserData,
+		NetworkData: cloudInitData.NetworkData,
+	}
+	cloudInitNoCloudSourceJSON, err := json.Marshal(cloudInitNoCloudSource)
+	if err != nil {
+		return cloudInitData, fmt.Errorf("failed to marshal CloudInitNoCloudSource: %v, err: %v", cloudInitNoCloudSource, err)
+	}
 
-				err = json.Unmarshal(result.GetCloudInitData(), &resultData)
-				if err != nil {
-					log.Log.Reason(err).Error("Failed to unmarshal CloudInitData result")
-					return cloudInitData, err
-				}
-				if !cloudinit.IsValidCloudInitData(resultData) {
-					// Be backwards compatible for hook sidecars still working on CloudInitNoCloudSource objects instead of CloudInitData
-					var resultNoCloudSourceData *v1.CloudInitNoCloudSource
-					err = json.Unmarshal(result.GetCloudInitNoCloudSource(), &resultNoCloudSourceData)
-					if err != nil {
-						log.Log.Reason(err).Error("Failed to unmarshal CloudInitNoCloudSource result")
-						return cloudInitData, err
-					}
-					resultData = &cloudinit.CloudInitData{
-						DataSource:  cloudInitData.DataSource,
-						UserData:    resultNoCloudSourceData.UserData,
-						NetworkData: resultNoCloudSourceData.NetworkData,
-					}
-				}
-				return resultData, nil
-			} else {
-				panic("Should never happen, version compatibility check is done during Info call")
-			}
+	cloudInitDataJSON, err := json.Marshal(cloudInitData)
+	if err != nil {
+		return cloudInitData, fmt.Errorf("failed to marshal CloudInitData: %v, err: %v", cloudInitData, err)
+	}
+
+	conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
+	if err != nil {
+		log.Log.Reason(err).Errorf(dialSockErr, callback.SocketPath)
+		return cloudInitData, err
+	}
+	defer conn.Close()
+
+	client := hooksV1alpha2.NewCallbacksClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
+		CloudInitData:          cloudInitDataJSON,
+		CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
+		Vmi:                    vmiJSON,
+	})
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
+		return cloudInitData, err
+	}
+
+	var resultData *cloudinit.CloudInitData
+	err = json.Unmarshal(result.GetCloudInitData(), &resultData)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to unmarshal CloudInitData result")
+		return cloudInitData, err
+	}
+
+	if !cloudinit.IsValidCloudInitData(resultData) {
+		// Be backwards compatible for hook sidecars still working on CloudInitNoCloudSource objects instead of CloudInitData
+		var resultNoCloudSourceData *v1.CloudInitNoCloudSource
+		err = json.Unmarshal(result.GetCloudInitNoCloudSource(), &resultNoCloudSourceData)
+		if err != nil {
+			log.Log.Reason(err).Error("Failed to unmarshal CloudInitNoCloudSource result")
+			return cloudInitData, err
+		}
+		resultData = &cloudinit.CloudInitData{
+			DataSource:  cloudInitData.DataSource,
+			UserData:    resultNoCloudSourceData.UserData,
+			NetworkData: resultNoCloudSourceData.NetworkData,
 		}
 	}
-	return cloudInitData, nil
+
+	return resultData, nil
 }
