@@ -105,7 +105,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name)
 			}
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(result)).ToNot(Equal(0))
+			Expect(result).ToNot(BeEmpty())
 			resultFields := strings.Fields(result)
 			// Verify that only Header is not present
 			Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
@@ -127,7 +127,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				result, _, err = clientcmd.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 			}
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(result)).ToNot(Equal(0))
+			Expect(result).ToNot(BeEmpty())
 			resultFields := strings.Fields(result)
 			// Verify that only Header is not present
 			Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
@@ -187,7 +187,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 
 				expectedHeader := []string{"NAME", "PHASE", "VMI"}
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(result)).ToNot(Equal(0))
+				Expect(result).ToNot(BeEmpty())
 				resultFields := strings.Fields(result)
 
 				By("Verify that only Header is not present")
