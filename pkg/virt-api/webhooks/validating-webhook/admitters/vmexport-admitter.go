@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -81,6 +82,7 @@ func (admitter *VMExportAdmitter) Admit(ar *admissionv1.AdmissionReview) *admiss
 		}
 
 		switch *vmExport.Spec.Source.APIGroup {
+		case k8sv1.SchemeGroupVersion.Group:
 		case "v1":
 			switch vmExport.Spec.Source.Kind {
 			case "PersistentVolumeClaim":

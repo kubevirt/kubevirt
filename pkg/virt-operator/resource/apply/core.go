@@ -320,11 +320,11 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.RateLimitingInterface) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportDuration := metav1.Duration{Duration: time.Hour * 24 * 365 * 10} // 10 Years
+	caExportDuration := metav1.Duration{Duration: time.Hour * 24 * 7} // 7 days
 	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportRenewBefore := metav1.Duration{Duration: time.Hour * 24 * 365 * 2} // 2 Years
+	caExportRenewBefore := metav1.Duration{Duration: time.Hour * 24 * 5} // 5 days
 
 	// create/update CA Certificate secret
 	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)

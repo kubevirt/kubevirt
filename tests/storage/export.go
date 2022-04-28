@@ -35,10 +35,10 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
@@ -59,6 +59,8 @@ const (
 
 	kubevirtcontentUrlTemplate   = "%s?x-kubevirt-export-token=%s"
 	archiveDircontentUrlTemplate = "%s/disk.img?x-kubevirt-export-token=%s"
+
+	certificates = "certificates"
 )
 
 var _ = SIGDescribe("Export", func() {
@@ -239,7 +241,7 @@ var _ = SIGDescribe("Export", func() {
 		decodedData, err := base64.StdEncoding.DecodeString(data)
 		Expect(err).ToNot(HaveOccurred())
 
-		dst := &v1.ConfigMap{
+		dst := &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -275,7 +277,7 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() error {
 			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
-		}, 15*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
+		}, 30*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
@@ -288,7 +290,7 @@ var _ = SIGDescribe("Export", func() {
 		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
 
 		pod := createSourcePodChecker(pvc)
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, diskImage)))
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(diskImage))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 
@@ -311,7 +313,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	verifyKubeVirtRawContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, fileName)))
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -327,7 +329,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileName = strings.Replace(fileName, ".gz", "", 1)
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, fileName)))
+		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -344,15 +346,26 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(filepath.Join(dataPath, diskImage)))
+		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(diskImage))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
+	getExporterPod := func(vmExport *exportv1.VirtualMachineExport) *k8sv1.Pod {
+		var pod *k8sv1.Pod
+		var err error
+		Eventually(func() error {
+			pod, err = virtClient.CoreV1().Pods(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
+			return err
+		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		return pod
+	}
+
 	type populateFunction func(string) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod)
-	DescribeTable("should make a PVC export available", func(populateFunction populateFunction ,
+
+	DescribeTable("should make a PVC export available", func(populateFunction populateFunction,
 		verifyFunction verifyFunction, expectedFormat exportv1.ExportVolumeFormat, urlTemplate string) {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
@@ -363,7 +376,6 @@ var _ = SIGDescribe("Export", func() {
 		// For testing the token is the name of the source pvc.
 		token := createExportTokenSecret(pvc)
 
-		apiGroup := "v1"
 		vmExport := &exportv1.VirtualMachineExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
@@ -372,7 +384,7 @@ var _ = SIGDescribe("Export", func() {
 			Spec: exportv1.VirtualMachineExportSpec{
 				TokenSecretRef: token.Name,
 				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: &apiGroup,
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
 					Kind:     "PersistentVolumeClaim",
 					Name:     pvc.Name,
 				},
@@ -447,4 +459,83 @@ var _ = SIGDescribe("Export", func() {
 		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, exportv1.Archive, archiveDircontentUrlTemplate),
 		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, exportv1.ArchiveGz, kubevirtcontentUrlTemplate),
 	)
+
+	It("Should recreate the exporter pod and secret if the pod fails", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		pvc, _ := populateKubeVirtContent(sc)
+		By("Creating the export token, we can export volumes using this token")
+		// For testing the token is the name of the source pvc.
+		token := createExportTokenSecret(pvc)
+
+		vmExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: pvc.Namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: token.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
+					Kind:     "PersistentVolumeClaim",
+					Name:     pvc.Name,
+				},
+			},
+		}
+		By("Creating VMExport we can start exporting the volume")
+		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() bool {
+			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			condReady := false
+			if export.Status != nil {
+				for _, cond := range export.Status.Conditions {
+					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
+						condReady = true
+					}
+				}
+			}
+			return condReady
+		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		By("looking up the exporter pod and secret name")
+		exporterPod := getExporterPod(vmExport)
+		Expect(exporterPod).ToNot(BeNil())
+		By(fmt.Sprintf("pod name %s", exporterPod.Name))
+		var exporterSecretName string
+		for _, volume := range exporterPod.Spec.Volumes {
+			By(volume.Name)
+			if volume.Name == certificates {
+				exporterSecretName = volume.Secret.SecretName
+			}
+		}
+		Expect(exporterSecretName).ToNot(BeEmpty())
+		secret, err := virtClient.CoreV1().Secrets(vmExport.Namespace).Get(context.Background(), exporterSecretName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(secret).ToNot(BeNil())
+		podUID := exporterPod.GetUID()
+
+		By("Simulating the deadline expiring in the exporter")
+		command := []string{
+			"/bin/bash",
+			"-c",
+			"kill 1",
+		}
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, exporterPod, exporterPod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), "out[%s], err[%s]", out, stderr)
+		By("Verifying the pod is killed and a new secret created")
+		Eventually(func() types.UID {
+			exporterPod = getExporterPod(vmExport)
+			return exporterPod.UID
+		}, 30*time.Second, 1*time.Second).ShouldNot(BeEquivalentTo(podUID))
+		for _, volume := range exporterPod.Spec.Volumes {
+			if volume.Name == certificates {
+				exporterSecretName = volume.Secret.SecretName
+			}
+		}
+		Expect(exporterSecretName).ToNot(Equal(secret.Name))
+	})
 })

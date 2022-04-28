@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
 	exportv1 "kubevirt.io/api/export/v1alpha1"
@@ -60,8 +60,7 @@ const (
 )
 
 var (
-	qemuGid     int64 = 107
-	pvcApiGroup       = "v1"
+	qemuGid int64 = 107
 )
 
 var _ = Describe("Export controlleer", func() {
@@ -73,12 +72,11 @@ var _ = Describe("Export controlleer", func() {
 		podInformer      cache.SharedIndexInformer
 		cmInformer       cache.SharedIndexInformer
 		vmExportInformer cache.SharedIndexInformer
-		// vmExportSource *framework.FakeControllerSource
-		k8sClient      *k8sfake.Clientset
-		vmExportClient *kubevirtfake.Clientset
-		certDir        string
-		certFilePath   string
-		keyFilePath    string
+		k8sClient        *k8sfake.Clientset
+		vmExportClient   *kubevirtfake.Clientset
+		certDir          string
+		certFilePath     string
+		keyFilePath      string
 	)
 
 	BeforeEach(func() {
@@ -94,9 +92,10 @@ var _ = Describe("Export controlleer", func() {
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		vmExportInformer, _ = testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
 		vmExportClient = kubevirtfake.NewSimpleClientset()
+		recorder = record.NewFakeRecorder(100)
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
@@ -147,7 +146,7 @@ var _ = Describe("Export controlleer", func() {
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
 				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: &pvcApiGroup,
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
 					Kind:     "PersistentVolumeClaim",
 					Name:     "test-pvc",
 				},
@@ -223,6 +222,12 @@ var _ = Describe("Export controlleer", func() {
 		Expect(pod).ToNot(BeNil())
 		Expect(pod.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
 		Expect(len(pod.Spec.Volumes)).To(Equal(3), "There should be 3 volumes, one pvc, and two secrets (token and certs)")
+		certSecretName := ""
+		for _, volume := range pod.Spec.Volumes {
+			if volume.Name == certificates {
+				certSecretName = volume.Secret.SecretName
+			}
+		}
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 			Name: "test-pvc",
 			VolumeSource: k8sv1.VolumeSource{
@@ -232,10 +237,10 @@ var _ = Describe("Export controlleer", func() {
 			},
 		}))
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-			Name: fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name),
+			Name: certificates,
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name),
+					SecretName: certSecretName,
 				},
 			},
 		}))
@@ -255,7 +260,7 @@ var _ = Describe("Export controlleer", func() {
 			MountPath: fmt.Sprintf("%s/%s", fileSystemMountPath, testPVC.Name),
 		}))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name),
+			Name:      certificates,
 			MountPath: "/cert",
 		}))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
@@ -266,42 +271,59 @@ var _ = Describe("Export controlleer", func() {
 
 	It("Should create a secret based on the vm export", func() {
 		testVMExport := createVMExport()
+		testExportPod := &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-export-pod",
+			},
+			Spec: k8sv1.PodSpec{
+				Volumes: []k8sv1.Volume{
+					{
+						Name: certificates,
+						VolumeSource: k8sv1.VolumeSource{
+							Secret: &k8sv1.SecretVolumeSource{
+								SecretName: "test-secret",
+							},
+						},
+					},
+				},
+			},
+		}
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			secret, ok := create.GetObject().(*k8sv1.Secret)
 			Expect(ok).To(BeTrue())
-			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testVMExport)))
+			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testExportPod)))
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, secret, nil
 		})
-		secret, err := controller.getOrCreateTokenCertSecret(testVMExport)
+		secret, err := controller.getOrCreateTokenCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(secret.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+		Expect(secret.Name).To(Equal("test-secret"))
 		By("Creating again, and returning exists")
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			secret, ok := create.GetObject().(*k8sv1.Secret)
 			Expect(ok).To(BeTrue())
-			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testVMExport)))
+			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testExportPod)))
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			secret.Name = "something"
 			return true, secret, errors.NewAlreadyExists(schema.GroupResource{}, "already exists")
 		})
-		secret, err = controller.getOrCreateTokenCertSecret(testVMExport)
+		secret, err = controller.getOrCreateTokenCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(secret.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+		Expect(secret.Name).To(Equal("test-secret"))
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			secret, ok := create.GetObject().(*k8sv1.Secret)
 			Expect(ok).To(BeTrue())
-			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testVMExport)))
+			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testExportPod)))
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, nil, fmt.Errorf("failure")
 		})
-		secret, err = controller.getOrCreateTokenCertSecret(testVMExport)
+		secret, err = controller.getOrCreateTokenCertSecret(testVMExport, testExportPod)
 		Expect(err).To(HaveOccurred())
 		Expect(secret).To(BeNil())
 	})
@@ -492,7 +514,7 @@ func createVMExport() *exportv1.VirtualMachineExport {
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
-				APIGroup: &pvcApiGroup,
+				APIGroup: &k8sv1.SchemeGroupVersion.Group,
 				Kind:     "PersistentVolumeClaim",
 				Name:     "test-pvc",
 			},

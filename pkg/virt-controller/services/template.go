@@ -1771,6 +1771,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 			},
 		},
 		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
 				{
 					Name:            vmExport.Name,
