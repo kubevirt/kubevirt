@@ -66,8 +66,8 @@ type migrationMonitor struct {
 
 	start              int64
 	lastProgressUpdate int64
-	progressWatermark  int64
-	remainingData      int64
+	progressWatermark  uint64
+	remainingData      uint64
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
@@ -443,8 +443,8 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		vmi:                      vmi,
 		options:                  options,
 		migrationErr:             migrationErr,
-		progressWatermark:        int64(0),
-		remainingData:            int64(0),
+		progressWatermark:        0,
+		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi),
 	}
@@ -487,9 +487,9 @@ func (m *migrationMonitor) isMigrationProgressing(domainSpec *api.DomainSpec) bo
 	now := time.Now().UTC().UnixNano()
 
 	// check if the migration is progressing
-	progressDelay := now - m.lastProgressUpdate
-	if m.progressTimeout != 0 && progressDelay/int64(time.Second) > m.progressTimeout {
-		logger.Warningf("Live migration stuck for %d sec", progressDelay)
+	progressDelay := (now - m.lastProgressUpdate) / int64(time.Second)
+	if m.progressTimeout != 0 && progressDelay > m.progressTimeout {
+		logger.Warningf("Live migration stuck for %d seconds", progressDelay)
 		return false
 	}
 
@@ -551,11 +551,10 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
-	if (m.progressWatermark == 0) ||
-		(m.progressWatermark > m.remainingData) {
-		m.progressWatermark = m.remainingData
+	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
 		m.lastProgressUpdate = now
 	}
+	m.progressWatermark = m.remainingData
 
 	domainSpec, err := m.l.getDomainSpec(dom)
 	if err != nil {
@@ -600,7 +599,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 
 		progressDelay := now - m.lastProgressUpdate
 		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay)
+		aborted.message = fmt.Sprintf("Live migration stuck for %d seconds and has been aborted", progressDelay/int64(time.Second))
 		aborted.abortStatus = v1.MigrationAbortSucceeded
 		return aborted
 	case m.shouldTriggerTimeout(elapsed, domainSpec):
@@ -616,7 +615,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 		}
 
 		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration is not completed after %d sec and has been aborted", m.acceptableCompletionTime)
+		aborted.message = fmt.Sprintf("Live migration is not completed after %d seconds and has been aborted", m.acceptableCompletionTime)
 		aborted.abortStatus = v1.MigrationAbortSucceeded
 		return aborted
 	}
@@ -681,7 +680,11 @@ func (m *migrationMonitor) startMonitor() {
 				continue
 			}
 		}
-		m.remainingData = int64(stats.DataRemaining)
+
+		if stats.DataRemainingSet {
+			m.remainingData = stats.DataRemaining
+		}
+
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
 			aborted := m.processInflightMigration(dom)
