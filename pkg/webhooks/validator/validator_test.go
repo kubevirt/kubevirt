@@ -40,9 +40,9 @@ var (
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged-resource")
 )
 
-func TestWebhook(t *testing.T) {
+func TestValidatorWebhook(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Webhooks Suite")
+	RunSpecs(t, "Validator Webhooks Suite")
 }
 
 const (

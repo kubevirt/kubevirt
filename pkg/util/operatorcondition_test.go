@@ -82,9 +82,8 @@ var _ = Describe("OperatorCondition", func() {
 })
 
 func TestOperatorCondition(t *testing.T) {
-
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OperatorCondition Suite")
+	RunSpecs(t, "Util Suite")
 }
 
 var (

@@ -2,12 +2,18 @@ package webhooks
 
 import (
 	"os"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
+
+func TestWebhooks(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "webhooks Suite")
+}
 
 var _ = Describe("Hyperconverged API: Webhook", func() {
 	Context("Test GetWebhookCertDir", func() {

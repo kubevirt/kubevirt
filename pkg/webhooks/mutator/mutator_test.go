@@ -37,12 +37,12 @@ var (
 	ErrFakeHcoError = errors.New("fake HyperConverged error")
 )
 
-func TestWebhook(t *testing.T) {
+func TestMutatorWebhook(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Webhooks Suite")
+	RunSpecs(t, "Mutator Webhooks Suite")
 }
 
-var _ = Describe("webhooks validator", func() {
+var _ = Describe("webhooks mutator", func() {
 	s := scheme.Scheme
 
 	for _, f := range []func(*runtime.Scheme) error{
