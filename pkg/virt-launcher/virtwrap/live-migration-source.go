@@ -595,7 +595,6 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(vmi *v1.VirtualMachineIns
 }
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
-
 	monitor := &migrationMonitor{
 		l:                        l,
 		vmi:                      vmi,
@@ -604,7 +603,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		progressWatermark:        int64(0),
 		remainingData:            int64(0),
 		progressTimeout:          options.ProgressTimeout,
-		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi),
+		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
 	}
 
 	return monitor

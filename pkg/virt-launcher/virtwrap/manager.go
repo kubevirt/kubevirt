@@ -89,17 +89,9 @@ const (
 const (
 	PCI_RESOURCE_PREFIX  = "PCI_RESOURCE"
 	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
-
-	baseEphemeralDiskDir = "/var/run/kubevirt-ephemeral-disks/"
 )
 
 const maxConcurrentHotplugHostDevices = 1
-
-var (
-	getEphemeralDiskBaseDir = func() string {
-		return baseEphemeralDiskDir
-	}
-)
 
 type contextStore struct {
 	ctx    context.Context
@@ -146,6 +138,7 @@ type LibvirtDomainManager struct {
 	hotplugHostDevicesInProgress chan struct{}
 
 	virtShareDir             string
+	ephemeralDiskDir         string
 	paused                   pausedVMIs
 	agentData                *agentpoller.AsyncAgentStore
 	cloudInitDataStore       *cloudinit.CloudInitData
@@ -182,15 +175,16 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
 }
 
-func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn:      connection,
-		virtShareDir: virtShareDir,
+		virConn:          connection,
+		virtShareDir:     virtShareDir,
+		ephemeralDiskDir: ephemeralDiskDir,
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
@@ -394,10 +388,9 @@ func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 	return err
 }
 
-func getVMIEphemeralDisksTotalSize() *resource.Quantity {
-	baseDir := getEphemeralDiskBaseDir()
+func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {
 	totalSize := int64(0)
-	err := filepath.Walk(baseDir, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(ephemeralDiskDir, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -414,7 +407,7 @@ func getVMIEphemeralDisksTotalSize() *resource.Quantity {
 	return resource.NewScaledQuantity(totalSize, 0)
 }
 
-func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
+func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance, ephemeralDiskDir string) int64 {
 	var memory resource.Quantity
 
 	// Take memory from the requested memory
@@ -426,9 +419,9 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 		memory = *vmi.Spec.Domain.Memory.Guest
 	}
 
-	//get total data Size
+	// get total data Size
 	if vmi.Status.MigrationMethod == v1.BlockMigration {
-		disksSize := getVMIEphemeralDisksTotalSize()
+		disksSize := getVMIEphemeralDisksTotalSize(ephemeralDiskDir)
 		memory.Add(*disksSize)
 	}
 	return memory.ScaledValue(resource.Giga)
@@ -915,7 +908,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	//Look up all the disks to detach
+	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
@@ -929,7 +922,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			return nil, err
 		}
 	}
-	//Look up all the disks to attach
+	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
 		if err != nil {
