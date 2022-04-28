@@ -22,6 +22,7 @@ package main
 import (
 	"os"
 	"strings"
+	"time"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -41,6 +42,7 @@ func main() {
 	config := exportServer.ExportServerConfig{
 		CertFile:   certFile,
 		KeyFile:    keyFile,
+		Deadline:   getDeadline(),
 		ListenAddr: getListenAddr(),
 		TokenFile:  getTokenFile(),
 		Volumes:    getVolumeInfo(),
@@ -92,4 +94,16 @@ func getListenAddr() string {
 		return addr
 	}
 	return listenAddr
+}
+
+func getDeadline() (result time.Time) {
+	dl := os.Getenv("DEADLINE")
+	if dl != "" {
+		var err error
+		result, err = time.Parse(time.RFC3339, dl)
+		if err != nil {
+			panic("Invalid Deadline")
+		}
+	}
+	return
 }

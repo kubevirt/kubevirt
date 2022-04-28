@@ -22,6 +22,7 @@ package virtexportserver
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	goflag "flag"
 	"io"
 	"io/ioutil"
@@ -51,6 +52,8 @@ type VolumeInfo struct {
 	RawGzURI   string
 }
 type ExportServerConfig struct {
+	Deadline time.Time
+
 	ListenAddr string
 
 	CertFile, KeyFile string
@@ -155,7 +158,24 @@ func (s *exportServer) Run() {
 		Handler: s.handler,
 	}
 
-	if err := srv.ListenAndServeTLS(s.CertFile, s.KeyFile); err != nil {
+	ch := make(chan error)
+
+	go func() {
+		err := srv.ListenAndServeTLS(s.CertFile, s.KeyFile)
+		ch <- err
+	}()
+
+	if !s.Deadline.IsZero() {
+		log.Log.Infof("Deadline set to %s", s.Deadline)
+		select {
+		case err := <-ch:
+			panic(err)
+		case <-time.After(time.Until(s.Deadline)):
+			log.Log.Info("Deadline exceeded, shutting down")
+			srv.Shutdown(context.TODO())
+		}
+	} else {
+		err := <-ch
 		panic(err)
 	}
 }
