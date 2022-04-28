@@ -574,6 +574,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
 		tests.UpdateKubeVirtConfigValueAndWait(cfg)
 	}
+	copyMap := func(originalMap map[string]string) map[string]string {
+		newMap := make(map[string]string, len(originalMap))
+
+		for key, value := range originalMap {
+			newMap[key] = value
+		}
+
+		return newMap
+	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 
@@ -2697,16 +2706,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var vmi *v1.VirtualMachineInstance
 				var node *k8sv1.Node
 
-				copyMap := func(originalMap map[string]string) map[string]string {
-					newMap := make(map[string]string, len(originalMap))
-
-					for key, value := range originalMap {
-						newMap[key] = value
-					}
-
-					return newMap
-				}
-
 				BeforeEach(func() {
 					By("Creating a VMI with default CPU mode")
 					vmi = alpineVMIWithEvictionStrategy()
@@ -3613,6 +3612,108 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(digest).ToNot(BeEmpty())
 			Expect(imageIDs).To(HaveKeyWithValue(container.Name, digest), "expected image:%s for container %s to be the same like on the source pod but got %s", container.Image, container.Name, imageIDs[container.Name])
 		}
+	})
+	Context("[Serial]Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", func() {
+
+		var originalTargetNodeLabels map[string]string
+		var originalTargetNodeAnnotations map[string]string
+		var backedUpTargetNode *k8sv1.Node
+		var sourceNode *k8sv1.Node
+		var targetNode *k8sv1.Node
+
+		BeforeEach(func() {
+			sourceNode, targetNode, err = tests.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			if err != nil {
+				Skip(err.Error())
+			}
+			originalTargetNodeLabels = copyMap(targetNode.Labels)
+			originalTargetNodeAnnotations = copyMap(targetNode.Annotations)
+			disableNodeLabeller(targetNode, virtClient)
+		})
+
+		AfterEach(func() {
+			By("Restore node to its original state")
+			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			targetNode.Labels = originalTargetNodeLabels
+			targetNode.Annotations = originalTargetNodeAnnotations
+
+			_, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func() map[string]string {
+				backedUpTargetNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				return backedUpTargetNode.Labels
+			}, 10*time.Second, 1*time.Second).Should(Equal(originalTargetNodeLabels), "Node should not have amazingFeature after the test")
+
+		})
+
+		It("Should be able to migrate back to the initial node from target node with host-model even if target is newer than source", func() {
+			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			targetNode.Labels[v1.HostModelRequiredFeaturesLabel+"amazingFeature"] = "true"
+			Eventually(func() error {
+				if targetNode, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
+				return nil
+			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+			vmiToMigrate := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Creating a VMI with default CPU mode to land in source node")
+			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+			nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
+			By("Starting the VirtualMachineInstance")
+			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration to target node(with the amazing feature")
+			migration := tests.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiToMigrate.GetName(), &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(targetNode.Name))
+
+			labelsBeforeMigration := make(map[string]string)
+			labelsAfterMigration := make(map[string]string)
+			By("Fetching virt-launcher pod")
+			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmiToMigrate, util.NamespaceTestDefault)
+			for key, value := range virtLauncherPod.Spec.NodeSelector {
+				if strings.HasPrefix(key, v1.CPUFeatureLabel) {
+					labelsBeforeMigration[key] = value
+				}
+			}
+
+			By("Starting the Migration to return to the source node")
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiToMigrate.GetName(), &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			By("Fetching virt-launcher pod")
+			virtLauncherPod = tests.GetRunningPodByVirtualMachineInstance(vmiToMigrate, util.NamespaceTestDefault)
+			for key, value := range virtLauncherPod.Spec.NodeSelector {
+				if strings.HasPrefix(key, v1.CPUFeatureLabel) {
+					labelsAfterMigration[key] = value
+				}
+			}
+			Expect(labelsAfterMigration).To(BeEquivalentTo(labelsBeforeMigration))
+		})
+
 	})
 
 	Context("with dedicated CPUs", func() {
