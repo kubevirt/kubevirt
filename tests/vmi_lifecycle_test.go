@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -104,7 +105,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	AfterEach(func() {
 		// Not every test causes virt-handler to restart, but a few different contexts do.
 		// This check is fast and non-intrusive if virt-handler is already running.
-		tests.EnsureKVMPresent()
+		testsuite.EnsureKVMPresent()
 	})
 
 	Context("when virt-handler is deleted", func() {
@@ -473,7 +474,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 							Name:      "nonexistent",
 							Namespace: vmi.Namespace,
 							Labels: map[string]string{
-								tests.SecretLabel: "nonexistent",
+								testsuite.SecretLabel: "nonexistent",
 							},
 						},
 						Type: "Opaque",
@@ -796,7 +797,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			AfterEach(func() {
-				tests.RestoreKubeVirtResource()
+				testsuite.RestoreKubeVirtResource()
 
 				// Wait until virt-handler ds will have expected number of pods
 				Eventually(func() bool {
@@ -937,7 +938,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			//store old kubevirt-config
 			BeforeEach(func() {
 				// arm64 does not support cpu model
-				checks.SkipIfARM64(tests.Arch, "arm64 does not support cpu model")
+				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				kv := util.GetCurrentKv(virtClient)
 				originalConfig = kv.Spec.Configuration
 			})
@@ -1040,7 +1041,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			BeforeEach(func() {
 				// arm64 does not support cpu model
-				checks.SkipIfARM64(tests.Arch, "arm64 does not support cpu model")
+				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
@@ -1316,7 +1317,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				), "Logs should confirm pod deletion")
 			},
 				Entry("[test_id:1641]"+util.NamespaceTestDefault, &util.NamespaceTestDefault),
-				Entry("[test_id:1642]"+tests.NamespaceTestAlternative, &tests.NamespaceTestAlternative),
+				Entry("[test_id:1642]"+testsuite.NamespaceTestAlternative, &testsuite.NamespaceTestAlternative),
 			)
 		})
 
@@ -1324,7 +1325,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			BeforeEach(func() {
 				// allowEmulation won't change in a test suite run, so cache it
 				if allowEmulation == nil {
-					emulation := tests.ShouldAllowEmulation(virtClient)
+					emulation := testsuite.ShouldAllowEmulation(virtClient)
 					allowEmulation = &emulation
 				}
 				if !(*allowEmulation) {
@@ -1433,7 +1434,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			BeforeEach(func() {
 				// allowEmulation won't change in a test suite run, so cache it
 				if allowEmulation == nil {
-					emulation := tests.ShouldAllowEmulation(virtClient)
+					emulation := testsuite.ShouldAllowEmulation(virtClient)
 					allowEmulation = &emulation
 				}
 				if *allowEmulation {

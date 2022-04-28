@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[sig-compute]Subresource Api", func() {
@@ -373,7 +374,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 	}
 
 	if withServiceAccount {
-		job.Spec.ServiceAccountName = tests.SubresourceServiceAccountName
+		job.Spec.ServiceAccountName = testsuite.SubresourceServiceAccountName
 		expectedPhase = k8sv1.PodSucceeded
 	} else if resource == "version" {
 		expectedPhase = k8sv1.PodSucceeded

@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -305,7 +306,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				kv.Spec.Configuration.MigrationConfiguration = &k6sv1.MigrationConfiguration{
 					BandwidthPerMigration: &migrationBandwidth,
 				}
-				kv = tests.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
+				kv = testsuite.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
 				tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", kv.ResourceVersion, tests.ExpectResourceVersionToBeLessEqualThanConfigVersion, 60*time.Second)
 			})
 		})

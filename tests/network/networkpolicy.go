@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
@@ -130,7 +131,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 
 				BeforeEach(func() {
 					var err error
-					clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+					clientVMIAlternativeNamespace, err = createClientVmi(testsuite.NamespaceTestAlternative, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
@@ -171,7 +172,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 
 				BeforeEach(func() {
 					var err error
-					clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+					clientVMIAlternativeNamespace, err = createClientVmi(testsuite.NamespaceTestAlternative, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
@@ -200,7 +201,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 
 					BeforeEach(func() {
 						var err error
-						clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+						clientVMIAlternativeNamespace, err = createClientVmi(testsuite.NamespaceTestAlternative, virtClient)
 						Expect(err).ToNot(HaveOccurred())
 						assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 					})

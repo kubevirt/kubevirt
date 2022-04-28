@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package testsuite
 
 import (
 	"context"

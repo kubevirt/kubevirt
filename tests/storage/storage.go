@@ -58,6 +58,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -92,7 +93,7 @@ var _ = SIGDescribe("Storage", func() {
 
 		BeforeEach(func() {
 			vmi = nil
-			targetImagePath = tests.HostPathAlpine
+			targetImagePath = testsuite.HostPathAlpine
 		})
 
 		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
@@ -251,7 +252,7 @@ var _ = SIGDescribe("Storage", func() {
 				var pvName string
 				var nfsPod *k8sv1.Pod
 				AfterEach(func() {
-					if targetImagePath != tests.HostPathAlpine {
+					if targetImagePath != testsuite.HostPathAlpine {
 						tests.DeleteAlpineWithNonQEMUPermissions()
 					}
 				})
@@ -402,7 +403,7 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				checks.SkipIfNonRoot("VirtioFS")
-				tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
+				tests.CreateHostPathPv(pvc, filepath.Join(testsuite.HostPathBase, pvc))
 				tests.CreateHostPathPVC(pvc, "1G")
 			})
 
@@ -453,7 +454,7 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				checks.SkipIfNonRoot("VirtioFS")
-				if !tests.HasCDI() {
+				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 				dataVolume = libstorage.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -558,7 +559,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
-						nfsPod = storageframework.InitNFS(tests.HostPathAlpine, "")
+						nfsPod = storageframework.InitNFS(testsuite.HostPathAlpine, "")
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
 						pvName = tests.DiskAlpineHostPath
@@ -640,7 +641,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
-				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
+				tests.CreateHostPathPv(tests.CustomHostPath, testsuite.HostPathCustom)
 				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			})
 
@@ -866,7 +867,7 @@ var _ = SIGDescribe("Storage", func() {
 						pvcs = append(pvcs, fmt.Sprintf("empty-pvc-%d-%s", i, rand.String(5)))
 					}
 					for _, pvc := range pvcs {
-						hostpath := filepath.Join(tests.HostPathBase, pvc)
+						hostpath := filepath.Join(testsuite.HostPathBase, pvc)
 						node = tests.CreateHostPathPv(pvc, hostpath)
 						tests.CreateHostPathPVC(pvc, "1G")
 						if checks.HasFeature(virtconfig.NonRoot) {

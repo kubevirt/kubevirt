@@ -31,11 +31,11 @@ import (
 
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/reporter"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	v1reporter "kubevirt.io/client-go/reporter"
 	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 
-	"kubevirt.io/kubevirt/tests"
 	vmsgeneratorutils "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
@@ -54,7 +54,7 @@ var k8sReporter *reporter.KubernetesReporter
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
-	tests.CalculateNamespaces()
+	testsuite.CalculateNamespaces()
 	maxFails := getMaxFailsFromEnv()
 	artifactsPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter")
 	junitOutput := filepath.Join(flags.ArtifactsDir, "junit.functest.xml")
@@ -89,9 +89,9 @@ func TestTests(t *testing.T) {
 	RunSpecs(t, "Tests Suite")
 }
 
-var _ = SynchronizedBeforeSuite(tests.SynchronizedBeforeTestSetup, tests.BeforeTestSuitSetup)
+var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuitSetup)
 
-var _ = SynchronizedAfterSuite(tests.AfterTestSuitCleanup, tests.SynchronizedAfterTestSuiteCleanup)
+var _ = SynchronizedAfterSuite(testsuite.AfterTestSuitCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")

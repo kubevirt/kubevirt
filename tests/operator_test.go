@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -1439,7 +1440,7 @@ spec:
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
 		DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
-			if !tests.HasCDI() {
+			if !libstorage.HasCDI() {
 				Skip("Skip update test when CDI is not present")
 			}
 
@@ -1765,14 +1766,14 @@ spec:
 			sanityCheckDeploymentsDeleted()
 
 			By("ensuring that namespaces can be successfully created and deleted")
-			_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tests.NamespaceTestOperator}}, metav1.CreateOptions{})
+			_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestOperator}}, metav1.CreateOptions{})
 			if err != nil && !errors.IsAlreadyExists(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
-			err = virtClient.CoreV1().Namespaces().Delete(context.Background(), tests.NamespaceTestOperator, metav1.DeleteOptions{})
+			err = virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestOperator, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), tests.NamespaceTestOperator, metav1.GetOptions{})
+				_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestOperator, metav1.GetOptions{})
 				return errors.IsNotFound(err)
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 

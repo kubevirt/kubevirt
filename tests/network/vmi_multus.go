@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -162,13 +163,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
 		Expect(createPtpNetworkAttachmentDefinition(util.NamespaceTestDefault, ptpConf1, ptpSubnet)).To(Succeed())
-		Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
+		Expect(createPtpNetworkAttachmentDefinition(testsuite.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
 
 		// Multus tests need to ensure that old VMIs are gone
 		Eventually(func() []v1.VirtualMachineInstance {
 			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
+			list2, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return append(list1.Items, list2.Items...)
 		}, 6*time.Minute, 1*time.Second).Should(BeEmpty())
@@ -215,7 +216,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, ptpConf2)},
+						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, ptpConf2)},
 					}},
 				}
 
