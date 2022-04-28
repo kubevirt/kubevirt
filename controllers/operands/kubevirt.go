@@ -111,6 +111,7 @@ var (
 		kvDownwardMetricsGate,
 		kvNUMA,
 		kvNonRoot,
+		kvLiveMigrationGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
@@ -286,33 +287,15 @@ func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpd
 			*kvObject.BatchEvictionSize = *hcObject.BatchEvictionSize
 		}
 
-		filteredWUMethods := filterWorkloadupdatemethods(hcObject.WorkloadUpdateMethods)
-
-		if size := len(filteredWUMethods); size > 0 {
+		if size := len(hcObject.WorkloadUpdateMethods); size > 0 {
 			kvObject.WorkloadUpdateMethods = make([]kubevirtcorev1.WorkloadUpdateMethod, size)
-			for i, updateMethod := range filteredWUMethods {
+			for i, updateMethod := range hcObject.WorkloadUpdateMethods {
 				kvObject.WorkloadUpdateMethods[i] = kubevirtcorev1.WorkloadUpdateMethod(updateMethod)
 			}
 		}
 	}
 
 	return kvObject
-}
-
-func filterWorkloadupdatemethods(workloadUpdateMethods []string) []string {
-	var filteredWUMethods []string
-
-	if hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() {
-		return workloadUpdateMethods
-	} else {
-		for _, method := range workloadUpdateMethods {
-			if method != string(kubevirtcorev1.WorkloadUpdateMethodLiveMigrate) {
-				filteredWUMethods = append(filteredWUMethods, method)
-			}
-		}
-	}
-
-	return filteredWUMethods
 }
 
 func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfiguration, error) {
@@ -544,7 +527,7 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 		fgs = append(fgs, kvWithHostPassthroughCPU)
 	}
 
-	if featureGates.SRIOVLiveMigration && hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() {
+	if featureGates.SRIOVLiveMigration {
 		fgs = append(fgs, kvSRIOVLiveMigration)
 	}
 
@@ -667,9 +650,6 @@ func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates)+1)
 	res = append(res, mandatoryKvFeatureGates...)
 	res = append(res, checks...)
-	if hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() {
-		res = append(res, kvLiveMigrationGate)
-	}
 
 	return res
 }

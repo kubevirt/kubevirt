@@ -252,7 +252,7 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	WithHostPassthroughCPU bool `json:"withHostPassthroughCPU"`
 
-	// Allow migrating a virtual machine with SRIOV interfaces. Ignored on single node clusters.
+	// Allow migrating a virtual machine with SRIOV interfaces.
 	// +optional
 	// +kubebuilder:default=true
 	SRIOVLiveMigration bool `json:"sriovLiveMigration"`
@@ -382,7 +382,6 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	// precedence over more disruptive methods. For example if both LiveMigrate and Evict
 	// methods are listed, only VMs which are not live migratable will be restarted/shutdown.
 	// An empty list defaults to no automated workload updating.
-	// LiveMigrate is ignored on SNO clusters.
 	//
 	// +listType=atomic
 	// +kubebuilder:default={"LiveMigrate"}

@@ -143,7 +143,7 @@ Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/Lib
 
 Set the `sriovLiveMigration` feature gate in order to allow migrating a virtual machine with SRIOV interfaces. When
 enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may
-degrade virt-launcher security. `sriovLiveMigration` is ignored on single node clusters.
+degrade virt-launcher security.
 
 **Default**: `true`
 
@@ -567,7 +567,6 @@ The `workloadUpdateStrategy` fields are:
   An empty list defaults to no automated workload updating.
 
   The default values is `LiveMigrate`; `Evict` is not enabled by default being potentially disruptive for the existing workloads.
-* `LiveMigrate` is ignored on SNO clusters where LiveMigrate is not supported.
 
 ### workloadUpdateStrategy example
 ```yaml

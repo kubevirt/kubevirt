@@ -201,7 +201,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"sriovLiveMigration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allow migrating a virtual machine with SRIOV interfaces. Ignored on single node clusters.",
+							Description: "Allow migrating a virtual machine with SRIOV interfaces.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -278,14 +278,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 				Properties: map[string]spec.Schema{
 					"localStorageClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "LocalStorageClassName the name of the local storage class.",
+							Description: "Deprecated: LocalStorageClassName the name of the local storage class.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"infra": {
 						SchemaProps: spec.SchemaProps{
-							Description: "infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs.",
+							Description: "infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarily directly on each node running VMs/VMIs.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedConfig"),
 						},
@@ -402,7 +402,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					},
 					"uninstallStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstall. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour.",
+							Description: "UninstallStrategy defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist. BlockUninstallIfWorkloadsExist will prevent the CR from being removed when workloads still exist. BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised. RemoveWorkloads will cause all the workloads to be cascading deleted on uninstallation. WARNING: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted. Please correctly consider the implications of this option before setting it. BlockUninstallIfWorkloadsExist is the default behaviour.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -550,7 +550,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedW
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating. LiveMigrate is ignored on SNO clusters.",
+							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Evict methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -565,7 +565,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedW
 					},
 					"batchEvictionSize": {
 						SchemaProps: spec.SchemaProps{
-							Description: "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval",
+							Description: "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInterval interval",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -663,7 +663,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevices
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+				Description: "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"mediatedDevicesTypes": {
@@ -759,7 +759,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_NodeMediatedDev
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+				Description: "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"nodeSelector": {
