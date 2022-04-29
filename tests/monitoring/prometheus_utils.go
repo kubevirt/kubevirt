@@ -29,6 +29,25 @@ type AlertRequestResult struct {
 	Status string                    `json:"status"`
 }
 
+type QueryRequestResult struct {
+	Data   promData `json:"data"`
+	Status string   `json:"status"`
+}
+
+type promData struct {
+	ResultType string       `json:"resultType"`
+	Result     []promResult `json:"result"`
+}
+
+type promResult struct {
+	Metric promMetric    `json:"metric"`
+	Value  []interface{} `json:"value"`
+}
+
+type promMetric struct {
+	Name string `json:"__name__"`
+}
+
 func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	bodyBytes := DoPrometheusHTTPRequest(cli, "/alerts")
 
@@ -43,6 +62,32 @@ func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	}
 
 	return result.Alerts.Alerts, nil
+}
+
+func getMetricValue(cli kubecli.KubevirtClient, query string) (string, error) {
+	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query?query=%s", query))
+
+	var result QueryRequestResult
+	err := json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		return "", err
+	}
+
+	if result.Status != "success" {
+		return "", fmt.Errorf("api request failed. result: %v", result)
+	}
+
+	var returnVal string
+	if len(result.Data.Result) == 0 || len(result.Data.Result[0].Value) < 2 {
+		return "", fmt.Errorf("metric value not populated yet")
+	}
+	if s, ok := result.Data.Result[0].Value[1].(string); ok {
+		returnVal = s
+	} else {
+		return "", fmt.Errorf("metric value is not string")
+	}
+
+	return returnVal, nil
 }
 
 func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte {

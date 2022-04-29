@@ -16565,7 +16565,23 @@
     "type": "object",
     "properties": {
      "virtualMachine": {
-      "$ref": "#/definitions/v1.VirtualMachine"
+      "$ref": "#/definitions/v1alpha1.VirtualMachine"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachine": {
+    "type": "object",
+    "properties": {
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineSpec contains the VirtualMachine specification.",
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
+     },
+     "status": {
+      "description": "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
+      "$ref": "#/definitions/v1.VirtualMachineStatus"
      }
     }
    },

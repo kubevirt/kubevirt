@@ -887,8 +887,8 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				})
 				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
-				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
 				vm.ObjectMeta.Generation = 2
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
 				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				}
@@ -2068,11 +2068,13 @@ func createVirtualMachineSnapshot(namespace, name, vmName string) *snapshotv1.Vi
 
 func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
 	var volumeBackups []snapshotv1.VolumeBackup
-	vmCpy := vm.DeepCopy()
+	vmCpy := &snapshotv1.VirtualMachine{}
+	vmCpy.ObjectMeta = *vm.ObjectMeta.DeepCopy()
+	vmCpy.Spec = *vm.Spec.DeepCopy()
 	vmCpy.ResourceVersion = "1"
 	vmCpy.Status = v1.VirtualMachineStatus{}
 
-	for i, pvc := range createPVCsForVM(vmCpy) {
+	for i, pvc := range createPVCsForVM(vm) {
 		diskName := fmt.Sprintf("disk%d", i+1)
 		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
 		vb := snapshotv1.VolumeBackup{

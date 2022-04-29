@@ -181,3 +181,10 @@ func timeUntilDeadline(vmSnapshot *snapshotv1.VirtualMachineSnapshot) time.Durat
 	deadline := vmSnapshot.CreationTimestamp.Add(failureDeadline)
 	return time.Until(deadline)
 }
+
+func getSimplifiedMetaObject(meta metav1.ObjectMeta) *metav1.ObjectMeta {
+	result := meta.DeepCopy()
+	result.ManagedFields = nil
+
+	return result
+}

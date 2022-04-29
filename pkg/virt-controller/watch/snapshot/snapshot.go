@@ -44,6 +44,10 @@ const (
 
 	vmSnapshotContentFinalizer = "snapshot.kubevirt.io/vmsnapshotcontent-protection"
 
+	snapshotSourceNameLabel = "snapshot.kubevirt.io/source-vm-name"
+
+	snapshotSourceNamespaceLabel = "snapshot.kubevirt.io/source-vm-namespace"
+
 	defaultVolumeSnapshotClassAnnotation = "snapshot.storage.kubernetes.io/is-default-class"
 
 	vmSnapshotContentCreateEvent = "SuccessfulVirtualMachineSnapshotContentCreate"
@@ -379,6 +383,10 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 	snapshot := &vsv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: *volumeBackup.VolumeSnapshotName,
+			Labels: map[string]string{
+				snapshotSourceNameLabel:      content.Spec.Source.VirtualMachine.Name,
+				snapshotSourceNamespaceLabel: content.Spec.Source.VirtualMachine.Namespace,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         snapshotv1.SchemeGroupVersion.String(),
@@ -464,7 +472,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		vb := snapshotv1.VolumeBackup{
 			VolumeName: volumeName,
 			PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
-				ObjectMeta: *pvc.ObjectMeta.DeepCopy(),
+				ObjectMeta: *getSimplifiedMetaObject(pvc.ObjectMeta),
 				Spec:       *pvc.Spec.DeepCopy(),
 			},
 			VolumeSnapshotName: &volumeSnapshotName,

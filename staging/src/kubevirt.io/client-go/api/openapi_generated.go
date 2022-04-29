@@ -510,6 +510,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/snapshot/v1alpha1.Error":                                                    schema_kubevirtio_api_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.PersistentVolumeClaim":                                    schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.SourceSpec":                                               schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref),
+		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachine":                                           schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachineRestore":                                    schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachineRestoreList":                                schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreList(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachineRestoreSpec":                                schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref),
@@ -22900,14 +22901,45 @@ func schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.VirtualMachine"),
+							Ref: ref("kubevirt.io/api/snapshot/v1alpha1.VirtualMachine"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachine"},
+			"kubevirt.io/api/snapshot/v1alpha1.VirtualMachine"},
+	}
+}
+
+func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineSpec contains the VirtualMachine specification.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/core/v1.VirtualMachineSpec", "kubevirt.io/api/core/v1.VirtualMachineStatus"},
 	}
 }
 

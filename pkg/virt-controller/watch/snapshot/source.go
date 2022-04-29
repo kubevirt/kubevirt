@@ -146,7 +146,7 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	return true, nil
 }
 
-func (s *vmSnapshotSource) getVMRevision() (*kubevirtv1.VirtualMachine, error) {
+func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
 	vmi, exists, err := s.controller.getVMI(s.vm)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (s *vmSnapshotSource) getVMRevision() (*kubevirtv1.VirtualMachine, error) {
 		return nil, fmt.Errorf("unexpected resource %+v", storeObj)
 	}
 
-	vmRevision := &kubevirtv1.VirtualMachine{}
+	vmRevision := &snapshotv1.VirtualMachine{}
 	err = json.Unmarshal(cr.Data.Raw, vmRevision)
 	if err != nil {
 		return nil, err
@@ -183,23 +183,16 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		return snapshotv1.SourceSpec{}, err
 	}
 
-	var vmCpy *kubevirtv1.VirtualMachine
+	vmCpy := &snapshotv1.VirtualMachine{}
+	metaObj := *getSimplifiedMetaObject(s.vm.ObjectMeta)
+
 	if online {
 		vmCpy, err = s.getVMRevision()
 		if err != nil {
 			return snapshotv1.SourceSpec{}, err
 		}
-		labels := map[string]string{}
-		for k, v := range s.vm.ObjectMeta.Labels {
-			labels[k] = v
-		}
-		vmCpy.ObjectMeta.Labels = labels
+		vmCpy.ObjectMeta = metaObj
 
-		annotations := map[string]string{}
-		for k, v := range s.vm.ObjectMeta.Annotations {
-			annotations[k] = v
-		}
-		vmCpy.ObjectMeta.Annotations = annotations
 		vmi, exists, err := s.controller.getVMI(s.vm)
 		if err != nil {
 			return snapshotv1.SourceSpec{}, err
@@ -211,7 +204,8 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		vmi.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
 		vmCpy.Spec.Template.Spec = vmi.Spec
 	} else {
-		vmCpy = s.vm.DeepCopy()
+		vmCpy.ObjectMeta = metaObj
+		vmCpy.Spec = *s.vm.Spec.DeepCopy()
 		vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
 	}
 	return snapshotv1.SourceSpec{
