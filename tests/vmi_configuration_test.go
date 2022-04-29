@@ -1608,21 +1608,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				const expectedErrMessage = "denied the request: spec.domain.devices.disks[0].Name '" + diskName + "' not found."
 				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
 			})
-
-			It("[test_id:6961]should reject volume with missing disk / file system", func() {
-				const volumeName = "testvolume"
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: " "},
-					},
-				})
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(HaveOccurred())
-				const expectedErrMessage = "denied the request: spec.domain.volumes[0].name '" + volumeName + "' not found."
-				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
-			})
-
 		})
 
 		Context("[Serial]using defaultRuntimeClass configuration", func() {
