@@ -183,7 +183,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			podList, err := getPodList()
 			Expect(err).ToNot(HaveOccurred())
 			runningPods := getRunningReadyPods(podList, []string{podName})
-			Expect(len(runningPods)).ToNot(Equal(0))
+			Expect(runningPods).ToNot(BeEmpty())
 			for index, pod := range runningPods {
 				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				if index == len(runningPods)-1 {
