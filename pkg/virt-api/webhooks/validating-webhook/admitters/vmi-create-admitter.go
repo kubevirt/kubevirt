@@ -1841,16 +1841,6 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
 
-	if len(volumes) > arrayLenMax {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
-			Field:   field.String(),
-		})
-		// We won't process anything over the limit
-		return causes
-	}
-
 	// check that we have max 1 instance of below disks
 	serviceAccountVolumeCount := 0
 	downwardMetricVolumeCount := 0
@@ -2163,16 +2153,6 @@ func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
 func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
-
-	if len(disks) > arrayLenMax {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
-			Field:   field.String(),
-		})
-		// We won't process anything over the limit
-		return causes
-	}
 
 	for idx, disk := range disks {
 		// verify name is unique
