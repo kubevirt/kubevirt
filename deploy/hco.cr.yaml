@@ -14,6 +14,7 @@ spec:
   featureGates:
     deployTektonTaskResources: false
     enableCommonBootImageImport: false
+    nonRoot: true
     sriovLiveMigration: true
     withHostPassthroughCPU: false
   infra: {}

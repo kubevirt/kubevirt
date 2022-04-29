@@ -1283,6 +1283,32 @@ Version: 1.2.3`)
 					})
 				})
 
+				It("should add the NonRoot feature gate if it's set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						NonRoot: true,
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the NonRoot feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvNonRoot))
+					})
+				})
+
+				It("should not add the NonRoot feature gate if it's disabled in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						NonRoot: false,
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the NonRoot feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("NonRoot"))
+					})
+				})
+
 				Context("should honor SRIOVLiveMigration on SNO ", func() {
 					BeforeEach(func() {
 						hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
@@ -2690,7 +2716,7 @@ Version: 1.2.3`)
 				).ToNot(HaveOccurred())
 
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + 1))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + 2))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVGate))
 				Expect(kv.Spec.Configuration.CPURequest).To(BeNil())

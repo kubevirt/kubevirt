@@ -92,9 +92,6 @@ const (
 
 	// Allow automatic numa mapping on VMs with dedicated CPUs, if requested
 	kvNUMA = "NUMA"
-
-	// Enables rootless virt-launcher.
-	kvNonRoot = "NonRoot"
 )
 
 var (
@@ -110,7 +107,6 @@ var (
 		kvHostDevicesGate,
 		kvDownwardMetricsGate,
 		kvNUMA,
-		kvNonRoot,
 		kvLiveMigrationGate,
 	}
 
@@ -139,6 +135,7 @@ var (
 const (
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
 	kvSRIOVLiveMigration     = "SRIOVLiveMigration"
+	kvNonRoot                = "NonRoot"
 )
 
 // CPU Plugin default values
@@ -529,6 +526,10 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 
 	if featureGates.SRIOVLiveMigration {
 		fgs = append(fgs, kvSRIOVLiveMigration)
+	}
+
+	if featureGates.NonRoot {
+		fgs = append(fgs, kvNonRoot)
 	}
 
 	return fgs

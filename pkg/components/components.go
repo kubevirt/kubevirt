@@ -674,6 +674,7 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 			FeatureGates: hcov1beta1.HyperConvergedFeatureGates{
 				WithHostPassthroughCPU: false,
 				SRIOVLiveMigration:     true,
+				NonRoot:                true,
 			},
 			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
 				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,

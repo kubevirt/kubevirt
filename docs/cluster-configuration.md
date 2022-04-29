@@ -168,6 +168,16 @@ reverted back to false.
 
 **Default**: `false`
 
+
+### nonRoot Feature Gate
+Set the `nonRoot` feature gate to false in order to not run your virtual machines in rootless virt-launcher.
+
+**Note**: You can migrate rootless virt-launcher-es to root implementation by triggering migration or restarting the VM.
+
+**Default**: `true`
+
+
+
 ### Feature Gates Example
 
 ```yaml

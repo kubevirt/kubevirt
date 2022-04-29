@@ -191,7 +191,6 @@ var _ = Describe("HyperconvergedController", func() {
 					"DownwardMetrics",
 					"ExpandDisks",
 					"NUMA",
-					"NonRoot",
 					"WithHostPassthroughCPU",
 				}
 				// Get the KV

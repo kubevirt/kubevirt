@@ -54,6 +54,7 @@ spec:
               featureGates:
                 deployTektonTaskResources: false
                 enableCommonBootImageImport: true
+                nonRoot: true
                 sriovLiveMigration: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
@@ -852,6 +853,7 @@ spec:
                 default:
                   deployTektonTaskResources: false
                   enableCommonBootImageImport: true
+                  nonRoot: true
                   sriovLiveMigration: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
@@ -872,6 +874,10 @@ spec:
                       field. This feature gates only control the common templates.
                       It is possible to use custom templates by adding them to the
                       dataImportCronTemplates field.'
+                    type: boolean
+                  nonRoot:
+                    default: true
+                    description: Enables rootless virt-launcher.
                     type: boolean
                   sriovLiveMigration:
                     default: true
