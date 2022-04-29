@@ -5,6 +5,8 @@ go_library(
     srcs = [
         "klog.go",
         "klog_file.go",
+        "klog_file_others.go",
+        "klog_file_windows.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/klog/v2",
     importpath = "k8s.io/klog/v2",

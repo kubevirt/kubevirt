@@ -288,3 +288,8 @@ func (w *WebService) PATCH(subPath string) *RouteBuilder {
 func (w *WebService) DELETE(subPath string) *RouteBuilder {
 	return new(RouteBuilder).typeNameHandler(w.typeNameHandleFunc).servicePath(w.rootPath).Method("DELETE").Path(subPath)
 }
+
+// OPTIONS is a shortcut for .Method("OPTIONS").Path(subPath)
+func (w *WebService) OPTIONS(subPath string) *RouteBuilder {
+	return new(RouteBuilder).typeNameHandler(w.typeNameHandleFunc).servicePath(w.rootPath).Method("OPTIONS").Path(subPath)
+}

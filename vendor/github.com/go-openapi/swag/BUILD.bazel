@@ -6,6 +6,7 @@ go_library(
         "convert.go",
         "convert_types.go",
         "doc.go",
+        "file.go",
         "json.go",
         "loading.go",
         "name_lexem.go",
