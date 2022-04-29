@@ -23,6 +23,8 @@ import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 // Default VMI values
@@ -56,7 +58,13 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithResourceMemory("128Mi"),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
-	cirrosOpts = append(cirrosOpts, opts...)
+
+	if checks.IsARM64(testsuite.Arch) {
+		// Cirros image need 256M to boot on ARM64,
+		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+		cirrosOpts = append(cirrosOpts, WithResourceMemory("256Mi"))
+	}
+
 	return New(RandName(DefaultVmiName), cirrosOpts...)
 }
 
