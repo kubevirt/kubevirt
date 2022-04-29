@@ -20,10 +20,6 @@ spec:
     cpu:
       cores: 2
     devices:
-      disks:
-      - disk:
-          bus: sata
-        name: pvcdisk
       interfaces:
       - masquerade: {}
         model: e1000
