@@ -64,9 +64,10 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		WithResourceMemory("128Mi"),
+		WithResourceMemory(alpineMemory()),
 		WithRng(),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
@@ -75,9 +76,10 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
-		WithResourceMemory("128Mi"),
+		WithResourceMemory(alpineMemory()),
 		WithRng(),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
