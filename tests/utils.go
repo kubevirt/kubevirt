@@ -314,7 +314,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("Warning event received")).Error(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("warning event received")).Error(event.Message)
 			} else {
 				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
@@ -504,7 +504,7 @@ func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.Persistent
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	pvc, err := virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Create(context.Background(), newPVC(os, size, storageClass, recycledPV), metav1.CreateOptions{})
+	pvc, err := virtCli.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Create(context.Background(), newPVC(os, size, storageClass, recycledPV), metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util2.PanicOnError(err)
 	}
@@ -577,7 +577,7 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 	for _, pv := range pvList.Items {
 		if pv.Spec.StorageClassName == StorageClassHostPathSeparateDevice {
 			// ignore error we want to attempt to delete them all.
-			virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+			_ = virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		}
 	}
 
@@ -765,7 +765,7 @@ func DeletePVC(os string) {
 	util2.PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
-	err = virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = virtCli.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
@@ -1456,7 +1456,7 @@ func DeletePvAndPvc(name string) {
 		util2.PanicOnError(err)
 	}
 
-	err = virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = virtCli.CoreV1().PersistentVolumeClaims(util2.NamespaceTestDefault).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
@@ -1693,7 +1693,7 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 }
 
-// Block until the specified VirtualMachineInstance reached either Failed or Running states
+// WaitForVMIStartOrFailed blocks until the specified VirtualMachineInstance reached either Failed or Running states
 func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp WarningsPolicy) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -2111,17 +2111,17 @@ func execCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerN
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	config, err := kubecli.GetKubevirtClientConfig()
+	virtConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		return err
 	}
 
-	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	executor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
 	if err != nil {
 		return err
 	}
 
-	return exec.Stream(options)
+	return executor.Stream(options)
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -2145,7 +2145,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("Failed to get vmi, %s", err)
+		return "", fmt.Errorf("failed to get vmi, %s", err)
 	}
 
 	command := []string{"virsh"}
@@ -2333,10 +2333,10 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 func RemoveHostDiskImage(diskPath string, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
-	path := filepath.Join("/proc/1/root", diskPath)
+	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", path})
+	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -2349,7 +2349,7 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 		util2.PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims((namespace)).Create(context.Background(), newNFSPVC(name, namespace, size, os), metav1.CreateOptions{})
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), newNFSPVC(name, namespace, size, os), metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util2.PanicOnError(err)
 	}
@@ -2542,9 +2542,9 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
 	name := vmi.Name
 	namespace := vmi.Namespace
-	labels := map[string]string{"name": name}
+	vmLabels := map[string]string{"name": name}
 	for k, v := range vmi.Labels {
-		labels[k] = v
+		vmLabels[k] = v
 	}
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2555,7 +2555,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:    labels,
+					Labels:    vmLabels,
 					Name:      name + "makeitinteresting", // this name should have no effect
 					Namespace: namespace,
 				},
@@ -2644,7 +2644,7 @@ func DisableFeatureGate(feature string) {
 		}
 	}
 
-	newArray := []string{}
+	var newArray []string
 	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 	for _, fg := range featureGates {
 		if fg == feature {
@@ -2783,12 +2783,12 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 			Name(pod.Name).
 			SubResource("portforward")
 
-		config, err := kubecli.GetKubevirtClientConfig()
+		kubevirtClientConfig, err := kubecli.GetKubevirtClientConfig()
 		if err != nil {
 			errChan <- err
 			return
 		}
-		transport, upgrader, err := spdy.RoundTripperFor(config)
+		transport, upgrader, err := spdy.RoundTripperFor(kubevirtClientConfig)
 		if err != nil {
 			errChan <- err
 			return
@@ -3064,17 +3064,17 @@ func RetryIfModified(do func() error) (err error) {
 }
 
 func GenerateRandomMac() (net.HardwareAddr, error) {
-	prefix := []byte{0x02, 0x00, 0x00} // local unicast prefix
-	suffix := make([]byte, 3)
+	prefix := net.HardwareAddr{0x02, 0x00, 0x00} // local unicast prefix
+	suffix := make(net.HardwareAddr, 3)
 	_, err := cryptorand.Read(suffix)
 	if err != nil {
 		return nil, err
 	}
-	return net.HardwareAddr(append(prefix, suffix...)), nil
+	return append(prefix, suffix...), nil
 }
 
 func getCert(pod *k8sv1.Pod, port string) []byte {
-	randPort := strconv.Itoa(int(4321 + rand.Intn(6000)))
+	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	var rawCert []byte
 	mutex := &sync.Mutex{}
 	conf := &tls.Config{
@@ -3087,7 +3087,7 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		},
 	}
 
-	var cert []byte
+	var certificate []byte
 	EventuallyWithOffset(2, func() []byte {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
@@ -3100,16 +3100,16 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		}
 		mutex.Lock()
 		defer mutex.Unlock()
-		cert = make([]byte, len(rawCert))
-		copy(cert, rawCert)
-		return cert
+		certificate = make([]byte, len(rawCert))
+		copy(certificate, rawCert)
+		return certificate
 	}, 40*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 
-	return cert
+	return certificate
 }
 
 func CallUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
-	randPort := strconv.Itoa(int(4321 + rand.Intn(6000)))
+	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
@@ -3330,7 +3330,7 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 	}
 
 	if len(vs) == 0 {
-		return "", fmt.Errorf("No kubevirt releases found")
+		return "", fmt.Errorf("no kubevirt releases found")
 	}
 
 	// decending order from most recent.
