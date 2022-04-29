@@ -129,8 +129,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineHandover := func(vmi *virtv1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduled))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
 	}
 
@@ -146,8 +146,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduling))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
 	}
 
@@ -156,8 +156,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduled))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
 	}
 
@@ -166,8 +166,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Failed))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
-			Expect(len(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
 	}
 
@@ -882,7 +882,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				expectConditions := func(vmi *virtv1.VirtualMachineInstance) {
 					// PodScheduled and Synchronized (as well as Ready)
-					Expect(len(vmi.Status.Conditions)).To(Equal(3), "there should be exactly 3 conditions")
+					Expect(vmi.Status.Conditions).To(HaveLen(3), "there should be exactly 3 conditions")
 
 					getType := func(c virtv1.VirtualMachineInstanceCondition) string { return string(c.Type) }
 					getReason := func(c virtv1.VirtualMachineInstanceCondition) string { return c.Reason }
