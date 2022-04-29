@@ -2051,11 +2051,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7), "7 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7), "7 mounts in manifest for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeMounts[6].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
+				Expect(pod.Spec.Volumes).To(HaveLen(8), "Found 8 volumes in manifest")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -2111,15 +2111,15 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
 				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found some devices for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(2), "Found 1 device for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(2), "Found 1 device for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
 				Expect(pod.Spec.Containers[0].VolumeDevices[1].Name).To(Equal(ephemeralVolumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "Found 6 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(6), "Found 6 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(9), "Found 9 volumes in manifest")
+				Expect(pod.Spec.Volumes).To(HaveLen(9), "Found 9 volumes in manifest")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
