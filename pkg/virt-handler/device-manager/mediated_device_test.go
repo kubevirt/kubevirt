@@ -200,13 +200,13 @@ var _ = Describe("Mediated Device", func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			permittedDevices := fakeClusterConfig.GetPermittedHostDevices()
 			Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
-			Expect(len(permittedDevices.MediatedDevices)).To(Equal(1), "the fake device was not found")
+			Expect(permittedDevices.MediatedDevices).To(HaveLen(1), "the fake device was not found")
 
 			By("ensuring a device plugin gets created for our fake device")
 			enabledDevicePlugins, disabledDevicePlugins := deviceController.splitPermittedDevices(
 				deviceController.updatePermittedHostDevicePlugins(),
 			)
-			Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
+			Expect(enabledDevicePlugins).To(HaveLen(1), "a device plugin wasn't created for the fake device")
 			Expect(disabledDevicePlugins).To(BeEmpty())
 			Ω(enabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 			// Manually adding the enabled plugin, since the device controller is not actually running
@@ -219,14 +219,14 @@ var _ = Describe("Mediated Device", func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			permittedDevices = fakeClusterConfig.GetPermittedHostDevices()
 			Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
-			Expect(len(permittedDevices.MediatedDevices)).To(Equal(0), "the fake device was not deleted")
+			Expect(permittedDevices.MediatedDevices).To(BeEmpty(), "the fake device was not deleted")
 
 			By("ensuring the device plugin gets stopped")
 			enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
 				deviceController.updatePermittedHostDevicePlugins(),
 			)
 			Expect(enabledDevicePlugins).To(BeEmpty())
-			Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
+			Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
 			Ω(disabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 		})
 	})
