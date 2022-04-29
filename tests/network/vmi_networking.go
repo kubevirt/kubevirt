@@ -344,9 +344,12 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By(checkingEth0MACAddr)
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.MacAddress = "de:ad:00:00:be:af"
-			deadbeafVMI := libvmi.NewAlpine(
+			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+			Expect(err).NotTo(HaveOccurred())
+			deadbeafVMI := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 			)
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -952,15 +955,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create another VMI")
-				anotherVmi = libvmi.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				anotherVmi = libvmi.NewAlpineWithTestTooling(
+					libvmi.WithMasqueradeNetworking()...,
 				)
 				anotherVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(anotherVmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, libnet.WithAlpineConfig(console.LoginToAlpine))
+				anotherVmi = tests.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
 
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})

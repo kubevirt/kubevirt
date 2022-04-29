@@ -71,3 +71,14 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	alpineOpts = append(alpineOpts, opts...)
 	return New(RandName(DefaultVmiName), alpineOpts...)
 }
+
+func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	alpineOpts := []Option{
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
+		WithResourceMemory("128Mi"),
+		WithRng(),
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
+	}
+	alpineOpts = append(alpineOpts, opts...)
+	return New(RandName(DefaultVmiName), alpineOpts...)
+}

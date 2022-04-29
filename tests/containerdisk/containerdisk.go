@@ -31,6 +31,7 @@ const (
 	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
+	ContainerDiskAlpineTestTooling    ContainerDisk = "alpine-with-test-tooling"
 	ContainerDiskFedoraTestTooling    ContainerDisk = "fedora-with-test-tooling"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty                ContainerDisk = "empty"
@@ -62,7 +63,7 @@ func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
 		return fmt.Sprintf("%s/virtio-container-disk:%s", registry, flags.KubeVirtUtilityVersionTag)
-	case ContainerDiskFedoraTestTooling, ContainerDiskFedoraRealtime:
+	case ContainerDiskFedoraTestTooling, ContainerDiskFedoraRealtime, ContainerDiskAlpineTestTooling:
 		return fmt.Sprintf("%s/%s-container-disk:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))

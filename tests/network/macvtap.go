@@ -82,7 +82,7 @@ var _ = SIGDescribe("Macvtap", func() {
 	}
 
 	newAlpineVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewAlpine(
+		return libvmi.NewAlpineWithTestTooling(
 			libvmi.WithInterface(
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
@@ -119,7 +119,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			newAlpineVMIWithExplicitMac(networkName, mac),
 			180,
 		)
-		err := libnet.WithAlpineConfig(console.LoginToAlpine)(runningVMI)
+		err := console.LoginToAlpine(runningVMI)
 		return runningVMI, err
 	}
 

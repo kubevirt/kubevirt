@@ -336,6 +336,14 @@ container_pull(
 )
 
 container_pull(
+    name = "alpine_with_test_tooling",
+    digest = "sha256:48181a73ecc9c076ad30d8e31202e46a6c4ff4aff7a17b098b8864f2b8f099df",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
+    tag = "2204130933-caa3837",
+)
+
+container_pull(
     name = "fedora_with_test_tooling_aarch64",
     digest = "sha256:9b1371260c05086a24ac9effdbedca9759c885ea8db93de7f0339df3bcd5a5c3",
     registry = "quay.io",
