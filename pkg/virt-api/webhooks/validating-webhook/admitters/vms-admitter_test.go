@@ -124,6 +124,26 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
 
+	It("should allow VM with missing volume disk or filesystem", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testvol",
+			VolumeSource: v1.VolumeSource{
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
+			},
+		})
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
 	It("should accept valid vmi spec", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

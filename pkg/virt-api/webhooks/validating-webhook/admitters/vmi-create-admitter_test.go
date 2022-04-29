@@ -615,7 +615,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject volume with missing disk / file system", func() {
 			vmi := api.NewMinimalVMI("testvmi")
-
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
@@ -623,10 +622,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			causes := validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.volumes[0].name"))
 		})
+
 		It("should reject multiple disks referencing same volume", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 
