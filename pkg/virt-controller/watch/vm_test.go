@@ -23,6 +23,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorapi "kubevirt.io/api/flavor"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
@@ -2434,8 +2435,8 @@ var _ = Describe("VirtualMachine", func() {
 			const flavorName = "test-flavor"
 
 			BeforeEach(func() {
-				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
-					return &flavorv1alpha1.VirtualMachineFlavorProfile{
+				flavorMethods.FindFlavorSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+					return &flavorv1alpha1.VirtualMachineFlavorSpec{
 						CPU: &virtv1.CPU{
 							Sockets: 2,
 							Cores:   1,
@@ -2447,7 +2448,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should apply flavor", func() {
 				const flavorCpus = uint32(4)
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
 					vmiSpec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
 					return nil
 				}
@@ -2475,7 +2476,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should fail if flavor does not exist", func() {
 				const errorMessage = "flavor not found"
-				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+				flavorMethods.FindFlavorSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 					return nil, fmt.Errorf(errorMessage)
 				}
 
@@ -2501,7 +2502,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should fail applying flavor", func() {
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
 					return flavor.Conflicts{k8sfield.NewPath("spec", "template", "test", "path")}
 				}
 

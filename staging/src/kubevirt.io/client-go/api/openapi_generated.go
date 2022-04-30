@@ -494,7 +494,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorList":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref),
-		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyList":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyList(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                    schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
@@ -16266,13 +16266,6 @@ func schema_kubevirtio_api_core_v1_FlavorMatcher(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
-					"profile": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"name"},
 			},
@@ -22152,32 +22145,18 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref commo
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
 						},
 					},
-					"profiles": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"name",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
+					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile"),
-									},
-								},
-							},
+							Description: "VirtualMachineFlavorSpec for the flavor",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec"),
 						},
 					},
 				},
-				Required: []string{"profiles"},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec"},
 	}
 }
 
@@ -22254,32 +22233,18 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref common.Refer
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
 						},
 					},
-					"profiles": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"name",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
+					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile"),
-									},
-								},
-							},
+							Description: "VirtualMachineFlavorSpec for the flavor",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec"),
 						},
 					},
 				},
-				Required: []string{"profiles"},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorSpec"},
 	}
 }
 
@@ -22330,34 +22295,19 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref common.R
 	}
 }
 
-func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.",
+				Description: "VirtualMachineFlavorSpec",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name specifies the name of this custom profile.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"default": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor. Zero or one profile can be set to default.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/api/core/v1.CPU"),
 						},
 					},
 				},
-				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{

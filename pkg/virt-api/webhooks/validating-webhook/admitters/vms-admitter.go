@@ -168,19 +168,24 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 }
 
 func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
-	flavorProfile, err := admitter.FlavorMethods.FindProfile(vm)
+
+	flavorSpec, err := admitter.FlavorMethods.FindFlavorSpec(vm)
+
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Could not find flavor profile: %v", err),
+			Message: fmt.Sprintf("Could not find flavor: %v", err),
 			Field:   k8sfield.NewPath("spec", "flavor").String(),
 		}}
+
 	}
-	if flavorProfile == nil {
+
+	if flavorSpec == nil {
 		return nil
 	}
 
-	conflicts := admitter.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorProfile, &vm.Spec.Template.Spec)
+	conflicts := admitter.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), flavorSpec, &vm.Spec.Template.Spec)
+
 	if len(conflicts) == 0 {
 		return nil
 	}
@@ -189,7 +194,7 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 	for _, conflict := range conflicts {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "VMI field conflicts with selected Flavor profile",
+			Message: "VMI field conflicts with selected Flavor",
 			Field:   conflict.String(),
 		})
 	}
