@@ -977,8 +977,9 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
 			fake_jobinfo := &libvirt.DomainJobInfo{
-				Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-				DataRemaining: 32479827394,
+				Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+				DataRemaining:    32479827394,
+				DataRemainingSet: true,
 			}
 
 			options := &cmdclient.MigrationOptions{
