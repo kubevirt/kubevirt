@@ -114,7 +114,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 		resp := vmiUpdateAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal("update of VMI object is restricted"))
 	})
 
@@ -227,7 +227,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			}
 			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("modification of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
 		},
 		Entry("Update of an existing label",

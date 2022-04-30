@@ -22,7 +22,7 @@ func PanicOnError(err error) {
 
 func GetCurrentKv(virtClient kubecli.KubevirtClient) *k6sv1.KubeVirt {
 	kvs := GetKvList(virtClient)
-	gomega.Expect(len(kvs)).To(gomega.Equal(1))
+	gomega.Expect(kvs).To(gomega.HaveLen(1))
 	return &kvs[0]
 }
 
