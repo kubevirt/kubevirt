@@ -28,6 +28,8 @@ import (
 	"runtime"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/migration"
+
 	"kubevirt.io/kubevirt/pkg/flavor"
 
 	"github.com/emicklei/go-restful"
@@ -449,6 +451,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
+		migration.RegisterMigrationMetrics()
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
