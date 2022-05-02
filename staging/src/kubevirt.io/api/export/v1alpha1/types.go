@@ -24,6 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	App = "virt-exporter"
+)
+
 // VirtualMachineExport defines the operation of exporting a VM source
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -98,7 +102,8 @@ type VirtualMachineExportLink struct {
 	Cert string `json:"cert"`
 
 	// Volumes is a list of available volumes to export
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	// +optional
 	Volumes []VirtualMachineExportVolume `json:"volumes"`
 }
@@ -107,7 +112,8 @@ type VirtualMachineExportLink struct {
 type VirtualMachineExportVolume struct {
 	// Name is the name of the exported volume
 	Name string `json:"name"`
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=format
 	// +optional
 	Formats []VirtualMachineExportVolumeFormat `json:"formats,omitempty"`
 }
@@ -119,8 +125,8 @@ const (
 	KubeVirtRaw ExportVolumeFormat = "raw"
 	// KubeVirtGZ is the volume in gzipped RAW format.
 	KubeVirtGz ExportVolumeFormat = "gzip"
-	// Archive is an uncompressed directory, which points to the root of a PersistentVolumeClaim
-	Archive ExportVolumeFormat = "dir"
+	// Dir is an uncompressed directory, which points to the root of a PersistentVolumeClaim, exposed using a FileServer https://pkg.go.dev/net/http#FileServer
+	Dir ExportVolumeFormat = "dir"
 	// ArchiveGz is a tarred and gzipped version of the root of a PersistentVolumeClaim
 	ArchiveGz ExportVolumeFormat = "tar.gz"
 )

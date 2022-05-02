@@ -67,6 +67,7 @@ const (
 	varRun           = "/var/run"
 	virtBinDir       = "virt-bin-share-dir"
 	hotplugDisk      = "hotplug-disk"
+	virtExporter     = "virt-exporter"
 )
 
 const KvmDevice = "devices.kubevirt.io/kvm"
@@ -1768,6 +1769,9 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 					Version: exportv1.SchemeGroupVersion.Version,
 					Kind:    "VirtualMachineExport",
 				}),
+			},
+			Labels: map[string]string{
+				v1.AppLabel: virtExporter,
 			},
 		},
 		Spec: k8sv1.PodSpec{

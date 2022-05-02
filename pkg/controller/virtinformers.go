@@ -152,6 +152,9 @@ type KubeInformerFactory interface {
 	// Watches for the kubevirt export CA config map
 	KubeVirtExportCAConfigMap() cache.SharedIndexInformer
 
+	// Watches for the kubevirt export CA config map
+	ExportService() cache.SharedIndexInformer
+
 	// ConfigMaps which are managed by the operator
 	OperatorConfigMap() cache.SharedIndexInformer
 
@@ -736,6 +739,19 @@ func (f *kubeInformerFactory) KubeVirtExportCAConfigMap() cache.SharedIndexInfor
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-export-ca")
 		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ExportService() cache.SharedIndexInformer {
+	return f.getInformer("exportService", func() cache.SharedIndexInformer {
+		// Watch all service with the kubevirt app label
+		labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", kubev1.AppLabel, exportv1.App))
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "services", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Service{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

@@ -456,7 +456,7 @@ var _ = SIGDescribe("Export", func() {
 	},
 		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate),
 		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate),
-		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, exportv1.Archive, archiveDircontentUrlTemplate),
+		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, exportv1.Dir, archiveDircontentUrlTemplate),
 		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, exportv1.ArchiveGz, kubevirtcontentUrlTemplate),
 	)
 

@@ -99,23 +99,6 @@ func (admitter *VMExportAdmitter) Admit(ar *admissionv1.AdmissionReview) *admiss
 					},
 				}
 			}
-		// case virtv1.SchemeGroupVersion.Group:
-		// 	switch vmExport.Spec.Source.Kind {
-		// 	case "VirtualMachine":
-		// 		causes, err = admitter.validateVM(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
-		// 		if err != nil {
-		// 			return webhookutils.ToAdmissionResponseError(err)
-		// 		}
-		// 	default:
-		// 		causes = []metav1.StatusCause{
-		// 			{
-		// 				Type:    metav1.CauseTypeFieldValueInvalid,
-		// 				Message: "invalid kind",
-		// 				Field:   sourceField.Child("kind").String(),
-		// 			},
-		// 		}
-		// 	}
-
 		default:
 			causes = []metav1.StatusCause{
 				{
@@ -169,17 +152,3 @@ func (admitter *VMExportAdmitter) validatePVC(field *k8sfield.Path, namespace, n
 
 	return []metav1.StatusCause{}, nil
 }
-
-// func (admitter *VMExportAdmitter) validateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
-// 	if name == "" {
-// 		return []metav1.StatusCause{
-// 			{
-// 				Type:    metav1.CauseTypeFieldValueInvalid,
-// 				Message: "VM name must not be empty",
-// 				Field:   field.String(),
-// 			},
-// 		}, nil
-// 	}
-
-// 	return []metav1.StatusCause{}, nil
-// }

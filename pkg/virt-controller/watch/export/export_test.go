@@ -72,6 +72,7 @@ var _ = Describe("Export controlleer", func() {
 		podInformer      cache.SharedIndexInformer
 		cmInformer       cache.SharedIndexInformer
 		vmExportInformer cache.SharedIndexInformer
+		serviceInformer  cache.SharedIndexInformer
 		k8sClient        *k8sfake.Clientset
 		vmExportClient   *kubevirtfake.Clientset
 		certDir          string
@@ -91,6 +92,7 @@ var _ = Describe("Export controlleer", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 		vmExportInformer, _ = testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -108,6 +110,7 @@ var _ = Describe("Export controlleer", func() {
 			PodInformer:       podInformer,
 			ConfigMapInformer: cmInformer,
 			VMExportInformer:  vmExportInformer,
+			ServiceInformer:   serviceInformer,
 			KubevirtNamespace: "kubevirt",
 			TemplateService:   services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			caCertManager:     bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
@@ -152,13 +155,6 @@ var _ = Describe("Export controlleer", func() {
 				},
 			},
 		}
-		k8sClient.Fake.PrependReactor("get", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			get, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-			Expect(get.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
-			Expect(get.GetNamespace()).To(Equal(testNamespace))
-			return true, nil, errors.NewNotFound(schema.GroupResource{}, "not here")
-		})
 		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -176,28 +172,24 @@ var _ = Describe("Export controlleer", func() {
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test"))
 
-		k8sClient.Fake.PrependReactor("get", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			get, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-			Expect(get.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
-			Expect(get.GetNamespace()).To(Equal(testNamespace))
-			service.Status.Conditions[0].Type = "test2"
-			return true, service, nil
+		serviceInformer.GetStore().Add(&k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+			Spec: k8sv1.ServiceSpec{},
+			Status: k8sv1.ServiceStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type: "test2",
+					},
+				},
+			},
 		})
 		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test2"))
-
-		k8sClient.Fake.PrependReactor("get", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			get, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-			Expect(get.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
-			Expect(get.GetNamespace()).To(Equal(testNamespace))
-			return true, nil, fmt.Errorf("failure")
-		})
-		service, err = controller.getOrCreateExportService(testVMExport)
-		Expect(err).To(HaveOccurred())
 	})
 
 	It("Should create a pod based on the name of the VMExport", func() {
@@ -217,7 +209,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(pod.GetNamespace()).To(Equal(testNamespace))
 			return true, pod, nil
 		})
-		pod, err := controller.getOrCreateExporterPod(testVMExport, []*k8sv1.PersistentVolumeClaim{testPVC})
+		pod, err := controller.createExporterPod(testVMExport, []*k8sv1.PersistentVolumeClaim{testPVC})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod).ToNot(BeNil())
 		Expect(pod.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -297,9 +289,8 @@ var _ = Describe("Export controlleer", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, secret, nil
 		})
-		secret, err := controller.getOrCreateTokenCertSecret(testVMExport, testExportPod)
+		err := controller.getOrCreateCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(secret.Name).To(Equal("test-secret"))
 		By("Creating again, and returning exists")
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -311,9 +302,8 @@ var _ = Describe("Export controlleer", func() {
 			secret.Name = "something"
 			return true, secret, errors.NewAlreadyExists(schema.GroupResource{}, "already exists")
 		})
-		secret, err = controller.getOrCreateTokenCertSecret(testVMExport, testExportPod)
+		err = controller.getOrCreateCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(secret.Name).To(Equal("test-secret"))
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -323,9 +313,8 @@ var _ = Describe("Export controlleer", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, nil, fmt.Errorf("failure")
 		})
-		secret, err = controller.getOrCreateTokenCertSecret(testVMExport, testExportPod)
+		err = controller.getOrCreateCertSecret(testVMExport, testExportPod)
 		Expect(err).To(HaveOccurred())
-		Expect(secret).To(BeNil())
 	})
 
 	It("Should ignore non pvc VMExports", func() {
@@ -351,9 +340,10 @@ var _ = Describe("Export controlleer", func() {
 			Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(0))
 			return true, vmExport, nil
 		})
+
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(time.Second))
+		Expect(retry).To(BeEquivalentTo(int64(0)))
 		service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -383,7 +373,7 @@ var _ = Describe("Export controlleer", func() {
 			Expect(vmExport.Status.Links.Internal.Volumes).To(HaveLen(1))
 			Expect(vmExport.Status.Links.Internal.Volumes[0].Formats).To(HaveLen(2))
 			Expect(vmExport.Status.Links.Internal.Volumes[0].Formats).To(ContainElements(exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.Archive,
+				Format: exportv1.Dir,
 				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/dir", fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), testNamespace, testVMExport.Spec.Source.Name),
 			}, exportv1.VirtualMachineExportVolumeFormat{
 				Format: exportv1.ArchiveGz,
@@ -457,7 +447,7 @@ var _ = Describe("Export controlleer", func() {
 		})
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(time.Second))
+		Expect(retry).To(BeEquivalentTo(int64(0)))
 		service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -535,5 +525,4 @@ func expectExporterCreate(k8sClient *k8sfake.Clientset, phase k8sv1.PodPhase) {
 		}
 		return true, exportPod, nil
 	})
-
 }

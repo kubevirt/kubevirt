@@ -106,6 +106,7 @@ var _ = Describe("Application", func() {
 		configMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		flavorMethods := testutils.NewMockFlavorMethods()
+		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 
 		var qemuGid int64 = 107
 
@@ -184,6 +185,7 @@ var _ = Describe("Application", func() {
 			PVCInformer:       pvcInformer,
 			PodInformer:       podInformer,
 			VMInformer:        vmInformer,
+			ServiceInformer:   exportServiceInformer,
 			ConfigMapInformer: configMapInformer,
 			Recorder:          recorder,
 		}

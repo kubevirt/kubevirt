@@ -85,7 +85,7 @@ const (
 	defaultHost = "0.0.0.0"
 
 	launcherImage       = "virt-launcher"
-	exporterImage       = "virt-exporter"
+	exporterImage       = "virt-exportserver"
 	launcherQemuTimeout = 240
 
 	imagePullSecret = ""
@@ -174,6 +174,7 @@ type VirtControllerApp struct {
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
 	caExportConfigMapInformer cache.SharedIndexInformer
+	exportServiceInformer     cache.SharedIndexInformer
 	exportController          *export.VMExportController
 	snapshotController        *snapshot.VMSnapshotController
 	restoreController         *snapshot.VMRestoreController
@@ -354,6 +355,7 @@ func Execute() {
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
 	app.allPodInformer = app.informerFactory.Pod()
+	app.exportServiceInformer = app.informerFactory.ExportService()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -670,6 +672,7 @@ func (vca *VirtControllerApp) initExportController() {
 		PVCInformer:       vca.persistentVolumeClaimInformer,
 		PodInformer:       vca.allPodInformer,
 		VMInformer:        vca.vmInformer,
+		ServiceInformer:   vca.exportServiceInformer,
 		Recorder:          recorder,
 		ResyncPeriod:      vca.snapshotControllerResyncPeriod,
 		ConfigMapInformer: vca.caExportConfigMapInformer,

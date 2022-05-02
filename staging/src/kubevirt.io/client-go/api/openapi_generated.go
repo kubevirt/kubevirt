@@ -22256,7 +22256,19 @@ func schema_kubevirtio_api_flavor_v1alpha1_ClockPreferences(ref common.Reference
 							Ref:         ref("kubevirt.io/api/core/v1.ClockOffset"),
 						},
 					},
+<<<<<<< HEAD
 					"preferredTimer": {
+=======
+					"volumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+>>>>>>> 247e887b8 (Addressed review comments.)
 						SchemaProps: spec.SchemaProps{
 							Description: "Timer specifies whih timers are attached to the vmi.",
 							Ref:         ref("kubevirt.io/api/core/v1.Timer"),
