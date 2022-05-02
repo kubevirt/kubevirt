@@ -118,7 +118,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				metav1.CreateOptions{},
 			)
 		}
-		BeforeEach(func() {
+		BeforeEach(OncePerOrdered, func() {
 			tests.BeforeTestCleanup()
 
 			By("Create NetworkAttachmentDefinition")
@@ -127,12 +127,12 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Creating k8s service for the VMI")
-
 			serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
 			_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 		})
+
 		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
 			Expect(libnet.AddLabelToNamespace(virtClient, util.NamespaceTestDefault, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
@@ -216,6 +216,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				Expect(err).ToNot(HaveOccurred())
 				bastionVMI = tests.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})
+
 			Context("With VMI having explicit ports specified", func() {
 				BeforeEach(func() {
 					vmiPorts = explicitPorts
@@ -314,7 +315,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				})
 			})
 		})
-		Describe("Outbound traffic", func() {
+		Describe("Outbound traffic", Ordered, func() {
 			const (
 				externalServiceCheckTimeout  = 5 * time.Second
 				externalServiceCheckInterval = 1 * time.Second
@@ -333,7 +334,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				return fmt.Sprintf("HTTP\\/[123456789\\.]{1,3}\\s(%s)", codeRegex)
 			}
 
-			BeforeEach(func() {
+			BeforeAll(func() {
 				serverVMI = libvmi.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
@@ -414,10 +415,14 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				// After Sidecar with OutboundTrafficPolicy is created, it may take a while for the Envoy proxy
 				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
 
-				BeforeEach(func() {
+				BeforeAll(func() {
 					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
-					registryOnlySidecar := generateRegistryOnlySidecar()
-					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
+					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), generateRegistryOnlySidecar(), metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+				AfterAll(func() {
+					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
+					err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Delete(context.TODO(), generateRegistryOnlySidecar().GetName(), metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				})
 
