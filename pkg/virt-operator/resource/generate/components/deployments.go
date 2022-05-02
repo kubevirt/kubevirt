@@ -631,12 +631,11 @@ func NewExportProxyDeployment(namespace string, repository string, imagePrefix s
 	//attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	//attachProfileVolume(&deployment.Spec.Template.Spec)
 
-	// TODO XXX
-	//pod := &deployment.Spec.Template.Spec
-	//pod.ServiceAccountName = rbac.ApiServiceAccountName
-	//pod.SecurityContext = &corev1.PodSecurityContext{
-	//	RunAsNonRoot: boolPtr(true),
-	//}
+	pod := &deployment.Spec.Template.Spec
+	pod.ServiceAccountName = rbac.ExportProxyServiceAccountName
+	pod.SecurityContext = &corev1.PodSecurityContext{
+		RunAsNonRoot: boolPtr(true),
+	}
 
 	const shortName = "exportproxy"
 	container := &deployment.Spec.Template.Spec.Containers[0]
