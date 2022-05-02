@@ -94,6 +94,11 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		if !istioServiceMeshDeployed() {
 			Skip("Istio service mesh is required for service-mesh tests to run")
 		}
+
+		virtClient, err = kubecli.GetKubevirtClient()
+		util.PanicOnError(err)
+
+		libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 	})
 
 	Context("Virtual Machine with masquerade interface", func() {
@@ -115,11 +120,6 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		}
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
-
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
-
-			libnet.SkipWhenClusterNotSupportIpv4(virtClient)
 
 			By("Create NetworkAttachmentDefinition")
 			nad := generateIstioCNINetworkAttachmentDefinition()
