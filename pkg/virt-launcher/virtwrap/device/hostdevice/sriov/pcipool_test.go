@@ -174,8 +174,10 @@ func newNetworkData(netName string, resource resourceData) networkData {
 
 func withEnvironmentContext(envDataList []envData, f func()) {
 	for _, envVar := range envDataList {
-		os.Setenv(envVar.Name, envVar.Value)
-		defer os.Unsetenv(envVar.Name)
+		if os.Setenv(envVar.Name, envVar.Value) == nil {
+			// Intentionally ignoring error
+			defer os.Unsetenv(envVar.Name)
+		}
 	}
 	f()
 }

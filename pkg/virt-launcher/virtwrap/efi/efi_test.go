@@ -37,12 +37,15 @@ var _ = Describe("EFI environment detection", func() {
 	createEFIRoms := func(efiRoms ...string) string {
 		ovmfPath, err := os.MkdirTemp("", "kubevirt-ovmf")
 		Expect(err).To(BeNil())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(ovmfPath)).To(Succeed())
+		})
 
 		for i := range efiRoms {
 			if efiRoms[i] != "" {
 				f, err := os.Create(path.Join(ovmfPath, efiRoms[i]))
 				Expect(err).To(BeNil())
-				f.Close()
+				Expect(f.Close()).To(Succeed())
 			}
 		}
 		return ovmfPath
@@ -51,7 +54,6 @@ var _ = Describe("EFI environment detection", func() {
 	DescribeTable("EFI Roms",
 		func(arch, codeSB, varsSB, code, vars string, SBBootable, NoSBBootable bool) {
 			ovmfPath := createEFIRoms(codeSB, varsSB, code, vars)
-			defer os.RemoveAll(ovmfPath)
 
 			efiEnv := DetectEFIEnvironment(arch, ovmfPath)
 			Expect(efiEnv).ToNot(BeNil())
@@ -83,7 +85,6 @@ var _ = Describe("EFI environment detection", func() {
 
 	It("SEV EFI Roms", func() {
 		ovmfPath := createEFIRoms(EFICodeSEV, EFIVarsSEV)
-		defer os.RemoveAll(ovmfPath)
 
 		efiEnv := DetectEFIEnvironment("x86_64", ovmfPath)
 		Expect(efiEnv).ToNot(BeNil())

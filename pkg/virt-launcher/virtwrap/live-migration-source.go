@@ -414,7 +414,7 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 	err = l.asyncMigrate(vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
-		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		_ = l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return err
 	}
 
@@ -431,8 +431,9 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		log.Log.Object(vmi).Reason(err).Error("Getting the domain for migration failed.")
 		return false, err
 	}
-
+	// Intentionally ignore error
 	defer dom.Free()
+
 	domainSpec, err := l.getDomainSpec(dom)
 	if err != nil {
 		return false, err
@@ -462,7 +463,9 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	if err != nil {
 		return false, err
 	}
+	// Intentionally ignore error
 	defer d.Free()
+
 	return false, nil
 }
 
@@ -472,6 +475,7 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	if err != nil {
 		return err
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	domain, err := util.GetDomainSpecWithRuntimeInfo(dom)
@@ -513,8 +517,9 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 		}
 		return err
 	}
-
+	// Intentionally ignore error
 	defer dom.Free()
+
 	domainSpec, err := l.getDomainSpec(dom)
 	if err != nil {
 		return err
@@ -546,7 +551,10 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	if err != nil {
 		return err
 	}
+
+	// Intentionally ignore error
 	defer d.Free()
+
 	return nil
 
 }
@@ -815,9 +823,10 @@ func (m *migrationMonitor) startMonitor() {
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		logger.Reason(err).Error(liveMigrationFailed)
-		m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		_ = m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	for {
@@ -834,7 +843,7 @@ func (m *migrationMonitor) startMonitor() {
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
+			_ = m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
 		}
 
@@ -856,22 +865,22 @@ func (m *migrationMonitor) startMonitor() {
 			aborted := m.processInflightMigration(dom, stats)
 			if aborted != nil {
 				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
-				m.l.setMigrationResult(vmi, true, aborted.message, aborted.abortStatus)
+				_ = m.l.setMigrationResult(vmi, true, aborted.message, aborted.abortStatus)
 				return
 			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
 		case libvirt.DOMAIN_JOB_COMPLETED:
 			logger.Info("Migration has been completed")
-			m.l.setMigrationResult(vmi, false, "", "")
+			_ = m.l.setMigrationResult(vmi, false, "", "")
 			return
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
+			_ = m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
 			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
-			m.l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+			_ = m.l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			return
 		}
 	}
@@ -886,7 +895,9 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
 			return
 		}
+		// Intentionally ignore error
 		defer dom.Free()
+
 		stats, err := dom.GetJobInfo()
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
@@ -896,7 +907,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			err := dom.AbortJob()
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
-				l.setMigrationAbortStatus(vmi, v1.MigrationAbortFailed)
+				_ = l.setMigrationAbortStatus(vmi, v1.MigrationAbortFailed)
 				return
 			}
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
@@ -958,6 +969,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	if err != nil {
 		return err
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	migratePaused, err := isDomainPaused(dom)
@@ -1029,7 +1041,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 	go func() {
 		if shouldImmediatelyFailMigration(vmi) {
 			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+			_ = l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
 			return
 		}
 
@@ -1075,6 +1087,7 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1
 	if err != nil {
 		return err
 	}
+	// Intentionally ignore error
 	defer d.Free()
 
 	return nil

@@ -21,6 +21,7 @@ package virtlauncher
 
 import (
 	"flag"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,10 @@ var _ = Describe("VirtLauncher", func() {
 		cmdLock.Lock()
 		defer cmdLock.Unlock()
 
-		cmd.Process.Kill()
+		Expect(cmd.Process.Kill()).To(Or(
+			Succeed(),
+			MatchError(os.ErrProcessDone),
+		))
 
 		processStarted = false
 	}
@@ -77,7 +81,7 @@ var _ = Describe("VirtLauncher", func() {
 		cmdLock.Lock()
 		defer cmdLock.Unlock()
 
-		cmd.Wait()
+		_ = cmd.Wait()
 	}
 
 	VerifyProcessStarted := func() {

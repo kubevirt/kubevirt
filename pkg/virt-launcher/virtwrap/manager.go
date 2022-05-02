@@ -251,6 +251,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 	}
 
 	go func() {
+		// Intentionally ignore error
 		defer dom.Free()
 
 		ctx := l.getGuestTimeContext()
@@ -359,6 +360,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 	if err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
+	// Intentionally ignore error
 	defer domain.Free()
 
 	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
@@ -858,7 +860,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			return nil, err
 		}
 	}
+	// Intentionally ignore error
 	defer dom.Free()
+
 	domState, _, err := dom.GetState()
 	if err != nil {
 		logger.Reason(err).Error(failedGetDomainState)
@@ -1133,6 +1137,7 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 			return err
 		}
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	domState, _, err := dom.GetState()
@@ -1173,6 +1178,7 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 			return err
 		}
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	domState, _, err := dom.GetState()
@@ -1207,7 +1213,7 @@ func (l *LibvirtDomainManager) scheduleSafetyVMIUnfreeze(vmi *v1.VirtualMachineI
 	case <-time.After(unfreezeTimeout):
 		log.Log.Warningf("Unfreeze was not called for vmi %s for more then %v, initiating unfreeze",
 			vmi.Name, unfreezeTimeout)
-		l.UnfreezeVMI(vmi)
+		_ = l.UnfreezeVMI(vmi)
 	case <-l.cancelSafetyUnfreezeChan:
 		log.Log.V(3).Infof("Canceling schedualed Unfreeze for vmi %s", vmi.Name)
 		// aborted
@@ -1298,8 +1304,9 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 		log.Log.Object(vmi).Reason(err).Error("Getting the domain for soft reboot failed.")
 		return err
 	}
-
+	// Intentionally ignore error
 	defer dom.Free()
+
 	if err = dom.Reboot(domainRebootFlagValues); err != nil {
 		libvirtError, ok := err.(libvirt.Error)
 		if !ok || libvirtError.Code != libvirt.ERR_AGENT_UNRESPONSIVE {
@@ -1321,8 +1328,9 @@ func (l *LibvirtDomainManager) MarkGracefulShutdownVMI(vmi *v1.VirtualMachineIns
 		log.Log.Object(vmi).Reason(err).Error("Getting the domain for shutdown failed.")
 		return err
 	}
-
+	// Intentionally ignore error
 	defer dom.Free()
+
 	domainSpec, err := l.getDomainSpec(dom)
 	if err != nil {
 		return err
@@ -1346,7 +1354,9 @@ func (l *LibvirtDomainManager) MarkGracefulShutdownVMI(vmi *v1.VirtualMachineIns
 	if err != nil {
 		return err
 	}
+	// Intentionally ignore error
 	defer d.Free()
+
 	return nil
 
 }
@@ -1366,6 +1376,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 			return err
 		}
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	domState, _, err := dom.GetState()
@@ -1396,6 +1407,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 				log.Log.Object(vmi).Reason(err).Error("Unable to update grace period start time on domain xml")
 				return err
 			}
+			// Intentionally ignore error
 			defer d.Free()
 		}
 	}
@@ -1415,7 +1427,9 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 			return err
 		}
 	}
+	// Intentionally ignore error
 	defer dom.Free()
+
 	// TODO: Graceful shutdown
 	domState, _, err := dom.GetState()
 	if err != nil {
@@ -1455,6 +1469,7 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 			return err
 		}
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	err = dom.UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM)

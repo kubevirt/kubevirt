@@ -67,7 +67,8 @@ var _ = Describe("Virt remote commands", func() {
 
 		allowEmulation = true
 		options = NewServerOptions(allowEmulation)
-		RunServer(socketPath, domainManager, stop, options)
+		_, err := RunServer(socketPath, domainManager, stop, options)
+		Expect(err).ToNot(HaveOccurred())
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -77,7 +78,7 @@ var _ = Describe("Virt remote commands", func() {
 			close(stop)
 		}
 		client.Close()
-		os.RemoveAll(shareDir)
+		Expect(os.RemoveAll(shareDir)).To(Succeed())
 	})
 
 	Context("server", func() {
@@ -321,7 +322,8 @@ var _ = Describe("Virt remote commands", func() {
 
 			It("should call exec", func() {
 				expectExec().Times(1)
-				server.Exec(context.TODO(), execRequest())
+				_, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).ToNot(HaveOccurred())
 			})
 			It("returns exec errors in the response", func() {
 				expectExec().Times(1).Return("", testExecErr)
@@ -361,7 +363,8 @@ var _ = Describe("Virt remote commands", func() {
 			})
 			It("should call guest ping", func() {
 				expectGuestPing().Times(1)
-				server.GuestPing(context.TODO(), guestPingRequest())
+				_, err := server.GuestPing(context.TODO(), guestPingRequest())
+				Expect(err).ToNot(HaveOccurred())
 			})
 			It("returns errors in the response", func() {
 				expectGuestPing().Times(1).Return(testGuestPingErr)

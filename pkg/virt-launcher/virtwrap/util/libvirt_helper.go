@@ -233,7 +233,6 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 
 	go func() {
 		for {
-			exitChan := make(chan struct{})
 			args := []string{"-f", "/var/run/libvirt/libvirtd.conf"}
 			cmd := exec.Command("/usr/sbin/libvirtd", args...)
 			if l.user != 0 {
@@ -267,17 +266,17 @@ func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 				panic(err)
 			}
 
+			waitErrors := make(chan error)
 			go func() {
-				defer close(exitChan)
-				cmd.Wait()
+				waitErrors <- cmd.Wait()
 			}()
 
 			select {
 			case <-stopChan:
-				cmd.Process.Kill()
+				_ = cmd.Process.Kill()
 				return
-			case <-exitChan:
-				log.Log.Errorf("libvirtd exited, restarting")
+			case err := <-waitErrors:
+				log.Log.Reason(err).Errorf("libvirtd exited, restarting")
 			}
 
 			// this sleep is to avoid consumming all resources in the
@@ -375,7 +374,11 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 		log.Log.Reason(err).Error(fmt.Sprintf("%s failed to open %s", logLinePrefix, QEMUSeaBiosDebugPipe))
 		return
 	}
-	defer QEMUPipe.Close()
+	defer func() {
+		if err := QEMUPipe.Close(); err != nil {
+			log.Log.Reason(err).Error(fmt.Sprintf("%s failed to close %s", logLinePrefix, QEMUSeaBiosDebugPipe))
+		}
+	}()
 
 	scanner := bufio.NewScanner(QEMUPipe)
 	for {

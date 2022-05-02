@@ -943,7 +943,7 @@ var _ = Describe("Manager", func() {
 			})
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
-			manager.MarkGracefulShutdownVMI(vmi)
+			Expect(manager.MarkGracefulShutdownVMI(vmi)).To(Succeed())
 		})
 
 		It("Should signal graceful shutdown after marked for shutdown", func() {
@@ -967,7 +967,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN).Times(1).Return(nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
-			manager.SignalShutdownVMI(vmi)
+			Expect(manager.SignalShutdownVMI(vmi)).To(Succeed())
 		})
 	})
 	Context("test migration monitor", func() {
@@ -1879,11 +1879,11 @@ var _ = Describe("Manager", func() {
 	})
 
 	It("executes hotPlugHostDevices", func() {
-		os.Setenv("KUBEVIRT_RESOURCE_NAME_test1", "127.0.0.1")
-		os.Setenv("PCIDEVICE_127_0_0_1", "05EA:Fc:1d.6")
+		Expect(os.Setenv("KUBEVIRT_RESOURCE_NAME_test1", "127.0.0.1")).To(Succeed())
+		DeferCleanup(func() { _ = os.Unsetenv("KUBEVIRT_RESOURCE_NAME_test1") })
 
-		defer os.Unsetenv("KUBEVIRT_RESOURCE_NAME_test1")
-		defer os.Unsetenv("PCIDEVICE_127_0_0_1")
+		Expect(os.Setenv("PCIDEVICE_127_0_0_1", "05EA:Fc:1d.6")).To(Succeed())
+		DeferCleanup(func() { _ = os.Unsetenv("PCIDEVICE_127_0_0_1") })
 
 		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 

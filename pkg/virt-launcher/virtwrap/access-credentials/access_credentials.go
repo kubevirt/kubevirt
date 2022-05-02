@@ -127,8 +127,10 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 
 	if fileExists {
 		// ensure the file has the correct permissions for writing
-		l.agentSetFilePermissions(domName, filePath, "600", owner)
-
+		err := l.agentSetFilePermissions(domName, filePath, "600", owner)
+		if err != nil {
+			return err
+		}
 	}
 
 	// write the file
@@ -159,7 +161,10 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 
 	if !fileExists {
 		// ensure the file has the correct permissions and ownership after creating new file
-		l.agentSetFilePermissions(domName, filePath, "600", owner)
+		err := l.agentSetFilePermissions(domName, filePath, "600", owner)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -371,7 +376,7 @@ func getSecret(accessCred *v1.AccessCredential) string {
 	return secretName
 }
 
-func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMachineInstance, succeeded bool, message string) error {
+func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMachineInstance, succeeded bool, message string) (err error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -385,6 +390,7 @@ func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMa
 		}
 		return err
 	}
+	// Intentionally ignore error
 	defer dom.Free()
 
 	state, _, err := dom.GetState()
@@ -413,7 +419,9 @@ func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMa
 	if err != nil {
 		return err
 	}
+	// Intentionally ignore error
 	defer d.Free()
+
 	return err
 }
 
@@ -493,7 +501,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reload = true
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered reading secrets file list from base directory %s", secretDir)
-				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered reading access credential secret file list at base directory [%s]: %v", secretDir, err))
+				_ = l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered reading access credential secret file list at base directory [%s]: %v", secretDir, err))
 				continue
 			}
 
@@ -518,7 +526,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 						// if reading failed, reset reload to true so this change will be retried again
 						reload = true
 						reportedErr = true
-						l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
+						_ = l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
 						continue
 					}
 
@@ -542,7 +550,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 						reload = true
 						reportedErr = true
 						logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
-						l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
+						_ = l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
 						continue
 					}
 
@@ -572,7 +580,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reload = true
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
-				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered writing ssh pub key access credentials for user [%s]: %v", user, err))
+				_ = l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered writing ssh pub key access credentials for user [%s]: %v", user, err))
 				continue
 			}
 		}
@@ -586,12 +594,12 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
 
-				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
+				_ = l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
 				continue
 			}
 		}
 		if !reportedErr {
-			l.reportAccessCredentialResult(vmi, true, "")
+			_ = l.reportAccessCredentialResult(vmi, true, "")
 		}
 	}
 }

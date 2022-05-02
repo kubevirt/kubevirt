@@ -68,7 +68,7 @@ var _ = Describe("AccessCredentials", func() {
 		unitTestSecretDir = tmpDir
 	})
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -244,7 +244,7 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(secretDirs[0]).To(Equal(fmt.Sprintf("%s/%s-access-cred", tmpDir, secretID)))
 
 		for _, dir := range secretDirs {
-			os.Mkdir(dir, 0755)
+			Expect(os.Mkdir(dir, 0755)).To(Succeed())
 			err = manager.watcher.Add(dir)
 			Expect(err).To(BeNil())
 		}

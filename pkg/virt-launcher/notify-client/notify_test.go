@@ -76,7 +76,8 @@ var _ = Describe("Notify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+				defer GinkgoRecover()
+				Expect(notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)).To(Succeed())
 			}()
 
 			time.Sleep(1 * time.Second)
@@ -89,7 +90,7 @@ var _ = Describe("Notify", func() {
 				close(stop)
 			}
 			client.Close()
-			os.RemoveAll(shareDir)
+			Expect(os.RemoveAll(shareDir)).To(Succeed())
 		})
 
 		Context("server", func() {
@@ -284,7 +285,8 @@ var _ = Describe("Notify", func() {
 			vmiStore = vmiInformer.GetStore()
 
 			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
+				defer GinkgoRecover()
+				Expect(notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)).To(Succeed())
 			}()
 
 			time.Sleep(1 * time.Second)
@@ -297,14 +299,14 @@ var _ = Describe("Notify", func() {
 				close(stop)
 			}
 			client.Close()
-			os.RemoveAll(shareDir)
+			Expect(os.RemoveAll(shareDir)).To(Succeed())
 		})
 
 		It("Should send a k8s event", func() {
 
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
-			vmiStore.Add(vmi)
+			Expect(vmiStore.Add(vmi)).To(Succeed())
 
 			eventType := "Normal"
 			eventReason := "fooReason"
@@ -342,7 +344,7 @@ var _ = Describe("Notify", func() {
 
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
-			vmiStore.Add(vmi)
+			Expect(vmiStore.Add(vmi)).To(Succeed())
 			eventType := "Warning"
 			eventReason := "IOerror"
 			eventMessage := "VM Paused due to not enough space on volume: "

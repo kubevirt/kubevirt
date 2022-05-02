@@ -89,6 +89,7 @@ func newResourceEnv(prefix, resourceName string, addresses ...string) envData {
 func withEnvironmentContext(envDataList []envData, f func()) {
 	for _, envVar := range envDataList {
 		if os.Setenv(envVar.Name, envVar.Value) == nil {
+			// Ignoring error intentionally
 			defer os.Unsetenv(envVar.Name)
 		}
 	}

@@ -94,7 +94,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			var convertClock api.Clock
-			Convert_v1_Clock_To_api_Clock(clock, &convertClock)
+			Expect(Convert_v1_Clock_To_api_Clock(clock, &convertClock)).To(Succeed())
 			data, err := xml.MarshalIndent(convertClock, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -126,7 +126,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
+			Expect(Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)).To(Succeed())
 			Expect(apiDisk.Capacity).ToNot(BeNil())
 			Expect(*apiDisk.Capacity).To(Equal(min(capacity, requests)))
 		},
@@ -2685,7 +2685,7 @@ var _ = Describe("Converter", func() {
 			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, make(map[string]v1.VolumeStatus))
+			Expect(Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, make(map[string]v1.VolumeStatus))).To(Succeed())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 		})

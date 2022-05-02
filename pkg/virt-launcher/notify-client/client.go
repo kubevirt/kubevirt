@@ -131,7 +131,7 @@ func (n *Notifier) detectSocketPath() string {
 	return n.pipeSocketPath
 }
 
-func (n *Notifier) connect() error {
+func (n *Notifier) connect() (err error) {
 	if n.conn != nil {
 		// already connected
 		return nil
@@ -145,11 +145,15 @@ func (n *Notifier) connect() error {
 		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
 		return err
 	}
+	defer func() {
+		if err != nil {
+			_ = conn.Close()
+		}
+	}()
 
 	version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
 	if err != nil {
 		log.Log.Reason(err).Infof("failed to negotiate version")
-		conn.Close()
 		return err
 	}
 
@@ -160,7 +164,6 @@ func (n *Notifier) connect() error {
 		n.v1client = client
 		n.conn = conn
 	default:
-		conn.Close()
 		return fmt.Errorf("cmd v1client version %v not implemented yet", version)
 	}
 
@@ -245,6 +248,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		}
 		domain.SetState(api.NoState, api.ReasonNonExistent)
 	} else {
+		// Intentionally ignore error
 		defer d.Free()
 
 		// Remember current status before it will be changed.
@@ -294,7 +298,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		now := metav1.Now()
 		domain.ObjectMeta.DeletionTimestamp = &now
 		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
-		client.SendDomainEvent(watchEvent)
+		_ = client.SendDomainEvent(watchEvent)
 		updateEvents(watchEvent, domain, events)
 	case api.ReasonPausedIOError:
 		domainDisksWithErrors, err := d.GetDiskErrors(0)
@@ -317,18 +321,18 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				log.Log.Reason(err).Error(fmt.Sprintf("Could not send k8s event"))
 			}
 			event := watch.Event{Type: watch.Modified, Object: domain}
-			client.SendDomainEvent(event)
+			_ = client.SendDomainEvent(event)
 			updateEvents(event, domain, events)
 		}
 	default:
 		if libvirtEvent.Event != nil {
 			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 				event := watch.Event{Type: watch.Added, Object: domain}
-				client.SendDomainEvent(event)
+				_ = client.SendDomainEvent(event)
 				updateEvents(event, domain, events)
 			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
 				event := watch.Event{Type: watch.Added, Object: domain}
-				client.SendDomainEvent(event)
+				_ = client.SendDomainEvent(event)
 				updateEvents(event, domain, events)
 			}
 		}
@@ -426,7 +430,7 @@ func (n *Notifier) StartDomainNotifier(
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus)
 			case <-reconnectChan:
-				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
+				_ = n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 			}
 		}
 	}()
@@ -568,7 +572,9 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 
 func (n *Notifier) _close() {
 	if n.conn != nil {
-		n.conn.Close()
+		// It is ok to ignore the error, because it is only returned
+		// when the connection is already closing.
+		_ = n.conn.Close()
 		n.conn = nil
 	}
 }

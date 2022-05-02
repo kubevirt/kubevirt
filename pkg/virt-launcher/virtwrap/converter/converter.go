@@ -468,12 +468,12 @@ func IsPreAllocated(path string) bool {
 }
 
 // Set optimal io mode automatically
-func SetOptimalIOMode(disk *api.Disk) error {
+func SetOptimalIOMode(disk *api.Disk) {
 	var path string
 
 	// If the user explicitly set the io mode do nothing
 	if v1.DriverIO(disk.Driver.IO) != "" {
-		return nil
+		return
 	}
 
 	if disk.Source.File != "" {
@@ -481,7 +481,7 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	} else if disk.Source.Dev != "" {
 		path = disk.Source.Dev
 	} else {
-		return nil
+		return
 	}
 
 	// O_DIRECT is needed for io="native"
@@ -496,7 +496,6 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	if v1.DriverIO(disk.Driver.IO) != "" {
 		log.Log.Infof("Driver IO mode for %s set to %s", path, disk.Driver.IO)
 	}
-	return nil
 }
 
 func (n *deviceNamer) getExistingVolumeValue(key string) (string, bool) {

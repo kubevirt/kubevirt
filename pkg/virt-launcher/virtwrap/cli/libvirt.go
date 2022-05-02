@@ -245,9 +245,10 @@ func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string) 
 	if err != nil {
 		return "", err
 	}
+	// Intentionally ignore error
 	defer domain.Free()
-	result, err := domain.QemuAgentCommand(command, libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, uint32(0))
-	return result, err
+
+	return domain.QemuAgentCommand(command, libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, uint32(0))
 }
 
 func (l *LibvirtConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
@@ -313,7 +314,6 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		stat.CPUMapSet = true
 
 		list = append(list, stat)
-		domStat.Domain.Free()
 	}
 
 	return list, nil
