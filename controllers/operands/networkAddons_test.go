@@ -573,6 +573,89 @@ var _ = Describe("CNA Operand", func() {
 			}))
 		})
 
+		It("should handle upgrade condition", func() {
+			expectedResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			expectedResource.Status.Conditions = []conditionsv1.Condition{
+				{
+					Type:   conditionsv1.ConditionAvailable,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:    conditionsv1.ConditionUpgradeable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "Foo",
+					Message: "Bar",
+				},
+			}
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
+			Expect(err).ToNot(HaveOccurred())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			// Check conditions
+			Expect(req.Conditions).To(HaveLen(1))
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
+				Reason:  "NetworkAddonsConfigNotUpgradeable",
+				Message: "NetworkAddonsConfig is not upgradeable: Bar",
+			}))
+		})
+
+		It("should override ann existing upgrade condition, if the operand one is false", func() {
+			expectedResource, err := NewNetworkAddons(hco)
+			req.Conditions.SetStatusCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
+				Reason:  "another reason",
+				Message: "another message",
+			})
+
+			Expect(err).ToNot(HaveOccurred())
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			expectedResource.Status.Conditions = []conditionsv1.Condition{
+				{
+					Type:   conditionsv1.ConditionAvailable,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:    conditionsv1.ConditionUpgradeable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "Foo",
+					Message: "Bar",
+				},
+			}
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
+			Expect(err).ToNot(HaveOccurred())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			// Check conditions
+			Expect(req.Conditions).To(HaveLen(1))
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
+				Reason:  "NetworkAddonsConfigNotUpgradeable",
+				Message: "NetworkAddonsConfig is not upgradeable: Bar",
+			}))
+		})
+
 		Context("jsonpath Annotation", func() {
 			It("Should create CNA object with changes from the annotation", func() {
 				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[

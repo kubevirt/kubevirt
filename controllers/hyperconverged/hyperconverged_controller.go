@@ -1033,20 +1033,31 @@ func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoReq
 func (r *ReconcileHyperConverged) setOperatorUpgradeableStatus(request *common.HcoRequest) error {
 	if hcoutil.GetClusterInfo().IsManagedByOLM() {
 
-		request.Logger.Info("setting the Upgradeable operator condition", requestedStatusKey, !r.upgradeMode)
+		upgradeable := !r.upgradeMode && request.Upgradeable
+
+		request.Logger.Info("setting the Upgradeable operator condition", requestedStatusKey, upgradeable)
 
 		msg := hcoutil.UpgradeableAllowMessage
 		status := metav1.ConditionTrue
 		reason := hcoutil.UpgradeableAllowReason
 
-		if r.upgradeMode {
-			msg = hcoutil.UpgradeableUpgradingMessage + r.ownVersion
+		if !upgradeable {
 			status = metav1.ConditionFalse
-			reason = hcoutil.UpgradeableUpgradingReason
+
+			if r.upgradeMode {
+				msg = hcoutil.UpgradeableUpgradingMessage + r.ownVersion
+				reason = hcoutil.UpgradeableUpgradingReason
+			} else {
+				condition, found := request.Conditions.GetCondition(hcov1beta1.ConditionUpgradeable)
+				if found && condition.Status == metav1.ConditionFalse {
+					reason = condition.Reason
+					msg = condition.Message
+				}
+			}
 		}
 
 		if err := r.upgradeableCondition.Set(request.Ctx, status, reason, msg); err != nil {
-			request.Logger.Error(err, "can't set the Upgradeable operator condition", requestedStatusKey, !r.upgradeMode)
+			request.Logger.Error(err, "can't set the Upgradeable operator condition", requestedStatusKey, upgradeable)
 			return err
 		}
 

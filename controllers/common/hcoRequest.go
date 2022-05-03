@@ -21,6 +21,7 @@ type HcoRequest struct {
 	Dirty                      bool                       // is something was changed in the CR
 	StatusDirty                bool                       // is something was changed in the CR's Status
 	HCOTriggered               bool                       // if the request got triggered by a direct modification on HCO CR
+	Upgradeable                bool                       // if all the operands are upgradeable
 }
 
 func NewHcoRequest(ctx context.Context, request reconcile.Request, log logr.Logger, upgradeMode, hcoTriggered bool) *HcoRequest {
@@ -34,6 +35,7 @@ func NewHcoRequest(ctx context.Context, request reconcile.Request, log logr.Logg
 		Dirty:                      false,
 		StatusDirty:                false,
 		HCOTriggered:               hcoTriggered,
+		Upgradeable:                true,
 	}
 }
 

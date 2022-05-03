@@ -293,6 +293,9 @@ func setConditionsByOperandConditions(req *common.HcoRequest, component string, 
 		case hcov1beta1.ConditionDegraded:
 			foundDegradedCond = true
 			isReady = handleOperandDegradedCond(req, component, condition) && isReady
+
+		case hcov1beta1.ConditionUpgradeable:
+			handleOperandUpgradeableCond(req, component, condition)
 		}
 	}
 
@@ -329,7 +332,7 @@ func handleOperandProgressingCond(req *common.HcoRequest, component string, cond
 			Message:            fmt.Sprintf("%s is progressing: %v", component, condition.Message),
 			ObservedGeneration: req.Instance.Generation,
 		})
-		req.Conditions.SetStatusCondition(metav1.Condition{
+		req.Conditions.SetStatusConditionIfUnset(metav1.Condition{
 			Type:               hcov1beta1.ConditionUpgradeable,
 			Status:             metav1.ConditionFalse,
 			Reason:             fmt.Sprintf("%sProgressing", component),
@@ -340,6 +343,20 @@ func handleOperandProgressingCond(req *common.HcoRequest, component string, cond
 		return false
 	}
 	return true
+}
+
+func handleOperandUpgradeableCond(req *common.HcoRequest, component string, condition metav1.Condition) {
+	if condition.Status == metav1.ConditionFalse {
+		req.Upgradeable = false
+		req.Logger.Info(fmt.Sprintf("%s is 'Progressing'", component))
+		req.Conditions.SetStatusCondition(metav1.Condition{
+			Type:               hcov1beta1.ConditionUpgradeable,
+			Status:             metav1.ConditionFalse,
+			Reason:             fmt.Sprintf("%sNotUpgradeable", component),
+			Message:            fmt.Sprintf("%s is not upgradeable: %v", component, condition.Message),
+			ObservedGeneration: req.Instance.Generation,
+		})
+	}
 }
 
 func handleOperandAvailableCond(req *common.HcoRequest, component string, condition metav1.Condition) bool {

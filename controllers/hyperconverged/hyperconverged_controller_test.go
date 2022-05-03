@@ -2427,7 +2427,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2453,6 +2453,8 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 				Expect(cd.Message).Should(Equal("HCO is not Upgradeable due to degraded components"))
 
+				By("operator condition should be true even the upgradeable is false")
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("should be degraded when a component is degraded + Progressing", func() {
@@ -2470,7 +2472,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2493,6 +2495,9 @@ var _ = Describe("HyperconvergedController", func() {
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
 				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+
+				By("operator condition should be true even the upgradeable is false")
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("should be degraded when a component is degraded + !Available", func() {
@@ -2510,7 +2515,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2533,6 +2538,9 @@ var _ = Describe("HyperconvergedController", func() {
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
 				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
+
+				By("operator condition should be true even the upgradeable is false")
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("should be Progressing when a component is Progressing", func() {
@@ -2544,7 +2552,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2567,6 +2575,9 @@ var _ = Describe("HyperconvergedController", func() {
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
 				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+
+				By("operator condition should be true even the upgradeable is false")
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("should be Progressing when a component is Progressing + !Available", func() {
@@ -2584,7 +2595,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2607,6 +2618,9 @@ var _ = Describe("HyperconvergedController", func() {
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
 				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+
+				By("operator condition should be true even the upgradeable is false")
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("should be not Available when a component is not Available", func() {
@@ -2710,6 +2724,146 @@ var _ = Describe("HyperconvergedController", func() {
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
 				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+			})
+
+			It("should not be upgradeable when a component is not upgradeable", func() {
+				expected := getBasicDeployment()
+				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{
+					Type:    conditionsv1.ConditionUpgradeable,
+					Status:  corev1.ConditionFalse,
+					Reason:  errorReason,
+					Message: "CDI Test Error message",
+				})
+				cl := expected.initClient()
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
+
+				conditions := foundResource.Status.Conditions
+				GinkgoWriter.Println("\nActual Conditions:")
+				wr := json.NewEncoder(GinkgoWriter)
+				wr.SetIndent("", "  ")
+				_ = wr.Encode(conditions)
+
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal("CDINotUpgradeable"))
+				Expect(cd.Message).Should(Equal("CDI is not upgradeable: CDI Test Error message"))
+
+				By("operator condition should be false")
+				validateOperatorCondition(r, metav1.ConditionFalse, "CDINotUpgradeable", "is not upgradeable:")
+			})
+
+			It("should not be with its own reason and message if a component is not upgradeable, even if there are it also progressing", func() {
+				expected := getBasicDeployment()
+				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{
+					Type:    conditionsv1.ConditionUpgradeable,
+					Status:  corev1.ConditionFalse,
+					Reason:  errorReason,
+					Message: "CDI Upgrade Error message",
+				})
+				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{
+					Type:    conditionsv1.ConditionProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  errorReason,
+					Message: "CDI Test Error message",
+				})
+
+				cl := expected.initClient()
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
+
+				conditions := foundResource.Status.Conditions
+				GinkgoWriter.Println("\nActual Conditions:")
+				wr := json.NewEncoder(GinkgoWriter)
+				wr.SetIndent("", "  ")
+				_ = wr.Encode(conditions)
+
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal("CDINotUpgradeable"))
+				Expect(cd.Message).Should(Equal("CDI is not upgradeable: CDI Upgrade Error message"))
+
+				By("operator condition should be false")
+				validateOperatorCondition(r, metav1.ConditionFalse, "CDINotUpgradeable", "is not upgradeable:")
+			})
+
+			It("should not be with its own reason and message if a component is not upgradeable, even if there are it also degraded", func() {
+				expected := getBasicDeployment()
+				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{
+					Type:    conditionsv1.ConditionUpgradeable,
+					Status:  corev1.ConditionFalse,
+					Reason:  errorReason,
+					Message: "CDI Upgrade Error message",
+				})
+				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{
+					Type:    conditionsv1.ConditionDegraded,
+					Status:  corev1.ConditionTrue,
+					Reason:  errorReason,
+					Message: "CDI Test Error message",
+				})
+
+				cl := expected.initClient()
+				foundResource, r, _ := doReconcile(cl, expected.hco, nil)
+
+				conditions := foundResource.Status.Conditions
+				GinkgoWriter.Println("\nActual Conditions:")
+				wr := json.NewEncoder(GinkgoWriter)
+				wr.SetIndent("", "  ")
+				_ = wr.Encode(conditions)
+
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal(commonDegradedReason))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).Should(Equal("CDIDegraded"))
+
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).Should(Equal("CDINotUpgradeable"))
+				Expect(cd.Message).Should(Equal("CDI is not upgradeable: CDI Upgrade Error message"))
+
+				By("operator condition should be false")
+				validateOperatorCondition(r, metav1.ConditionFalse, "CDINotUpgradeable", "is not upgradeable:")
 			})
 		})
 

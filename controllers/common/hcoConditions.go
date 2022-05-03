@@ -54,3 +54,8 @@ func (hc HcoConditions) HasCondition(conditionType string) bool {
 
 	return exists
 }
+
+func (hc HcoConditions) GetCondition(conditionType string) (metav1.Condition, bool) {
+	cond, found := hc[conditionType]
+	return cond, found
+}
