@@ -7,8 +7,6 @@ aliases:
       - rmohr
       - stu-gott
       - fabiand
-      - mazzystr
-      - danielBelenky
       - AlonaKaplan
       - dhiller
       - jean-edouard
@@ -16,6 +14,8 @@ aliases:
       - enp0s3
       - xpivarc
   emeritus_approvers:
+      - danielBelenky
+      - mazzystr
       - cynepco3hahue
       - slintes
       - mfranczy
