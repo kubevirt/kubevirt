@@ -8,6 +8,3 @@ filters:
       - approvers
     emeritus_approvers:
       - emeritus_approvers
-  "pkg/virt-api/.*":
-    reviewers:
-      - ux-reviewers
