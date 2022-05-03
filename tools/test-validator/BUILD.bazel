@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["test-validator.go"],
+    importpath = "kubevirt.io/kubevirt/tools/test-validator",
+    visibility = ["//visibility:private"],
+    deps = ["//vendor/github.com/sirupsen/logrus:go_default_library"],
+)
+
+go_binary(
+    name = "test-validator",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
