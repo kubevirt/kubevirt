@@ -27,6 +27,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	ocpv1 "github.com/openshift/api/config/v1"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1734,6 +1736,8 @@ type KubeVirtSpec struct {
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
+
+	TLSSecurityProfile *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
 
 type CustomizeComponents struct {

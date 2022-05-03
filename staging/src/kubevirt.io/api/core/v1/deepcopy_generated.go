@@ -22,6 +22,7 @@ limitations under the License.
 package v1
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -2298,6 +2299,11 @@ func (in *KubeVirtSpec) DeepCopyInto(out *KubeVirtSpec) {
 		(*in).DeepCopyInto(*out)
 	}
 	in.CustomizeComponents.DeepCopyInto(&out.CustomizeComponents)
+	if in.TLSSecurityProfile != nil {
+		in, out := &in.TLSSecurityProfile, &out.TLSSecurityProfile
+		*out = new(configv1.TLSSecurityProfile)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

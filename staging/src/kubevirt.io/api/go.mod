@@ -3,6 +3,7 @@ module kubevirt.io/api
 go 1.17
 
 require (
+	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/pborman/uuid v1.2.0
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.1
