@@ -54,6 +54,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
+
+	"github.com/openshift/library-go/pkg/build/naming"
+	validation "k8s.io/apimachinery/pkg/util/validation"
 )
 
 const (
@@ -465,13 +468,11 @@ func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
-	// TODO: Ensure name is not too long
-	return fmt.Sprintf("%s-%s", exportPrefix, vmExport.Name)
+	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachineExport) string {
-	// TODO: Ensure name is not too long
-	return fmt.Sprintf("%s-%s", exportPrefix, vmExport.Name)
+	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {

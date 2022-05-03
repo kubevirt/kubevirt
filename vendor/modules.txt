@@ -353,6 +353,7 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fa
 github.com/openshift/custom-resource-status/conditions/v1
 # github.com/openshift/library-go v0.0.0-20210205203934-9eb0d970f2f4
 ## explicit; go 1.13
+github.com/openshift/library-go/pkg/build/naming
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 # github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 ## explicit
