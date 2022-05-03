@@ -13,6 +13,8 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     PKG_PACKAGE_PATH="pkg/"
     CONTROLLERS_PACKAGE_PATH="controllers/"
     mkdir -p coverprofiles
+    # Workaround - run tests on webhooks first to prevent failure when running all the test in the following line.
+    ginkgo -r ${PKG_PACKAGE_PATH}webhooks
     ginkgo -cover -output-dir=./coverprofiles -coverprofile=cover.coverprofile -r ${PKG_PACKAGE_PATH} -r ${CONTROLLERS_PACKAGE_PATH}
 else
     test_path="tests/func-tests"
