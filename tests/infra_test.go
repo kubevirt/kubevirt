@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -153,10 +155,16 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		It("[QUARANTINE]on the virt handler rate limiter should lead to delayed VMI running states", func() {
 			By("first getting the basetime for a replicaset")
 			targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-			vmi := libvmi.NewCirros(
-				libvmi.WithResourceMemory("1Mi"),
-				libvmi.WithNodeSelectorFor(&targetNode),
-			)
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("1Mi"),
+			}
+
+			if vmi.Spec.NodeSelector == nil {
+				vmi.Spec.NodeSelector = map[string]string{}
+			}
+			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = targetNode.Name
+
 			replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
