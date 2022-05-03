@@ -238,6 +238,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			}
 		})
 
+		AfterEach(func() {
+			deleteVM(vm)
+		})
+
 		Context("and no snapshot", func() {
 			It("[test_id:5255]should reject restore", func() {
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -438,6 +442,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				newVM := tests.NewRandomVirtualMachine(newVMI, false)
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
 				Expect(err).ToNot(HaveOccurred())
+				defer deleteVM(newVM)
 
 				By("Creating a VM restore")
 				restore := createRestoreDef(newVM.Name, snapshot.Name)
