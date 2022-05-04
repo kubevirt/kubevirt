@@ -143,6 +143,13 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
 	session.Stderr = os.Stderr
 	session.Stdout = os.Stdout
 
+	if o.Options.Command != "" {
+		if err = session.Run(o.Options.Command); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	restore, err := setupTerminal(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
@@ -152,7 +159,6 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client) error {
 	if err := requestPty(session); err != nil {
 		return err
 	}
-
 	if err := session.Shell(); err != nil {
 		return err
 	}

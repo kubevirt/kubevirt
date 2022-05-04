@@ -39,6 +39,7 @@ const (
 	usernameFlag, usernameFlagShort                 = "username", "l"
 	IdentityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
 	knownHostsFilePathFlag                          = "known-hosts"
+	commandToExecute, commandToExecuteShort         = "command", "c"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -75,6 +76,8 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SshPort, portFlag, portFlagShort, opts.SshPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
+	flagset.StringVarP(&opts.Command, commandToExecute, commandToExecuteShort, opts.Command,
+		fmt.Sprintf(`--%s='ls /': Specify a command to execute the VM`, commandToExecute))
 }
 
 func DefaultSSHOptions() SSHOptions {
@@ -110,6 +113,7 @@ type SSHOptions struct {
 	IdentityFilePathProvided  bool
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
+	Command                   string
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {

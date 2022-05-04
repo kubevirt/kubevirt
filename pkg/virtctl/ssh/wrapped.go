@@ -54,6 +54,10 @@ func (o *SSH) buildSSHTarget(kind, namespace, name string) (opts []string) {
 	target.WriteString(name)
 	target.WriteRune('.')
 	target.WriteString(namespace)
+
 	opts = append(opts, target.String())
+	if o.options.Command != "" {
+		opts = append(opts, o.options.Command)
+	}
 	return
 }
