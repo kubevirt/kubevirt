@@ -331,6 +331,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/portforward
           verbs:
           - update
           - get
@@ -748,6 +749,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/portforward
           verbs:
           - update
         - apiGroups:
@@ -847,6 +849,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/portforward
           verbs:
           - update
         - apiGroups:
