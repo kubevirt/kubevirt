@@ -1082,7 +1082,6 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: ipNeighShow, fileNameSuffix: "ipneigh"},
 		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: bridgeFdb, fileNameSuffix: "brfdb"},
-		{command: "lspci", fileNameSuffix: "lspci"},
 		{command: "env", fileNameSuffix: "env"},
 		{command: "[ -e /dev/vfio ] && ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
 	}
