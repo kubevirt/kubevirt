@@ -55,11 +55,6 @@ const (
 )
 
 const (
-	sriovEntityURITemplate            = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/%s/"
-	sriovNetworksEntity               = "sriovnetworks"
-	sriovNodeNetworkPolicyEntity      = "sriovnetworknodepolicies"
-	sriovNodeStateEntity              = "sriovnetworknodestates"
-	sriovOperatorConfigsEntity        = "sriovoperatorconfigs"
 	k8sCNICNCFEntityURLTemplate       = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/%s/"
 	networkAttachmentDefinitionEntity = "network-attachment-definitions"
 )
@@ -168,8 +163,6 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logDomainXMLs(virtCli, vmis)
 
 	r.logVMIMs(virtCli, vmims)
-
-	r.logSRIOVInfo(virtCli)
 
 	r.logNodeCommands(virtCli, nodesWithVirtLauncher)
 	r.logVirtLauncherCommands(virtCli, networkPodsDir)
@@ -916,39 +909,6 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, since tim
 	}
 
 	r.logObjects(virtCli, eventsToPrint, "events")
-}
-
-func (r *KubernetesReporter) logSRIOVInfo(virtCli kubecli.KubevirtClient) {
-	sriovOutputDir := filepath.Join(r.artifactsDir, "sriov")
-	if err := os.MkdirAll(sriovOutputDir, 0777); err != nil {
-		fmt.Fprintf(os.Stderr, failedCreateDirectoryFmt, err)
-		return
-	}
-
-	r.logSRIOVNodeState(virtCli, sriovOutputDir)
-	r.logSRIOVNodeNetworkPolicies(virtCli, sriovOutputDir)
-	r.logSRIOVNetworks(virtCli, sriovOutputDir)
-	r.logSRIOVOperatorConfigs(virtCli, sriovOutputDir)
-}
-
-func (r *KubernetesReporter) logSRIOVNodeState(virtCli kubecli.KubevirtClient, outputFolder string) {
-	nodeStateLogPath := filepath.Join(outputFolder, fmt.Sprintf("%d_nodestate.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovNodeStateEntity, v1.NamespaceAll, sriovEntityURITemplate, nodeStateLogPath)
-}
-
-func (r *KubernetesReporter) logSRIOVNodeNetworkPolicies(virtCli kubecli.KubevirtClient, outputFolder string) {
-	nodeNetworkPolicyLogPath := filepath.Join(outputFolder, fmt.Sprintf("%d_nodenetworkpolicies.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovNodeNetworkPolicyEntity, v1.NamespaceAll, sriovEntityURITemplate, nodeNetworkPolicyLogPath)
-}
-
-func (r *KubernetesReporter) logSRIOVNetworks(virtCli kubecli.KubevirtClient, outputFolder string) {
-	networksPath := filepath.Join(outputFolder, fmt.Sprintf("%d_networks.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovNetworksEntity, v1.NamespaceAll, sriovEntityURITemplate, networksPath)
-}
-
-func (r *KubernetesReporter) logSRIOVOperatorConfigs(virtCli kubecli.KubevirtClient, outputFolder string) {
-	operatorConfigPath := filepath.Join(outputFolder, fmt.Sprintf("%d_operatorconfigs.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovOperatorConfigsEntity, v1.NamespaceAll, sriovEntityURITemplate, operatorConfigPath)
 }
 
 func (r *KubernetesReporter) logNetworkAttachmentDefinitionInfo(virtCli kubecli.KubevirtClient) {
