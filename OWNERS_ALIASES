@@ -7,8 +7,6 @@ aliases:
       - rmohr
       - stu-gott
       - fabiand
-      - mazzystr
-      - danielBelenky
       - AlonaKaplan
       - dhiller
       - jean-edouard
@@ -16,6 +14,8 @@ aliases:
       - enp0s3
       - xpivarc
   emeritus_approvers:
+      - danielBelenky
+      - mazzystr
       - cynepco3hahue
       - slintes
       - mfranczy
@@ -28,11 +28,9 @@ aliases:
       - stu-gott
       - vladikr
       - dhiller
-      - vatsalparekh
       - enp0s3
       - jean-edouard
       - AlonaKaplan
-      - omeryahud
       - mhenriks
       - maiqueb
       - EdDev
@@ -42,15 +40,10 @@ aliases:
       - marceloamaral
       - vasiliy-ul
       - iholder-redhat
-  ux-reviewers:
-      - matthewcarleton
   test-reviewers:
       - jerry7z
-      - ILpinto
-      - rnetser
       - kbidarkar
   test-approvers:
-      - ILpinto
       - kbidarkar
       - phoracek
       - enp0s3
