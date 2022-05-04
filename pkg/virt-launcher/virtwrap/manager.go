@@ -1668,7 +1668,7 @@ func formatPCIAddressStr(address *api.Address) string {
 	return fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 }
 
-func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData, numa *uint32, numaAlignedCPUs []uint32) []cloudinit.DeviceData {
+func addToDeviceMetadata(devicesMetadata []cloudinit.DeviceData, metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, numa *uint32, numaAlignedCPUs []uint32) []cloudinit.DeviceData {
 	pciAddrStr := formatPCIAddressStr(address)
 	deviceData := cloudinit.DeviceData{
 		Type:    metadataType,
@@ -1706,29 +1706,31 @@ func getDeviceNUMACPUAffinity(dev api.HostDevice, vmi *v1.VirtualMachineInstance
 }
 
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
-	taggedInterfaces := make(map[string]v1.Interface)
-	taggedHostDevices := make(map[string]v1.HostDevice)
-	taggedGPUs := make(map[string]v1.GPU)
-	var devicesMetadata []cloudinit.DeviceData
+	var (
+		devicesMetadata []cloudinit.DeviceData
+
+		taggedInterfaces  = make(map[string]string)
+		taggedHostDevices = make(map[string]string)
+	)
 
 	// Get all tagged interfaces for lookup
 	for _, vif := range vmi.Spec.Domain.Devices.Interfaces {
 		if vif.Tag != "" {
-			taggedInterfaces[vif.Name] = vif
+			taggedInterfaces[vif.Name] = vif.Tag
 		}
 	}
 
 	// Get all tagged host devices for lookup
 	for _, dev := range vmi.Spec.Domain.Devices.HostDevices {
 		if dev.Tag != "" {
-			taggedHostDevices[dev.Name] = dev
+			taggedHostDevices[dev.Name] = dev.Tag
 		}
 	}
 
 	// Get all tagged gpus for lookup
 	for _, dev := range vmi.Spec.Domain.Devices.GPUs {
 		if dev.Tag != "" {
-			taggedGPUs[dev.Name] = dev
+			taggedHostDevices[dev.Name] = dev.Tag
 		}
 	}
 
@@ -1737,65 +1739,64 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		return nil, err
 	}
 	devices := domainSpec.Devices
-	interfaces := devices.Interfaces
-	for _, nic := range interfaces {
-		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
+
+	for _, nic := range devices.Interfaces {
+		if tag, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
 			var mac string
 			if nic.MAC != nil {
 				mac = nic.MAC.MAC
 			}
-			// currently network Interfaces do not contain host devices thus have no NUMA alignment.
-			deviceAlignedCPUs := []uint32{}
-			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+			// Currently, network Interfaces do not contain host devices thus have no NUMA alignment.
+			devicesMetadata = addToDeviceMetadata(devicesMetadata,
+				cloudinit.NICMetadataType,
 				nic.Address,
 				mac,
-				data.Tag,
-				devicesMetadata,
+				tag,
 				nil,
+				nil,
+			)
+		}
+	}
+
+	for _, dev := range devices.HostDevices {
+		netDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), netsriov.AliasPrefix, "", 1)
+		hostDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), generic.AliasPrefix, "", 1)
+		gpuDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", 1)
+		if tag, exist := taggedInterfaces[netDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
+			devicesMetadata = addToDeviceMetadata(devicesMetadata,
+				cloudinit.NICMetadataType,
+				dev.Address,
+				"",
+				tag,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
+		}
+		if tag, exist := taggedHostDevices[hostDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
+			devicesMetadata = addToDeviceMetadata(devicesMetadata,
+				cloudinit.HostDevMetadataType,
+				dev.Address,
+				"",
+				tag,
+				deviceNumaNode,
+				deviceAlignedCPUs,
+			)
+		}
+		if tag, exist := taggedHostDevices[gpuDevAliasNoPrefix]; exist {
+			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
+			devicesMetadata = addToDeviceMetadata(devicesMetadata,
+				cloudinit.HostDevMetadataType,
+				dev.Address,
+				"",
+				tag,
+				deviceNumaNode,
 				deviceAlignedCPUs,
 			)
 		}
 	}
 
-	hostDevices := devices.HostDevices
-	for _, dev := range hostDevices {
-		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), netsriov.AliasPrefix, "", -1)
-		hostDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), generic.AliasPrefix, "", -1)
-		gpuDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", -1)
-		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
-			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
-			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
-				dev.Address,
-				"",
-				data.Tag,
-				devicesMetadata,
-				deviceNumaNode,
-				deviceAlignedCPUs,
-			)
-		}
-		if data, exist := taggedHostDevices[hostDevAliasNoPrefix]; exist {
-			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
-			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
-				dev.Address,
-				"",
-				data.Tag,
-				devicesMetadata,
-				deviceNumaNode,
-				deviceAlignedCPUs,
-			)
-		}
-		if data, exist := taggedHostDevices[gpuDevAliasNoPrefix]; exist {
-			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
-			devicesMetadata = addToDeviceMetadata(cloudinit.HostDevMetadataType,
-				dev.Address,
-				"",
-				data.Tag,
-				devicesMetadata,
-				deviceNumaNode,
-				deviceAlignedCPUs,
-			)
-		}
-	}
 	return devicesMetadata, nil
 }
 
