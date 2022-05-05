@@ -411,11 +411,11 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
 				testAction(resource, action, "no")
 			},
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
+				Entry("[test_id:2921]given a vmi (pause)", "virtualmachineinstances/pause", "update"),
+				Entry("[test_id:2921]given a vmi (unpause)", "virtualmachineinstances/unpause", "update"),
+				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
+				Entry("[test_id:2921]given a vmi (console)", "virtualmachineinstances/console", "get"),
+				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
 			)
 		})
 
@@ -452,12 +452,12 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
 				testAction(resource, action, "yes")
 			},
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/softreboot", "update"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances/guestosinfo", "get"),
+				Entry("[test_id:2921]given a vmi (pause)", "virtualmachineinstances/pause", "update"),
+				Entry("[test_id:2921]given a vmi (unpause)", "virtualmachineinstances/unpause", "update"),
+				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
+				Entry("[test_id:2921]given a vmi (console)", "virtualmachineinstances/console", "get"),
+				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
+				Entry("[test_id:2921]given a vmi (guestosinfo)", "virtualmachineinstances/guestosinfo", "get"),
 			)
 		})
 	})
