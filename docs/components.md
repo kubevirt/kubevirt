@@ -185,15 +185,24 @@ However KubeVirt might define a Storage CRD along side with a flow description w
 
 ## Networking
 
-We will try to leverage as much of Kubernetes networking plugin mechanisms (e.g. CNI).
-However, `virt-handler` may provide a plugin mechanism to allow network setup on a host, if the KubeVirt requirements do not fit into the Kubernetes storage scenarios.
+KubeVirt aims to seamlessly integrate into Kubernetes networking, with VMs
+connected to the same network as Pods, using the same resources and same APIs.
+Without any external extensions, VMs in KubeVirt are capable of using the pod
+network, Services, or NetworkPolicies.
 
-Since host side preparation of network interfaces may not be enough, a cluster-wide [Network Controller](#network-controller) can be used to prepare the network.
+To implement this, VMs are only bound to network resources that are made
+available to the virt-launcher Pod's network namespace. With this model, a wide
+variety of networking plugins can be supported.
 
-Investigations are still in progress.
+We also care for advanced networking scenarios, such as connecting to service
+meshes, multiple network interfaces, SR-IOV, or MAC address pooling. To
+implement integration with these technologies, we are following the [KubeVirt
+Razor](architecture.md#the-razor), attempting to reuse existing
+container-focused technologies as much as is possible.
 
-## Network Controller
+You can find more information about this topic, including examples of specific
+plugins and extensions, in the user-guide:
 
-Such a controller will not be part of KubeVirt itself.
-
-However KubeVirt might define a Networking CRD along side with a flow description which will allow such a controller seamless integration into KubeVirt.
+* [Interfaces and Networks](https://kubevirt.io/user-guide/virtual_machines/interfaces_and_networks/)
+* [NetworkPolicy](https://kubevirt.io/user-guide/virtual_machines/networkpolicy/)
+* [Service Mesh](https://kubevirt.io/user-guide/virtual_machines/istio_service_mesh/)
