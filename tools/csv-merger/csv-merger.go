@@ -120,7 +120,12 @@ var (
 	hppoVersion                   = flag.String("hppo-version", "", "HPP operator version")
 	apiSources                    = flag.String("api-sources", cwd+"/...", "Project sources")
 	enableUniqueSemver            = flag.Bool("enable-unique-version", false, "Insert a skipRange annotation to support unique semver in the CSV")
-	envVars                       EnvVarFlags
+	skipsList                     = flag.String("skips-list", "",
+		"Comma separated list of CSVs that can be skipped (read replaced) by this version")
+	olmSkipRange = flag.String("olm-skip-range", "",
+		"Semver range expression for CSVs that can be skipped (read replaced) by this version")
+
+	envVars EnvVarFlags
 )
 
 func genHcoCrds() error {
@@ -254,6 +259,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *enableUniqueSemver && *olmSkipRange != "" {
+		panicOnError(errors.New("enable-unique-version and olm-skip-range cannot be used and the same time"))
+		os.Exit(1)
+	}
+
 	switch *outputMode {
 	case CRDMode:
 		panicOnError(genHcoCrds())
@@ -283,6 +293,8 @@ func getHcoCsv() {
 
 	if *enableUniqueSemver {
 		csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf("<%v", version.String())
+	} else if *olmSkipRange != "" {
+		csvBase.ObjectMeta.Annotations["olm.skipRange"] = *olmSkipRange
 	}
 
 	params := getDeploymentParams()
@@ -296,6 +308,10 @@ func getHcoCsv() {
 	processCsvs(componentsWithCsvs, installStrategyBase, csvBase, &relatedImages)
 
 	csvBase.Spec.RelatedImages = relatedImages
+
+	if *skipsList != "" {
+		csvBase.Spec.Skips = strings.Split(*skipsList, ",")
+	}
 
 	hiddenCRDsJ, err := getHiddenCrds(*csvBase)
 	panicOnError(err)
