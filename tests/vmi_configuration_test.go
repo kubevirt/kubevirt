@@ -2991,20 +2991,20 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			By("Ensuring no process is using too much ram")
 			expected := resource.MustParse(services.VirtLauncherMonitorOverhead)
 			actual := processRss["virt-launcher-monitor"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virt-launcher-monitor process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virt-launcher-monitor process is taking too much RAM! (%s > %s). All processes: %v", actual.String(), expected.String(), processRss)
 			expected = resource.MustParse(services.VirtLauncherOverhead)
 			actual = processRss["virt-launcher"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the /usr/bin/virt-launcher process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the /usr/bin/virt-launcher process is taking too much RAM! (%s > %s). All processes: %v", actual.String(), expected.String(), processRss)
 			expected = resource.MustParse(services.VirtlogdOverhead)
 			actual = processRss["virtlogd"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virtlogd process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the virtlogd process is taking too much RAM! (%s > %s). All processes: %v", actual.String(), expected.String(), processRss)
 			expected = resource.MustParse(services.LibvirtdOverhead)
 			actual = processRss["libvirtd"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the libvirtd process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the libvirtd process is taking too much RAM! (%s > %s). All processes: %v", actual.String(), expected.String(), processRss)
 			expected = resource.MustParse(services.QemuOverhead)
 			expected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
 			actual = processRss["qemu-kvm"]
-			Expect((&actual).Cmp(expected)).To(Equal(-1), "the qemu-kvm process is taking too much RAM! (%s > %s)", actual.String(), expected.String())
+			Expect((&actual).Cmp(expected)).To(Equal(-1), "the qemu-kvm process is taking too much RAM! (%s > %s). All processes: %v", actual.String(), expected.String(), processRss)
 		})
 	})
 })
