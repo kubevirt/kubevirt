@@ -1020,11 +1020,25 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return nil
 			}
 			if c.clusterConfig.NonRootEnabled() && util.CanBeNonRoot(vmi) == nil {
-				if vmi.Status.RuntimeUser != 107 {
-					patch := fmt.Sprintf(`[{ "op": "replace", "path": "/status/runtimeUser", "value": %s }]`, "107")
-					vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+				patches := []string{}
+
+				if vmi.Status.RuntimeUser != util.NonRootUID {
+					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
+				}
+
+				// This is required in order to be able to update from v0.43-v0.51 to v0.52+
+				if vmi.Annotations == nil {
+					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
+				} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
+					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, controller.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+
+				}
+
+				if len(patches) != 0 {
+					vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
 					if err != nil {
 						return fmt.Errorf("failed to mark VMI as nonroot: %v", err)
+
 					}
 				}
 

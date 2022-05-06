@@ -1705,6 +1705,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(loginFunc(vmi)).To(Succeed())
 
+				vmi, err := ThisVMI(vmi)()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Annotations).To(HaveKey(v1.DeprecatedNonRootVMIAnnotation))
+
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
