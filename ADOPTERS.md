@@ -16,3 +16,4 @@
 | Vendor | PLATFORM9 | | [link](https://platform9.com/managed-kubevirt/) | Run Legacy and Cloud-Native Applications on Platform9 |
 | Vendor | Red Hat, Inc. | 2016 | [link](https://www.redhat.com) | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
+| Vendor | Puzl | 2022 | [link](https://puzl.ee/) | As a cloud-native computing platform we want to provide users with seamless experience. Many users are familiar with cloud VMs, but not yet with Kubernetes, and with Kubevirt we are giving them a bridge to a cloud-native world to make their migration easier. |
