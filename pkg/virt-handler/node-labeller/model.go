@@ -25,7 +25,7 @@ type supportedFeatures struct {
 }
 
 type hostCPUModel struct {
-	name             string
+	Name             string
 	fallback         string
 	requiredFeatures cpuFeatures
 }

@@ -143,11 +143,11 @@ var _ = Describe("Node-labeller config", func() {
 			err := nlController.loadHostSupportedFeatures()
 			Expect(err).ToNot(HaveOccurred())
 
-			hostCpuModel = nlController.getHostCpuModel()
+			hostCpuModel = nlController.GetHostCpuModel()
 		})
 
 		It("model", func() {
-			Expect(hostCpuModel.name).To(Equal("Skylake-Client-IBRS"))
+			Expect(hostCpuModel.Name).To(Equal("Skylake-Client-IBRS"))
 			Expect(hostCpuModel.fallback).To(Equal("allow"))
 		})
 

@@ -308,12 +308,15 @@ func (app *virtHandlerApp) Run() {
 	defer close(stop)
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
+	var hostCpuModel string
 	if virtconfig.IsAMD64(runtime.GOARCH) {
 		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
 		if err != nil {
 			panic(err)
 		}
 		capabilities = nodeLabellerController.HostCapabilities()
+
+		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
 		go nodeLabellerController.Run(10, stop)
 	}
@@ -342,6 +345,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		capabilities,
+		hostCpuModel,
 	)
 
 	promErrCh := make(chan error)

@@ -208,6 +208,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockIsolationDetector,
 			migrationProxy,
 			nil,
+			"",
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
@@ -2191,36 +2192,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
-		DescribeTable("when host model labels", func(toDefineHostModelLabels bool) {
+		DescribeTable("with host model", func(hostCpuModel string) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
-			node := &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   host,
-					Labels: map[string]string{},
-				},
-			}
-
-			if toDefineHostModelLabels {
-				node.ObjectMeta.Labels = map[string]string{
-					v1.HostModelCPULabel + "fake":              "true",
-					v1.HostModelRequiredFeaturesLabel + "fake": "true",
-				}
-			}
-			addNode(clientTest, node)
+			controller.hostCpuModel = hostCpuModel
 
 			err := controller.isHostModelMigratable(vmi)
 
-			if toDefineHostModelLabels {
-				Expect(err).ShouldNot(HaveOccurred())
-			} else {
+			if hostCpuModel == "" {
 				Expect(err).Should(HaveOccurred())
+			} else {
+				Expect(err).ShouldNot(HaveOccurred())
 			}
 
 		},
-			Entry("exist migration should succeed", true),
-			Entry("don't exist migration should fail", false),
+			Entry("exist migration should succeed", "Westmere"),
+			Entry("don't exist migration should fail", ""),
 		)
 
 		It("should not be allowed to live-migrate if the VMI uses virtiofs ", func() {

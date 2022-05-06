@@ -80,7 +80,7 @@ func (n *NodeLabeller) getSupportedCpuFeatures() cpuFeatures {
 	return supportedCpuFeatures
 }
 
-func (n *NodeLabeller) getHostCpuModel() hostCPUModel {
+func (n *NodeLabeller) GetHostCpuModel() hostCPUModel {
 	return n.hostCPUModel
 }
 
@@ -103,7 +103,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 				log.Log.Warning("host model mode is expected to contain only one model")
 			}
 
-			n.hostCPUModel.name = hostCpuModel.Name
+			n.hostCPUModel.Name = hostCpuModel.Name
 			n.hostCPUModel.fallback = hostCpuModel.Fallback
 
 			for _, feature := range mode.Feature {
