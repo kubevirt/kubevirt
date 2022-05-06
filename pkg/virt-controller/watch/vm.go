@@ -130,6 +130,10 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		UpdateFunc: c.updateDataVolume,
 	})
 
+	c.pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateVirtualMachine,
+	})
+
 	return c
 }
 
@@ -2070,7 +2074,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 	if err != nil {
 		syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}
-	} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
+	} else if (c.isPvcBound(vm) && dataVolumesReady) || runStrategy == virtv1.RunStrategyHalted {
 		syncErr = c.startStop(vm, vmi)
 	} else {
 		log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
@@ -2114,4 +2118,28 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 		return nil
 	}
 	return vm.(*virtv1.VirtualMachine)
+}
+
+// isPvcBound returns whether all PVC volumes are existent and bound in the cluster
+func (c *VMController) isPvcBound(vm *virtv1.VirtualMachine) bool {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		claimName := typesutil.PVCNameFromVirtVolume(&volume)
+		if claimName == "" {
+			continue
+		}
+
+		pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, claimName)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim while checking virtual machine volumes: %v", err)
+			return false
+		}
+		if pvc == nil {
+			return false
+		}
+		if pvc.Status.Phase != k8score.ClaimBound {
+			return false
+		}
+	}
+
+	return true
 }
