@@ -249,7 +249,6 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "+k8s:openapi-gen=true",
 		"vmiName":    "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
 		"targetNode": "The target node that the VMI is moving to",
 	}

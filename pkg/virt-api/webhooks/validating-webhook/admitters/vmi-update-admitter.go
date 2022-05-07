@@ -31,6 +31,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -160,11 +161,11 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 				})
 			}
 			disk := newDisks[k]
-			if disk.Disk == nil || disk.Disk.Bus != "scsi" {
+			if disk.Disk == nil || (disk.Disk.Bus != "scsi" && disk.Disk.Bus != "virtio" && disk.Disk.Bus != "sata") {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("hotplugged Disk %s does not use a scsi bus", k),
+						Message: fmt.Sprintf("hotplugged Disk %s does not use a scsi or virtio or sata bus", k),
 					},
 				})
 

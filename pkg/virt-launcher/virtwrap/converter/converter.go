@@ -51,6 +51,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 
@@ -100,6 +101,7 @@ type EFIConfiguration struct {
 type ConverterContext struct {
 	Architecture          string
 	AllowEmulation        bool
+	PciPortNum            int
 	Secrets               map[string]*k8sv1.Secret
 	VirtualMachine        *v1.VirtualMachineInstance
 	CPUSet                []int
@@ -233,6 +235,25 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
+	}
+	if diskDevice.IOTune != nil {
+		ioTune := &api.IOTune{}
+		//  TotalIopsSec cannot appear with read_iops_sec or write_iops_sec
+		//  TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec.
+		// https://libvirt.org/formatdomain.html#elementsDisks
+		if diskDevice.IOTune.TotalBytesSec != 0 {
+			ioTune.TotalBytesSec = diskDevice.IOTune.TotalBytesSec
+		} else {
+			ioTune.ReadBytesSec = diskDevice.IOTune.ReadBytesSec
+			ioTune.WriteBytesSec = diskDevice.IOTune.WriteBytesSec
+		}
+		if diskDevice.IOTune.TotalIopsSec != 0 {
+			ioTune.TotalIopsSec = diskDevice.IOTune.TotalIopsSec
+		} else {
+			ioTune.ReadIopsSec = diskDevice.IOTune.ReadBytesSec
+			ioTune.WriteIopsSec = diskDevice.IOTune.WriteIopsSec
+		}
+		disk.IOTune = ioTune
 	}
 	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
 		disk.Driver.IOMMU = "on"
@@ -1656,6 +1677,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
+	if needsHotplugController(vmi) {
+		for i := 8; i < c.PciPortNum; i++ {
+			index := strconv.Itoa(i)
+			pciRootPortController := api.Controller{
+				Type:   "pci",
+				Index:  index,
+				Model:  "pcie-root-port",
+				Alias:  api.NewUserDefinedAlias("pci." + index),
+				Driver: controllerDriver,
+			}
+			domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootPortController)
+		}
+	}
+
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
@@ -1907,6 +1942,20 @@ func needsSCSIControler(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func needsHotplugController(vmi *v1.VirtualMachineInstance) bool {
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		machine := vmi.Spec.Domain.Machine
+		if machine == nil {
+			return true
+		} else if machine != nil && strings.Contains(machine.Type, "q35") {
+			return true
+		} else {
+			return false
+		}
+	}
+	return false
 }
 
 func getPrefixFromBus(bus string) string {

@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -46,15 +47,17 @@ const (
 
 type ServerOptions struct {
 	allowEmulation bool
+	pciPortNum     int
 }
 
-func NewServerOptions(allowEmulation bool) *ServerOptions {
-	return &ServerOptions{allowEmulation: allowEmulation}
+func NewServerOptions(allowEmulation bool, pciPortNum int) *ServerOptions {
+	return &ServerOptions{allowEmulation: allowEmulation, pciPortNum: pciPortNum}
 }
 
 type Launcher struct {
 	domainManager  virtwrap.DomainManager
 	allowEmulation bool
+	pciPortNum     int
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -161,7 +164,7 @@ func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequ
 		return response, nil
 	}
 
-	if err := l.domainManager.PrepareMigrationTarget(vmi, l.allowEmulation, request.Options); err != nil {
+	if err := l.domainManager.PrepareMigrationTarget(vmi, l.allowEmulation, l.pciPortNum, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -180,7 +183,7 @@ func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 		return response, nil
 	}
 
-	if _, err := l.domainManager.SyncVMI(vmi, l.allowEmulation, request.Options); err != nil {
+	if _, err := l.domainManager.SyncVMI(vmi, l.allowEmulation, l.pciPortNum, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -539,11 +542,16 @@ func RunServer(socketPath string,
 	if options != nil {
 		allowEmulation = options.allowEmulation
 	}
+	pciPortNum := 10
+	if options != nil {
+		pciPortNum = options.pciPortNum
+	}
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	server := &Launcher{
 		domainManager:  domainManager,
 		allowEmulation: allowEmulation,
+		pciPortNum:     pciPortNum,
 	}
 	registerInfoServer(grpcServer)
 

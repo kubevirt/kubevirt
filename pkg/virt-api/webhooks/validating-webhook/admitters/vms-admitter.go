@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/flavor"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
@@ -419,10 +420,12 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 					Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' to be used.", name),
 					Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 				}}, nil
-			} else if volumeRequest.AddVolumeOptions.Disk.DiskDevice.Disk.Bus != "scsi" {
+			} else if volumeRequest.AddVolumeOptions.Disk.DiskDevice.Disk.Bus != "scsi" &&
+				volumeRequest.AddVolumeOptions.Disk.DiskDevice.Disk.Bus != "virtio" &&
+				volumeRequest.AddVolumeOptions.Disk.DiskDevice.Disk.Bus != "sata" {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, volumeRequest.AddVolumeOptions.Disk.DiskDevice.Disk.Bus),
+					Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi' or 'virtio' or 'sata'. [%s] is not permitted", name, volumeRequest.AddVolumeOptions.Disk.DiskDevice.Disk.Bus),
 					Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 				}}, nil
 			}

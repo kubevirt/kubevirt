@@ -56,6 +56,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -104,7 +105,7 @@ type contextStore struct {
 }
 
 type DomainManager interface {
-	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
+	SyncVMI(*v1.VirtualMachineInstance, bool, int, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
 	UnpauseVMI(*v1.VirtualMachineInstance) error
 	FreezeVMI(*v1.VirtualMachineInstance, int32) error
@@ -116,7 +117,7 @@ type DomainManager interface {
 	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
-	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
+	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, int, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
@@ -309,9 +310,10 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 func (l *LibvirtDomainManager) PrepareMigrationTarget(
 	vmi *v1.VirtualMachineInstance,
 	allowEmulation bool,
+	pciPortNum int,
 	options *cmdv1.VirtualMachineOptions,
 ) error {
-	return l.prepareMigrationTarget(vmi, allowEmulation, options)
+	return l.prepareMigrationTarget(vmi, allowEmulation, pciPortNum, options)
 }
 
 // FinalizeVirtualMachineMigration finalized the migration after the migration has completed and vmi is running on target pod.
@@ -655,7 +657,7 @@ func shouldExpandOffline(disk api.Disk) bool {
 	return true
 }
 
-func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
+func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, pciPortNum int, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
 
 	logger := log.Log.Object(vmi)
 
@@ -720,6 +722,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		Architecture:          runtime.GOARCH,
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
+		PciPortNum:            pciPortNum,
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
@@ -784,7 +787,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	return c, nil
 }
 
-func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, pciPortNum int, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -792,7 +795,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	domain := &api.Domain{}
 
-	c, err := l.generateConverterContext(vmi, allowEmulation, options, false)
+	c, err := l.generateConverterContext(vmi, allowEmulation, pciPortNum, options, false)
 	if err != nil {
 		logger.Reason(err).Error("failed to generate libvirt domain from VMI spec")
 		return nil, err

@@ -364,6 +364,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Hugepages":                                                          schema_kubevirtio_api_core_v1_Hugepages(ref),
 		"kubevirt.io/api/core/v1.HypervTimer":                                                        schema_kubevirtio_api_core_v1_HypervTimer(ref),
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                   schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
+		"kubevirt.io/api/core/v1.IOTune":                                                             schema_kubevirtio_api_core_v1_IOTune(ref),
 		"kubevirt.io/api/core/v1.Input":                                                              schema_kubevirtio_api_core_v1_Input(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                             schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
@@ -15400,12 +15401,18 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Ref:         ref("kubevirt.io/api/core/v1.BlockSize"),
 						},
 					},
+					"ioTune": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, will set the disk qos",
+							Ref:         ref("kubevirt.io/api/core/v1.IOTune"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.FloppyTarget", "kubevirt.io/api/core/v1.LunTarget"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.CDRomTarget", "kubevirt.io/api/core/v1.DiskTarget", "kubevirt.io/api/core/v1.FloppyTarget", "kubevirt.io/api/core/v1.IOTune", "kubevirt.io/api/core/v1.LunTarget"},
 	}
 }
 
@@ -16538,6 +16545,61 @@ func schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref common.ReferenceCallback
 							Description: "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_IOTune(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "IOTune provides the option to add disk qos of a VM. TotalIopsSec cannot appear with read_iops_sec or write_iops_sec TotalBytesSec cannot appear with read_bytes_sec or write_bytes_sec. For more document: https://libvirt.org/formatdomain.html#elementsDisks",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"totalIopsSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TotalIopsSec",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"readIopsSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReadIopsSec",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"writeIopsSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WriteIopsSec",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"totalBytesSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TotalBytesSec",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"readBytesSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReadBytesSec",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"writeBytesSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WriteBytesSec",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 				},
