@@ -1716,23 +1716,23 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			},
-				Entry("with simple VMI", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8609] with simple VMI", func() *v1.VirtualMachineInstance {
 					return libvmi.NewAlpine(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
 					createDataVolumePVCAndChangeDiskImgPermissions()
 					// Use the DataVolume
 					return tests.NewRandomVMIWithDataVolume(pvName)
 				}, console.LoginToAlpine),
 
-				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8611] with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
 					return prepareVMIWithAllVolumeSources()
 				}, console.LoginToFedora),
 
-				Entry("with PVC", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
 					createDataVolumePVCAndChangeDiskImgPermissions()
 					// Use the Underlying PVC
 					return tests.NewRandomVMIWithPVC(pvName)
