@@ -1023,8 +1023,9 @@ var _ = Describe("Manager", func() {
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining: uint64(migrationData),
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(migrationData),
+					DataRemainingSet: true,
 				}
 			}()
 
@@ -1076,8 +1077,9 @@ var _ = Describe("Manager", func() {
 
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining: uint64(migrationData),
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(migrationData),
+					DataRemainingSet: true,
 				}
 			}
 
@@ -1147,8 +1149,9 @@ var _ = Describe("Manager", func() {
 
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining: uint64(migrationData),
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(migrationData),
+					DataRemainingSet: true,
 				}
 			}
 
@@ -1270,8 +1273,9 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().AbortJob().MaxTimes(1)
 			migrationInProgress := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining: uint64(32479827394),
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(32479827394),
+					DataRemainingSet: true,
 				}
 			}()
 			mockDomain.EXPECT().GetJobInfo().MaxTimes(1).Return(migrationInProgress, nil)
@@ -1333,8 +1337,9 @@ var _ = Describe("Manager", func() {
 			}()
 			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining: uint64(32479827777),
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(32479827777),
+					DataRemainingSet: true,
 				}
 			}()
 
@@ -1408,8 +1413,9 @@ var _ = Describe("Manager", func() {
 			}()
 			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining: uint64(32479827777),
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(32479827777),
+					DataRemainingSet: true,
 				}
 			}()
 
@@ -1497,8 +1503,9 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free().AnyTimes()
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_NONE,
-					DataRemaining: uint64(32479827394),
+					Type:             libvirt.DOMAIN_JOB_NONE,
+					DataRemaining:    uint64(32479827394),
+					DataRemainingSet: true,
 				}
 			}()
 

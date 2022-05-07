@@ -673,8 +673,9 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 		if isMigrationAbortInProgress(domainSpec) {
 			logger.Info("Migration job was canceled")
 			return &libvirt.DomainJobInfo{
-				Type:          libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining: uint64(m.remainingData),
+				Type:             libvirt.DOMAIN_JOB_CANCELLED,
+				DataRemaining:    uint64(m.remainingData),
+				DataRemainingSet: true,
 			}
 		}
 
@@ -692,8 +693,9 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 		if domainState == libvirt.DOMAIN_RUNNING {
 			logger.Info("Migration job failed")
 			return &libvirt.DomainJobInfo{
-				Type:          libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining: uint64(m.remainingData),
+				Type:             libvirt.DOMAIN_JOB_FAILED,
+				DataRemaining:    uint64(m.remainingData),
+				DataRemainingSet: true,
 			}
 		}
 	}
