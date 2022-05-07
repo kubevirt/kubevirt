@@ -198,6 +198,15 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		disk.Target.Bus = diskDevice.LUN.Bus
 		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
+		if diskDevice.LUN.Sgio != "" {
+			disk.Sgio = diskDevice.LUN.Sgio
+		}
+	} else if diskDevice.Floppy != nil {
+		disk.Device = "floppy"
+		disk.Target.Bus = "fdc"
+		disk.Target.Tray = string(diskDevice.Floppy.Tray)
+		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, disk.Target.Bus, prefixMap)
+		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
@@ -225,6 +234,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Capacity = getDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
 		}
 		disk.ExpandDisksEnabled = c.ExpandDisksEnabled
+	}
+	if diskDevice.Shareable != nil {
+		disk.Shareable = toApiShareable(*diskDevice.Shareable)
 	}
 	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
@@ -585,12 +597,11 @@ func toApiReadOnly(src bool) *api.ReadOnly {
 	return nil
 }
 
-func getErrorPolicy(policy string) string {
-	errorPolicy := "stop"
-	if policy == "stop" || policy == "report" || policy == "ignore" || policy == "enospace" {
-		errorPolicy = policy
+func toApiShareable(src bool) *api.Shareable {
+	if src {
+		return &api.Shareable{}
 	}
-	return errorPolicy
+	return nil
 }
 
 // Add_Agent_To_api_Channel creates the channel for guest agent communication

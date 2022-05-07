@@ -15554,15 +15554,8 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 					},
 					"shareable": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified the disk is made sharable and multiple write from different VMs are permitted",
+							Description: "shareable indicates this disk is shareable with multiple vm for rwx Defaults to false.",
 							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"errorPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "If specified, error_policy will be provided to the guest via config drive metadata",
-							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -17831,6 +17824,13 @@ func schema_kubevirtio_api_core_v1_LunTarget(ref common.ReferenceCallback) commo
 						SchemaProps: spec.SchemaProps{
 							Description: "ReadOnly. Defaults to false.",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"sgio": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SgIo open sgio and set the value. support values: unfiltered filtered",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},

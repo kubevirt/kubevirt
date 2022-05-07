@@ -588,6 +588,7 @@ type Disk struct {
 	Capacity           *int64         `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
 	IOTune             *IOTune        `xml:"iotune,omitempty"`
+	Sgio               string         `xml:"sgio,omitempty"`
 	Shareable          *Shareable     `xml:"shareable,omitempty"`
 }
 
@@ -603,6 +604,8 @@ type DiskSecret struct {
 }
 
 type ReadOnly struct{}
+
+type Shareable struct{}
 
 type DiskSource struct {
 	Dev           string          `xml:"dev,attr,omitempty"`

@@ -318,8 +318,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
 		"ioTune":            "If specified, will set the disk qos\n+optional",
-		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
-		"errorPolicy":       "If specified, error_policy will be provided to the guest via config drive metadata\n+optional",
+		"shareable":         "shareable indicates this disk is shareable with multiple vm for rwx\nDefaults to false.\n+optional",
 	}
 }
 
@@ -378,6 +377,7 @@ func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to false.",
+		"sgio":     "SgIo open sgio and set the value.\nsupport values: unfiltered filtered",
 	}
 }
 
