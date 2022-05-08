@@ -32,8 +32,11 @@ import (
 )
 
 /*
-#cgo pkg-config: libvirt
-#include "network_events_wrapper.h"
+#cgo !dlopen pkg-config: libvirt
+#cgo dlopen LDFLAGS: -ldl
+#cgo dlopen CFLAGS: -DUSE_DLOPEN
+#include "module_generated.h"
+#include "module_helper.h"
 */
 import "C"
 
@@ -78,7 +81,7 @@ func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEv
 		cnet = net.ptr
 	}
 	var err C.virError
-	ret := C.virConnectNetworkEventRegisterAnyWrapper(c.ptr, cnet,
+	ret := C.virConnectNetworkEventRegisterAnyHelper(c.ptr, cnet,
 		C.VIR_NETWORK_EVENT_ID_LIFECYCLE,
 		C.virConnectNetworkEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)

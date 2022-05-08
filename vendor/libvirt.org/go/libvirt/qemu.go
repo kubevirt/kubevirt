@@ -29,16 +29,18 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
-// Can't rely on pkg-config for libvirt-qemu since it was not
-// installed until 2.6.0 onwards
-#cgo LDFLAGS: -lvirt-qemu
+#cgo !dlopen pkg-config: libvirt
+#cgo !dlopen LDFLAGS: -lvirt-qemu
+#cgo dlopen LDFLAGS: -ldl
+#cgo dlopen CFLAGS: -DUSE_DLOPEN
 #include <stdlib.h>
-#include "qemu_wrapper.h"
+#include "module_generated.h"
+#include "module_helper.h"
 */
 import "C"
 
 import (
+	"os"
 	"unsafe"
 )
 
@@ -92,6 +94,45 @@ func (d *Domain) QemuMonitorCommand(command string, flags DomainQemuMonitorComma
 	rstring := C.GoString(cResult)
 	C.free(unsafe.Pointer(cResult))
 	return rstring, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-qemu.html#virDomainQemuMonitorCommandWithFiles
+func (d *Domain) QemuMonitorCommandWithFiles(command string, infiles []os.File, flags DomainQemuMonitorCommandFlags) (string, []*os.File, error) {
+	if C.LIBVIR_VERSION_NUMBER < 8002000 {
+		return "", []*os.File{}, makeNotImplementedError("virDomainQemuMonitorCommandWithFiles")
+	}
+
+	cninfiles := C.uint(len(infiles))
+	cinfiles := make([]C.int, len(infiles))
+	for i := 0; i < len(infiles); i++ {
+		cinfiles[i] = C.int(infiles[i].Fd())
+	}
+	cCommand := C.CString(command)
+	defer C.free(unsafe.Pointer(cCommand))
+
+	var cResult *C.char
+	var cnoutfiles C.uint
+	var coutfiles *C.int
+	var err C.virError
+	result := C.virDomainQemuMonitorCommandWithFilesWrapper(d.ptr, cCommand,
+		cninfiles, &cinfiles[0], &cnoutfiles, &coutfiles,
+		&cResult, C.uint(flags), &err)
+
+	if result != 0 {
+		return "", []*os.File{}, makeError(&err)
+	}
+
+	outfiles := []*os.File{}
+	for i := 0; i < int(cnoutfiles); i++ {
+		coutfile := *(*C.int)(unsafe.Pointer(uintptr(unsafe.Pointer(coutfiles)) + (unsafe.Sizeof(*coutfiles) * uintptr(i))))
+
+		outfiles = append(outfiles, os.NewFile(uintptr(coutfile), "mon-cmd-out"))
+	}
+	C.free(unsafe.Pointer(coutfiles))
+
+	rstring := C.GoString(cResult)
+	C.free(unsafe.Pointer(cResult))
+	return rstring, outfiles, nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-qemu.html#virDomainQemuAgentCommand
@@ -167,7 +208,7 @@ func (c *Connect) DomainQemuMonitorEventRegister(dom *Domain, event string, call
 		cdom = dom.ptr
 	}
 	var err C.virError
-	ret := C.virConnectDomainQemuMonitorEventRegisterWrapper(c.ptr, cdom,
+	ret := C.virConnectDomainQemuMonitorEventRegisterHelper(c.ptr, cdom,
 		cEvent,
 		C.long(goCallBackId),
 		C.uint(flags), &err)

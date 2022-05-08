@@ -27,9 +27,11 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo !dlopen pkg-config: libvirt
+#cgo dlopen LDFLAGS: -ldl
+#cgo dlopen CFLAGS: -DUSE_DLOPEN
 #include <stdlib.h>
-#include "storage_volume_wrapper.h"
+#include "module_generated.h"
 */
 import "C"
 

@@ -29,13 +29,13 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
-// Can't rely on pkg-config for libvirt-lxc since it was not
-// installed until 2.6.0 onwards
-#cgo LDFLAGS: -lvirt-lxc
+#cgo !dlopen pkg-config: libvirt
+#cgo !dlopen LDFLAGS: -lvirt-lxc
+#cgo dlopen LDFLAGS: -ldl
+#cgo dlopen CFLAGS: -DUSE_DLOPEN
 #include <stdlib.h>
 #include <string.h>
-#include "lxc_wrapper.h"
+#include "module_generated.h"
 */
 import "C"
 

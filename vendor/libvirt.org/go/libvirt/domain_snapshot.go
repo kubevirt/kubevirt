@@ -27,9 +27,11 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo !dlopen pkg-config: libvirt
+#cgo dlopen LDFLAGS: -ldl
+#cgo dlopen CFLAGS: -DUSE_DLOPEN
 #include <stdlib.h>
-#include "domain_snapshot_wrapper.h"
+#include "module_generated.h"
 */
 import "C"
 
@@ -73,9 +75,10 @@ const (
 type DomainSnapshotRevertFlags uint
 
 const (
-	DOMAIN_SNAPSHOT_REVERT_RUNNING = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_RUNNING)
-	DOMAIN_SNAPSHOT_REVERT_PAUSED  = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED)
-	DOMAIN_SNAPSHOT_REVERT_FORCE   = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_FORCE)
+	DOMAIN_SNAPSHOT_REVERT_RUNNING     = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_RUNNING)
+	DOMAIN_SNAPSHOT_REVERT_PAUSED      = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED)
+	DOMAIN_SNAPSHOT_REVERT_FORCE       = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_FORCE)
+	DOMAIN_SNAPSHOT_REVERT_RESET_NVRAM = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_RESET_NVRAM)
 )
 
 type DomainSnapshotDeleteFlags uint

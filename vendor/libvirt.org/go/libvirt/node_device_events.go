@@ -32,8 +32,11 @@ import (
 )
 
 /*
-#cgo pkg-config: libvirt
-#include "node_device_events_wrapper.h"
+#cgo !dlopen pkg-config: libvirt
+#cgo dlopen LDFLAGS: -ldl
+#cgo dlopen CFLAGS: -DUSE_DLOPEN
+#include "module_generated.h"
+#include "module_helper.h"
 */
 import "C"
 
@@ -95,7 +98,7 @@ func (c *Connect) NodeDeviceEventLifecycleRegister(device *NodeDevice, callback 
 		cdevice = device.ptr
 	}
 	var err C.virError
-	ret := C.virConnectNodeDeviceEventRegisterAnyWrapper(c.ptr, cdevice,
+	ret := C.virConnectNodeDeviceEventRegisterAnyHelper(c.ptr, cdevice,
 		C.VIR_NODE_DEVICE_EVENT_ID_LIFECYCLE,
 		C.virConnectNodeDeviceEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
@@ -115,7 +118,7 @@ func (c *Connect) NodeDeviceEventUpdateRegister(device *NodeDevice, callback Nod
 		cdevice = device.ptr
 	}
 	var err C.virError
-	ret := C.virConnectNodeDeviceEventRegisterAnyWrapper(c.ptr, cdevice,
+	ret := C.virConnectNodeDeviceEventRegisterAnyHelper(c.ptr, cdevice,
 		C.VIR_NODE_DEVICE_EVENT_ID_UPDATE,
 		C.virConnectNodeDeviceEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
