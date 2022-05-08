@@ -1068,7 +1068,7 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
 
 		{command: hostPrefix + "/usr/bin/" + networkPrefix + "/usr/sbin/iptables --list -v", fileNameSuffix: "iptables"},
-		{command: "[ -e /dev/vfio ] && ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
+		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, pod, virtHandlerName, cmds)
@@ -1083,7 +1083,7 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: "env", fileNameSuffix: "env"},
-		{command: "[ -e /dev/vfio ] && ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
+		{command: "ls -lsh -Z -St /dev/vfio", fileNameSuffix: "vfio-devices"},
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, &pod, "compute", cmds)
