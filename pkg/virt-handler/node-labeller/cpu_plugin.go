@@ -111,6 +111,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 					n.hostCPUModel.requiredFeatures[feature.Name] = true
 				}
 			}
+			usableModels = append(usableModels, hostCpuModel.Name)
 		}
 
 		for _, model := range mode.Model {
