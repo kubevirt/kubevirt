@@ -2690,7 +2690,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Ensuring that target pod has correct nodeSelector label")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(vmiPod.Spec.NodeSelector).To(HaveKey(v1.HostModelCPULabel+hostModel),
+				Expect(vmiPod.Spec.NodeSelector).To(HaveKey(v1.CPUModelLabel+hostModel),
 					"target pod is expected to have correct nodeSelector label defined")
 
 				By("Ensuring that target node has correct CPU mode & features")
