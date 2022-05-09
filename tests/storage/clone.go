@@ -13,9 +13,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
-	"kubevirt.io/kubevirt/tests/console"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests/console"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,7 +44,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineClone Tests", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
-		tests.BeforeTestCleanup() // TODO: remove clones
 		tests.EnableFeatureGate(virtconfig.SnapshotGate)
 
 		format.MaxLength = 0
