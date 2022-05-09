@@ -55,11 +55,14 @@ func CipherSuitesIDs(names []string) []uint16 {
 		"AES256-SHA":   tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 		"DES-CBC3-SHA": tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
 	}
-	for _, cipherSuite := range tls.CipherSuites() {
+	for _, cipherSuite := range ciphers {
+		idByName[cipherSuite.Name] = cipherSuite.ID
+	}
+	for _, cipherSuite := range insecureCiphers {
 		idByName[cipherSuite.Name] = cipherSuite.ID
 	}
 
-	ids := []uint16{}
+	var ids []uint16
 	for _, name := range names {
 		if id, ok := idByName[name]; ok {
 			ids = append(ids, id)

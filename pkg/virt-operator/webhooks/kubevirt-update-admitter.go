@@ -28,6 +28,8 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	ocpv1 "github.com/openshift/api/config/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -73,6 +75,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
+	results = append(results, validateTLSSecurityProfile(newKV.Spec.TLSSecurityProfile)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
 		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
@@ -198,6 +201,89 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 		})
 	}
 
+	return statuses
+}
+
+func validateTLSSecurityProfile(profile *ocpv1.TLSSecurityProfile) []metav1.StatusCause {
+	const requiredIfUsingErrorMessage = "Required field when using spec.tlsSecurityProfile.type==%s"
+	var statuses []metav1.StatusCause
+
+	if profile == nil {
+		return statuses
+	}
+
+	if profile.Type == "" {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Required field",
+			Field:   "spec.tlsSecurityProfile.type",
+		})
+		return statuses
+	}
+
+	switch profile.Type {
+	case ocpv1.TLSProfileOldType:
+		if profile.Old == nil {
+			statuses = addMissingTLSSecurityProfileField(statuses, "old", ocpv1.TLSProfileOldType)
+		}
+	case ocpv1.TLSProfileIntermediateType:
+		if profile.Intermediate == nil {
+			statuses = addMissingTLSSecurityProfileField(statuses, "intermediate", ocpv1.TLSProfileIntermediateType)
+		}
+	case ocpv1.TLSProfileModernType:
+		if profile.Modern == nil {
+			statuses = addMissingTLSSecurityProfileField(statuses, "modern", ocpv1.TLSProfileModernType)
+		}
+	case ocpv1.TLSProfileCustomType:
+		if profile.Custom == nil {
+			statuses = addMissingTLSSecurityProfileField(statuses, "custom", ocpv1.TLSProfileCustomType)
+			return statuses
+		}
+
+		if profile.Custom.MinTLSVersion == "" {
+			statuses = append(statuses, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf(requiredIfUsingErrorMessage, ocpv1.TLSProfileCustomType),
+				Field:   "spec.tlsSecurityProfile.custom.minTLSVersion",
+			})
+			return statuses
+		}
+
+		if profile.Custom.MinTLSVersion == ocpv1.VersionTLS13 {
+			if len(profile.Custom.Ciphers) > 0 {
+				statuses = append(statuses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: "You cannot specify ciphers when spec.tlsSecurityProfile.custom.minTLSVersion is VersionTLS13",
+					Field:   "spec.tlsSecurityProfile.custom.ciphers",
+				})
+			}
+			return statuses
+		}
+
+		if len(profile.Custom.Ciphers) == 0 {
+			statuses = append(statuses, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "You must specify at least one cipher",
+				Field:   "spec.tlsSecurityProfile.custom.ciphers",
+			})
+		}
+	default:
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Unsupported value",
+			Field:   "spec.tlsSecurityProfile.type",
+		})
+	}
+
+	return statuses
+}
+
+func addMissingTLSSecurityProfileField(statuses []metav1.StatusCause, fieldName string, profileType ocpv1.TLSProfileType) []metav1.StatusCause {
+	statuses = append(statuses, metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueRequired,
+		Message: fmt.Sprintf("Required field when using spec.tlsSecurityProfile.type==%s", profileType),
+		Field:   fmt.Sprintf("spec.tlsSecurityProfile.%s", fieldName),
+	})
 	return statuses
 }
 

@@ -325,7 +325,7 @@ var _ = Describe("TLS", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer, kvConfig)
 		client = &http.Client{Transport: &http.Transport{TLSClientConfig: clientTLSConfig}}
 		resp, err = client.Get(srv.URL)
-		Expect(err).ToNot(BeNil())
+		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("remote error: tls: protocol version not supported"))
 	},
 		Entry("on virt-handler",
