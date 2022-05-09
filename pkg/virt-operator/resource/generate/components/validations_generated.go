@@ -5159,6 +5159,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   as a reference to the associated networks. Must
                                   match the Name of a Network.
                                 type: string
+                              passt:
+                                description: InterfacePasst connects to a given network.
+                                type: object
                               pciAddress:
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
@@ -9346,6 +9349,9 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Logical name of the interface as well as a reference
                           to the associated networks. Must match the Name of a Network.
                         type: string
+                      passt:
+                        description: InterfacePasst connects to a given network.
+                        type: object
                       pciAddress:
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
@@ -11530,6 +11536,9 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Logical name of the interface as well as a reference
                           to the associated networks. Must match the Name of a Network.
                         type: string
+                      passt:
+                        description: InterfacePasst connects to a given network.
+                        type: object
                       pciAddress:
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
@@ -13613,6 +13622,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   as a reference to the associated networks. Must
                                   match the Name of a Network.
                                 type: string
+                              passt:
+                                description: InterfacePasst connects to a given network.
+                                type: object
                               pciAddress:
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
@@ -17287,6 +17299,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           as well as a reference to the associated
                                           networks. Must match the Name of a Network.
                                         type: string
+                                      passt:
+                                        description: InterfacePasst connects to a
+                                          given network.
+                                        type: object
                                       pciAddress:
                                         description: 'If specified, the virtual network
                                           interface will be placed on the guests pci
@@ -21813,6 +21829,10 @@ var CRDsValidation map[string]string = map[string]string{
                                               as well as a reference to the associated
                                               networks. Must match the Name of a Network.
                                             type: string
+                                          passt:
+                                            description: InterfacePasst connects to
+                                              a given network.
+                                            type: object
                                           pciAddress:
                                             description: 'If specified, the virtual
                                               network interface will be placed on
