@@ -196,7 +196,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		It("Number of disks restored and total restored bytes metric values should be correct", func() {
+		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
 			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_total{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
 			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
 			numPVCs := 2
