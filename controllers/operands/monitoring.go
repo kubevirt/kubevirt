@@ -28,7 +28,6 @@ const (
 	alertRuleGroup           = "kubevirt.hyperconverged.rules"
 	outOfBandUpdateAlert     = "KubevirtHyperconvergedClusterOperatorCRModification"
 	unsafeModificationAlert  = "KubevirtHyperconvergedClusterOperatorUSModification"
-	runbookUrlTemplate       = "https://kubevirt.io/monitoring/runbooks/%s"
 	severityAlertLabelKey    = "severity"
 	partOfAlertLabelKey      = "kubernetes_operator_part_of"
 	partOfAlertLabelValue    = "kubevirt"
@@ -37,6 +36,8 @@ const (
 )
 
 var (
+	runbookUrlTemplate = "https://kubevirt.io/monitoring/runbooks/%s"
+
 	outOfBandUpdateRunbookUrl    = fmt.Sprintf(runbookUrlTemplate, outOfBandUpdateAlert)
 	unsafeModificationRunbookUrl = fmt.Sprintf(runbookUrlTemplate, unsafeModificationAlert)
 )
