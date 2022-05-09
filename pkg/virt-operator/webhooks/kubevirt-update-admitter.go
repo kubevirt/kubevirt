@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kvtls "kubevirt.io/kubevirt/pkg/util/webhooks"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -67,6 +69,13 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
+
+	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
+		if newKV.Spec.Configuration.TLSConfiguration != nil {
+			results = append(results,
+				validateTLSConfiguration(newKV.Spec.Configuration.TLSConfiguration)...)
+		}
+	}
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
 		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
@@ -187,6 +196,42 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)"),
 		})
+	}
+
+	return statuses
+}
+
+func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.StatusCause {
+	var statuses []metav1.StatusCause
+
+	if tlsConfiguration == nil {
+		return statuses
+	}
+
+	if tlsConfiguration.MinTLSVersion == v1.VersionTLS13 || tlsConfiguration.MinTLSVersion == "" {
+		if len(tlsConfiguration.Ciphers) > 0 {
+			statuses = append(statuses, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "You cannot specify ciphers when spec.configuration.tlsConfiguration.minTLSVersion is empty or VersionTLS13",
+				Field:   "spec.configuration.tlsConfiguration.ciphers",
+			})
+		}
+		return statuses
+	}
+
+	if len(tlsConfiguration.Ciphers) > 0 {
+		var idByName = kvtls.CipherSuiteNameMap()
+		for index, cipher := range tlsConfiguration.Ciphers {
+			if _, exists := idByName[cipher]; !exists {
+				statuses = append(statuses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprintf("%s is not a valid cipher", cipher),
+					Field:   fmt.Sprintf("spec.configuration.tlsConfiguration.ciphers#%d", index),
+				})
+			}
+		}
+
+		return statuses
 	}
 
 	return statuses

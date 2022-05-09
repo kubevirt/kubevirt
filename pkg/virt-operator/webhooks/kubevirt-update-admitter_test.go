@@ -20,6 +20,9 @@
 package webhooks
 
 import (
+	"crypto/tls"
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -103,6 +106,40 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				withWorkloadUpdateMethod(v1.WorkloadUpdateMethodLiveMigrate),
 			))
 		Expect(causes).NotTo(BeEmpty())
+	})
+
+	Context("with TLSConfiguration", func() {
+		DescribeTable("should reject", func(tlsConfiguration *v1.TLSConfiguration, expectedErrorMessage string, indexInField int) {
+			causes := validateTLSConfiguration(tlsConfiguration)
+
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal(expectedErrorMessage))
+			field := "spec.configuration.tlsConfiguration.ciphers"
+			if indexInField != -1 {
+				field = fmt.Sprintf("%s#%d", field, indexInField)
+			}
+			Expect(causes[0].Field).To(Equal(field))
+
+		},
+			Entry("with unspecified minTLSVersion but non empty ciphers",
+				&v1.TLSConfiguration{Ciphers: []string{tls.CipherSuiteName(tls.TLS_AES_256_GCM_SHA384)}},
+				"You cannot specify ciphers when spec.configuration.tlsConfiguration.minTLSVersion is empty or VersionTLS13",
+				-1,
+			),
+			Entry("with specified ciphers and minTLSVersion = 1.3",
+				&v1.TLSConfiguration{Ciphers: []string{tls.CipherSuiteName(tls.TLS_AES_256_GCM_SHA384)}, MinTLSVersion: v1.VersionTLS13},
+				"You cannot specify ciphers when spec.configuration.tlsConfiguration.minTLSVersion is empty or VersionTLS13",
+				-1,
+			),
+			Entry("with unknown cipher in the list",
+				&v1.TLSConfiguration{
+					MinTLSVersion: v1.VersionTLS12,
+					Ciphers:       []string{tls.CipherSuiteName(tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256), "NOT_VALID_CIPHER"},
+				},
+				"NOT_VALID_CIPHER is not a valid cipher",
+				1,
+			),
+		)
 	})
 })
 
