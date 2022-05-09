@@ -17,23 +17,21 @@ import (
 
 type v1Manager struct {
 	runc_cgroups.Manager
-	pid                      int
 	controllerPaths          map[string]string
 	isRootless               bool
 	execVirtChroot           execVirtChrootFunc
 	getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc
 }
 
-func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string, rootless bool, pid int) (Manager, error) {
-	return newCustomizedV1Manager(config, controllerPaths, rootless, pid, execVirtChrootCgroups, getCurrentlyDefinedRules)
+func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string, rootless bool) (Manager, error) {
+	return newCustomizedV1Manager(config, controllerPaths, rootless, execVirtChrootCgroups, getCurrentlyDefinedRules)
 }
 
-func newCustomizedV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string, rootless bool, pid int,
+func newCustomizedV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string, rootless bool,
 	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
 	runcManager := runc_fs.NewManager(config, controllerPaths, rootless)
 	manager := v1Manager{
 		runcManager,
-		pid,
 		controllerPaths,
 		rootless,
 		execVirtChroot,
@@ -71,7 +69,7 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 	log.Log.V(loggingVerbosity).Infof("Adding current rules to requested for cgroup %s. Rules added: %d", V1, len(requestedAndCurrentRules)-len(r.Devices))
 	resourcesToSet.Devices = requestedAndCurrentRules
 
-	err = v.execVirtChroot(&resourcesToSet, v.pid, v.controllerPaths, v.isRootless, v.GetCgroupVersion())
+	err = v.execVirtChroot(&resourcesToSet, v.controllerPaths, v.isRootless, v.GetCgroupVersion())
 
 	return err
 }
