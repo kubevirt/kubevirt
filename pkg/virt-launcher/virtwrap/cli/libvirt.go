@@ -102,13 +102,13 @@ func (s *VirStream) Read(p []byte) (n int, err error) {
 Close the stream and free its resources. Since closing a stream involves multiple calls with errors,
 the first error occurred will be returned. The stream will always be freed.
 */
-func (s *VirStream) Close() (e error) {
-	e = s.Finish()
-	if e != nil {
-		return s.Free()
+func (s *VirStream) Close() error {
+	errFinish := s.Finish()
+	errFree := s.Free()
+	if errFinish != nil {
+		return errFinish
 	}
-	s.Free()
-	return e
+	return errFree
 }
 
 func (s *VirStream) UnderlyingStream() *libvirt.Stream {
