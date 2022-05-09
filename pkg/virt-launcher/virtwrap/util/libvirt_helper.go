@@ -38,7 +38,8 @@ const (
 	qemuConfPath        = "/etc/libvirt/qemu.conf"
 	libvirdConfPath     = "/etc/libvirt/libvirtd.conf"
 	libvirtRuntimePath  = "/var/run/libvirt"
-	qemuNonRootConfPath = libvirtRuntimePath + "/qemu.conf"
+	libvirtHomePath     = "/var/run/kubevirt-private/libvirt"
+	qemuNonRootConfPath = libvirtHomePath + "/qemu.conf"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
@@ -493,6 +494,9 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
 
+		if err := os.MkdirAll(libvirtHomePath, 0755); err != nil {
+			return err
+		}
 		if err := copyFile(qemuConfPath, runtimeQemuConfPath); err != nil {
 			return err
 		}
