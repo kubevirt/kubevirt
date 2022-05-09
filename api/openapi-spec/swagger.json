@@ -16262,6 +16262,9 @@
       "description": "Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.",
       "type": "string"
      },
+     "passt": {
+      "$ref": "#/definitions/v1.InterfacePasst"
+     },
      "pciAddress": {
       "description": "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
       "type": "string"
@@ -16295,6 +16298,10 @@
    },
    "v1.InterfaceMasquerade": {
     "description": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+    "type": "object"
+   },
+   "v1.InterfacePasst": {
+    "description": "InterfacePasst connects to a given network.",
     "type": "object"
    },
    "v1.InterfaceSRIOV": {
