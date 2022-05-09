@@ -190,13 +190,7 @@ func getTLSConfiguration(clusterConfig *virtconfig.ClusterConfig) *v1.TLSConfigu
 }
 
 func CipherSuiteIds(names []string) []uint16 {
-	var idByName = map[string]uint16{}
-	for _, cipherSuite := range cipherSuites {
-		idByName[cipherSuite.Name] = cipherSuite.ID
-	}
-	for _, cipherSuite := range insecureCipherSuites {
-		idByName[cipherSuite.Name] = cipherSuite.ID
-	}
+	var idByName = CipherSuiteNameMap()
 	var ids []uint16
 	for _, name := range names {
 		if id, ok := idByName[name]; ok {
@@ -204,6 +198,17 @@ func CipherSuiteIds(names []string) []uint16 {
 		}
 	}
 	return ids
+}
+
+func CipherSuiteNameMap() map[string]uint16 {
+	var idByName = map[string]uint16{}
+	for _, cipherSuite := range cipherSuites {
+		idByName[cipherSuite.Name] = cipherSuite.ID
+	}
+	for _, cipherSuite := range insecureCipherSuites {
+		idByName[cipherSuite.Name] = cipherSuite.ID
+	}
+	return idByName
 }
 
 // TlsVersion converts from human-readable TLS version (for example "1.1")
