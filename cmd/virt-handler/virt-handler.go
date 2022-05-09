@@ -287,10 +287,6 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("Error preparing the certificate manager: %v", err)
 	}
 
-	if err := app.setupTLS(factory); err != nil {
-		glog.Fatalf("Error constructing migration tls config: %v", err)
-	}
-
 	// Legacy support, Remove this informer once we no longer support
 	// VMIs with graceful shutdown trigger
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
@@ -304,6 +300,10 @@ func (app *virtHandlerApp) Run() {
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
+
+	if err := app.setupTLS(factory); err != nil {
+		glog.Fatalf("Error constructing migration tls config: %v", err)
+	}
 
 	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
 
@@ -598,8 +598,8 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	})
 	caManager := webhooks.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
-	app.promTLSConfig = webhooks.SetupPromTLS(app.servercertmanager)
-	app.serverTLSConfig = webhooks.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.externallyManaged)
+	app.promTLSConfig = webhooks.SetupPromTLS(app.servercertmanager, app.clusterConfig)
+	app.serverTLSConfig = webhooks.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
 	app.clientTLSConfig = webhooks.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil

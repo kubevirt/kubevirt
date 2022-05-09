@@ -6,6 +6,7 @@ go_library(
     srcs = [
         "ca-manager.go",
         "tls.go",
+        "tlsSecurityProfile.go",
         "webhooks.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/util/webhooks",
@@ -13,9 +14,11 @@ go_library(
     deps = [
         "//pkg/util:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/openshift/api/config/v1:go_default_library",
         "//vendor/k8s.io/api/admission/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -31,6 +34,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "ca-manager_test.go",
+        "tlsSecurityProfile_test.go",
         "tls_test.go",
         "webhooks_suite_test.go",
     ],
@@ -39,11 +43,15 @@ go_test(
     deps = [
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
+        "//pkg/testutils:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/openshift/api/config/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",

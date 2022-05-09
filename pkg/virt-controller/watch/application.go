@@ -452,7 +452,7 @@ func (vca *VirtControllerApp) Run() {
 
 	promCertManager := bootstrap.NewFileCertificateManager(vca.promCertFilePath, vca.promKeyFilePath)
 	go promCertManager.Start()
-	promTLSConfig := webhooks.SetupPromTLS(promCertManager)
+	promTLSConfig := webhooks.SetupPromTLS(promCertManager, vca.clusterConfig)
 
 	go func() {
 		httpLogger := logger.With("service", "http")
