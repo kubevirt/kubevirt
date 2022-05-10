@@ -14,7 +14,7 @@ ENV KUBEVIRT_CREATE_BAZELRCS=false
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable powertools && \
-    dnf install -y \
+    dnf install -y --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
         libvirt-devel \
         cpio \
