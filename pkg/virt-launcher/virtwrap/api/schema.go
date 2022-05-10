@@ -572,6 +572,7 @@ type Disk struct {
 	Device             string         `xml:"device,attr"`
 	Snapshot           string         `xml:"snapshot,attr,omitempty"`
 	Type               string         `xml:"type,attr"`
+	Sgio               string         `xml:"sgio,attr,omitempty"`
 	Source             DiskSource     `xml:"source"`
 	Target             DiskTarget     `xml:"target"`
 	Serial             string         `xml:"serial,omitempty"`
@@ -588,7 +589,6 @@ type Disk struct {
 	Capacity           *int64         `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
 	IOTune             *IOTune        `xml:"iotune,omitempty"`
-	Sgio               string         `xml:"sgio,omitempty"`
 	Shareable          *Shareable     `xml:"shareable,omitempty"`
 }
 
