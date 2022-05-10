@@ -73,6 +73,7 @@ var _ = Describe("Export controlleer", func() {
 		cmInformer       cache.SharedIndexInformer
 		vmExportInformer cache.SharedIndexInformer
 		serviceInformer  cache.SharedIndexInformer
+		dvInformer       cache.SharedIndexInformer
 		k8sClient        *k8sfake.Clientset
 		vmExportClient   *kubevirtfake.Clientset
 		certDir          string
@@ -94,6 +95,8 @@ var _ = Describe("Export controlleer", func() {
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 		vmExportInformer, _ = testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
+		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
 		vmExportClient = kubevirtfake.NewSimpleClientset()
@@ -104,16 +107,17 @@ var _ = Describe("Export controlleer", func() {
 			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
-			Client:            virtClient,
-			Recorder:          recorder,
-			PVCInformer:       pvcInformer,
-			PodInformer:       podInformer,
-			ConfigMapInformer: cmInformer,
-			VMExportInformer:  vmExportInformer,
-			ServiceInformer:   serviceInformer,
-			KubevirtNamespace: "kubevirt",
-			TemplateService:   services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
-			caCertManager:     bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			Client:             virtClient,
+			Recorder:           recorder,
+			PVCInformer:        pvcInformer,
+			PodInformer:        podInformer,
+			ConfigMapInformer:  cmInformer,
+			VMExportInformer:   vmExportInformer,
+			ServiceInformer:    serviceInformer,
+			DataVolumeInformer: dvInformer,
+			KubevirtNamespace:  "kubevirt",
+			TemplateService:    services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			caCertManager:      bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 		}
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockVMExportQueue := testutils.NewMockWorkQueue(controller.vmExportQueue)
@@ -396,7 +400,7 @@ var _ = Describe("Export controlleer", func() {
 				Name:      "test-pvc",
 				Namespace: testNamespace,
 				Annotations: map[string]string{
-					annContentType: "",
+					annContentType: "kubevirt",
 				},
 			},
 		})
@@ -464,10 +468,42 @@ var _ = Describe("Export controlleer", func() {
 		res := controller.isKubevirtContentType(pvc)
 		Expect(res).To(Equal(expectedRes))
 	},
-		Entry("missing content-type", "something", "something", true),
-		Entry("blank content-type", annContentType, "", true),
+		Entry("missing content-type", "something", "something", false),
+		Entry("blank content-type", annContentType, "", false),
 		Entry("kubevirt content-type", annContentType, string(cdiv1.DataVolumeKubeVirt), true),
 		Entry("archive content-type", annContentType, string(cdiv1.DataVolumeArchive), false),
+	)
+
+	DescribeTable("should detect kubevirt content type if a datavolume exists that is kubevirt", func(contentType cdiv1.DataVolumeContentType, expected bool) {
+		dv := &cdiv1.DataVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-dv",
+				Namespace: testNamespace,
+			},
+			Spec: cdiv1.DataVolumeSpec{
+				ContentType: contentType,
+			},
+		}
+		controller.DataVolumeInformer.GetStore().Add(dv)
+		pvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-dv",
+				Namespace: testNamespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(dv, schema.GroupVersionKind{
+						Group:   cdiv1.SchemeGroupVersion.Group,
+						Version: cdiv1.SchemeGroupVersion.Version,
+						Kind:    "DataVolume",
+					}),
+				},
+			},
+		}
+		res := controller.isKubevirtContentType(pvc)
+		Expect(res).To(Equal(expected))
+	},
+		Entry("missing content-type", cdiv1.DataVolumeContentType(""), true),
+		Entry("content-type kubevirt", cdiv1.DataVolumeKubeVirt, true),
+		Entry("content-type archive", cdiv1.DataVolumeArchive, false),
 	)
 
 	DescribeTable("should create proper condition from PVC", func(phase k8sv1.PersistentVolumeClaimPhase, status k8sv1.ConditionStatus, reason string) {

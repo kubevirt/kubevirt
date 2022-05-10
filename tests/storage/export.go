@@ -44,15 +44,17 @@ import (
 
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 const (
-	caBundleKey = "ca-bundle"
-	caCertPath  = "/cacerts"
-	dataPath    = "/data"
-	diskImage   = "disk.img"
+	caBundleKey          = "ca-bundle"
+	caCertPath           = "/cacerts"
+	dataPath             = "/data"
+	diskImage            = "disk.img"
+	blockVolumeMountPath = "/dev/volume"
 
 	// annContentType is an annotation on a PVC indicating the content type. This is populated by CDI.
 	annContentType = "cdi.kubevirt.io/storage.contentType"
@@ -265,19 +267,19 @@ var _ = SIGDescribe("Export", func() {
 	md5Command := func(fileName string) []string {
 		return []string{
 			"md5sum",
-			filepath.Join(dataPath, fileName),
+			fileName,
 		}
 	}
 
-	populateKubeVirtContent := func(sc string) (*k8sv1.PersistentVolumeClaim, string) {
+	populateKubeVirtContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		By("Creating source volume")
-		dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, volumeMode)
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
 			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
+		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
 		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
@@ -290,7 +292,12 @@ var _ = SIGDescribe("Export", func() {
 		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
 
 		pod := createSourcePodChecker(pvc)
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(diskImage))
+
+		fileName := filepath.Join(dataPath, diskImage)
+		if volumeMode == k8sv1.PersistentVolumeBlock {
+			fileName = blockVolumeMountPath
+		}
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 
@@ -301,25 +308,31 @@ var _ = SIGDescribe("Export", func() {
 		return pvc, md5sum
 	}
 
-	populateArchiveContent := func(sc string) (*k8sv1.PersistentVolumeClaim, string) {
-		pvc, md5sum := populateKubeVirtContent(sc)
+	populateArchiveContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
+		pvc, md5sum := populateKubeVirtContent(sc, volumeMode)
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		pvc.Annotations[annContentType] = "archive"
+		pvc.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
 		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		log.DefaultLogger().Infof("Calculated MD5 %s", md5sum)
 		return pvc, md5sum
 	}
 
-	verifyKubeVirtRawContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
-		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileName))
+	verifyKubeVirtRawContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, volumeMode k8sv1.PersistentVolumeMode) {
+		fileAndPathName := filepath.Join(dataPath, fileName)
+		if volumeMode == k8sv1.PersistentVolumeBlock {
+			fileAndPathName = blockVolumeMountPath
+		}
+		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
-	verifyKubeVirtGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
+	verifyKubeVirtGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, volumeMode k8sv1.PersistentVolumeMode) {
 		command := []string{
 			"/usr/bin/gzip",
 			"-d",
@@ -329,13 +342,17 @@ var _ = SIGDescribe("Export", func() {
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileName = strings.Replace(fileName, ".gz", "", 1)
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileName))
+		fileAndPathName := filepath.Join(dataPath, fileName)
+		if volumeMode == k8sv1.PersistentVolumeBlock {
+			fileAndPathName = blockVolumeMountPath
+		}
+		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
-	verifyArchiveGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod) {
+	verifyArchiveGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, volumeMode k8sv1.PersistentVolumeMode) {
 		command := []string{
 			"/usr/bin/tar",
 			"-xzvf",
@@ -346,7 +363,12 @@ var _ = SIGDescribe("Export", func() {
 		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
-		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(diskImage))
+		fileName = strings.ReplaceAll(fileName, ".tar.gz", ".img")
+		fileAndPathName := filepath.Join(dataPath, fileName)
+		if volumeMode == k8sv1.PersistentVolumeBlock {
+			fileAndPathName = blockVolumeMountPath
+		}
+		out, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -358,20 +380,31 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() error {
 			pod, err = virtClient.CoreV1().Pods(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
 			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}, 30*time.Second, 1*time.Second).Should(BeNil(), "unable to find pod %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
 		return pod
 	}
 
-	type populateFunction func(string) (*k8sv1.PersistentVolumeClaim, string)
-	type verifyFunction func(string, string, *k8sv1.Pod)
+	getExportService := func(vmExport *exportv1.VirtualMachineExport) *k8sv1.Service {
+		var service *k8sv1.Service
+		var err error
+		Eventually(func() error {
+			service, err = virtClient.CoreV1().Services(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
+			return err
+		}, 30*time.Second, 1*time.Second).Should(BeNil(), "unable to find service %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
+		return service
+	}
+
+	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
+	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
+	type storageClassFunction func() (string, bool)
 
 	DescribeTable("should make a PVC export available", func(populateFunction populateFunction,
-		verifyFunction verifyFunction, expectedFormat exportv1.ExportVolumeFormat, urlTemplate string) {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		verifyFunction verifyFunction, storageClassFunction storageClassFunction, expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
+		sc, exists := storageClassFunction()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Skip("Skip test when right storage is not present")
 		}
-		pvc, comparison := populateFunction(sc)
+		pvc, comparison := populateFunction(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")
 		// For testing the token is the name of the source pvc.
 		token := createExportTokenSecret(pvc)
@@ -406,7 +439,7 @@ var _ = SIGDescribe("Export", func() {
 				}
 			}
 			return condReady
-		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
@@ -418,6 +451,7 @@ var _ = SIGDescribe("Export", func() {
 				AccessModes:      pvc.Spec.AccessModes,
 				StorageClassName: pvc.Spec.StorageClassName,
 				Resources:        pvc.Spec.Resources,
+				VolumeMode:       pvc.Spec.VolumeMode,
 			},
 		}
 		By("Creating target PVC, so we can inspect if the export worked")
@@ -439,6 +473,10 @@ var _ = SIGDescribe("Export", func() {
 		}
 		Expect(downloadUrl).ToNot(BeEmpty())
 		Expect(fileName).ToNot(BeEmpty())
+		fileAndPathName := filepath.Join(dataPath, fileName)
+		if volumeMode == k8sv1.PersistentVolumeBlock {
+			fileAndPathName = blockVolumeMountPath
+		}
 		command := []string{
 			"curl",
 			"-L",
@@ -446,26 +484,23 @@ var _ = SIGDescribe("Export", func() {
 			filepath.Join(caCertPath, caBundleKey),
 			downloadUrl,
 			"--output",
-			filepath.Join(dataPath, fileName),
+			fileAndPathName,
 		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
 		out, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
-		verifyFunction(fileName, comparison, downloadPod)
+		verifyFunction(fileName, comparison, downloadPod, volumeMode)
 	},
-		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate),
-		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate),
-		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, exportv1.Dir, archiveDircontentUrlTemplate),
-		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, exportv1.ArchiveGz, kubevirtcontentUrlTemplate),
+		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
-	It("Should recreate the exporter pod and secret if the pod fails", func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
-		}
-		pvc, _ := populateKubeVirtContent(sc)
+	createRunningExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
+		pvc, _ := populateKubeVirtContent(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")
 		// For testing the token is the name of the source pvc.
 		token := createExportTokenSecret(pvc)
@@ -501,6 +536,15 @@ var _ = SIGDescribe("Export", func() {
 			}
 			return condReady
 		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
+		return export
+	}
+
+	It("Should recreate the exporter pod and secret if the pod fails", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
 		By("looking up the exporter pod and secret name")
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
@@ -537,5 +581,41 @@ var _ = SIGDescribe("Export", func() {
 			}
 		}
 		Expect(exporterSecretName).ToNot(Equal(secret.Name))
+	})
+
+	It("Should recreate the exporter pod if the pod is deleted", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		By("looking up the exporter pod and secret name")
+		exporterPod := getExporterPod(vmExport)
+		Expect(exporterPod).ToNot(BeNil())
+		podUID := exporterPod.GetUID()
+		err := virtClient.CoreV1().Pods(exporterPod.Namespace).Delete(context.Background(), exporterPod.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() types.UID {
+			exporterPod = getExporterPod(vmExport)
+			return exporterPod.UID
+		}, 30*time.Second, 1*time.Second).ShouldNot(BeEquivalentTo(podUID))
+	})
+
+	It("Should recreate the service if the service is deleted", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		vmExport := createRunningExport(sc, k8sv1.PersistentVolumeFilesystem)
+		By("looking up the exporter pod and secret name")
+		exporterService := getExportService(vmExport)
+		Expect(exporterService).ToNot(BeNil())
+		serviceUID := exporterService.GetUID()
+		err := virtClient.CoreV1().Services(exporterService.Namespace).Delete(context.Background(), exporterService.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() types.UID {
+			exporterService = getExportService(vmExport)
+			return exporterService.UID
+		}, 30*time.Second, 1*time.Second).ShouldNot(BeEquivalentTo(serviceUID))
 	})
 })

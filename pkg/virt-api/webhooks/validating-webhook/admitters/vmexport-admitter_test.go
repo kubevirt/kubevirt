@@ -115,18 +115,6 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Expect(resp.Result.Message).Should(ContainSubstring("PVC name must not be empty"))
 		})
 
-		It("should reject missing apigroup", func() {
-			export := &exportv1.VirtualMachineExport{
-				Spec: exportv1.VirtualMachineExportSpec{},
-			}
-
-			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
-		})
-
 		It("should reject unknown kind", func() {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{

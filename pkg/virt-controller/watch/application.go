@@ -666,17 +666,18 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
-		TemplateService:   vca.templateService,
-		Client:            vca.clientSet,
-		VMExportInformer:  vca.vmExportInformer,
-		PVCInformer:       vca.persistentVolumeClaimInformer,
-		PodInformer:       vca.allPodInformer,
-		VMInformer:        vca.vmInformer,
-		ServiceInformer:   vca.exportServiceInformer,
-		Recorder:          recorder,
-		ResyncPeriod:      vca.snapshotControllerResyncPeriod,
-		ConfigMapInformer: vca.caExportConfigMapInformer,
-		KubevirtNamespace: vca.kubevirtNamespace,
+		TemplateService:    vca.templateService,
+		Client:             vca.clientSet,
+		VMExportInformer:   vca.vmExportInformer,
+		PVCInformer:        vca.persistentVolumeClaimInformer,
+		PodInformer:        vca.allPodInformer,
+		VMInformer:         vca.vmInformer,
+		DataVolumeInformer: vca.dataVolumeInformer,
+		ServiceInformer:    vca.exportServiceInformer,
+		Recorder:           recorder,
+		ResyncPeriod:       vca.snapshotControllerResyncPeriod,
+		ConfigMapInformer:  vca.caExportConfigMapInformer,
+		KubevirtNamespace:  vca.kubevirtNamespace,
 	}
 	vca.exportController.Init()
 }

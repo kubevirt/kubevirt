@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -32,6 +31,10 @@ import (
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+)
+
+const (
+	pvc = "PersistentVolumeClaim"
 )
 
 // VMExportAdmitter validates VirtualMachineExports
@@ -70,41 +73,18 @@ func (admitter *VMExportAdmitter) Admit(ar *admissionv1.AdmissionReview) *admiss
 	case admissionv1.Create:
 		sourceField := k8sfield.NewPath("spec", "source")
 
-		if vmExport.Spec.Source.APIGroup == nil {
-			causes = []metav1.StatusCause{
-				{
-					Type:    metav1.CauseTypeFieldValueNotFound,
-					Message: "missing apiGroup",
-					Field:   sourceField.Child("apiGroup").String(),
-				},
-			}
-			break
-		}
-
-		switch *vmExport.Spec.Source.APIGroup {
-		case k8sv1.SchemeGroupVersion.Group:
-		case "v1":
-			switch vmExport.Spec.Source.Kind {
-			case "PersistentVolumeClaim":
-				causes, err = admitter.validatePVC(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
-				if err != nil {
-					return webhookutils.ToAdmissionResponseError(err)
-				}
-			default:
-				causes = []metav1.StatusCause{
-					{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: "invalid kind",
-						Field:   sourceField.Child("kind").String(),
-					},
-				}
+		switch vmExport.Spec.Source.Kind {
+		case pvc:
+			causes, err = admitter.validatePVC(sourceField.Child("name"), ar.Request.Namespace, vmExport.Spec.Source.Name)
+			if err != nil {
+				return webhookutils.ToAdmissionResponseError(err)
 			}
 		default:
 			causes = []metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "invalid apiGroup",
-					Field:   sourceField.Child("apiGroup").String(),
+					Message: "invalid kind",
+					Field:   sourceField.Child("kind").String(),
 				},
 			}
 		}
