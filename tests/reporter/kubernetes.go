@@ -358,39 +358,26 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 }
 
 func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, vmiNamespaces []string) {
+	runningVMIs := getRunningVMIs(virtCli, vmiNamespaces)
 
-	logsdir := filepath.Join(r.artifactsDir, "network", "vmis")
-	if err := os.MkdirAll(logsdir, 0777); err != nil {
+	if len(runningVMIs) < 1 {
+		return
+	}
+
+	logsDir := filepath.Join(r.artifactsDir, "network", "vmis")
+	if err := os.MkdirAll(logsDir, 0777); err != nil {
 		fmt.Fprintf(os.Stderr, failedCreateDirectoryFmt, err)
 		return
 	}
 
-	for _, ns := range vmiNamespaces {
-		vmis, err := virtCli.VirtualMachineInstance(ns).List(&metav1.ListOptions{})
+	for _, vmi := range runningVMIs {
+		vmiType, err := getVmiType(vmi)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get vmis: %v\n", err)
+			fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: failed to get vmi type: %v\n", vmi.Namespace, vmi.Name, err)
 			continue
 		}
 
-		for _, vmi := range vmis.Items {
-			if vmi.Status.Phase != "Running" {
-				fmt.Fprintf(os.Stderr, "skipping vmi %s, phase is not Running\n", vmi.ObjectMeta.Name)
-				continue
-			}
-
-			vmiType, err := getVmiType(vmi)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get vmi type: %v\n", err)
-				continue
-			}
-
-			if err := prepareVmiConsole(vmi, vmiType); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to login to vmi: %v\n", err)
-				continue
-			}
-
-			r.executeVMICommands(vmi, logsdir, vmiType)
-		}
+		r.executeVMICommands(vmi, logsDir, vmiType)
 	}
 }
 
@@ -814,6 +801,18 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 		for _, vmi := range nsVMIs.Items {
 			if vmi.Status.Phase != v12.Running {
 				fmt.Fprintf(os.Stderr, "skipping vmi %s/%s: phase is not Running\n", vmi.Namespace, vmi.Name)
+				continue
+			}
+
+			isPaused := false
+			for _, cond := range vmi.Status.Conditions {
+				if cond.Type == v12.VirtualMachineInstancePaused && cond.Status == v1.ConditionTrue {
+					isPaused = true
+					break
+				}
+			}
+			if isPaused {
+				fmt.Fprintf(os.Stderr, "skipping paused vmi %s\n", vmi.ObjectMeta.Name)
 				continue
 			}
 
