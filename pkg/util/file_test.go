@@ -69,11 +69,14 @@ fieldObj:
 		})
 
 		It("should return real error if trying to get the file stat (instead of a dir)", func() {
-			tempDir := os.TempDir()
-			defer os.RemoveAll(tempDir)
+			tempDir, err := os.MkdirTemp("", "")
+			Expect(err).ToNot(HaveOccurred())
+			defer func() {
+				_ = os.RemoveAll(tempDir)
+			}()
 
 			fileName := tempDir + "/testFile.txt"
-			_, err := os.Create(fileName)
+			_, err = os.Create(fileName)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = ValidateManifestDir(fileName)
@@ -84,10 +87,13 @@ fieldObj:
 		})
 
 		It("should return no error for a valid dir name", func() {
-			tempDir := os.TempDir()
-			defer os.RemoveAll(tempDir)
+			tempDir, err := os.MkdirTemp("", "")
+			Expect(err).ToNot(HaveOccurred())
+			defer func() {
+				_ = os.RemoveAll(tempDir)
+			}()
 
-			err := ValidateManifestDir(tempDir)
+			err = ValidateManifestDir(tempDir)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
