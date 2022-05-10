@@ -1,7 +1,0 @@
-pdh               : AAABBBCCC
-cert-chain        : DDDEEEFFF
-cbitpos           : 47
-reduced-phys-bits : 1
-max-guests        : 15
-max-es-guests     : 0
-

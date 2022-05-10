@@ -392,8 +392,6 @@ func (app *virtHandlerApp) Run() {
 		recorder,
 		vmiSourceInformer,
 		app.VirtShareDir,
-		nodeLabellerController.SEV.PDH,
-		nodeLabellerController.SEV.CertChain,
 	)
 
 	promdomain.SetupDomainStatsCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer)

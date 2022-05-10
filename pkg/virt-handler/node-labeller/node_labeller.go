@@ -87,7 +87,6 @@ type NodeLabeller struct {
 	cpuModelVendor          string
 	volumePath              string
 	domCapabilitiesFileName string
-	nodeSEVInfoFileName     string
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
@@ -109,7 +108,6 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
-		nodeSEVInfoFileName:     "nodesevinfo",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
 		KSM:                     KSMConfiguration{SysfsFilePath: ksmSysFsFilePath},
 	}
