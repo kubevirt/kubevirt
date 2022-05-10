@@ -96,6 +96,4 @@ type SEVConfiguration struct {
 	ReducedPhysBits uint   `xml:"reducedPhysBits"`
 	MaxGuests       uint   `xml:"maxGuests"`
 	MaxESGuests     uint   `xml:"maxESGuests"`
-	PDH             string
-	CertChain       string
 }
