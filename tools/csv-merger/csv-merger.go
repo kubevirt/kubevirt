@@ -87,7 +87,6 @@ var (
 	sspCsv              = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
 	ttoCsv              = flag.String("tto-csv", "", "Tekton tasks operator CSV string")
 	cdiCsv              = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
-	nmoCsv              = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
 	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	webhookImage        = flag.String("webhook-image-name", "", "HyperConverged Cluster Webhook image")
@@ -116,7 +115,6 @@ var (
 	cnaoVersion                   = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion                    = flag.String("ssp-version", "", "SSP operator version")
 	ttoVersion                    = flag.String("tto-version", "", "Tekton tasks operator version")
-	nmoVersion                    = flag.String("nmo-version", "", "NM operator version")
 	hppoVersion                   = flag.String("hppo-version", "", "HPP operator version")
 	apiSources                    = flag.String("api-sources", cwd+"/...", "Project sources")
 	enableUniqueSemver            = flag.Bool("enable-unique-version", false, "Insert a skipRange annotation to support unique semver in the CSV")
@@ -366,7 +364,7 @@ func processCsvs(componentsWithCsvs []util.CsvWithComponent, installStrategyBase
 	}
 }
 
-var csvNames = []string{"CNA", "KubeVirt", "SSP", "TTO", "CDI", "NMO", "HPP", "VM Import"}
+var csvNames = []string{"CNA", "KubeVirt", "SSP", "TTO", "CDI", "HPP", "VM Import"}
 
 func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
 	csvName := csvNames[i]
@@ -477,10 +475,6 @@ func getInitialCsvList() []util.CsvWithComponent {
 			Component: hcoutil.AppComponentStorage,
 		},
 		{
-			Csv:       *nmoCsv,
-			Component: hcoutil.AppComponentNetwork,
-		},
-		{
 			Csv:       *hppCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
@@ -536,7 +530,6 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		CnaoVersion:        *cnaoVersion,
 		SspVersion:         *sspVersion,
 		TtoVersion:         *ttoVersion,
-		NmoVersion:         *nmoVersion,
 		HppoVersion:        *hppoVersion,
 		Env:                envVars,
 	}

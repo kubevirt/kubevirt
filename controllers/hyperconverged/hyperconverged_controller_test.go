@@ -8,6 +8,10 @@ import (
 	"os"
 	"time"
 
+	nmoapiv1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
+
+	nmoapioldv1beta1 "kubevirt.io/node-maintenance-operator/api/v1beta1"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1586,11 +1590,6 @@ var _ = Describe("HyperconvergedController", func() {
 						},
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "nodemaintenances.nodemaintenance.kubevirt.io",
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
 								Name: "ssps.ssp.kubevirt.io",
 							},
 						},
@@ -1614,6 +1613,11 @@ var _ = Describe("HyperconvergedController", func() {
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "ovirtproviders.v2v.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "nodemaintenances.nodemaintenance.kubevirt.io",
 							},
 						},
 					}
@@ -2021,6 +2025,37 @@ var _ = Describe("HyperconvergedController", func() {
 					err = cl.Get(context.TODO(), types.NamespacedName{Name: operatorMetrics, Namespace: expected.hco.Namespace}, foundResource)
 					Expect(err).To(HaveOccurred())
 					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				})
+			})
+
+			Context("convert NMO CRs on upgrade", func() {
+				It("should convert old NMO API group to new one after upgrade from <1.7.0 to >=1.7.0", func() {
+					nmoCrBefore := &nmoapioldv1beta1.NodeMaintenance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "maintenance-node-1",
+						},
+						Spec: nmoapioldv1beta1.NodeMaintenanceSpec{
+							NodeName: "node-1",
+							Reason:   "fake reason",
+						},
+					}
+					resources := []runtime.Object{nmoCrBefore}
+					cl := commonTestUtils.InitClient(resources)
+					r := initReconciler(cl, nil)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					_, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+
+					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
+
+					foundNewNMOCr := &nmoapiv1beta1.NodeMaintenance{}
+					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(nmoCrBefore), foundNewNMOCr)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(foundNewNMOCr.ObjectMeta.Name).To(Equal(nmoCrBefore.ObjectMeta.Name))
+					Expect(foundNewNMOCr.Spec.NodeName).To(Equal(nmoCrBefore.Spec.NodeName))
+					Expect(foundNewNMOCr.Spec.Reason).To(Equal(nmoCrBefore.Spec.Reason))
 				})
 			})
 

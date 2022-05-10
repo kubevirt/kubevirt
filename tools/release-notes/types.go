@@ -14,7 +14,6 @@ var projectNames = []*projectName{
 	{"NETWORK_ADDONS", "cluster-network-addons-operator"},
 	{"SSP", "ssp-operator"},
 	{"TTO", "tto-operator"},
-	{"NMO", "node-maintenance-operator"},
 	{"HPPO", "hostpath-provisioner-operator"},
 	{"HPP", "hostpath-provisioner"},
 	{"VM_IMPORT", "vm-import-operator"},

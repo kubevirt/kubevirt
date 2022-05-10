@@ -197,20 +197,6 @@ function create_cdi_csv() {
   echo "${operatorName}"
 }
 
-function create_nmo_csv() {
-  local operatorName="node-maintenance"
-  local dumpCRDsArg="--dump-crds"
-  local operatorArgs=" \
-    --namespace=${OPERATOR_NAMESPACE} \
-    --csv-version=${CSV_VERSION} \
-    --operator-image=${NMO_IMAGE} \
-  "
-  local csvGeneratorPath="/usr/local/bin/csv-generator"
-
-  gen_csv ${csvGeneratorPath} ${operatorName} "${NMO_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
-  echo "${operatorName}"
-}
-
 function create_hpp_csv() {
   local operatorName="hostpath-provisioner"
   local dumpCRDsArg="--dump-crds"
@@ -243,8 +229,6 @@ ttoFile=$(create_tto_csv)
 ttoCsv="${TEMPDIR}/${ttoFile}.${CSV_EXT}"
 cdiFile=$(create_cdi_csv)
 cdiCsv="${TEMPDIR}/${cdiFile}.${CSV_EXT}"
-nmoFile=$(create_nmo_csv)
-nmoCsv="${TEMPDIR}/${nmoFile}.${CSV_EXT}"
 hppFile=$(create_hpp_csv)
 hppCsv="${TEMPDIR}/${hppFile}.${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
@@ -284,6 +268,16 @@ annotations:
   operators.operatorframework.io.bundle.package.v1: ${PACKAGE_NAME}
 EOF
 
+# add node-maintenance-operator as a dependency
+cat << EOF > "${CSV_DIR}/metadata/dependencies.yaml"
+dependencies:
+  - type: olm.gvk
+    value:
+      group: nodemaintenance.medik8s.io
+      kind: NodeMaintenance
+      version: v1beta1
+EOF
+
 SMBIOS=$(cat <<- EOM
 Family: KubeVirt
 Manufacturer: KubeVirt
@@ -292,7 +286,7 @@ EOM
 )
 
 # validate CSVs. Make sure each one of them contain an image (and so, also not empty):
-csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${ttoCsv}" "${cdiCsv}" "${nmoCsv}" "${hppCsv}")
+csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${ttoCsv}" "${cdiCsv}" "${hppCsv}")
 for csv in "${csvs[@]}"; do
   grep -E "^ *image: [a-zA-Z0-9/\.:@\-]+$" ${csv}
 done
@@ -306,7 +300,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --ssp-csv="$(<${sspCsv})" \
   --tto-csv="$(<${ttoCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
-  --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
@@ -317,7 +310,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
   --tto-version="${TTO_VERSION}" \
-  --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --operator-image="${HCO_OPERATOR_IMAGE}" \
   --webhook-image="${HCO_WEBHOOK_IMAGE}" \
@@ -341,7 +333,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --ssp-csv="$(<${sspCsv})" \
   --tto-csv="$(<${ttoCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
-  --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --csv-version=${CSV_VERSION_PARAM} \
@@ -359,7 +350,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
   --tto-version="${TTO_VERSION}" \
-  --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \

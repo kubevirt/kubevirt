@@ -1,4 +1,4 @@
-FROM fedora:34
+FROM fedora:35
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 

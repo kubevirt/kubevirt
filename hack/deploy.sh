@@ -173,7 +173,6 @@ sleep 20
 OPERATORS=(
     "cdi-operator"
     "cluster-network-addons-operator"
-    "node-maintenance-operator"
     "tekton-tasks-operator"
 )
 

@@ -241,10 +241,6 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 								Value: params.TtoVersion,
 							},
 							{
-								Name:  util.NmoVersionEnvV,
-								Value: params.NmoVersion,
-							},
-							{
 								Name:  util.HppoVersionEnvV,
 								Value: params.HppoVersion,
 							},
@@ -524,6 +520,15 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			APIGroups: stringListToSlice("operator.openshift.io"),
 			Resources: stringListToSlice("consoles"),
 			Verbs:     stringListToSlice("get", "list", "watch", "update"),
+		},
+		{
+			APIGroups: stringListToSlice("nodemaintenance.kubevirt.io"),
+			Resources: stringListToSlice("nodemaintenances"),
+			Verbs:     stringListToSlice("get", "list", "watch"),
+		}, {
+			APIGroups: stringListToSlice("nodemaintenance.medik8s.io"),
+			Resources: stringListToSlice("nodemaintenances"),
+			Verbs:     stringListToSlice("get", "list", "watch", "create"),
 		},
 	}
 }
