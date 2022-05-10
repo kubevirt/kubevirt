@@ -1,376 +1,505 @@
 ---
 rule_files:
-  - /tmp/rules.verify
+- /tmp/rules.verify
 
 group_eval_order:
-  - kubevirt.hyperconverged.rules
+- kubevirt.hyperconverged.rules
 
 tests:
-  # Test out-of-bound modification counter
-  - interval: 1m
-    input_series:
-      - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}'
-        # time:  0     1     2 3 4 5 6 7 8 9 10  11 12 13 14 15 16    17    18    19 20 21 22 23 24 25 26 27 28 29 30
-        values: "stale stale 1 2 3 3 3 3 3 3 3   3  3  3  3  3  stale stale stale 1  1  1  1  1  1  2  2  2  2  3  3"
+# Test out-of-bound modification counter
+- interval: 1m
+  input_series:
+  - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}'
+    # time:  0     1     2 3 4 5 6 7 8 9 10  11 12 13 14 15 16    17    18    19 20 21 22 23 24 25 26 27 28 29 30
+    values: "stale stale 1 2 3 3 3 3 3 3 3   3  3  3  3  3  stale stale stale 1  1  1  1  1  1  2  2  2  2  3  3"
 
-    alert_rule_test:
-      # No metric, no alert
-      - eval_time: 1m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts: [ ]
+  alert_rule_test:
+  # No metric, no alert
+  - eval_time: 1m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts: [ ]
 
-      # First increase must trigger an alert
-      - eval_time: 2m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts:
-          - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
-              summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
-            exp_labels:
-              severity:           "warning"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
+  # First increase must trigger an alert
+  - eval_time: 2m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts:
+    - exp_annotations:
+        description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
+        summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
+      exp_labels:
+        severity: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
-      # New increases must be detected
-      - eval_time: 4m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts:
-          - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
-              summary: "3 out-of-band CR modifications were detected in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
-            exp_labels:
-              severity:           "warning"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
+  # New increases must be detected
+  - eval_time: 4m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts:
+    - exp_annotations:
+        description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
+        summary: "3 out-of-band CR modifications were detected in the last 10 minutes."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
+      exp_labels:
+        severity: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
-    # Old increases must be ignored.
-      - eval_time: 13m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts:
-          - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
-              summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
-            exp_labels:
-              severity:           "warning"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
+  # Old increases must be ignored.
+  - eval_time: 13m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts:
+    - exp_annotations:
+        description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
+        summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
+      exp_labels:
+        severity: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
-      # Should resolve after 10 minutes if there is no new change
-      - eval_time: 17m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts: []
+  # Should resolve after 10 minutes if there is no new change
+  - eval_time: 17m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts: [ ]
 
-      # The operator may restart and reset the metric.
-      - eval_time: 18m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts: []
+  # The operator may restart and reset the metric.
+  - eval_time: 18m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts: [ ]
 
-      # After restart, First increase must trigger an alert again
-      - eval_time: 19m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts:
-          - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
-              summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
-            exp_labels:
-              severity:           "warning"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
+  # After restart, First increase must trigger an alert again
+  - eval_time: 19m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts:
+    - exp_annotations:
+        description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
+        summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
+      exp_labels:
+        severity: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
-      # After restart, new increases must be detected
-      - eval_time: 30m
-        alertname: KubevirtHyperconvergedClusterOperatorCRModification
-        exp_alerts:
-          - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
-              summary: "2 out-of-band CR modifications were detected in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
-            exp_labels:
-              severity:           "warning"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
-  # Test unsafe modification counter
-  - interval: 1m
-    input_series:
-      - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
-        # time:      0     1 2 3 4 5 6 7 8     9    10 11
-        values: "stale stale 1 2 3 3 3 0 1 stale stale  2"
-      - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
-        # time:      0     1 2 3 4 5 6 7 8     9    10 11
-        values: "stale stale 1 2 3 1 3 0 2 stale stale  3"
-      - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
-        # time:      0     1 2 3 4 5 6 7 8     9    10 11
-        values: "stale stale 5 1 1 1 0 0 3 stale stale  1"
+  # After restart, new increases must be detected
+  - eval_time: 30m
+    alertname: KubevirtHyperconvergedClusterOperatorCRModification
+    exp_alerts:
+    - exp_annotations:
+        description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
+        summary: "2 out-of-band CR modifications were detected in the last 10 minutes."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorCRModification"
+      exp_labels:
+        severity: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
+# Test unsafe modification counter
+- interval: 1m
+  input_series:
+  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
+    # time:      0     1 2 3 4 5 6 7 8     9    10 11
+    values: "stale stale 1 2 3 3 3 0 1 stale stale  2"
+  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
+    # time:      0     1 2 3 4 5 6 7 8     9    10 11
+    values: "stale stale 1 2 3 1 3 0 2 stale stale  3"
+  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
+    # time:      0     1 2 3 4 5 6 7 8     9    10 11
+    values: "stale stale 5 1 1 1 0 0 3 stale stale  1"
 
-    alert_rule_test:
-      # No metric, no alert
-      - eval_time: 1m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts: [ ]
+  alert_rule_test:
+  # No metric, no alert
+  - eval_time: 1m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts: [ ]
 
-      # First increase must trigger an alert
-      - eval_time: 2m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts:
-        - exp_annotations:
-            description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "1 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "kubevirt.kubevirt.io/jsonpatch"
-        - exp_annotations:
-            description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "1 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
-        - exp_annotations:
-            description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            summary: "5 unsafe modifications were detected in the HyperConverged resource."
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+  # First increase must trigger an alert
+  - eval_time: 2m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts:
+    - exp_annotations:
+        description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+        summary: "5 unsafe modifications were detected in the HyperConverged resource."
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
-      # New increases must be detected
-      - eval_time: 4m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts:
-          - exp_annotations:
-              description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "3 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "kubevirt.kubevirt.io/jsonpatch"
-          - exp_annotations:
-              description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "3 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
-          # still using the 10 minutes max
-          - exp_annotations:
-              description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "1 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+  # New increases must be detected
+  - eval_time: 4m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts:
+    - exp_annotations:
+        description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+    # still using the 10 minutes max
+    - exp_annotations:
+        description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
-      # counter can be reduced
-      - eval_time: 5m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts:
-          - exp_annotations:
-              description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "3 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "kubevirt.kubevirt.io/jsonpatch"
-          # Reduced
-          - exp_annotations:
-              description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "1 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
-          - exp_annotations:
-              description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "1 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+  # counter can be reduced
+  - eval_time: 5m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts:
+    - exp_annotations:
+        description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+    # Reduced
+    - exp_annotations:
+        description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
-      # no alert if the value is 0
-      - eval_time: 6m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts:
-          - exp_annotations:
-              description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "3 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "kubevirt.kubevirt.io/jsonpatch"
-          - exp_annotations:
-              description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-              summary: "3 unsafe modifications were detected in the HyperConverged resource."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-            exp_labels:
-              severity:           "info"
-              kubernetes_operator_part_of:   "kubevirt"
-              kubernetes_operator_component: "hyperconverged-cluster-operator"
-              annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+  # no alert if the value is 0
+  - eval_time: 6m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts:
+    - exp_annotations:
+        description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
 
-      # no alert if the value is 0 for all of the annotations
-      - eval_time: 7m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts: []
+  # no alert if the value is 0 for all of the annotations
+  - eval_time: 7m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts: [ ]
 
-      # recover after all-zero
-      - eval_time: 8m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts:
-        - exp_annotations:
-            description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "1 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "kubevirt.kubevirt.io/jsonpatch"
-        # Reduced
-        - exp_annotations:
-            description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "2 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
-        - exp_annotations:
-            description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "3 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+  # recover after all-zero
+  - eval_time: 8m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts:
+    - exp_annotations:
+        description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+    # Reduced
+    - exp_annotations:
+        description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "2 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
 
-      # no data
-      - eval_time: 9m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts: []
+  # no data
+  - eval_time: 9m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts: [ ]
 
-    # recover after reset
-      - eval_time: 11m
-        alertname: KubevirtHyperconvergedClusterOperatorUSModification
-        exp_alerts:
-        - exp_annotations:
-            description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "2 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "kubevirt.kubevirt.io/jsonpatch"
-        # Reduced
-        - exp_annotations:
-            description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "3 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
-        - exp_annotations:
-            description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
-            summary: "1 unsafe modifications were detected in the HyperConverged resource."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
-          exp_labels:
-            severity:           "info"
-            kubernetes_operator_part_of:   "kubevirt"
-            kubernetes_operator_component: "hyperconverged-cluster-operator"
-            annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
-  # Test recording rule
-  - interval: 1m
-    input_series:
-      # take all containers of running virt-launcher pods
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-x-y", resource="cpu", container="compute"}'
-        # time:  0   1   2   3   4   5
-        values: "0.1 0.1 0.1 0.1 0.1 0.1"
-      # take all containers of running virt-launcher pods
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-x-y", resource="cpu", container="volumecontainerdisk"}'
-        # time:  0    1    2    3    4    5
-        values: "0.01 0.01 0.01 0.01 0.01 0.01"
-      - series: 'kube_pod_labels{label_kubevirt_io="virt-launcher",pod="virt-launcher-x-y"}'
-        # time:  0 1 2 3 4 5
-        values: "1 1 1 1 1 1"
-      - series: 'kube_pod_status_phase{phase="Running", pod="virt-launcher-x-y"}'
-        # time:  0 1 2 3 4 5
-        values: "1 1 1 1 1 1"
-      # do not take containers of other pods
-      - series: 'kube_pod_container_resource_requests{pod="other-pod", resource="cpu", container="volumecontainerdisk"}'
-        # time:  0 1 2 3 4 5
-        values: "5 5 5 5 5 5"
-      - series: 'kube_pod_status_phase{phase="Running", pod="other-pod"}'
-        # time:  0 1 2 3 4 5
-        values: "1 1 1 1 1 1"
-      - series: 'kube_pod_labels{other_label="other-value",pod="other-pod"}'
-        # time:  0 1 2 3 4 5
-        values: "1 1 1 1 1 1"
-      # new VMIs can be created in time
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-new", resource="cpu", container="volumecontainerdisk"}'
-        # time:  0     1     2     3   4    5
-        values: "stale stale stale 0.01 0.01 0.01"
-      - series: 'kube_pod_labels{label_kubevirt_io="virt-launcher",pod="virt-launcher-new"}'
-        # time: 0      1     2     3 4 5
-        values: "stale stale stale 1 1 1"
-      - series: 'kube_pod_status_phase{phase="Running", pod="virt-launcher-new"}'
-        # time:  0     1     2     3 4 5
-        values: "stale stale stale 1 0 1"
-    promql_expr_test:
-      - expr: 'cluster:vmi_request_cpu_cores:sum'
-        eval_time: 1m
-        exp_samples:
-          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
-            value: 0.11
-      # update for new pods
-      - expr: 'cluster:vmi_request_cpu_cores:sum'
-        eval_time: 3m
-        exp_samples:
-          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
-            value: 0.12
-      # virt-launcher-new is not running at 4m. must exclude it
-      - expr: 'cluster:vmi_request_cpu_cores:sum'
-        eval_time: 4m
-        exp_samples:
-          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
-            value: 0.11
-      # virt-launcher-new is back at 5m. must include it
-      - expr: 'cluster:vmi_request_cpu_cores:sum'
-        eval_time: 5m
-        exp_samples:
-          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
-            value: 0.12
+  # recover after reset
+  - eval_time: 11m
+    alertname: KubevirtHyperconvergedClusterOperatorUSModification
+    exp_alerts:
+    - exp_annotations:
+        description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "2 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+    # Reduced
+    - exp_annotations:
+        description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+
+# Test hyperconverged exists counter
+- interval: 1m
+  input_series:
+  - series: 'kubevirt_hco_hyperconverged_cr_exists{}'
+    # time:      0     1   2-62 68 69 70 71 72 73    74    75 76  1:17-2:16 2:17
+    values: "stale stale 0+0x65  1  0  1  1  0  0 stale stale  1     0+0x59 1"
+
+  alert_rule_test:
+  # No metric, no alert
+  - eval_time: 1m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 2m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 15m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 30m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 45m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 60m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 61m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for more than an hour
+  - eval_time: 62m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts:
+    - exp_annotations:
+        description: "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource."
+        summary: "the installation was not completed; to complete the installation, create a HyperConverged custom resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+  # counter is 0 for more than an hour
+  - eval_time: 63m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts:
+    - exp_annotations:
+        description: "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource."
+        summary: "the installation was not completed; to complete the installation, create a HyperConverged custom resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+  # counter is 0 for more than an hour
+  - eval_time: 67m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts:
+    - exp_annotations:
+        description: "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource."
+        summary: "the installation was not completed; to complete the installation, create a HyperConverged custom resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
+      exp_labels:
+        severity: "info"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+
+  - eval_time: 68m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 70m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  - eval_time: 72m
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 1h17m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 1h30m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 1h45m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 1h45m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 2h0m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 2h15m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour
+  - eval_time: 2h16m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+  # counter is 0 for less than an hour, and now it's 1
+  - eval_time: 2h17m0s
+    alertname: KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert
+    exp_alerts: [ ]
+
+# Test recording rule
+- interval: 1m
+  input_series:
+  # take all containers of running virt-launcher pods
+  - series: 'kube_pod_container_resource_requests{pod="virt-launcher-x-y", resource="cpu", container="compute"}'
+    # time:  0   1   2   3   4   5
+    values: "0.1 0.1 0.1 0.1 0.1 0.1"
+  # take all containers of running virt-launcher pods
+  - series: 'kube_pod_container_resource_requests{pod="virt-launcher-x-y", resource="cpu", container="volumecontainerdisk"}'
+    # time:  0    1    2    3    4    5
+    values: "0.01 0.01 0.01 0.01 0.01 0.01"
+  - series: 'kube_pod_labels{label_kubevirt_io="virt-launcher",pod="virt-launcher-x-y"}'
+    # time:  0 1 2 3 4 5
+    values: "1 1 1 1 1 1"
+  - series: 'kube_pod_status_phase{phase="Running", pod="virt-launcher-x-y"}'
+    # time:  0 1 2 3 4 5
+    values: "1 1 1 1 1 1"
+  # do not take containers of other pods
+  - series: 'kube_pod_container_resource_requests{pod="other-pod", resource="cpu", container="volumecontainerdisk"}'
+    # time:  0 1 2 3 4 5
+    values: "5 5 5 5 5 5"
+  - series: 'kube_pod_status_phase{phase="Running", pod="other-pod"}'
+    # time:  0 1 2 3 4 5
+    values: "1 1 1 1 1 1"
+  - series: 'kube_pod_labels{other_label="other-value",pod="other-pod"}'
+    # time:  0 1 2 3 4 5
+    values: "1 1 1 1 1 1"
+  # new VMIs can be created in time
+  - series: 'kube_pod_container_resource_requests{pod="virt-launcher-new", resource="cpu", container="volumecontainerdisk"}'
+    # time:  0     1     2     3   4    5
+    values: "stale stale stale 0.01 0.01 0.01"
+  - series: 'kube_pod_labels{label_kubevirt_io="virt-launcher",pod="virt-launcher-new"}'
+    # time: 0      1     2     3 4 5
+    values: "stale stale stale 1 1 1"
+  - series: 'kube_pod_status_phase{phase="Running", pod="virt-launcher-new"}'
+    # time:  0     1     2     3 4 5
+    values: "stale stale stale 1 0 1"
+  promql_expr_test:
+  - expr: 'cluster:vmi_request_cpu_cores:sum'
+    eval_time: 1m
+    exp_samples:
+    - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+      value: 0.11
+  # update for new pods
+  - expr: 'cluster:vmi_request_cpu_cores:sum'
+    eval_time: 3m
+    exp_samples:
+    - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+      value: 0.12
+  # virt-launcher-new is not running at 4m. must exclude it
+  - expr: 'cluster:vmi_request_cpu_cores:sum'
+    eval_time: 4m
+    exp_samples:
+    - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+      value: 0.11
+  # virt-launcher-new is back at 5m. must include it
+  - expr: 'cluster:vmi_request_cpu_cores:sum'
+    eval_time: 5m
+    exp_samples:
+    - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+      value: 0.12

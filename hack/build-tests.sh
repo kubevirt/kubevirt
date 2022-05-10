@@ -10,8 +10,8 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     go install github.com/mattn/goveralls@latest
     go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
     go mod vendor
-    PKG_PACKAGE_PATH="pkg/"
-    CONTROLLERS_PACKAGE_PATH="controllers/"
+    PKG_PACKAGE_PATH="./pkg/"
+    CONTROLLERS_PACKAGE_PATH="./controllers/"
     mkdir -p coverprofiles
     # Workaround - run tests on webhooks first to prevent failure when running all the test in the following line.
     ginkgo -r ${PKG_PACKAGE_PATH}webhooks

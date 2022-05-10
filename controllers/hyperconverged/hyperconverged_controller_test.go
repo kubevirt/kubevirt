@@ -78,6 +78,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
+				verifyHyperConvergedCRExistsMetricFalse()
 			})
 
 			It("should ignore invalid requests", func() {
@@ -136,6 +137,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
+				verifyHyperConvergedCRExistsMetricTrue()
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -220,6 +222,8 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{}))
+
+				verifyHyperConvergedCRExistsMetricTrue()
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -734,6 +738,8 @@ var _ = Describe("HyperconvergedController", func() {
 					foundResource)
 				Expect(err).To(HaveOccurred())
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+				verifyHyperConvergedCRExistsMetricFalse()
 			})
 
 			It(`should set a finalizer on HCO CR`, func() {
@@ -3508,6 +3514,18 @@ func verifyUnsafeMetrics(expected int, annotation string) {
 	count, err := metrics.HcoMetrics.GetUnsafeModificationsCount(annotation)
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 	ExpectWithOffset(1, count).Should(BeEquivalentTo(expected))
+}
+
+func verifyHyperConvergedCRExistsMetricTrue() {
+	hcExists, err := metrics.HcoMetrics.IsHCOMetricHyperConvergedExists()
+	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, hcExists).Should(BeTrue())
+}
+
+func verifyHyperConvergedCRExistsMetricFalse() {
+	hcExists, err := metrics.HcoMetrics.IsHCOMetricHyperConvergedExists()
+	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, hcExists).Should(BeFalse())
 }
 
 func searchInRelatedObjects(relatedObjects []corev1.ObjectReference, kind, name string) bool {

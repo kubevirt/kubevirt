@@ -12,6 +12,13 @@ import (
 const (
 	counterLabelCompName = "component_name"
 	counterLabelAnnName  = "annotation_name"
+
+	HCOMetricOverwrittenModifications = "overwrittenModifications"
+	HCOMetricUnsafeModifications      = "unsafeModifications"
+	HCOMetricHyperConvergedExists     = "HyperConvergedCRExists"
+
+	HyperConvergedExists    = float64(1)
+	HyperConvergedNotExists = float64(0)
 )
 
 type metricDesc struct {
@@ -29,7 +36,7 @@ func (md metricDesc) init() prometheus.Collector {
 // HcoMetrics wrapper for all hco metrics
 var HcoMetrics = func() hcoMetrics {
 	metricDescList := map[string]metricDesc{
-		"overwrittenModifications": {
+		HCOMetricOverwrittenModifications: {
 			fqName:          "kubevirt_hco_out_of_band_modifications_count",
 			help:            "Count of out-of-band modifications overwritten by HCO",
 			mType:           "Counter",
@@ -44,7 +51,7 @@ var HcoMetrics = func() hcoMetrics {
 				)
 			},
 		},
-		"unsafeModifications": {
+		HCOMetricUnsafeModifications: {
 			fqName:          "kubevirt_hco_unsafe_modification_count",
 			help:            "Count of unsafe modifications in the HyperConverged annotations",
 			mType:           "Gauge",
@@ -56,6 +63,20 @@ var HcoMetrics = func() hcoMetrics {
 						Help: md.help,
 					},
 					md.constLabelPairs,
+				)
+			},
+		},
+		HCOMetricHyperConvergedExists: {
+			fqName:          "kubevirt_hco_hyperconverged_cr_exists",
+			help:            "Indicates whether the HyperConverged custom resource exists (1) or not (0)",
+			mType:           "Gauge",
+			constLabelPairs: []string{counterLabelAnnName},
+			initFunc: func(md metricDesc) prometheus.Collector {
+				return prometheus.NewGauge(
+					prometheus.GaugeOpts{
+						Name: md.fqName,
+						Help: md.help,
+					},
 				)
 			},
 		},
@@ -106,12 +127,21 @@ func (hm *hcoMetrics) GetMetricValue(metricName string, label prometheus.Labels)
 			return 0, err
 		}
 		return res.Counter.GetValue(), nil
+
 	case *prometheus.GaugeVec:
 		err := m.With(label).Write(res)
 		if err != nil {
 			return 0, err
 		}
 		return res.Gauge.GetValue(), nil
+
+	case prometheus.Gauge:
+		err := m.Write(res)
+		if err != nil {
+			return 0, err
+		}
+		return res.Gauge.GetValue(), nil
+
 	default:
 		return 0, unknownMetricTypeError(metricName)
 	}
@@ -125,13 +155,17 @@ func (hm *hcoMetrics) IncMetric(metricName string, label prometheus.Labels) erro
 	switch m := metric.(type) {
 	case *prometheus.CounterVec:
 		m.With(label).Inc()
-		return nil
+
 	case *prometheus.GaugeVec:
 		m.With(label).Inc()
-		return nil
+
+	case prometheus.Gauge:
+		m.Inc()
+
 	default:
 		return unknownMetricTypeError(metricName)
 	}
+	return nil
 }
 
 func (hm *hcoMetrics) SetMetric(metricName string, label prometheus.Labels, value float64) error {
@@ -140,31 +174,59 @@ func (hm *hcoMetrics) SetMetric(metricName string, label prometheus.Labels, valu
 		return unknownMetricNameError(metricName)
 	}
 
-	if m, ok := metric.(*prometheus.GaugeVec); ok {
+	switch m := metric.(type) {
+	case *prometheus.GaugeVec:
 		m.With(label).Set(value)
-		return nil
+
+	case prometheus.Gauge:
+		m.Set(value)
+
+	default:
+		return unknownMetricTypeError(metricName)
 	}
-	return unknownMetricTypeError(metricName)
+
+	return nil
 }
 
 // IncOverwrittenModifications increments counter by 1
 func (hm *hcoMetrics) IncOverwrittenModifications(kind, name string) error {
-	return hm.IncMetric("overwrittenModifications", getLabelsForObj(kind, name))
+	return hm.IncMetric(HCOMetricOverwrittenModifications, getLabelsForObj(kind, name))
 }
 
 // GetOverwrittenModificationsCount returns current value of counter. If error is not nil then value is undefined
 func (hm *hcoMetrics) GetOverwrittenModificationsCount(kind, name string) (float64, error) {
-	return hm.GetMetricValue("overwrittenModifications", getLabelsForObj(kind, name))
+	return hm.GetMetricValue(HCOMetricOverwrittenModifications, getLabelsForObj(kind, name))
 }
 
 // SetUnsafeModificationCount sets the counter to the required number
 func (hm *hcoMetrics) SetUnsafeModificationCount(count int, unsafeAnnotation string) error {
-	return hm.SetMetric("unsafeModifications", getLabelsForUnsafeAnnotation(unsafeAnnotation), float64(count))
+	return hm.SetMetric(HCOMetricUnsafeModifications, getLabelsForUnsafeAnnotation(unsafeAnnotation), float64(count))
 }
 
 // GetUnsafeModificationsCount returns current value of counter. If error is not nil then value is undefined
 func (hm *hcoMetrics) GetUnsafeModificationsCount(unsafeAnnotation string) (float64, error) {
-	return hm.GetMetricValue("unsafeModifications", getLabelsForUnsafeAnnotation(unsafeAnnotation))
+	return hm.GetMetricValue(HCOMetricUnsafeModifications, getLabelsForUnsafeAnnotation(unsafeAnnotation))
+}
+
+// SetHCOMetricHyperConvergedExists sets the counter to 1 (true)
+func (hm *hcoMetrics) SetHCOMetricHyperConvergedExists() error {
+	return hm.SetMetric(HCOMetricHyperConvergedExists, nil, HyperConvergedExists)
+}
+
+// SetHCOMetricHyperConvergedNotExists sets the counter to 0 (false)
+func (hm *hcoMetrics) SetHCOMetricHyperConvergedNotExists() error {
+	return hm.SetMetric(HCOMetricHyperConvergedExists, nil, HyperConvergedNotExists)
+}
+
+// IsHCOMetricHyperConvergedExists returns true if the HyperConverged custom resource exists; else, return false
+func (hm *hcoMetrics) IsHCOMetricHyperConvergedExists() (bool, error) {
+
+	val, err := hm.GetMetricValue(HCOMetricHyperConvergedExists, nil)
+	if err != nil {
+		return false, err
+	}
+
+	return val == HyperConvergedExists, nil
 }
 
 func getLabelsForObj(kind string, name string) prometheus.Labels {

@@ -508,12 +508,19 @@ func (r *ReconcileHyperConverged) getHyperConverged(req *common.HcoRequest) (*hc
 
 	// Green path first
 	if err == nil {
+		if metricErr := metrics.HcoMetrics.SetHCOMetricHyperConvergedExists(); metricErr != nil {
+			req.Logger.Error(metricErr, "failed to update the HyperConvergedCRExists metric")
+		}
 		return instance, nil
 	}
 
 	// Error path
 	if apierrors.IsNotFound(err) {
 		req.Logger.Info("No HyperConverged resource")
+		if metricErr := metrics.HcoMetrics.SetHCOMetricHyperConvergedNotExists(); metricErr != nil {
+			req.Logger.Error(metricErr, "failed to update the HyperConvergedCRExists metric")
+		}
+
 		// Request object not found, could have been deleted after reconcile request.
 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 		// Return and don't requeue
