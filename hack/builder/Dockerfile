@@ -21,7 +21,6 @@ RUN dnf install -y dnf-plugins-core && \
         patch \
         make \
         git \
-        mercurial \
         sudo \
         gcc \
         gcc-c++ \
