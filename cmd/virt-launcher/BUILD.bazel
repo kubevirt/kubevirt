@@ -154,16 +154,6 @@ pkg_tar(
     package_dir = "/etc",
 )
 
-pkg_tar(
-    name = "swtpm-localca-tar",
-    empty_dirs = [
-        "var/lib/swtpm-localca",
-        "run/var/lib/swtpm-localca",
-    ],
-    mode = "0750",
-    owner = "107.107",
-)
-
 container_image(
     name = "version-container",
     directory = "/",
@@ -173,14 +163,12 @@ container_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":swtpm-localca-tar",
             "//rpm:launcherbase_aarch64",
         ],
         "//conditions:default": [
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
-            "swtpm-localca-tar",
             "//rpm:launcherbase_x86_64",
         ],
     }),
