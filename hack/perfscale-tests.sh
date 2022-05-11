@@ -37,8 +37,6 @@ mkdir -p $ARTIFACTS
 
 function perftest() {
     _out/cmd/perfscale-load-generator/perfscale-load-generator \
-        -container-prefix ${DOCKER_PREFIX} \
-        -container-tag ${DOCKER_TAG} \
         -v 6 \
         -workload ${PERFSCALE_WORKLOAD}
 }
