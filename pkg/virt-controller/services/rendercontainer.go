@@ -7,6 +7,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
+const (
+	cacheHomeEnvVarName  = "XDG_CACHE_HOME"
+	configHomeEnvVarName = "XDG_CONFIG_HOME"
+	runtimeDirEnvVarName = "XDG_RUNTIME_DIR"
+)
+
 type ContainerSpecRenderer struct {
 	imgPullPolicy   k8sv1.PullPolicy
 	isPrivileged    bool
@@ -133,15 +139,15 @@ func xdgEnvironmentVariables() []k8sv1.EnvVar {
 	const varRun = "/var/run"
 	return []k8sv1.EnvVar{
 		{
-			Name:  "XDG_CACHE_HOME",
+			Name:  cacheHomeEnvVarName,
 			Value: util.VirtPrivateDir,
 		},
 		{
-			Name:  "XDG_CONFIG_HOME",
+			Name:  configHomeEnvVarName,
 			Value: util.VirtPrivateDir,
 		},
 		{
-			Name:  "XDG_RUNTIME_DIR",
+			Name:  runtimeDirEnvVarName,
 			Value: varRun,
 		},
 	}

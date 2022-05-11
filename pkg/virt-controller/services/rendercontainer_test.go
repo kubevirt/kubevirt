@@ -52,13 +52,13 @@ var _ = Describe("Container spec renderer", func() {
 			Expect(specRenderer.Render(exampleCommand).Env).Should(
 				ConsistOf(
 					k8sv1.EnvVar{
-						Name:  "XDG_CACHE_HOME",
+						Name:  cacheHomeEnvVarName,
 						Value: util.VirtPrivateDir,
 					}, k8sv1.EnvVar{
-						Name:  "XDG_CONFIG_HOME",
+						Name:  configHomeEnvVarName,
 						Value: util.VirtPrivateDir,
 					}, k8sv1.EnvVar{
-						Name:  "XDG_RUNTIME_DIR",
+						Name:  runtimeDirEnvVarName,
 						Value: varRun,
 					},
 				))
