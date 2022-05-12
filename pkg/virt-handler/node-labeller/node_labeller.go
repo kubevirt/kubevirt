@@ -51,7 +51,8 @@ type NodeLabeller struct {
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
-	hostCapabilities        supportedFeatures
+	hostCapabilities        supportedCPUModels
+	modelToFeatures         map[string]map[string]bool
 	queue                   workqueue.RateLimitingInterface
 	supportedFeatures       []string
 	cpuInfo                 cpuInfo

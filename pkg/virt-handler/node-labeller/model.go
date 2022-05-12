@@ -24,6 +24,10 @@ type supportedFeatures struct {
 	items []string
 }
 
+type supportedCPUModels struct {
+	items []string
+}
+
 type hostCPUModel struct {
 	Name             string
 	fallback         string

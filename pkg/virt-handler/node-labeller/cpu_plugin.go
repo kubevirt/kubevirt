@@ -49,9 +49,19 @@ func (n *NodeLabeller) getMinCpuFeature() cpuFeatures {
 	return n.cpuInfo.models[minCPUModel]
 }
 
+func (n *NodeLabeller) containRequiredFeatures(model string) bool {
+	requiredFeatures := n.getMinCpuFeature()
+	modelFeatures := n.cpuInfo.models[model]
+	for feature, _ := range requiredFeatures {
+		if _, isOneOFTheModelsFeatures := modelFeatures[feature]; isOneOFTheModelsFeatures == false {
+			return false
+		}
+	}
+	return true
+}
+
 func (n *NodeLabeller) getSupportedCpuModels() []string {
 	supportedCPUModels := make([]string, 0)
-
 	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
 	if obsoleteCPUsx86 == nil {
 		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
@@ -59,6 +69,9 @@ func (n *NodeLabeller) getSupportedCpuModels() []string {
 
 	for _, model := range n.hostCapabilities.items {
 		if _, ok := obsoleteCPUsx86[model]; ok {
+			continue
+		}
+		if !n.containRequiredFeatures(model) {
 			continue
 		}
 		supportedCPUModels = append(supportedCPUModels, model)
@@ -99,7 +112,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 			n.cpuModelVendor = mode.Vendor.Name
 
 			hostCpuModel := mode.Model[0]
-			if len(mode.Model) > 0 {
+			if len(mode.Model) > 1 {
 				log.Log.Warning("host model mode is expected to contain only one model")
 			}
 
