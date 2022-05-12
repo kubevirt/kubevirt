@@ -42,6 +42,9 @@ func (o *SSH) buildProxyCommandOption(kind, namespace, name string) string {
 
 func (o *SSH) buildSSHTarget(kind, namespace, name string) (opts []string) {
 	target := strings.Builder{}
+	if len(o.options.AdditionalSSHLocalOptions) > 0 {
+		opts = append(opts, o.options.AdditionalSSHLocalOptions...)
+	}
 	if o.options.IdentityFilePathProvided {
 		opts = append(opts, "-i", o.options.IdentityFilePath)
 	}
