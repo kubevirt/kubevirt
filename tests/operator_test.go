@@ -953,7 +953,7 @@ spec:
           type: ""
         resources:
           requests:
-            memory: 64M
+            memory: 128M
       terminationGracePeriodSeconds: 0
       volumes:
       - dataVolume:
