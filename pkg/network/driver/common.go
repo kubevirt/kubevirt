@@ -49,7 +49,7 @@ import (
 
 const (
 	randomMacGenerationAttempts = 10
-	allowForwarding             = 1
+	allowForwarding             = "1"
 	LibvirtUserAndGroupId       = "0"
 )
 
@@ -76,6 +76,7 @@ type NetworkHandler interface {
 	IsIpv4Primary() (bool, error)
 	ConfigureIpForwarding(proto iptables.Protocol) error
 	ConfigureIpv4ArpIgnore() error
+	ConfigurePingGroupRange() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
@@ -149,7 +150,7 @@ func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
-	err := sysctl.New().SetSysctl(sysctl.Ipv4ArpIgnoreAll, 1)
+	err := sysctl.New().SetSysctl(sysctl.Ipv4ArpIgnoreAll, "1")
 	return err
 }
 
@@ -162,6 +163,11 @@ func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) err
 	}
 
 	err := sysctl.New().SetSysctl(forwarding, allowForwarding)
+	return err
+}
+
+func (h *NetworkUtilsHandler) ConfigurePingGroupRange() error {
+	err := sysctl.New().SetSysctl(sysctl.PingGroupRange, "107 107")
 	return err
 }
 

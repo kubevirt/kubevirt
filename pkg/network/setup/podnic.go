@@ -172,6 +172,16 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
+	// TODO create infraconfigurator for passt
+	if l.vmiSpecIface.Passt != nil {
+		log.Log.V(4).Infof("Configuring ping group range")
+		err := l.handler.ConfigurePingGroupRange()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure ping group range")
+			return err
+		}
+
+	}
 	state, err := l.state()
 	if err != nil {
 		return err
@@ -304,6 +314,9 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 	}
 	if l.vmiSpecIface.Macvtap != nil {
 		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+	}
+	if l.vmiSpecIface.Passt != nil {
+		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain)
 	}
 	return nil
 }

@@ -20,10 +20,16 @@
 package domainspec
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+
+	"os/exec"
 	"strconv"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -89,6 +95,13 @@ func NewBridgeLibvirtSpecGenerator(
 		cachedDomainInterface: cachedDomainInterface,
 		podInterfaceName:      podInterfaceName,
 		handler:               handler,
+	}
+}
+
+func NewPasstLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *PasstLibvirtSpecGenerator {
+	return &PasstLibvirtSpecGenerator{
+		vmiSpecIface: iface,
+		domain:       domain,
 	}
 }
 
@@ -274,4 +287,65 @@ func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface,
 			Managed: "no",
 		},
 	}, nil
+}
+
+type PasstLibvirtSpecGenerator struct {
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
+}
+
+func (b *PasstLibvirtSpecGenerator) Generate() error {
+	// remove passt interface from domain spec devices interfaces
+	foundDomainInterface := false
+	for i, iface := range b.domain.Spec.Devices.Interfaces {
+		if iface.Alias.GetName() == b.vmiSpecIface.Name {
+			b.domain.Spec.Devices.Interfaces = append(b.domain.Spec.Devices.Interfaces[:i], b.domain.Spec.Devices.Interfaces[i+1:]...)
+			foundDomainInterface = true
+			break
+		}
+	}
+	if !foundDomainInterface {
+		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
+	}
+
+	args := []string{"--runas", "107"}
+
+	cmd := exec.Command("/usr/bin/passt", args...)
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
+	}
+
+	// connect passt's stderr to our own stdout in order to see the logs in the container logs
+	var reader io.ReadCloser
+	reader, err := cmd.StderrPipe()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to get passt stderr")
+		return err
+	}
+	go func() {
+		const bufferSize = 1024
+		const maxBufferSize = 512 * bufferSize
+		scanner := bufio.NewScanner(reader)
+		scanner.Buffer(make([]byte, bufferSize), maxBufferSize)
+		for scanner.Scan() {
+			log.Log.Info(fmt.Sprintf("passt: %s", scanner.Text()))
+		}
+		if err = scanner.Err(); err != nil {
+			log.Log.Reason(err).Error("failed to read passt logs")
+		}
+	}()
+	err = cmd.Start()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to start passt")
+		return err
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		log.Log.Reason(err).Error("failed waiting for passt going to background")
+		return err
+	}
+
+	return nil
 }
