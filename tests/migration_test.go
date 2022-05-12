@@ -3715,6 +3715,47 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(labelsAfterMigration).To(BeEquivalentTo(labelsBeforeMigration))
 		})
 
+		It("vmi with host-model should be able to migrate to node that support the initial node's host-model even if this model isn't the target's host-model", func() {
+			targetNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			targetHostModel := tests.GetNodeHostModel(targetNode)
+			delete(targetNode.Labels, v1.HostModelCPULabel+targetHostModel)
+			targetNode.Labels[v1.HostModelCPULabel+"amazingHostModel"] = "true"
+			Eventually(func() error {
+				if targetNode, err = virtClient.CoreV1().Nodes().Update(context.Background(), targetNode, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
+				return nil
+			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+			vmiToMigrate := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Creating a VMI with default CPU mode to land in source node")
+			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
+			nodeAffinityRule, err := tests.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
+			By("Starting the VirtualMachineInstance")
+			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration to target node(with the amazing feature")
+			migration := tests.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiToMigrate.GetName(), &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(targetNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+		})
 	})
 
 	Context("with dedicated CPUs", func() {
