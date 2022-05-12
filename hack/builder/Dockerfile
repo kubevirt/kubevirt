@@ -4,6 +4,8 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=4.2.1
+ENV GIMME_GO_VERSION=1.17.8
+ENV SONOBUOY_VERSION=0.19.0
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
@@ -59,8 +61,6 @@ RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
 ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
 
-ENV GIMME_GO_VERSION=1.17.8
-
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
     https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
@@ -108,7 +108,6 @@ RUN set -x && \
 
 RUN pip3 install --upgrade operator-courier==2.1.11
 
-ENV SONOBUOY_VERSION=0.19.0
 RUN set -x && \
     wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
