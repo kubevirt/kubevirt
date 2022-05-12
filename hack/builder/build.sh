@@ -21,10 +21,6 @@ for ARCH in ${ARCHITECTURES}; do
         sonobuoy_arch="amd64"
         bazel_arch="x86_64"
         ;;
-    arm64)
-        sonobuoy_arch="arm64"
-        bazel_arch="arm64"
-        ;;
     *)
         sonobuoy_arch=${ARCH}
         bazel_arch=${ARCH}
