@@ -57,7 +57,8 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 # install gradle (required for swagger)
 RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
     mkdir /opt/gradle && \
-    unzip -d /opt/gradle gradle-${GRADLE_VERSION}-bin.zip
+    unzip -d /opt/gradle gradle-${GRADLE_VERSION}-bin.zip && \
+    rm gradle-${GRADLE_VERSION}-bin.zip
 
 ENV PATH=$PATH:/opt/gradle/gradle-${GRADLE_VERSION}/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
@@ -113,7 +114,8 @@ RUN set -x && \
     wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     chmod +x sonobuoy && \
-    mv sonobuoy /usr/bin
+    mv sonobuoy /usr/bin && \
+    rm sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz
 
 COPY rsyncd.conf /etc/rsyncd.conf
 
