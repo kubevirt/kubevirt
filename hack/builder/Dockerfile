@@ -5,6 +5,8 @@ ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=4.2.1
 ENV GIMME_GO_VERSION=1.17.8
+ENV GRADLE_VERSION=6.6
+ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.19.0
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
@@ -54,11 +56,11 @@ RUN gem install asciidoctor
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # install gradle (required for swagger)
-RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
+RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
     mkdir /opt/gradle && \
-    unzip -d /opt/gradle gradle-6.6-bin.zip
+    unzip -d /opt/gradle gradle-${GRADLE_VERSION}-bin.zip
 
-ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
+ENV PATH=$PATH:/opt/gradle/gradle-${GRADLE_VERSION}/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
 
 # reference to master is for an external repo and can't yet be changed
@@ -106,7 +108,7 @@ RUN set -x && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
 
-RUN pip3 install --upgrade operator-courier==2.1.11
+RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 
 RUN set -x && \
     wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
