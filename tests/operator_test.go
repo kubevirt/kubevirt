@@ -127,7 +127,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		patchKvWorkloads                       func(*v1.ComponentConfig, bool, string)
 		patchKvCertConfig                      func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
-		parseDaemonset                         func(string) (*v12.DaemonSet, string, string, string, string)
+		parseDaemonset                         func(string) string
 		parseImage                             func(string, string) (string, string, string)
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
@@ -517,18 +517,16 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 		}
 
-		parseDaemonset = func(name string) (daemonSet *v12.DaemonSet, image, registry, imagePrefix, version string) {
+		parseDaemonset = func(name string) (imagePrefix string) {
 			var err error
-			daemonSet, err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+			daemonSet, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			image = daemonSet.Spec.Template.Spec.Containers[0].Image
+			image := daemonSet.Spec.Template.Spec.Containers[0].Image
 			imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
 			matches := imageRegEx.FindAllStringSubmatch(image, 1)
 			Expect(matches).To(HaveLen(1))
 			Expect(matches[0]).To(HaveLen(4))
-			registry = matches[0][1]
 			imagePrefix = matches[0][2]
-			version = matches[0][3]
 			return
 		}
 
@@ -1904,7 +1902,7 @@ spec:
 				_, _, _, prefix, _ := parseDeployment(name)
 				Expect(prefix).To(Equal(flags.ImagePrefixAlt), fmt.Sprintf("%s should have correct image prefix", name))
 			}
-			_, _, _, prefix, _ := parseDaemonset("virt-handler")
+			prefix := parseDaemonset("virt-handler")
 			Expect(prefix).To(Equal(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
