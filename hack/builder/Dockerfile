@@ -3,14 +3,14 @@ FROM quay.io/centos/centos:stream8
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
-ENV BAZEL_VERSION 4.2.1
+ENV BAZEL_VERSION=4.2.1
 
-ENV KUBEVIRT_CREATE_BAZELRCS false
+ENV KUBEVIRT_CREATE_BAZELRCS=false
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable powertools && \
-    dnf -y install \
+    dnf install -y \
         java-11-openjdk-devel \
         libvirt-devel \
         cpio \
@@ -37,7 +37,7 @@ RUN dnf install -y dnf-plugins-core && \
         wget \
         rubygems \
         diffutils && \
-    dnf -y clean all
+    dnf clean -y all
 
 # Avoids the need to install sssd-client by disabling lookups
 COPY nsswitch.conf /etc/nsswitch.conf
@@ -121,6 +121,7 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && chmod u+x /usr/bin/bazel
+RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
+    chmod u+x /usr/bin/bazel
 
 ENTRYPOINT [ "/entrypoint.sh" ]
