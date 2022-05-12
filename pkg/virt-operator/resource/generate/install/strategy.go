@@ -150,7 +150,6 @@ func (ins *Strategy) ControllerDeployments() []*appsv1.Deployment {
 }
 
 func (ins *Strategy) ExportProxyDeployments() []*appsv1.Deployment {
-	// XXX TODO - check export feature gate
 	var deployments []*appsv1.Deployment
 
 	for _, deployment := range ins.deployments {

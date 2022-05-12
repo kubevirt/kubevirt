@@ -468,14 +468,14 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy *install.Strategy, stores uti
 	}
 
 	return &Reconciler{
-		kv,
-		kvKey,
-		targetStrategy,
-		stores,
-		clientset,
-		aggregatorclient,
-		expectations,
-		recorder,
+		kv:               kv,
+		kvKey:            kvKey,
+		targetStrategy:   targetStrategy,
+		stores:           stores,
+		clientset:        clientset,
+		aggregatorclient: aggregatorclient,
+		expectations:     expectations,
+		recorder:         recorder,
 	}, nil
 }
 
@@ -499,7 +499,11 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
-	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+
+	// XXX TODO update with appropriate featuregate
+	exportProxyEnabled := r.exportProxyEnabled()
+	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	infrastructureRolledOver := false
@@ -669,12 +673,17 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
-		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
+		// XXX TODO use appropriate feature gate
+		if r.exportProxyEnabled() {
+			deployment, err := r.syncDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+		} else if err := r.deleteDeployment(deployment); err != nil {
 			return false, err
 		}
 	}
@@ -688,6 +697,29 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	}
 
 	return true, nil
+}
+
+func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
+	obj, exists, err := r.stores.DeploymentCache.Get(deployment)
+	if err != nil {
+		return err
+	}
+
+	if !exists || obj.(*appsv1.Deployment).DeletionTimestamp != nil {
+		return nil
+	}
+
+	key, err := controller.KeyFunc(deployment)
+	if err != nil {
+		return err
+	}
+	r.expectations.Deployment.AddExpectedDeletion(r.kvKey, key)
+	if err := r.clientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{}); err != nil {
+		r.expectations.Deployment.DeletionObserved(r.kvKey, key)
+		return err
+	}
+
+	return nil
 }
 
 func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
@@ -1171,6 +1203,21 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	return nil
+}
+
+func (r *Reconciler) exportProxyEnabled() bool {
+	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
+		return false
+	}
+
+	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+		// XXX TODO use const
+		if fg == "VMExport" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
