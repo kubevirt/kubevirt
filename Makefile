@@ -10,6 +10,7 @@ OPERATOR_IMAGE     ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-operator
 WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
 FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
 VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
+LDFLAGS            ?= -w -s
 
 
 
@@ -37,13 +38,13 @@ lint:
 build: build-operator build-csv-merger build-webhook
 
 build-operator: $(SOURCES) ## Build binary from source
-	go build -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
+	go build -ldflags="${LDFLAGS}" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
 
 build-csv-merger: ## Build binary from source
-	go build -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go
+	go build -ldflags="${LDFLAGS}" -o _out/csv-merger tools/csv-merger/csv-merger.go
 
 build-webhook: $(SOURCES) ## Build binary from source
-	go build -ldflags="-s -w" -o _out/hyperconverged-cluster-webhook ./cmd/hyperconverged-cluster-webhook
+	go build -ldflags="${LDFLAGS}" -o _out/hyperconverged-cluster-webhook ./cmd/hyperconverged-cluster-webhook
 
 build-manifests:
 	./hack/build-manifests.sh
@@ -52,7 +53,7 @@ build-manifests-prev:
 	RELEASE_DELTA=1 ./hack/build-manifests.sh
 
 build-prom-spec-dumper: ## Build binary from source
-	go build -ldflags="-s -w" -o _out/rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go
+	go build -ldflags="${LDFLAGS}" -o _out/rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go
 
 current-dir := $(realpath .)
 
@@ -182,8 +183,8 @@ generate-doc: build-docgen
 	_out/metricsdocs > docs/metrics.md
 
 build-docgen:
-	go build -ldflags="-s -w" -o _out/docgen ./tools/docgen
-	go build -ldflags="-s -w" -o _out/metricsdocs ./tools/metricsdocs
+	go build -ldflags="${LDFLAGS}" -o _out/docgen ./tools/docgen
+	go build -ldflags="${LDFLAGS}" -o _out/metricsdocs ./tools/metricsdocs
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
