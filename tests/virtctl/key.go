@@ -33,7 +33,7 @@ func DumpPrivateKey(privateKey *ecdsa.PrivateKey, file string) error {
 		Type:  "EC PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0777)
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
