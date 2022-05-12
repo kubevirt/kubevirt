@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "key.go",
         "scp.go",
+        "ssh.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/virtctl",
     visibility = ["//visibility:public"],
