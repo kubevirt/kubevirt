@@ -74,8 +74,9 @@ trap "cleanup" INT TERM EXIT
 
 echo "----- Set KVM_EMULATION if needed"
 if [[ -n "${KVM_EMULATION}" ]]; then
-  ${CMD} patch $(${CMD} get subscription -n "${HCO_NAMESPACE}" -o name) -n "${HCO_NAMESPACE}" -p '{"spec":{"config":{"selector":{"matchLabels":{"name":"hyperconverged-cluster-operator"}},"env":[{"name":"KVM_EMULATION","value":"true"}]}}}' --type=merge
-  sleep 30
+  ${CMD} patch $(${CMD} get subscription -n "${HCO_NAMESPACE}" -o name -l operators.coreos.com/community-kubevirt-hyperconverged.${HCO_NAMESPACE}=) \
+  -n "${HCO_NAMESPACE}" -p '{"spec":{"config":{"selector":{"matchLabels":{"name":"hyperconverged-cluster-operator"}},"env":[{"name":"KVM_EMULATION","value":"true"}]}}}' --type=merge
+  sleep 10
   ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
   ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 fi
@@ -83,7 +84,7 @@ fi
 source hack/compare_scc.sh
 dump_sccs_before
 
-CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep "kubevirt-hyperconverged-operator")
 HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
 sed -e "s|hco.kubevirt.io/v1beta1|hco.kubevirt.io/${HCO_API_VERSION}|g" deploy/hco.cr.yaml | ${CMD} apply -n kubevirt-hyperconverged -f -
 
@@ -141,7 +142,7 @@ Msg "Read the CSV to make sure the deployment is done"
 # The currentCSV in the package manifest is also updated to point to the new version.
 
 Msg "Patch the subscription to move to the new channel"
-HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name)
+HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name -l operators.coreos.com/community-kubevirt-hyperconverged.${HCO_NAMESPACE}=)
 OLD_INSTALL_PLAN=$(oc -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}')
 ${CMD} patch ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
 
@@ -187,8 +188,8 @@ Msg "operator conditions during upgrade"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_CHANNEL}"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${TARGET_VERSION}"
 
-./hack/retry.sh 30 60 "${CMD} get subscriptions -n ${HCO_NAMESPACE} -o yaml | grep currentCSV   | grep v${TARGET_VERSION}"
-./hack/retry.sh  2 30 "${CMD} get subscriptions -n ${HCO_NAMESPACE} -o yaml | grep installedCSV | grep v${TARGET_VERSION}"
+./hack/retry.sh 30 60 "${CMD} get ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -o yaml | grep currentCSV   | grep v${TARGET_VERSION}"
+./hack/retry.sh  2 30 "${CMD} get ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -o yaml | grep installedCSV | grep v${TARGET_VERSION}"
 
 Msg "Verify the hyperconverged-cluster deployment is using the new image"
 

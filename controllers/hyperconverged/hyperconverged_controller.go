@@ -88,6 +88,7 @@ const (
 	v2vGroup = "v2v.kubevirt.io"
 
 	requestedStatusKey = "requested status"
+	oldNmoCrdName      = "nodemaintenances.nodemaintenance.kubevirt.io"
 )
 
 // JSONPatchAnnotationNames - annotations used to patch operand CRs with unsupported/unofficial/hidden features.
@@ -481,9 +482,22 @@ func (r *ReconcileHyperConverged) handleUpgrade(req *common.HcoRequest, init boo
 }
 
 func (r *ReconcileHyperConverged) handleNMO(req *common.HcoRequest) error {
-	oldNmoCRs := &nmoapioldv1beta1.NodeMaintenanceList{}
-	err := r.client.List(req.Ctx, oldNmoCRs)
+	oldNmoCRDobj := &apiextensionsv1.CustomResourceDefinition{}
+	oldNmoCRDkey := client.ObjectKey{
+		Namespace: "",
+		Name:      oldNmoCrdName,
+	}
+	err := r.client.Get(req.Ctx, oldNmoCRDkey, oldNmoCRDobj)
 	if err != nil {
+		if apimachineryerrors.IsNotFound(err) {
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	oldNmoCRs := &nmoapioldv1beta1.NodeMaintenanceList{}
+	if err := r.client.List(req.Ctx, oldNmoCRs); err != nil {
 		return err
 	}
 

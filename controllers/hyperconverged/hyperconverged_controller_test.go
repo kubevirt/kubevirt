@@ -2039,7 +2039,13 @@ var _ = Describe("HyperconvergedController", func() {
 							Reason:   "fake reason",
 						},
 					}
-					resources := []runtime.Object{nmoCrBefore}
+					nmoOldCrd := &apiextensionsv1.CustomResourceDefinition{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      oldNmoCrdName,
+							Namespace: "",
+						},
+					}
+					resources := []runtime.Object{nmoCrBefore, nmoOldCrd}
 					cl := commonTestUtils.InitClient(resources)
 					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
