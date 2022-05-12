@@ -1110,7 +1110,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				}
 
-				tests.EnableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
 				tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			})
 
