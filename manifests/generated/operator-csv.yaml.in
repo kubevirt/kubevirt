@@ -674,6 +674,7 @@ spec:
           - subresources.kubevirt.io
           resources:
           - version
+          - guestfs
           verbs:
           - get
           - list

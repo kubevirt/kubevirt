@@ -59,6 +59,7 @@ func newDefaultClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"version",
+					"guestfs",
 				},
 				Verbs: []string{
 					"get", "list",
