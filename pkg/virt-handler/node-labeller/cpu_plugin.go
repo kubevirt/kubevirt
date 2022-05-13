@@ -187,6 +187,15 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 	domCapabilitiesFile := filepath.Join(n.volumePath, n.domCapabilitiesFileName)
 	hostDomCapabilities := HostDomCapabilities{}
 	err := n.getStructureFromXMLFile(domCapabilitiesFile, &hostDomCapabilities)
+	if err != nil {
+		return hostDomCapabilities, err
+	}
+
+	if hostDomCapabilities.SEV.Supported == "yes" && hostDomCapabilities.SEV.MaxESGuests > 0 {
+		hostDomCapabilities.SEV.SupportedES = "yes"
+	} else {
+		hostDomCapabilities.SEV.SupportedES = "no"
+	}
 
 	return hostDomCapabilities, err
 }

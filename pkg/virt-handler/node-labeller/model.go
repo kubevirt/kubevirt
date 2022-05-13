@@ -92,8 +92,11 @@ type Feature struct {
 
 type SEVConfiguration struct {
 	Supported       string `xml:"supported,attr"`
-	Cbitpos         string `xml:"cbitpos"`
-	ReducedPhysBits string `xml:"reducedPhysBits"`
+	CBitPos         uint   `xml:"cbitpos"`
+	ReducedPhysBits uint   `xml:"reducedPhysBits"`
+	MaxGuests       uint   `xml:"maxGuests"`
+	MaxESGuests     uint   `xml:"maxESGuests"`
+	SupportedES     string `xml:"-"`
 }
 
 type KSMConfiguration struct {

@@ -92,6 +92,10 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			log.Log.V(4).Info("Add SEV node label selector")
 			addNodeSelector(newVMI, v1.SEVLabel)
 		}
+		if util.IsSEVESVMI(newVMI) {
+			log.Log.V(4).Info("Add SEV-ES node label selector")
+			addNodeSelector(newVMI, v1.SEVESLabel)
+		}
 
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
