@@ -138,6 +138,43 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Flavor and preference application", func() {
 
+		It("[test_id:TODO] should find and apply cluster flavor and preferences when kind isn't provided", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(
+				cd.ContainerDiskFor(cd.ContainerDiskCirros),
+			)
+			flavor := newVirtualMachineClusterFlavor(vmi)
+			flavor, err := virtClient.VirtualMachineClusterFlavor().
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			preference := newVirtualMachineClusterPreference()
+			preference.Spec.CPU = &flavorv1alpha1.CPUPreferences{
+				PreferredCPUTopology: flavorv1alpha1.PreferSockets,
+			}
+
+			preference, err = virtClient.VirtualMachineClusterPreference().
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			removeResourcesAndPreferencesFromVMI(vmi)
+
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+			}
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: preference.Name,
+			}
+
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVMAndExpectRunning(virtClient, vm)
+
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("[test_id:TODO] should apply flavor and preferences to VMI", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(
 				cd.ContainerDiskFor(cd.ContainerDiskCirros),
@@ -149,19 +186,29 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			preference := newVirtualMachinePreference()
-			preference.Spec.CPU.PreferredCPUTopology = flavorv1alpha1.PreferSockets
-			preference.Spec.Devices.PreferredDiskBus = v1.DiskBusSATA
-			preference.Spec.Features.PreferredHyperv = &v1.FeatureHyperv{
-				VAPIC: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
-				},
-				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+			preference.Spec.CPU = &flavorv1alpha1.CPUPreferences{
+				PreferredCPUTopology: flavorv1alpha1.PreferSockets,
+			}
+			preference.Spec.Devices = &flavorv1alpha1.DevicePreferences{
+				PreferredDiskBus: v1.DiskBusSATA,
+			}
+			preference.Spec.Features = &flavorv1alpha1.FeaturePreferences{
+				PreferredHyperv: &v1.FeatureHyperv{
+					VAPIC: &v1.FeatureState{
+						Enabled: pointer.Bool(true),
+					},
+					Relaxed: &v1.FeatureState{
+						Enabled: pointer.Bool(true),
+					},
 				},
 			}
-			preference.Spec.Firmware.PreferredUseBios = pointer.Bool(true)
+			preference.Spec.Firmware = &flavorv1alpha1.FirmwarePreferences{
+				PreferredUseBios: pointer.Bool(true),
+			}
 			// We don't want to break tests randomly so just use the q35 alias for now
-			preference.Spec.Machine.PreferredMachineType = "q35"
+			preference.Spec.Machine = &flavorv1alpha1.MachinePreferences{
+				PreferredMachineType: "q35",
+			}
 
 			preference, err = virtClient.VirtualMachinePreference(util.NamespaceTestDefault).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -249,7 +296,26 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 })
 
 func newVirtualMachineFlavor(vmi *v1.VirtualMachineInstance) *flavorv1alpha1.VirtualMachineFlavor {
+	return &flavorv1alpha1.VirtualMachineFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-flavor-",
+			Namespace:    util.NamespaceTestDefault,
+		},
+		Spec: newVirtualMachineFlavorSpec(vmi),
+	}
+}
 
+func newVirtualMachineClusterFlavor(vmi *v1.VirtualMachineInstance) *flavorv1alpha1.VirtualMachineClusterFlavor {
+	return &flavorv1alpha1.VirtualMachineClusterFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-cluster-flavor-",
+			Namespace:    util.NamespaceTestDefault,
+		},
+		Spec: newVirtualMachineFlavorSpec(vmi),
+	}
+}
+
+func newVirtualMachineFlavorSpec(vmi *v1.VirtualMachineInstance) flavorv1alpha1.VirtualMachineFlavorSpec {
 	// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
 	m := resource.MustParse("128M")
 	if vmi != nil {
@@ -257,19 +323,12 @@ func newVirtualMachineFlavor(vmi *v1.VirtualMachineInstance) *flavorv1alpha1.Vir
 			m = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
 		}
 	}
-
-	return &flavorv1alpha1.VirtualMachineFlavor{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-flavor-",
-			Namespace:    util.NamespaceTestDefault,
+	return flavorv1alpha1.VirtualMachineFlavorSpec{
+		CPU: flavorv1alpha1.CPUFlavor{
+			Guest: uint32(1),
 		},
-		Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
-			CPU: flavorv1alpha1.CPUFlavor{
-				Guest: uint32(1),
-			},
-			Memory: flavorv1alpha1.MemoryFlavor{
-				Guest: &m,
-			},
+		Memory: flavorv1alpha1.MemoryFlavor{
+			Guest: &m,
 		},
 	}
 }
@@ -280,12 +339,14 @@ func newVirtualMachinePreference() *flavorv1alpha1.VirtualMachinePreference {
 			GenerateName: "vm-preference-",
 			Namespace:    util.NamespaceTestDefault,
 		},
-		Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
-			CPU:      &flavorv1alpha1.CPUPreferences{},
-			Devices:  &flavorv1alpha1.DevicePreferences{},
-			Features: &flavorv1alpha1.FeaturePreferences{},
-			Firmware: &flavorv1alpha1.FirmwarePreferences{},
-			Machine:  &flavorv1alpha1.MachinePreferences{},
+	}
+}
+
+func newVirtualMachineClusterPreference() *flavorv1alpha1.VirtualMachineClusterPreference {
+	return &flavorv1alpha1.VirtualMachineClusterPreference{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-cluster-preference-",
+			Namespace:    util.NamespaceTestDefault,
 		},
 	}
 }

@@ -97,14 +97,6 @@ var _ = Describe("Flavor and Preferences", func() {
 				}
 			})
 
-			It("should find cluster flavor if Kind is not specified", func() {
-				vm.Spec.Flavor.Kind = ""
-
-				f, err := flavorMethods.FindFlavorSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*f).To(Equal(flavor.Spec))
-			})
-
 			It("returns expected flavor", func() {
 				f, err := flavorMethods.FindFlavorSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -262,14 +254,6 @@ var _ = Describe("Flavor and Preferences", func() {
 					Name: preference.Name,
 					Kind: apiflavor.ClusterSingularPreferenceResourceName,
 				}
-			})
-
-			It("should find cluster preference spec if Kind is not specified", func() {
-				vm.Spec.Preference.Kind = ""
-
-				s, err := flavorMethods.FindPreferenceSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*s).To(Equal(preference.Spec))
 			})
 
 			It("returns expected preference spec", func() {

@@ -88,7 +88,7 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
 		preference, err = m.findPreference(vm)
-	case apiflavor.ClusterSingularPreferenceResourceName, apiflavor.ClusterPluralPreferenceResourceName, "":
+	case apiflavor.ClusterSingularPreferenceResourceName, apiflavor.ClusterPluralPreferenceResourceName:
 		clusterPreference, err = m.findClusterPreference(vm)
 	default:
 		err = fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
