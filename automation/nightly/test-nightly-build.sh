@@ -6,7 +6,7 @@ source "hack/cri-bin.sh"
 
 # Get golang
 $CRI_BIN login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
-wget -q https://dl.google.com/go/go1.17.3.linux-amd64.tar.gz
+wget -q https://dl.google.com/go/go1.18.1.linux-amd64.tar.gz
 tar -C /usr/local -xf go*.tar.gz
 export PATH=/usr/local/go/bin:$PATH
 

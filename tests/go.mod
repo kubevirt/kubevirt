@@ -1,6 +1,6 @@
 module github.com/kubevirt/hyperconverged-cluster-operator/tests
 
-go 1.17
+go 1.18
 
 require (
 	github.com/kubevirt/cluster-network-addons-operator v0.73.0

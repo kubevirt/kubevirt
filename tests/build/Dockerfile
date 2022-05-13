@@ -7,7 +7,7 @@ RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install
 
 RUN pip3 install j2cli && pip3 install operator-courier
 
-ENV GO_VERSION=1.17.3 \
+ENV GO_VERSION=1.18.1 \
     KUBEBUILDER_VERSION="3.2.0" \
     ARCH="amd64" \
     GOPATH="/go" \
@@ -21,16 +21,14 @@ RUN \
     rm -rf go${GO_VERSION}.linux-amd64.tar.gz && \
     export PATH=${GOPATH}/bin:$PATH && \
     eval $(go env) && \
-    go install github.com/onsi/ginkgo/ginkgo@latest && \
-    go get github.com/onsi/gomega && \
+    go install github.com/onsi/ginkgo/v2/ginkgo@latest && \
     go install golang.org/x/tools/cmd/goimports@latest && \
-    go get -u -d golang.org/x/lint/golint && \
+    go install golang.org/x/lint/golint@latest && \
     go install github.com/rmohr/go-swagger-utils/swagger-doc@latest && \
     go install github.com/mattn/goveralls@latest && \
-    go get -u -d mvdan.cc/sh/v3/cmd/shfmt && \
-    go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
-    go get -u -d k8s.io/kube-openapi/cmd/openapi-gen && \
-    go get -u -d github.com/Masterminds/glide && \
+    go install mvdan.cc/sh/v3/cmd/shfmt@latest && \
+    go install k8s.io/code-generator/cmd/deepcopy-gen@latest && \
+    go install k8s.io/kube-openapi/cmd/openapi-gen@latest && \
     (curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}" && \
      mv kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH} /usr/local/kubebuilder )
 
