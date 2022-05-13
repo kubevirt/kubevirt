@@ -133,7 +133,9 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
 		installOperator                        func(string)
+		installTestingManifests                func(string)
 		deleteOperator                         func(string)
+		deleteTestingManifests                 func(string)
 		deleteAllKvAndWait                     func(bool)
 		usesSha                                func(string) bool
 		ensureShasums                          func()
@@ -615,7 +617,17 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
+		installTestingManifests = func(manifestPath string) {
+			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
 		deleteOperator = func(manifestPath string) {
+			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		deleteTestingManifests = func(manifestPath string) {
 			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -1086,6 +1098,9 @@ spec:
 
 		// ensure that the state is fully restored after destructive tests
 		verifyOperatorWebhookCertificate()
+
+		_, err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "disks-images-provider", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "")
 	})
 
 	It("[test_id:1746]should have created and available condition", func() {
@@ -1500,6 +1515,9 @@ spec:
 			sanityCheckDeploymentsDeleted()
 
 			if updateOperator {
+				By("Deleting testing manifests")
+				deleteTestingManifests(flags.TestingManifestPath)
+
 				By("Deleting virt-operator installation")
 				deleteOperator(flags.OperatorManifestPath)
 
@@ -1595,6 +1613,9 @@ spec:
 			if updateOperator {
 				By("Updating virt-operator installation")
 				installOperator(flags.OperatorManifestPath)
+
+				By("Re-installing testing manifests")
+				installTestingManifests(flags.TestingManifestPath)
 			} else {
 				By("Updating KubeVirt object With current tag")
 				patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)

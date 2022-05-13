@@ -50,6 +50,7 @@ var IPV6ConnectivityCheckAddress = ""
 var ConnectivityCheckDNS = ""
 var ArtifactsDir string
 var OperatorManifestPath string
+var TestingManifestPath string
 var ApplyDefaulte2eConfiguration bool
 
 var DeployTestingInfrastructureFlag = false
@@ -82,6 +83,7 @@ func init() {
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.StringVar(&OperatorManifestPath, "operator-manifest-path", "", "Set path to virt-operator manifest file")
+	flag.StringVar(&TestingManifestPath, "testing-manifest-path", "", "Set path to testing manifests directory")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
 	flag.StringVar(&IPV4ConnectivityCheckAddress, "conn-check-ipv4-address", "", "Address that is used for testing IPV4 connectivity to the outside world")
