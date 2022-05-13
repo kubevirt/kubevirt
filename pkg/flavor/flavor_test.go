@@ -687,13 +687,13 @@ var _ = Describe("Flavor and Preferences", func() {
 						Physical: 512,
 					},
 				}
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.BoolPtr(false)
-				vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(false)
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.Bool(false)
+				vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.Bool(false)
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 					v1.Disk{
 						Cache:             v1.CacheWriteBack,
 						IO:                v1.IODefault,
-						DedicatedIOThread: pointer.BoolPtr(false),
+						DedicatedIOThread: pointer.Bool(false),
 						BlockSize:         userDefinedBlockSize,
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{
@@ -748,15 +748,15 @@ var _ = Describe("Flavor and Preferences", func() {
 
 				preferenceSpec = &flavorv1alpha1.VirtualMachinePreferenceSpec{
 					Devices: &flavorv1alpha1.DevicePreferences{
-						PreferredAutoattachGraphicsDevice:   pointer.BoolPtr(true),
-						PreferredAutoattachMemBalloon:       pointer.BoolPtr(true),
-						PreferredAutoattachPodInterface:     pointer.BoolPtr(true),
-						PreferredAutoattachSerialConsole:    pointer.BoolPtr(true),
-						PreferredDiskDedicatedIoThread:      pointer.BoolPtr(true),
-						PreferredDisableHotplug:             pointer.BoolPtr(true),
-						PreferredUseVirtioTransitional:      pointer.BoolPtr(true),
-						PreferredNetworkInterfaceMultiQueue: pointer.BoolPtr(true),
-						PreferredBlockMultiQueue:            pointer.BoolPtr(true),
+						PreferredAutoattachGraphicsDevice:   pointer.Bool(true),
+						PreferredAutoattachMemBalloon:       pointer.Bool(true),
+						PreferredAutoattachPodInterface:     pointer.Bool(true),
+						PreferredAutoattachSerialConsole:    pointer.Bool(true),
+						PreferredDiskDedicatedIoThread:      pointer.Bool(true),
+						PreferredDisableHotplug:             pointer.Bool(true),
+						PreferredUseVirtioTransitional:      pointer.Bool(true),
+						PreferredNetworkInterfaceMultiQueue: pointer.Bool(true),
+						PreferredBlockMultiQueue:            pointer.Bool(true),
 						PreferredDiskBlockSize: &v1.BlockSize{
 							Custom: &v1.CustomBlockSize{
 								Logical:  4096,

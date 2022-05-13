@@ -77,26 +77,36 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 
 func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
 
+	var err error
+	var preference *flavorv1alpha1.VirtualMachinePreference
+	var clusterPreference *flavorv1alpha1.VirtualMachineClusterPreference
+
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
 
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
-		preference, err := m.findPreference(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &preference.Spec, nil
+		preference, err = m.findPreference(vm)
 	case apiflavor.ClusterSingularPreferenceResourceName, apiflavor.ClusterPluralPreferenceResourceName, "":
-		clusterPreference, err := m.findClusterPreference(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &clusterPreference.Spec, nil
+		clusterPreference, err = m.findClusterPreference(vm)
 	default:
-		return nil, fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
+		err = fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if preference != nil {
+		return &preference.Spec, nil
+	}
+
+	if clusterPreference != nil {
+		return &clusterPreference.Spec, nil
+	}
+
+	return nil, nil
 }
 
 func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreference, error) {
@@ -137,26 +147,36 @@ func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*flavorv1alp
 
 func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 
+	var err error
+	var flavor *flavorv1alpha1.VirtualMachineFlavor
+	var clusterFlavor *flavorv1alpha1.VirtualMachineClusterFlavor
+
 	if vm.Spec.Flavor == nil {
 		return nil, nil
 	}
 
 	switch strings.ToLower(vm.Spec.Flavor.Kind) {
 	case apiflavor.SingularResourceName, apiflavor.PluralResourceName:
-		flavor, err := m.findFlavor(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &flavor.Spec, nil
+		flavor, err = m.findFlavor(vm)
 	case apiflavor.ClusterSingularResourceName, apiflavor.ClusterPluralResourceName, "":
-		clusterFlavor, err := m.findClusterFlavor(vm)
-		if err != nil {
-			return nil, err
-		}
-		return &clusterFlavor.Spec, nil
+		clusterFlavor, err = m.findClusterFlavor(vm)
 	default:
-		return nil, fmt.Errorf("got unexpected kind in FlavorMatcher: %s", vm.Spec.Flavor.Kind)
+		err = fmt.Errorf("got unexpected kind in FlavorMatcher: %s", vm.Spec.Flavor.Kind)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if flavor != nil {
+		return &flavor.Spec, nil
+	}
+
+	if clusterFlavor != nil {
+		return &clusterFlavor.Spec, nil
+	}
+
+	return nil, nil
 }
 
 func (m *methods) findFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavor, error) {
@@ -277,8 +297,7 @@ func applyMemory(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachine
 	}
 
 	if flavorSpec.Memory.Hugepages != nil {
-		flavorHugePages := flavorSpec.Memory.Hugepages.DeepCopy()
-		vmiSpec.Domain.Memory.Hugepages = flavorHugePages
+		vmiSpec.Domain.Memory.Hugepages = flavorSpec.Memory.Hugepages.DeepCopy()
 	}
 
 	return nil
@@ -360,23 +379,23 @@ func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefere
 	// 3. The user hasn't defined the corresponding attribute already within the VMI
 	//
 	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && *preferenceSpec.Devices.PreferredAutoattachGraphicsDevice && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && *preferenceSpec.Devices.PreferredAutoattachMemBalloon && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
-		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && *preferenceSpec.Devices.PreferredAutoattachPodInterface && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
-		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && *preferenceSpec.Devices.PreferredAutoattachSerialConsole && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
-		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && *preferenceSpec.Devices.PreferredUseVirtioTransitional && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
-		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.Bool(true)
 	}
 
 	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
@@ -393,11 +412,11 @@ func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefere
 	}
 
 	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && *preferenceSpec.Devices.PreferredBlockMultiQueue && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
-		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && *preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
-		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.BoolPtr(true)
+		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
 	}
 
 	if preferenceSpec.Devices.PreferredTPM != nil && vmiSpec.Domain.Devices.TPM == nil {
@@ -436,7 +455,7 @@ func applyDiskPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenc
 			}
 
 			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && *preferenceSpec.Devices.PreferredDiskDedicatedIoThread && vmiDisk.DedicatedIOThread == nil {
-				vmiDisk.DedicatedIOThread = pointer.BoolPtr(true)
+				vmiDisk.DedicatedIOThread = pointer.Bool(true)
 			}
 
 		} else if vmiDisk.DiskDevice.CDRom != nil {
