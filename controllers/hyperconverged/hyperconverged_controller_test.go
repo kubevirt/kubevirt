@@ -1956,18 +1956,12 @@ var _ = Describe("HyperconvergedController", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      operatorMetrics,
 								Namespace: namespace,
-								Labels: map[string]string{
-									hcoutil.AppLabel: expected.hco.Name,
-								},
 							},
 						},
 						&corev1.Service{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      webhookMetrics,
 								Namespace: namespace,
-								Labels: map[string]string{
-									hcoutil.AppLabel: expected.hco.Name,
-								},
 							},
 						},
 					}
@@ -2000,9 +1994,6 @@ var _ = Describe("HyperconvergedController", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      operatorMetrics,
 								Namespace: namespace,
-								Labels: map[string]string{
-									hcoutil.AppLabel: expected.hco.Name,
-								},
 							},
 						},
 					}

@@ -1304,7 +1304,7 @@ func (r ReconcileHyperConverged) removeOldMetricsObjs(req *common.HcoRequest) er
 	initOldMetricsObjects(req)
 
 	for name, object := range oldMetricsObjects {
-		removed, err := r.deleteObj(req, object, true)
+		removed, err := r.deleteObj(req, object, false)
 
 		if err != nil {
 			return err
