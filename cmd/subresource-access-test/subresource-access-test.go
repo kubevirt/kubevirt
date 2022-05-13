@@ -39,7 +39,7 @@ func main() {
 
 	resource = flag.Arg(0)
 
-	if resource == "version" {
+	if resource == "version" || resource == "guestfs" {
 		client, err := kubecli.GetKubevirtSubresourceClient()
 		if err != nil {
 			panic(err)

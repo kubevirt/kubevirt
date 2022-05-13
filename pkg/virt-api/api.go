@@ -1047,9 +1047,10 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 			return
 		}
 		response.WriteAsJson(kubecli.GuestfsInfo{
-			Registry: kv.Status.ObservedKubeVirtRegistry,
-			Tag:      kv.Status.ObservedKubeVirtVersion,
-			Digest:   kvConfig.GsSha,
+			Registry:    kv.Status.ObservedKubeVirtRegistry,
+			Tag:         kv.Status.ObservedKubeVirtVersion,
+			Digest:      kvConfig.GsSha,
+			ImagePrefix: kvConfig.GetImagePrefix(),
 		})
 		return
 	}
