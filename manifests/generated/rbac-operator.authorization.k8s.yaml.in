@@ -663,6 +663,7 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/migrate
   verbs:
   - update
 - apiGroups:
@@ -763,6 +764,7 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/migrate
   verbs:
   - update
 - apiGroups:
