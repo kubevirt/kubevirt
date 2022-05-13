@@ -85,6 +85,7 @@ const (
 	VmAlpineMultiPvc   = "vm-alpine-multipvc"
 	VmAlpineDataVolume = "vm-alpine-datavolume"
 	VMPriorityClass    = "vm-priorityclass"
+	VmCirrosSata       = "vm-cirros-sata"
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -726,6 +727,17 @@ func GetVMCirros() *v1.VirtualMachine {
 
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
 	addNoCloudDisk(&vm.Spec.Template.Spec)
+	return vm
+}
+
+func GetVMCirrosSata() *v1.VirtualMachine {
+	vm := getBaseVM(VmCirrosSata, map[string]string{
+		kubevirtIoVM: VmCirrosSata,
+	})
+
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusSATA)
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+	vm.Spec.Template.Spec.Domain.Devices = v1.Devices{}
 	return vm
 }
 
