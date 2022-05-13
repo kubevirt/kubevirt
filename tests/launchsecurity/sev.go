@@ -88,24 +88,33 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			checks.SkipTestIfNotSEVCapable()
 		})
 
-		It("should start a SEV VM", func() {
-			const secureBoot = false
-			vmi := libvmi.NewFedora(libvmi.WithUefi(secureBoot), libvmi.WithSEV())
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+		DescribeTable("should start a SEV or SEV-ES VM",
+			func(withES bool, sevstr string) {
+				if withES {
+					checks.SkipTestIfNotSEVESCapable()
+				}
+				const secureBoot = false
+				vmi := libvmi.NewFedora(libvmi.WithUefi(secureBoot), libvmi.WithSEV(withES))
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-			By("Expecting the VirtualMachineInstance console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+				By("Expecting the VirtualMachineInstance console")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-			By("Verifying that SEV is enabled in the guest")
-			err := console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
-				&expect.BExp{R: "AMD Memory Encryption Features active: SEV"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-			}, 30)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				By("Verifying that SEV is enabled in the guest")
+				err := console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
+					&expect.BExp{R: "AMD Memory Encryption Features active: " + sevstr},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+				}, 30)
+				Expect(err).ToNot(HaveOccurred())
+			},
+			// SEV-ES disabled, SEV enabled
+			Entry("It should launch with base SEV features enabled", false, "SEV"),
+			// SEV-ES enabled
+			Entry("It should launch with SEV-ES features enabled", true, "SEV SEV-ES"),
+		)
 	})
 })
