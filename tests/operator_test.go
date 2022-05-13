@@ -223,16 +223,16 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		}
 
 		sanityCheckDeploymentsDeleted = func() {
-
-			Eventually(func() error {
+			Eventually(func() int {
+				deploymentCount := 2
 				for _, deployment := range []string{"virt-api", "virt-controller"} {
 					_, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
-					if err != nil && !errors.IsNotFound(err) {
-						return err
+					if err != nil && errors.IsNotFound(err) {
+						deploymentCount--
 					}
 				}
-				return nil
-			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				return deploymentCount
+			}, 15*time.Second, 1*time.Second).Should(Equal(0))
 		}
 
 		allPodsAreTerminated = func(kv *v1.KubeVirt) {
@@ -243,8 +243,8 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 				}
 
 				for _, pod := range pods.Items {
-					managed, ok := pod.Labels[v1.ManagedByLabel]
-					if !ok || managed != v1.ManagedByLabelOperatorValue {
+					manager, managed := pod.Labels[v1.ManagedByLabel]
+					if !managed || manager != v1.ManagedByLabelOperatorValue {
 						continue
 					}
 
