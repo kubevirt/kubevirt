@@ -3216,20 +3216,6 @@ func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) 
 	return nil, nil
 }
 
-func ContainsCrt(bundle []byte, containedCrt []byte) bool {
-	crts, err := cert.ParseCertsPEM(bundle)
-	Expect(err).ToNot(HaveOccurred())
-	attached := false
-	for _, crt := range crts {
-		crtBytes := cert.EncodeCertPEM(crt)
-		if reflect.DeepEqual(crtBytes, containedCrt) {
-			attached = true
-			break
-		}
-	}
-	return attached
-}
-
 func FormatIPForURL(ip string) string {
 	if netutils.IsIPv6String(ip) {
 		return "[" + ip + "]"

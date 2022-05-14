@@ -49,6 +49,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -284,7 +285,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			var caBundle []byte
 			Eventually(func() bool {
 				caBundle, _ = tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
-				return tests.ContainsCrt(caBundle, newCA)
+				return containsCrt(caBundle, newCA)
 			}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
 
 			By("checking that the ca bundle gets propagated to the validating webhook")
@@ -292,7 +293,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				webhook, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if len(webhook.Webhooks) > 0 {
-					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
+					return containsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
 				}
 				return false
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
@@ -301,7 +302,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				webhook, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if len(webhook.Webhooks) > 0 {
-					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
+					return containsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
 				}
 				return false
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
@@ -310,7 +311,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			Eventually(func() bool {
 				apiService, err := aggregatorClient.ApiregistrationV1().APIServices().Get(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return tests.ContainsCrt(apiService.Spec.CABundle, newCA)
+				return containsCrt(apiService.Spec.CABundle, newCA)
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("checking that we can still start virtual machines and connect to the VMI")
@@ -1705,4 +1706,18 @@ func getHostnameFromMetrics(metrics *api.Metrics) string {
 	}
 	Fail("no hostname in metrics XML")
 	return ""
+}
+
+func containsCrt(bundle []byte, containedCrt []byte) bool {
+	crts, err := cert.ParseCertsPEM(bundle)
+	Expect(err).ToNot(HaveOccurred())
+	attached := false
+	for _, crt := range crts {
+		crtBytes := cert.EncodeCertPEM(crt)
+		if reflect.DeepEqual(crtBytes, containedCrt) {
+			attached = true
+			break
+		}
+	}
+	return attached
 }
