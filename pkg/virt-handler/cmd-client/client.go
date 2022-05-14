@@ -46,6 +46,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
@@ -91,6 +92,8 @@ type LauncherClient interface {
 	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
 	FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
+	SetVirtualMachineVCpus(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	SetVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
@@ -507,6 +510,14 @@ func (c *VirtLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMach
 
 func (c *VirtLauncherClient) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("HotplugHostDevices", c.v1client.HotplugHostDevices, vmi, &cmdv1.VirtualMachineOptions{})
+}
+
+func (c *VirtLauncherClient) SetVirtualMachineVCpus(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("SetVirtualMachineVCpus", c.v1client.SetVirtualMachineVCpus, vmi, options)
+}
+
+func (c *VirtLauncherClient) SetVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("SetVirtualMachineMemory", c.v1client.SetVirtualMachineMemory, vmi, options)
 }
 
 func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {

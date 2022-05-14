@@ -1183,6 +1183,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
+		Current:   vcpu.CalculateCurrentRequestedVCPUs(vmi, cpuCount),
 		CPUs:      cpuCount,
 	}
 

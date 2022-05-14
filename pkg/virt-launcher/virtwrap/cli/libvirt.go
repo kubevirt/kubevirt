@@ -32,6 +32,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -470,6 +471,8 @@ type VirDomain interface {
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	Reboot(flags libvirt.DomainRebootFlagValues) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
+	SetMemoryFlags(memory uint64, flags libvirt.DomainMemoryModFlags) error
+	SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)

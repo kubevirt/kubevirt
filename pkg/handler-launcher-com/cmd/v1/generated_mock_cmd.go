@@ -270,6 +270,38 @@ func (_mr *_MockCmdClientRecorder) HotplugHostDevices(arg0, arg1 interface{}, ar
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", _s...)
 }
 
+func (_m *MockCmdClient) SetVirtualMachineVCpus(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineVCpus", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) SetVirtualMachineVCpus(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineVCpus", _s...)
+}
+
+func (_m *MockCmdClient) SetVirtualMachineMemory(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineMemory", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) SetVirtualMachineMemory(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineMemory", _s...)
+}
+
 func (_m *MockCmdClient) GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
@@ -582,6 +614,28 @@ func (_m *MockCmdServer) HotplugHostDevices(_param0 context.Context, _param1 *VM
 
 func (_mr *_MockCmdServerRecorder) HotplugHostDevices(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", arg0, arg1)
+}
+
+func (_m *MockCmdServer) SetVirtualMachineVCpus(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineVCpus", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) SetVirtualMachineVCpus(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineVCpus", arg0, arg1)
+}
+
+func (_m *MockCmdServer) SetVirtualMachineMemory(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineMemory", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) SetVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineMemory", arg0, arg1)
 }
 
 func (_m *MockCmdServer) GetDomain(_param0 context.Context, _param1 *EmptyRequest) (*DomainResponse, error) {

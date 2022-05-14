@@ -247,6 +247,7 @@ type VCPUScheduler struct {
 
 type VCPU struct {
 	Placement string `xml:"placement,attr"`
+	Current   uint32 `xml:"current,attr"`
 	CPUs      uint32 `xml:",chardata"`
 }
 

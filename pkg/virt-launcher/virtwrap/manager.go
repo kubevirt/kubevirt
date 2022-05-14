@@ -119,7 +119,9 @@ type DomainManager interface {
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
-	InterfacesStatus() []api.InterfaceStatus
+	SetVMIvCPUs(*v1.VirtualMachineInstance, uint) error
+	SetVMIMemory(*v1.VirtualMachineInstance, uint64) error
+	InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
@@ -1463,6 +1465,52 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 	log.Log.Object(vmi).Info("Domain undefined.")
+	return nil
+}
+
+func (l *LibvirtDomainManager) SetVMIvCPUs(vmi *v1.VirtualMachineInstance, vCpus uint) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the domain does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
+			return err
+		}
+	}
+	defer dom.Free()
+
+	err = dom.SetVcpusFlags(vCpus, libvirt.DOMAIN_VCPU_CURRENT)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("SetVcpusFlags the domain failed.")
+		return err
+	}
+	log.Log.Object(vmi).Infof("Domain setvpus to %d.", vCpus)
+	return nil
+}
+
+func (l *LibvirtDomainManager) SetVMIMemory(vmi *v1.VirtualMachineInstance, memory uint64) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the domain does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
+			return err
+		}
+	}
+	defer dom.Free()
+
+	err = dom.SetMemoryFlags(memory, libvirt.DOMAIN_MEM_CURRENT)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("SetMemoryFlags the domain failed.")
+		return err
+	}
+	log.Log.Object(vmi).Infof("Domain setmem to %d.", memory)
 	return nil
 }
 

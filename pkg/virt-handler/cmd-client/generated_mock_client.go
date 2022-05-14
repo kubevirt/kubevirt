@@ -173,6 +173,26 @@ func (_mr *_MockLauncherClientRecorder) HotplugHostDevices(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "HotplugHostDevices", arg0)
 }
 
+func (_m *MockLauncherClient) SetVirtualMachineVCpus(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineVCpus", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SetVirtualMachineVCpus(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineVCpus", arg0, arg1)
+}
+
+func (_m *MockLauncherClient) SetVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineMemory", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SetVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineMemory", arg0, arg1)
+}
+
 func (_m *MockLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "DeleteDomain", vmi)
 	ret0, _ := ret[0].(error)

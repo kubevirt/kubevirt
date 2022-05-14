@@ -45,6 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -1176,6 +1177,36 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 	response.WriteHeader(http.StatusAccepted)
 }
 
+func (app *SubresourceAPIApp) setVCpuRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SetVCpusURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+func (app *SubresourceAPIApp) setMemoryRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SetMemoryURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
 func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
 	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
 	if statErr != nil {
@@ -1258,4 +1289,14 @@ func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Reques
 // VMIRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.removeVolumeRequestHandler(request, response, true)
+}
+
+// VMSetVCpusRequestHandler handles the subresource for set vcpu.
+func (app *SubresourceAPIApp) VMSetVCpusRequestHandler(request *restful.Request, response *restful.Response) {
+	app.setVCpuRequestHandler(request, response)
+}
+
+// VMSetMemoryRequestHandler handles the subresource for set memory.
+func (app *SubresourceAPIApp) VMSetMemoryRequestHandler(request *restful.Request, response *restful.Response) {
+	app.setMemoryRequestHandler(request, response)
 }

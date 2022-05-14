@@ -11,6 +11,7 @@ import (
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v10 "k8s.io/api/autoscaling/v1"
 	clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -1072,6 +1073,26 @@ func (_m *MockVirtualMachineInstanceInterface) SoftReboot(name string) error {
 
 func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SoftReboot(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SoftReboot", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) SetVCpus(name string, vCpus uint32) error {
+	ret := _m.ctrl.Call(_m, "SetVCpus", name, vCpus)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SetVCpus(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVCpus", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) SetMemory(name string, memory *resource.Quantity) error {
+	ret := _m.ctrl.Call(_m, "SetMemory", name, memory)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SetMemory(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetMemory", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) GuestOsInfo(name string) (v119.VirtualMachineInstanceGuestAgentInfo, error) {

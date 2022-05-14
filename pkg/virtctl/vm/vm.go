@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -48,8 +49,12 @@ const (
 	COMMAND_FSLIST         = "fslist"
 	COMMAND_ADDVOLUME      = "addvolume"
 	COMMAND_REMOVEVOLUME   = "removevolume"
+	COMMAND_SETVCPUS       = "setvcpus"
+	COMMAND_SETMEM         = "setmem"
 
 	volumeNameArg         = "volume-name"
+	vcpusArg              = "vcpus"
+	memArg                = "mem"
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
@@ -65,6 +70,8 @@ var (
 	forceRestart bool
 	gracePeriod  int64
 	volumeName   string
+	vcpus        uint
+	mem          string
 	serial       string
 	persist      bool
 	startPaused  bool
@@ -241,6 +248,42 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	return cmd
 }
 
+func NewSetVCpusCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "setvcpus VMI",
+		Short:   "set vcpus for a running VM",
+		Example: usageSetVCpus(),
+		Args:    templates.ExactArgs("setvcpus", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_SETVCPUS, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().UintVar(&vcpus, vcpusArg, 1, "expand vcpus of vm spec")
+	cmd.MarkFlagRequired(vcpusArg)
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
+	return cmd
+}
+
+func NewSetMemoryCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "setmem VMI",
+		Short:   "set memory for a running VM",
+		Example: usageSetMemory(),
+		Args:    templates.ExactArgs("setmem", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_SETMEM, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&mem, memArg, "", "expand or reduce memory of vm spec")
+	cmd.MarkFlagRequired(memArg)
+	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
+	return cmd
+}
+
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
 	//Check if data volume exists.
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
@@ -304,6 +347,20 @@ func usageRemoveVolume() string {
 
   #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
   {{ProgramName}} removevolume fedora-dv --volume-name=example-dv --persist
+  `
+	return usage
+}
+
+func usageSetVCpus() string {
+	usage := `  #setvcpus that was dynamically expand vcpus for a running VM.
+  {{ProgramName}} setvcpus example-vm --vcpus=16
+  `
+	return usage
+}
+
+func usageSetMemory() string {
+	usage := `  #setmem that was dynamically expand or reduce for a running VM.
+  {{ProgramName}} setmem example-vm --mem=8
   `
 	return usage
 }
@@ -512,6 +569,24 @@ func (o *Command) Run(args []string) error {
 		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_REMOVEVOLUME:
 		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
+	case COMMAND_SETVCPUS:
+		err = virtClient.VirtualMachineInstance(namespace).SetVCpus(vmiName, uint32(vcpus))
+		if err != nil {
+			return fmt.Errorf("error setvcpus, %v", err)
+		}
+		fmt.Printf("Successfully submitted setvcpus request to VMI %s for vcpus %d\n", vmiName, vcpus)
+		return nil
+	case COMMAND_SETMEM:
+		quantity, err := resource.ParseQuantity(mem)
+		if err != nil {
+			return fmt.Errorf("error setmem, %v", err)
+		}
+		err = virtClient.VirtualMachineInstance(namespace).SetMemory(vmiName, &quantity)
+		if err != nil {
+			return fmt.Errorf("error setmem, %v", err)
+		}
+		fmt.Printf("Successfully submitted setvcpus request to VMI %s for vcpus %d\n", vmiName, vcpus)
+		return nil
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)

@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
@@ -458,6 +459,26 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("setvcpus")).
+			To(subresourceApp.VMSetVCpusRequestHandler).
+			Reads(v1.SetVCpusOptions{}).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation(version.Version+"vmi-setvpus").
+			Doc("Set vcpus for a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
+		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("setmem")).
+			To(subresourceApp.VMSetMemoryRequestHandler).
+			Reads(v1.SetMemoryOptions{}).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation(version.Version+"vmi-setmem").
+			Doc("Set memory for a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -538,6 +559,14 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/removevolume",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/setvcpus",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/setmem",
 						Namespaced: true,
 					},
 				}

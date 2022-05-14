@@ -607,6 +607,22 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SetVCpusOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "SetVCpusOptions may be provided when setvcpus an API object.",
+		"vCpus":  "this updates the VMIs vcpu during running\n+optional",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (SetMemoryOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "SetMemoryOptions may be provided when set memory an API object.",
+		"memory": "this updates the VMIs memory during running\n+optional",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
 func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",

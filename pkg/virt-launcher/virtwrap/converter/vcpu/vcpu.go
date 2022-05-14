@@ -26,6 +26,18 @@ func CalculateRequestedVCPUs(cpuTopology *api.CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
 }
 
+func CalculateCurrentRequestedVCPUs(vmi *v12.VirtualMachineInstance, cpuCount uint32) uint32 {
+	var current uint32 = 1
+	resources := vmi.Spec.Domain.Resources
+	if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+		current = uint32(cpuRequests.Value())
+	}
+	if current > cpuCount {
+		current = 1
+	}
+	return current
+}
+
 type cell struct {
 	fullCoresList       [][]uint32
 	fragmentedCoresList []uint32

@@ -140,6 +140,24 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should set a vmi vcpus", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().SetVMIvCPUs(vmi, gomock.Any())
+			err := client.SetVirtualMachineVCpus(vmi, &cmdv1.VirtualMachineOptions{
+				VCpus: 1,
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set a vmi mem", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().SetVMIvCPUs(vmi, gomock.Any())
+			err := client.SetVirtualMachineVCpus(vmi, &cmdv1.VirtualMachineOptions{
+				Memory: 1,
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should list domains when no guest agent info exists", func() {
 			var list []*api.Domain
 			list = append(list, api.NewMinimalDomain("testvmi1"))

@@ -2025,6 +2025,40 @@ type RemoveVolumeOptions struct {
 	DryRun []string `json:"dryRun,omitempty"`
 }
 
+// SetVCpusOptions may be provided when setvcpus an API object.
+type SetVCpusOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// this updates the VMIs vcpu during running
+	// +optional
+	VCpus *uint32 `json:"vCpus,omitempty" protobuf:"varint,1,opt,name=vCpus"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,2,rep,name=dryRun"`
+}
+
+// SetMemoryOptions may be provided when set memory an API object.
+type SetMemoryOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// this updates the VMIs memory during running
+	// +optional
+	Memory *resource.Quantity `json:"memory,omitempty" protobuf:"varint,1,opt,name=memory"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,2,rep,name=dryRun"`
+}
+
 type TokenBucketRateLimiter struct {
 	// QPS indicates the maximum QPS to the apiserver from this client.
 	// If it's zero, the component default will be used

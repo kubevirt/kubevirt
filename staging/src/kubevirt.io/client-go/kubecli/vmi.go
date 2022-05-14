@@ -21,7 +21,6 @@ package kubecli
 
 import (
 	"context"
-
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -468,6 +468,38 @@ func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOpt
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
+
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+}
+
+func (v *vmis) SetVCpus(name string, vCpus uint32) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "setvcpus")
+
+	vCpusOptions := &v1.SetVCpusOptions{
+		VCpus: &vCpus,
+	}
+
+	JSON, err := json.Marshal(vCpusOptions)
+
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+}
+
+func (v *vmis) SetMemory(name string, memory *resource.Quantity) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "setmem")
+
+	memoryOptions := &v1.SetMemoryOptions{
+		Memory: memory,
+	}
+
+	JSON, err := json.Marshal(memoryOptions)
 
 	if err != nil {
 		return err

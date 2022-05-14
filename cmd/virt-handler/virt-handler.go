@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -498,6 +499,8 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze").To(lifecycleHandler.FreezeHandler).Reads(v1.FreezeUnfreezeTimeout{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze").To(lifecycleHandler.UnfreezeHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot").To(lifecycleHandler.SoftRebootHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/setvcpus").To(lifecycleHandler.SetVCpusHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/setmem").To(lifecycleHandler.SetMemoryHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo").To(lifecycleHandler.GetGuestInfo).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/userlist").To(lifecycleHandler.GetUsers).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestOSUserList{}))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist").To(lifecycleHandler.GetFilesystems).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))

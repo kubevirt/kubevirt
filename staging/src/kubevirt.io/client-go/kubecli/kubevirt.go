@@ -37,6 +37,7 @@ import (
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -210,6 +211,8 @@ type VirtualMachineInstanceInterface interface {
 	Freeze(name string, unfreezeTimeout time.Duration) error
 	Unfreeze(name string) error
 	SoftReboot(name string) error
+	SetVCpus(name string, vCpus uint32) error
+	SetMemory(name string, memory *resource.Quantity) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)

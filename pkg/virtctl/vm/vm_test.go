@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -227,6 +228,35 @@ var _ = Describe("VirtualMachine", func() {
 			errstr := fmt.Sprintf("Found no migration to cancel for %s", vm.Name)
 			Expect(res.Error()).To(ContainSubstring(errstr))
 		})
+	})
+
+	Context("with setcpus and setmem VM cmd", func() {
+		DescribeTable("should setvcpu a vmi according to options", func(vcpus uint32) {
+			vm := kubecli.NewMinimalVM(vmName)
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
+			vmiInterface.EXPECT().SetVCpus(vm.Name, vcpus).Return(nil).Times(1)
+
+			var cmd *cobra.Command
+			cmd = clientcmd.NewVirtctlCommand("setvcpus", vmName, "--vcpus=16")
+			Expect(cmd.Execute()).To(BeNil())
+		},
+			Entry("with default", uint32(16)),
+		)
+
+		DescribeTable("should setmem a vmi according to options", func(memory string) {
+			vm := kubecli.NewMinimalVM(vmName)
+
+			q := resource.MustParse(memory)
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
+			vmiInterface.EXPECT().SetMemory(vm.Name, &q).Return(nil).Times(1)
+
+			var cmd *cobra.Command
+			cmd = clientcmd.NewVirtctlCommand("setmem", vmName, "--mem=16Gi")
+			Expect(cmd.Execute()).To(BeNil())
+		},
+			Entry("with default", "16Gi"),
+		)
 	})
 
 	Context("with restart VM cmd", func() {

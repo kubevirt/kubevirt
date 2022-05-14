@@ -29,6 +29,8 @@ const (
 	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
 	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
 	softRebootTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
+	setVCpusTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/setvcpus"
+	setMemTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/setmem"
 	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
 	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
@@ -58,6 +60,8 @@ type VirtHandlerConn interface {
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	SetVCpusURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	SetMemoryURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, tlsConfig *tls.Config, body io.ReadCloser) error
 	Get(url string, tlsConfig *tls.Config) (string, error)
@@ -190,6 +194,24 @@ func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, 
 
 func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(unpauseTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) SetVCpusURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf(setVCpusTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func (v *virtHandlerConn) SetMemoryURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf(setMemTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {

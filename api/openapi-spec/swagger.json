@@ -9187,6 +9187,63 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/setmem": {
+    "put": {
+     "description": "Set memory for a running Virtual Machine.",
+     "operationId": "v1vmi-setmem",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SetMemoryOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
@@ -9687,6 +9744,63 @@
        "in": "body",
        "schema": {
         "$ref": "#/definitions/v1.RestartOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/setvcpus": {
+    "put": {
+     "description": "Set vcpus for a running Virtual Machine.",
+     "operationId": "v1vmi-setvpus",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SetVCpusOptions"
        }
       }
      ],
@@ -10363,6 +10477,63 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/setmem": {
+    "put": {
+     "description": "Set memory for a running Virtual Machine.",
+     "operationId": "v1alpha3vmi-setmem",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SetMemoryOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
@@ -10863,6 +11034,63 @@
        "in": "body",
        "schema": {
         "$ref": "#/definitions/v1.RestartOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/setvcpus": {
+    "put": {
+     "description": "Set vcpus for a running Virtual Machine.",
+     "operationId": "v1alpha3vmi-setvpus",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SetVCpusOptions"
        }
       }
      ],
@@ -14836,6 +15064,59 @@
      "serviceAccountName": {
       "description": "Name of the service account in the pod's namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
       "type": "string"
+     }
+    }
+   },
+   "v1.SetMemoryOptions": {
+    "description": "SetMemoryOptions may be provided when set memory an API object.",
+    "type": "object",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "memory": {
+      "description": "this updates the VMIs memory during running",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     }
+    }
+   },
+   "v1.SetVCpusOptions": {
+    "description": "SetVCpusOptions may be provided when setvcpus an API object.",
+    "type": "object",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "vCpus": {
+      "description": "this updates the VMIs vcpu during running",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },

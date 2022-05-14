@@ -32,6 +32,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -158,6 +160,125 @@ func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response
 	}
 
 	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "SoftRebooted", "VirtualMachineInstance soft rebooted")
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) SetVCpusHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+
+	opts := &v12.SetVCpusOptions{}
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("No core number in setvcpus request")
+		response.WriteError(code, fmt.Errorf("failed to retrieve setvcpus core number"))
+		return
+	}
+
+	defer request.Request.Body.Close()
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to unmarshal core number in setvcpus request")
+		response.WriteError(code, fmt.Errorf("failed to unmarshal setvcpus core number"))
+		return
+	}
+
+	if *opts.VCpus == 0 {
+		log.Log.Object(vmi).Reason(err).Error("Setvcpus number of cpu core in setvcpus request is not set")
+		response.WriteError(code, fmt.Errorf("Setvcpus number of cpu core in setvcpus request is not set"))
+		return
+	}
+
+	sockFile, err := cmdclient.FindSocketOnHost(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	err = client.SetVirtualMachineVCpus(vmi, &cmdv1.VirtualMachineOptions{VCpus: uint32(*opts.VCpus)})
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to setvcpus VMI")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "setvcpus", "VirtualMachineInstance setvcpus")
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) SetMemoryHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+
+	opts := &v12.SetMemoryOptions{}
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("No memory value in setmem request")
+		response.WriteError(code, fmt.Errorf("failed to retrieve setmem memory value"))
+		return
+	}
+
+	defer request.Request.Body.Close()
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to unmarshal memory value in setmem request")
+		response.WriteError(code, fmt.Errorf("failed to unmarshal memory memory value"))
+		return
+	}
+
+	if opts.Memory == nil {
+		log.Log.Object(vmi).Reason(err).Error("Setmem memory value in setmem request is not set")
+		response.WriteError(code, fmt.Errorf("Setmem memory value in setmem request is not set"))
+		return
+	}
+
+	mem, ok := opts.Memory.AsInt64()
+	if !ok {
+		log.Log.Object(vmi).Reason(err).Error("Setmem memory value in setmem request is not valid")
+		response.WriteError(code, fmt.Errorf("Setmem memory value in setmem request is not valid"))
+		return
+	}
+
+	sockFile, err := cmdclient.FindSocketOnHost(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	err = client.SetVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{Memory: uint64(mem)})
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to setmem VMI")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "setmem", "VirtualMachineInstance setmem")
 	response.WriteHeader(http.StatusAccepted)
 }
 

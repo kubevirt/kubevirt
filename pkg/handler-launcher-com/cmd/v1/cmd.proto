@@ -19,6 +19,8 @@ service Cmd {
   rpc SignalTargetPodCleanup(VMIRequest) returns (Response) {}
   rpc FinalizeVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc HotplugHostDevices(VMIRequest) returns (Response) {}
+  rpc SetVirtualMachineVCpus(VMIRequest) returns (Response) {}
+  rpc SetVirtualMachineMemory(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
   rpc GetGuestInfo(EmptyRequest) returns (GuestInfoResponse) {}
@@ -88,6 +90,8 @@ message VirtualMachineOptions {
   Topology topology = 4;
   map<string, DiskInfo> DisksInfo = 5;
   bool ExpandDisksEnabled = 6;
+  uint32 VCpus = 7;
+  uint64 Memory = 8;
 }
 
 message VMIRequest {

@@ -425,6 +425,26 @@ func (_mr *_MockVirDomainRecorder) UndefineFlags(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UndefineFlags", arg0)
 }
 
+func (_m *MockVirDomain) SetMemoryFlags(memory uint64, flags libvirt.DomainMemoryModFlags) error {
+	ret := _m.ctrl.Call(_m, "SetMemoryFlags", memory, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) SetMemoryFlags(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetMemoryFlags", arg0, arg1)
+}
+
+func (_m *MockVirDomain) SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error {
+	ret := _m.ctrl.Call(_m, "SetVcpusFlags", vcpu, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) SetVcpusFlags(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVcpusFlags", arg0, arg1)
+}
+
 func (_m *MockVirDomain) GetName() (string, error) {
 	ret := _m.ctrl.Call(_m, "GetName")
 	ret0, _ := ret[0].(string)

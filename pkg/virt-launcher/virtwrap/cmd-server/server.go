@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -363,6 +364,48 @@ func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIReque
 	return response, nil
 }
 
+func (l *Launcher) SetVirtualMachineVCpus(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if request.Options == nil || request.Options.VCpus == 0 {
+		return nil, fmt.Errorf("set vm vcpus options object not present in command server request")
+	}
+
+	if err := l.domainManager.SetVMIvCPUs(vmi, uint(request.Options.VCpus)); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("failed to set vmi vcpus")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("vmi set vcpus successfully")
+	return response, nil
+}
+
+func (l *Launcher) SetVirtualMachineMemory(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if request.Options == nil || request.Options.Memory == 0 {
+		return nil, fmt.Errorf("set vm mem options object not present in command server request")
+	}
+
+	if err := l.domainManager.SetVMIMemory(vmi, request.Options.Memory); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("failed to set vmi memory")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("vmi set memory successfully")
+	return response, nil
+}
+
 func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
 
 	response := &cmdv1.DomainResponse{
@@ -383,7 +426,7 @@ func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.D
 		if osInfo := l.domainManager.GetGuestOSInfo(); osInfo != nil {
 			domainObj.Status.OSInfo = *osInfo
 		}
-		if interfaces := l.domainManager.InterfacesStatus(); interfaces != nil {
+		if interfaces := l.domainManager.InterfacesStatus(domainObj.Spec.Devices.Interfaces); interfaces != nil {
 			domainObj.Status.Interfaces = interfaces
 		}
 		if domain, err := json.Marshal(domainObj); err != nil {

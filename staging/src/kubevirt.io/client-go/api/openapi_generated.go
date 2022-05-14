@@ -431,6 +431,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialSource":                                 schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref),
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                 schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                         schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
+		"kubevirt.io/api/core/v1.SetMemoryOptions":                                                   schema_kubevirtio_api_core_v1_SetMemoryOptions(ref),
+		"kubevirt.io/api/core/v1.SetVCpusOptions":                                                    schema_kubevirtio_api_core_v1_SetVCpusOptions(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                        schema_kubevirtio_api_core_v1_SoundDevice(ref),
 		"kubevirt.io/api/core/v1.StartOptions":                                                       schema_kubevirtio_api_core_v1_StartOptions(ref),
 		"kubevirt.io/api/core/v1.StopOptions":                                                        schema_kubevirtio_api_core_v1_StopOptions(ref),
@@ -19186,6 +19188,113 @@ func schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref common.Referen
 							Description: "Name of the service account in the pod's namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SetMemoryOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SetMemoryOptions may be provided when set memory an API object.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "this updates the VMIs memory during running",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SetVCpusOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SetVCpusOptions may be provided when setvcpus an API object.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vCpus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "this updates the VMIs vcpu during running",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
