@@ -24,7 +24,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -3810,13 +3809,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("ensuring the target cpuset is different from the source")
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+			Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 			cpuSetTarget := getVirtLauncherCPUSet(vmi)
-			Expect(reflect.DeepEqual(cpuSetSource, cpuSetTarget)).To(BeFalse(), "source CPUSet %v should be != than target CPUSet %v", cpuSetSource, cpuSetTarget)
+			Expect(cpuSetSource).NotTo(Equal(cpuSetTarget), "CPUSet of source launcher should not match targets one")
 
 			By("ensuring the libvirt domain cpuset is equal to the virt-launcher pod cpuset")
 			cpuSetTargetLibvirt := getLibvirtDomainCPUSet(vmi)
-			Expect(reflect.DeepEqual(cpuSetTargetLibvirt, cpuSetTarget)).To(BeTrue())
+			Expect(cpuSetTargetLibvirt).To(Equal(cpuSetTarget))
 
 			By("deleting the last paused pod")
 			err = virtClient.CoreV1().Pods(pausedPod.Namespace).Delete(context.Background(), pausedPod.Name, metav1.DeleteOptions{})
