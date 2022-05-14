@@ -21,10 +21,6 @@ for ARCH in ${ARCHITECTURES}; do
         sonobuoy_arch="amd64"
         bazel_arch="x86_64"
         ;;
-    arm64)
-        sonobuoy_arch="arm64"
-        bazel_arch="arm64"
-        ;;
     *)
         sonobuoy_arch=${ARCH}
         bazel_arch=${ARCH}
@@ -32,5 +28,4 @@ for ARCH in ${ARCHITECTURES}; do
     esac
     ${KUBEVIRT_CRI} pull --platform="linux/${ARCH}" quay.io/centos/centos:stream8
     ${KUBEVIRT_CRI} build --platform="linux/${ARCH}" -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
-    TMP_IMAGES="${TMP_IMAGES} quay.io/kubevirt/builder:${VERSION}-${ARCH}"
 done

@@ -3,21 +3,24 @@ FROM quay.io/centos/centos:stream8
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
-ENV BAZEL_VERSION 4.2.1
+ENV BAZEL_VERSION=4.2.1
+ENV GIMME_GO_VERSION=1.17.8
+ENV GRADLE_VERSION=6.6
+ENV OPERATOR_COURIER_VERSION=2.1.11
+ENV SONOBUOY_VERSION=0.19.0
 
-ENV KUBEVIRT_CREATE_BAZELRCS false
+ENV KUBEVIRT_CREATE_BAZELRCS=false
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable powertools && \
-    dnf -y install \
+    dnf install -y --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
         libvirt-devel \
         cpio \
         patch \
         make \
         git \
-        mercurial \
         sudo \
         gcc \
         gcc-c++ \
@@ -37,7 +40,7 @@ RUN dnf install -y dnf-plugins-core && \
         wget \
         rubygems \
         diffutils && \
-    dnf -y clean all
+    dnf clean -y all
 
 # Avoids the need to install sssd-client by disabling lookups
 COPY nsswitch.conf /etc/nsswitch.conf
@@ -52,14 +55,13 @@ RUN gem install asciidoctor
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # install gradle (required for swagger)
-RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
+RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
     mkdir /opt/gradle && \
-    unzip -d /opt/gradle gradle-6.6-bin.zip
+    unzip -d /opt/gradle gradle-${GRADLE_VERSION}-bin.zip && \
+    rm gradle-${GRADLE_VERSION}-bin.zip
 
-ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
+ENV PATH=$PATH:/opt/gradle/gradle-${GRADLE_VERSION}/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
-
-ENV GIMME_GO_VERSION=1.17.8
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
@@ -106,14 +108,14 @@ RUN set -x && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
 
-RUN pip3 install --upgrade operator-courier==2.1.11
+RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 
-ENV SONOBUOY_VERSION=0.19.0
 RUN set -x && \
     wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     chmod +x sonobuoy && \
-    mv sonobuoy /usr/bin
+    mv sonobuoy /usr/bin && \
+    rm sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz
 
 COPY rsyncd.conf /etc/rsyncd.conf
 
@@ -121,6 +123,7 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && chmod u+x /usr/bin/bazel
+RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
+    chmod u+x /usr/bin/bazel
 
 ENTRYPOINT [ "/entrypoint.sh" ]
