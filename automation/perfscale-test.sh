@@ -25,6 +25,7 @@ _prometheus_port_forward_pid=""
 trap "clean_up" EXIT SIGINT SIGTERM SIGQUIT
 clean_up() {
   kill -9 $_prometheus_port_forward_pid 2> /dev/null | exit 0
+  make cluster-clean
 }
 
 echo "Nodes are ready:"
