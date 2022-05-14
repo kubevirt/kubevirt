@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util/nodes"
+
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -120,25 +122,31 @@ func GetNodeDrainKey() string {
 	return virtconfig.NodeDrainTaintDefaultKey
 }
 
-func AddLabelToNode(nodeName string, key string, value string) {
+func addLabelAnnotationHelper(nodeName, key, value string, isLabel bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+
+	origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	old, err := json.Marshal(node)
-	Expect(err).ToNot(HaveOccurred())
-	new := node.DeepCopy()
-	new.Labels[key] = value
+	newNode := origNode.DeepCopy()
+	if isLabel {
+		newNode.Labels[key] = value
+	} else {
+		newNode.Annotations[key] = value
+	}
 
-	newJson, err := json.Marshal(new)
-	Expect(err).ToNot(HaveOccurred())
+	// This is done in an inefficient way since we can patch only labels/annotations here.
+	err = nodes.PatchNode(virtCli, origNode, newNode)
+	Expect(err).ShouldNot(HaveOccurred())
+}
 
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
-	Expect(err).ToNot(HaveOccurred())
+func AddLabelToNode(nodeName, key, value string) {
+	addLabelAnnotationHelper(nodeName, key, value, true)
+}
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, k8smetav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
+func AddAnnotationToNode(nodeName, key, value string) {
+	addLabelAnnotationHelper(nodeName, key, value, false)
 }
 
 func RemoveLabelFromNode(nodeName string, key string) {

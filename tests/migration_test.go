@@ -3972,13 +3972,15 @@ func temporaryTLSConfig() *tls.Config {
 func disableNodeLabeller(node *k8sv1.Node, virtClient kubecli.KubevirtClient) *k8sv1.Node {
 	var err error
 
-	node.Annotations[v1.LabellerSkipNodeAnnotation] = "true"
+	By(fmt.Sprintf("Patching node to %s include %s label", node.Name, v1.LabellerSkipNodeAnnotation))
+	key, value := v1.LabellerSkipNodeAnnotation, "true"
+	libnode.AddAnnotationToNode(node.Name, key, value)
 
-	node, err = virtClient.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
-	Expect(err).ShouldNot(HaveOccurred())
-
+	By(fmt.Sprintf("Expecting node %s to include %s label", node.Name, v1.LabellerSkipNodeAnnotation))
 	Eventually(func() bool {
 		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+
 		value, ok := node.Annotations[v1.LabellerSkipNodeAnnotation]
 		return ok && value == "true"
 	}, 30*time.Second, time.Second).Should(BeTrue())

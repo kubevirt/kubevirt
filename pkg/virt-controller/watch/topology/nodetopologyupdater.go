@@ -3,16 +3,13 @@ package topology
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
+	nodeutils "kubevirt.io/kubevirt/pkg/util/nodes"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -63,7 +60,7 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 			continue
 		}
 		if !equality.Semantic.DeepEqual(node.Labels, nodeCopy.Labels) {
-			if err := patchNode(n.client, node, nodeCopy); err != nil {
+			if err := nodeutils.PatchNode(n.client, node, nodeCopy); err != nil {
 				stats.error++
 				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")
 				continue
@@ -74,25 +71,6 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 		}
 	}
 	return stats
-}
-
-func patchNode(client kubecli.KubevirtClient, original *v1.Node, modified *v1.Node) error {
-	originalBytes, err := json.Marshal(original)
-	if err != nil {
-		return fmt.Errorf("could not serialize original object: %v", err)
-	}
-	modifiedBytes, err := json.Marshal(modified)
-	if err != nil {
-		return fmt.Errorf("could not serialize modified object: %v", err)
-	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(originalBytes, modifiedBytes, v1.Node{})
-	if err != nil {
-		return fmt.Errorf("could not create merge patch: %v", err)
-	}
-	if _, err := client.CoreV1().Nodes().Patch(context.Background(), original.Name, types.StrategicMergePatchType, patch, v12.PatchOptions{}); err != nil {
-		return fmt.Errorf("could not patch the node: %v", err)
-	}
-	return nil
 }
 
 func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (modified *v1.Node, err error) {
