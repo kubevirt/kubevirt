@@ -226,6 +226,49 @@ tests:
               severity: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+   # All virt controllers are not ready (ImagePullBackOff)
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtController
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtController
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-controller was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
+            exp_labels:
+              severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # All virt operators are not ready (ImagePullBackOff)
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
 
   # All virt operators are not ready
   - interval: 1m
