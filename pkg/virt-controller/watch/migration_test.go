@@ -1323,7 +1323,7 @@ var _ = Describe("Migration watcher", func() {
 			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
 				podHasCpuModeLabelSelector := false
 				for key, _ := range pod.Spec.NodeSelector {
-					if strings.Contains(key, virtv1.HostModelCPULabel) {
+					if strings.Contains(key, virtv1.CPUModelLabel) {
 						podHasCpuModeLabelSelector = true
 						break
 					}
