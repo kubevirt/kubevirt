@@ -3641,6 +3641,22 @@ rpm(
 )
 
 rpm(
+    name = "passt.aarch64",
+    sha256 = "8d81ae6f30410ce937ac303732c23d7e6bed2a84d55a8f1d6c9398a3987ff878",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-8-aarch64/04651975-passt/passt-0.git.2022_07_20.9af2e5d-0.el8.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "passt.x86_64",
+    sha256 = "39a0043199e0d2bb6c1f6bdac77c331d71def4d5c57275e7419f5dfbbd7a02cd",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-8-x86_64/04651975-passt/passt-0.git.2022_07_20.9af2e5d-0.el8.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "pcre-0__8.42-6.el8.aarch64",
     sha256 = "5591faa4f51dc97067292938883b771d75ec2b3a749ec956eddc0408e689c369",
     urls = [

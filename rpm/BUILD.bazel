@@ -781,6 +781,8 @@ rpmtree(
         "@p11-kit-0__0.23.22-1.el8.x86_64//rpm",
         "@p11-kit-trust-0__0.23.22-1.el8.x86_64//rpm",
         "@pam-0__1.3.1-21.el8.x86_64//rpm",
+        "@passt.x86_64//rpm",
+        "@passt.aarch64//rpm",
         "@pcre-0__8.42-6.el8.x86_64//rpm",
         "@pcre2-0__10.32-3.el8.x86_64//rpm",
         "@pixman-0__0.38.4-2.el8.x86_64//rpm",
