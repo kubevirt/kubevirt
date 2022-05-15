@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     name: Update Components Graph
+    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repository
