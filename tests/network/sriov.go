@@ -171,10 +171,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//
 			// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
 			// ability of VMIs to send and receive ICMP packets on their ports.
-			mac1, err := tests.GenerateRandomMac()
+			mac1, err := GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 
-			mac2, err := tests.GenerateRandomMac()
+			mac2, err := GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 
 			// start peer machines with sriov interfaces from the same resource pool

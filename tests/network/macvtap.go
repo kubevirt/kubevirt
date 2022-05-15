@@ -143,7 +143,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			nodeList = libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
-			chosenMACHW, err := tests.GenerateRandomMac()
+			chosenMACHW, err := GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			chosenMAC = chosenMACHW.String()
 			serverCIDR := "192.0.2.102/24"
@@ -178,7 +178,7 @@ var _ = SIGDescribe("Macvtap", func() {
 		})
 
 		BeforeEach(func() {
-			macAddressHW, err := tests.GenerateRandomMac()
+			macAddressHW, err := GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			macAddress := macAddressHW.String()
 			clientVMI, err = createAlpineVMIRandomNode(macvtapNetworkName, macAddress)
@@ -240,7 +240,7 @@ var _ = SIGDescribe("Macvtap", func() {
 			}
 
 			BeforeEach(func() {
-				macAddressHW, err := tests.GenerateRandomMac()
+				macAddressHW, err := GenerateRandomMac()
 				Expect(err).ToNot(HaveOccurred())
 				macAddress := macAddressHW.String()
 

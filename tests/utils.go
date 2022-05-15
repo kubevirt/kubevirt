@@ -3063,16 +3063,6 @@ func RetryIfModified(do func() error) (err error) {
 	return err
 }
 
-func GenerateRandomMac() (net.HardwareAddr, error) {
-	prefix := net.HardwareAddr{0x02, 0x00, 0x00} // local unicast prefix
-	suffix := make(net.HardwareAddr, 3)
-	_, err := cryptorand.Read(suffix)
-	if err != nil {
-		return nil, err
-	}
-	return append(prefix, suffix...), nil
-}
-
 func getCert(pod *k8sv1.Pod, port string) []byte {
 	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	var rawCert []byte
