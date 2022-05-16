@@ -31,7 +31,6 @@ import (
 // that can be used by multiple VirtualMachine resources.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 // +genclient
 type VirtualMachineFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -44,7 +43,6 @@ type VirtualMachineFlavor struct {
 // VirtualMachineFlavorList is a list of VirtualMachineFlavor resources.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineFlavorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -54,7 +52,6 @@ type VirtualMachineFlavorList struct {
 // VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 // +genclient
 // +genclient:nonNamespaced
 type VirtualMachineClusterFlavor struct {
@@ -68,7 +65,6 @@ type VirtualMachineClusterFlavor struct {
 // VirtualMachineClusterFlavorList is a list of VirtualMachineClusterFlavor resources.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineClusterFlavorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -78,8 +74,6 @@ type VirtualMachineClusterFlavorList struct {
 // VirtualMachineFlavorSpec is a description of the VirtualMachineFlavor or VirtualMachineClusterFlavor.
 //
 // CPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each flavor.
-//
-// +k8s:openapi-gen=true
 type VirtualMachineFlavorSpec struct {
 
 	// Required CPU related attributes of the flavor.
@@ -114,8 +108,6 @@ type VirtualMachineFlavorSpec struct {
 // CPUFlavor contains the CPU related configuration of a given VirtualMachineFlavorSpec.
 //
 // Guest is a required attribute and defines the number of vCPUs to be exposed to the guest by the flavor.
-//
-// +k8s:openapi-gen=true
 type CPUFlavor struct {
 
 	// Required number of vCPUs to expose to the guest.
@@ -153,8 +145,6 @@ type CPUFlavor struct {
 // MemoryFlavor contains the Memory related configuration of a given VirtualMachineFlavorSpec.
 //
 // Guest is a required attribute and defines the amount of RAM to be exposed to the guest by the flavor.
-//
-// +k8s:openapi-gen=true
 type MemoryFlavor struct {
 
 	// Required amount of memory which is visible inside the guest OS.
@@ -168,7 +158,6 @@ type MemoryFlavor struct {
 // VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 // +genclient
 type VirtualMachinePreference struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -181,7 +170,6 @@ type VirtualMachinePreference struct {
 // VirtualMachinePreferenceList is a list of VirtualMachinePreference resources.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachinePreferenceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -192,7 +180,6 @@ type VirtualMachinePreferenceList struct {
 // VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 // +genclient
 // +genclient:nonNamespaced
 type VirtualMachineClusterPreference struct {
@@ -206,7 +193,6 @@ type VirtualMachineClusterPreference struct {
 // VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineClusterPreferenceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -215,8 +201,6 @@ type VirtualMachineClusterPreferenceList struct {
 }
 
 // VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.
-//
-// +k8s:openapi-gen=true
 type VirtualMachinePreferenceSpec struct {
 
 	// Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec
@@ -251,8 +235,6 @@ type VirtualMachinePreferenceSpec struct {
 }
 
 // PreferredCPUTopology defines a preferred CPU topology to be exposed to the guest
-//
-// +k8s:openapi-gen=true
 type PreferredCPUTopology string
 
 const (
@@ -268,8 +250,6 @@ const (
 )
 
 // CPUPreferences contains various optional CPU preferences.
-//
-// +k8s:openapi-gen=true
 type CPUPreferences struct {
 
 	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferCores.
@@ -279,8 +259,6 @@ type CPUPreferences struct {
 }
 
 // DevicePreferences contains various optional Device preferences.
-//
-// +k8s:openapi-gen=true
 type DevicePreferences struct {
 
 	// PreferredAutoattachGraphicsDevice optionally defines the preferred value of AutoattachGraphicsDevice
@@ -395,8 +373,6 @@ type DevicePreferences struct {
 }
 
 // FeaturePreferences contains various optional defaults for Features.
-//
-// +k8s:openapi-gen=true
 type FeaturePreferences struct {
 
 	// PreferredAcpi optionally enables the ACPI feature
@@ -431,8 +407,6 @@ type FeaturePreferences struct {
 }
 
 // FirmwarePreferences contains various optional defaults for Firmware.
-//
-// +k8s:openapi-gen=true
 type FirmwarePreferences struct {
 
 	// PreferredUseBios optionally enables BIOS
@@ -461,8 +435,6 @@ type FirmwarePreferences struct {
 }
 
 // MachinePreferences contains various optional defaults for Machine.
-//
-// +k8s:openapi-gen=true
 type MachinePreferences struct {
 
 	// PreferredMachineType optionally defines the preferred machine type to use.
@@ -472,8 +444,6 @@ type MachinePreferences struct {
 }
 
 // ClockPreferences contains various optional defaults for Clock.
-//
-// +k8s:openapi-gen=true
 type ClockPreferences struct {
 
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock.
