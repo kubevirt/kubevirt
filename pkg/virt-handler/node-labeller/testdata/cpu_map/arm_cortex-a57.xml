@@ -1,0 +1,6 @@
+<cpus>
+  <model name='cortex-a57'>
+    <vendor name='ARM'/>
+    <pvr value='0xd07'/>
+  </model>
+</cpus>

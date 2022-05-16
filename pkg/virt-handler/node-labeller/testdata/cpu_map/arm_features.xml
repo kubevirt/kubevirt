@@ -1,0 +1,22 @@
+<cpus>
+
+  <!-- SVE vector lengths -->
+  <feature name='sve'/>
+  <feature name='sve128'/>
+  <feature name='sve256'/>
+  <feature name='sve384'/>
+  <feature name='sve512'/>
+  <feature name='sve640'/>
+  <feature name='sve768'/>
+  <feature name='sve896'/>
+  <feature name='sve1024'/>
+  <feature name='sve1152'/>
+  <feature name='sve1280'/>
+  <feature name='sve1408'/>
+  <feature name='sve1536'/>
+  <feature name='sve1664'/>
+  <feature name='sve1792'/>
+  <feature name='sve1920'/>
+  <feature name='sve2048'/>
+
+</cpus>

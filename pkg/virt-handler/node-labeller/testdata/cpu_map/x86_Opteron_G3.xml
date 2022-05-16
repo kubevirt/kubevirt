@@ -1,9 +1,9 @@
 <cpus>
-  <model name='Penryn'>
+  <model name='Opteron_G3'>
     <decode host='on' guest='on'/>
-    <signature family='6' model='23'/> <!-- 010670 -->
-    <signature family='6' model='29'/> <!-- 0106d0 -->
-    <vendor name='Intel'/>
+    <signature family='15' model='6'/> <!-- 100e60 -->
+    <vendor name='AMD'/>
+    <feature name='abm'/>
     <feature name='apic'/>
     <feature name='clflush'/>
     <feature name='cmov'/>
@@ -16,7 +16,9 @@
     <feature name='lm'/>
     <feature name='mca'/>
     <feature name='mce'/>
+    <feature name='misalignsse'/>
     <feature name='mmx'/>
+    <feature name='monitor' removed='yes'/>
     <feature name='msr'/>
     <feature name='mtrr'/>
     <feature name='nx'/>
@@ -24,13 +26,15 @@
     <feature name='pat'/>
     <feature name='pge'/>
     <feature name='pni'/>
+    <feature name='popcnt'/>
     <feature name='pse'/>
     <feature name='pse36'/>
+    <feature name='rdtscp'/>
     <feature name='sep'/>
     <feature name='sse'/>
     <feature name='sse2'/>
-    <feature name='sse4.1'/>
-    <feature name='ssse3'/>
+    <feature name='sse4a'/>
+    <feature name='svm'/>
     <feature name='syscall'/>
     <feature name='tsc'/>
   </model>

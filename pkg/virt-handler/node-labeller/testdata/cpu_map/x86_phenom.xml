@@ -1,22 +1,23 @@
 <cpus>
-  <model name='Penryn'>
+  <model name='phenom'>
     <decode host='on' guest='on'/>
-    <signature family='6' model='23'/> <!-- 010670 -->
-    <signature family='6' model='29'/> <!-- 0106d0 -->
-    <vendor name='Intel'/>
+    <vendor name='AMD'/>
+    <feature name='3dnow'/>
+    <feature name='3dnowext'/>
     <feature name='apic'/>
     <feature name='clflush'/>
     <feature name='cmov'/>
-    <feature name='cx16'/>
     <feature name='cx8'/>
     <feature name='de'/>
     <feature name='fpu'/>
     <feature name='fxsr'/>
-    <feature name='lahf_lm'/>
+    <feature name='fxsr_opt'/>
     <feature name='lm'/>
     <feature name='mca'/>
     <feature name='mce'/>
     <feature name='mmx'/>
+    <feature name='mmxext'/>
+    <feature name='monitor'/>
     <feature name='msr'/>
     <feature name='mtrr'/>
     <feature name='nx'/>
@@ -29,8 +30,7 @@
     <feature name='sep'/>
     <feature name='sse'/>
     <feature name='sse2'/>
-    <feature name='sse4.1'/>
-    <feature name='ssse3'/>
+    <feature name='svm'/>
     <feature name='syscall'/>
     <feature name='tsc'/>
   </model>

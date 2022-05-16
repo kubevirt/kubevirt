@@ -1,0 +1,113 @@
+<cpus>
+  <arch name='x86'>
+    <include filename='x86_vendors.xml'/>
+    <include filename='x86_features.xml'/>
+
+    <!-- models -->
+    <include filename='x86_486.xml'/>
+
+    <!-- Intel-based QEMU generic CPU models -->
+    <include filename='x86_pentium.xml'/>
+    <include filename='x86_pentium2.xml'/>
+    <include filename='x86_pentium3.xml'/>
+    <include filename='x86_pentiumpro.xml'/>
+    <include filename='x86_coreduo.xml'/>
+    <include filename='x86_n270.xml'/>
+    <include filename='x86_core2duo.xml'/>
+
+    <!-- Generic QEMU CPU models -->
+    <include filename='x86_qemu32.xml'/>
+    <include filename='x86_kvm32.xml'/>
+    <include filename='x86_cpu64-rhel5.xml'/>
+    <include filename='x86_cpu64-rhel6.xml'/>
+    <include filename='x86_qemu64.xml'/>
+    <include filename='x86_kvm64.xml'/>
+
+    <!-- Intel CPU models -->
+    <include filename='x86_Conroe.xml'/>
+    <include filename='x86_Penryn.xml'/>
+    <include filename='x86_Nehalem.xml'/>
+    <include filename='x86_Nehalem-IBRS.xml'/>
+    <include filename='x86_Westmere.xml'/>
+    <include filename='x86_Westmere-IBRS.xml'/>
+    <include filename='x86_SandyBridge.xml'/>
+    <include filename='x86_SandyBridge-IBRS.xml'/>
+    <include filename='x86_IvyBridge.xml'/>
+    <include filename='x86_IvyBridge-IBRS.xml'/>
+    <include filename='x86_Haswell-noTSX.xml'/>
+    <include filename='x86_Haswell-noTSX-IBRS.xml'/>
+    <include filename='x86_Haswell.xml'/>
+    <include filename='x86_Haswell-IBRS.xml'/>
+    <include filename='x86_Broadwell-noTSX.xml'/>
+    <include filename='x86_Broadwell-noTSX-IBRS.xml'/>
+    <include filename='x86_Broadwell.xml'/>
+    <include filename='x86_Broadwell-IBRS.xml'/>
+    <include filename='x86_Skylake-Client.xml'/>
+    <include filename='x86_Skylake-Client-IBRS.xml'/>
+    <include filename='x86_Skylake-Client-noTSX-IBRS.xml'/>
+    <include filename='x86_Skylake-Server.xml'/>
+    <include filename='x86_Skylake-Server-IBRS.xml'/>
+    <include filename='x86_Skylake-Server-noTSX-IBRS.xml'/>
+    <include filename='x86_Cascadelake-Server.xml'/>
+    <include filename='x86_Cascadelake-Server-noTSX.xml'/>
+    <include filename='x86_Icelake-Client.xml'/>
+    <include filename='x86_Icelake-Client-noTSX.xml'/>
+    <include filename='x86_Icelake-Server.xml'/>
+    <include filename='x86_Icelake-Server-noTSX.xml'/>
+    <include filename='x86_Cooperlake.xml'/>
+    <include filename='x86_Snowridge.xml'/>
+
+    <!-- AMD CPUs -->
+    <include filename='x86_athlon.xml'/>
+    <include filename='x86_phenom.xml'/>
+    <include filename='x86_Opteron_G1.xml'/>
+    <include filename='x86_Opteron_G2.xml'/>
+    <include filename='x86_Opteron_G3.xml'/>
+    <include filename='x86_Opteron_G4.xml'/>
+    <include filename='x86_Opteron_G5.xml'/>
+    <include filename='x86_EPYC.xml'/>
+    <include filename='x86_EPYC-IBPB.xml'/>
+    <include filename='x86_EPYC-Rome.xml'/>
+    <include filename='x86_EPYC-Milan.xml'/>
+
+    <!-- Hygon CPU models -->
+    <include filename='x86_Dhyana.xml'/>
+  </arch>
+
+  <arch name='ppc64'>
+    <include filename='ppc64_vendors.xml'/>
+
+    <!-- IBM-based CPU models -->
+    <include filename='ppc64_POWER6.xml'/>
+    <include filename='ppc64_POWER7.xml'/>
+    <include filename='ppc64_POWER8.xml'/>
+    <include filename='ppc64_POWER9.xml'/>
+
+    <!-- Freescale-based CPU models -->
+    <include filename='ppc64_POWERPC_e5500.xml'/>
+    <include filename='ppc64_POWERPC_e6500.xml'/>
+  </arch>
+
+  <arch name='arm'>
+    <include filename='arm_vendors.xml'/>
+    <include filename='arm_features.xml'/>
+
+    <!-- ARM-based CPU models -->
+    <include filename='arm_cortex-a53.xml'/>
+    <include filename='arm_cortex-a57.xml'/>
+    <include filename='arm_cortex-a72.xml'/>
+
+    <!-- Qualcomm-based CPU models -->
+    <include filename='arm_Falkor.xml'/>
+
+    <!-- Cavium-based CPU models -->
+    <include filename='arm_ThunderX299xx.xml'/>
+
+    <!-- Hisilicon-based CPU models -->
+    <include filename='arm_Kunpeng-920.xml'/>
+
+    <!-- Phytium-based CPU models -->
+    <include filename='arm_FT-2000plus.xml'/>
+    <include filename='arm_Tengyun-S2500.xml'/>
+  </arch>
+</cpus>

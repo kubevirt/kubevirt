@@ -1,0 +1,6 @@
+<cpus>
+  <model name='FT-2000+'>
+    <vendor name='Phytium'/>
+    <pvr value='0x662'/>
+  </model>
+</cpus>

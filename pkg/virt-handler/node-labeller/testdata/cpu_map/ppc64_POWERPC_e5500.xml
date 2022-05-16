@@ -1,0 +1,6 @@
+<cpus>
+  <model name='POWERPC_e5500'>
+    <vendor name='Freescale'/>
+    <pvr value='0x80240000' mask='0xffff0000'/>
+  </model>
+</cpus>

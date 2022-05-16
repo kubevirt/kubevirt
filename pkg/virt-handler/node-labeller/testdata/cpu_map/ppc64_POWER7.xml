@@ -1,0 +1,7 @@
+<cpus>
+  <model name='POWER7'>
+    <vendor name='IBM'/>
+    <pvr value='0x003f0000' mask='0xffff0000'/>
+    <pvr value='0x004a0000' mask='0xffff0000'/>
+  </model>
+</cpus>

@@ -1,37 +1,54 @@
 <cpus>
-  <model name='Penryn'>
+  <model name='Opteron_G5'>
     <decode host='on' guest='on'/>
-    <signature family='6' model='23'/> <!-- 010670 -->
-    <signature family='6' model='29'/> <!-- 0106d0 -->
-    <vendor name='Intel'/>
+    <signature family='21' model='2'/> <!-- 600f20 -->
+    <vendor name='AMD'/>
+    <feature name='3dnowprefetch'/>
+    <feature name='abm'/>
+    <feature name='aes'/>
     <feature name='apic'/>
+    <feature name='avx'/>
     <feature name='clflush'/>
     <feature name='cmov'/>
     <feature name='cx16'/>
     <feature name='cx8'/>
     <feature name='de'/>
+    <feature name='f16c'/>
+    <feature name='fma'/>
+    <feature name='fma4'/>
     <feature name='fpu'/>
     <feature name='fxsr'/>
     <feature name='lahf_lm'/>
     <feature name='lm'/>
     <feature name='mca'/>
     <feature name='mce'/>
+    <feature name='misalignsse'/>
     <feature name='mmx'/>
     <feature name='msr'/>
     <feature name='mtrr'/>
     <feature name='nx'/>
     <feature name='pae'/>
     <feature name='pat'/>
+    <feature name='pclmuldq'/>
+    <feature name='pdpe1gb'/>
     <feature name='pge'/>
     <feature name='pni'/>
+    <feature name='popcnt'/>
     <feature name='pse'/>
     <feature name='pse36'/>
+    <feature name='rdtscp'/>
     <feature name='sep'/>
     <feature name='sse'/>
     <feature name='sse2'/>
     <feature name='sse4.1'/>
+    <feature name='sse4.2'/>
+    <feature name='sse4a'/>
     <feature name='ssse3'/>
+    <feature name='svm'/>
     <feature name='syscall'/>
+    <feature name='tbm'/>
     <feature name='tsc'/>
+    <feature name='xop'/>
+    <feature name='xsave'/>
   </model>
 </cpus>

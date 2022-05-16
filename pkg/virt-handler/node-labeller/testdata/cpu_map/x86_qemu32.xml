@@ -1,37 +1,23 @@
 <cpus>
-  <model name='Penryn'>
+  <model name='qemu32'>
     <decode host='on' guest='on'/>
-    <signature family='6' model='23'/> <!-- 010670 -->
-    <signature family='6' model='29'/> <!-- 0106d0 -->
-    <vendor name='Intel'/>
     <feature name='apic'/>
-    <feature name='clflush'/>
     <feature name='cmov'/>
-    <feature name='cx16'/>
     <feature name='cx8'/>
     <feature name='de'/>
     <feature name='fpu'/>
     <feature name='fxsr'/>
-    <feature name='lahf_lm'/>
-    <feature name='lm'/>
-    <feature name='mca'/>
     <feature name='mce'/>
     <feature name='mmx'/>
     <feature name='msr'/>
-    <feature name='mtrr'/>
-    <feature name='nx'/>
     <feature name='pae'/>
     <feature name='pat'/>
     <feature name='pge'/>
     <feature name='pni'/>
     <feature name='pse'/>
-    <feature name='pse36'/>
     <feature name='sep'/>
     <feature name='sse'/>
     <feature name='sse2'/>
-    <feature name='sse4.1'/>
-    <feature name='ssse3'/>
-    <feature name='syscall'/>
     <feature name='tsc'/>
   </model>
 </cpus>

@@ -1,0 +1,6 @@
+<cpus>
+  <model name='Falkor'>
+    <vendor name='Qualcomm'/>
+    <pvr value='0xc00'/>
+  </model>
+</cpus>

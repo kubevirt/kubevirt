@@ -1,9 +1,9 @@
 <cpus>
-  <model name='Penryn'>
+  <model name='Westmere-IBRS'>
     <decode host='on' guest='on'/>
-    <signature family='6' model='23'/> <!-- 010670 -->
-    <signature family='6' model='29'/> <!-- 0106d0 -->
+    <signature family='6' model='44'/> <!-- 0206c0 -->
     <vendor name='Intel'/>
+    <feature name='aes'/>
     <feature name='apic'/>
     <feature name='clflush'/>
     <feature name='cmov'/>
@@ -24,12 +24,15 @@
     <feature name='pat'/>
     <feature name='pge'/>
     <feature name='pni'/>
+    <feature name='popcnt'/>
     <feature name='pse'/>
     <feature name='pse36'/>
     <feature name='sep'/>
+    <feature name='spec-ctrl'/>
     <feature name='sse'/>
     <feature name='sse2'/>
     <feature name='sse4.1'/>
+    <feature name='sse4.2'/>
     <feature name='ssse3'/>
     <feature name='syscall'/>
     <feature name='tsc'/>

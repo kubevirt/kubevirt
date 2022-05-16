@@ -1,0 +1,15 @@
+<cpus>
+  <vendor name='ARM' value='0x41'/>
+  <vendor name='Broadcom' value='0x42'/>
+  <vendor name='Cavium' value='0x43'/>
+  <vendor name='DigitalEquipment' value='0x44'/>
+  <vendor name='HiSilicon' value='0x48'/>
+  <vendor name='Infineon' value='0x49'/>
+  <vendor name='Freescale' value='0x4D'/>
+  <vendor name='NVIDIA' value='0x4E'/>
+  <vendor name='APM' value='0x50'/>
+  <vendor name='Qualcomm' value='0x51'/>
+  <vendor name='Marvell' value='0x56'/>
+  <vendor name='Intel' value='0x69'/>
+  <vendor name='Phytium' value='0x70'/>
+</cpus>

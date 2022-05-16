@@ -1,0 +1,597 @@
+<!--
+  After adding new features, update existing test files with
+
+    tests/cputestdata/cpu-data.py diff tests/cputestdata/x86_64-cpuid-*.json
+
+-->
+<cpus>
+  <!-- standard features, EDX -->
+  <feature name='fpu'>
+    <cpuid eax_in='0x01' edx='0x00000001'/>
+  </feature>
+  <feature name='vme'>
+    <cpuid eax_in='0x01' edx='0x00000002'/>
+  </feature>
+  <feature name='de'>
+    <cpuid eax_in='0x01' edx='0x00000004'/>
+  </feature>
+  <feature name='pse'>
+    <cpuid eax_in='0x01' edx='0x00000008'/>
+  </feature>
+  <feature name='tsc'>
+    <cpuid eax_in='0x01' edx='0x00000010'/>
+  </feature>
+  <feature name='msr'>
+    <cpuid eax_in='0x01' edx='0x00000020'/>
+  </feature>
+  <feature name='pae'>
+    <cpuid eax_in='0x01' edx='0x00000040'/>
+  </feature>
+  <feature name='mce'>
+    <cpuid eax_in='0x01' edx='0x00000080'/>
+  </feature>
+  <feature name='cx8'>
+    <cpuid eax_in='0x01' edx='0x00000100'/>
+  </feature>
+  <feature name='apic'>
+    <cpuid eax_in='0x01' edx='0x00000200'/>
+  </feature>
+  <feature name='sep'>
+    <cpuid eax_in='0x01' edx='0x00000800'/>
+  </feature>
+  <feature name='mtrr'>
+    <cpuid eax_in='0x01' edx='0x00001000'/>
+  </feature>
+  <feature name='pge'>
+    <cpuid eax_in='0x01' edx='0x00002000'/>
+  </feature>
+  <feature name='mca'>
+    <cpuid eax_in='0x01' edx='0x00004000'/>
+  </feature>
+  <feature name='cmov'>
+    <cpuid eax_in='0x01' edx='0x00008000'/>
+  </feature>
+  <feature name='pat'>
+    <cpuid eax_in='0x01' edx='0x00010000'/>
+  </feature>
+  <feature name='pse36'>
+    <cpuid eax_in='0x01' edx='0x00020000'/>
+  </feature>
+  <feature name='pn'>
+    <cpuid eax_in='0x01' edx='0x00040000'/>
+  </feature>
+  <feature name='clflush'>
+    <cpuid eax_in='0x01' edx='0x00080000'/>
+  </feature>
+  <feature name='ds'>
+    <cpuid eax_in='0x01' edx='0x00200000'/>
+  </feature>
+  <feature name='acpi'>
+    <cpuid eax_in='0x01' edx='0x00400000'/>
+  </feature>
+  <feature name='mmx'>
+    <cpuid eax_in='0x01' edx='0x00800000'/>
+  </feature>
+  <feature name='fxsr'>
+    <cpuid eax_in='0x01' edx='0x01000000'/>
+  </feature>
+  <feature name='sse'>
+    <cpuid eax_in='0x01' edx='0x02000000'/>
+  </feature>
+  <feature name='sse2'>
+    <cpuid eax_in='0x01' edx='0x04000000'/>
+  </feature>
+  <feature name='ss'>
+    <cpuid eax_in='0x01' edx='0x08000000'/>
+  </feature>
+  <feature name='ht'>
+    <cpuid eax_in='0x01' edx='0x10000000'/>
+  </feature>
+  <feature name='tm'>
+    <cpuid eax_in='0x01' edx='0x20000000'/>
+  </feature>
+  <feature name='ia64'>
+    <cpuid eax_in='0x01' edx='0x40000000'/>
+  </feature>
+  <feature name='pbe'>
+    <cpuid eax_in='0x01' edx='0x80000000'/>
+  </feature>
+
+  <!-- standard features, ECX -->
+  <feature name='pni'> <!-- sse3 -->
+    <cpuid eax_in='0x01' ecx='0x00000001'/>
+  </feature>
+  <feature name='pclmuldq'> <!-- pclmulqdq -->
+    <cpuid eax_in='0x01' ecx='0x00000002'/>
+  </feature>
+  <feature name='dtes64'>
+    <cpuid eax_in='0x01' ecx='0x00000004'/>
+  </feature>
+  <feature name='monitor'>
+    <cpuid eax_in='0x01' ecx='0x00000008'/>
+  </feature>
+  <feature name='ds_cpl'> <!-- ds-cpl -->
+    <cpuid eax_in='0x01' ecx='0x00000010'/>
+  </feature>
+  <feature name='vmx'>
+    <cpuid eax_in='0x01' ecx='0x00000020'/>
+  </feature>
+  <feature name='smx'>
+    <cpuid eax_in='0x01' ecx='0x00000040'/>
+  </feature>
+  <feature name='est'>
+    <cpuid eax_in='0x01' ecx='0x00000080'/>
+  </feature>
+  <feature name='tm2'>
+    <cpuid eax_in='0x01' ecx='0x00000100'/>
+  </feature>
+  <feature name='ssse3'>
+    <cpuid eax_in='0x01' ecx='0x00000200'/>
+  </feature>
+  <feature name='cid'>
+    <cpuid eax_in='0x01' ecx='0x00000400'/>
+  </feature>
+  <feature name='fma'>
+    <cpuid eax_in='0x01' ecx='0x00001000'/>
+  </feature>
+  <feature name='cx16'>
+    <cpuid eax_in='0x01' ecx='0x00002000'/>
+  </feature>
+  <feature name='xtpr'>
+    <cpuid eax_in='0x01' ecx='0x00004000'/>
+  </feature>
+  <feature name='pdcm'>
+    <cpuid eax_in='0x01' ecx='0x00008000'/>
+  </feature>
+  <feature name='pcid'>
+    <cpuid eax_in='0x01' ecx='0x00020000'/>
+  </feature>
+  <feature name='dca'>
+    <cpuid eax_in='0x01' ecx='0x00040000'/>
+  </feature>
+  <feature name='sse4.1'> <!-- sse4-1, sse4_1 -->
+    <cpuid eax_in='0x01' ecx='0x00080000'/>
+  </feature>
+  <feature name='sse4.2'> <!-- sse4-2, sse4_2 -->
+    <cpuid eax_in='0x01' ecx='0x00100000'/>
+  </feature>
+  <feature name='x2apic'>
+    <cpuid eax_in='0x01' ecx='0x00200000'/>
+  </feature>
+  <feature name='movbe'>
+    <cpuid eax_in='0x01' ecx='0x00400000'/>
+  </feature>
+  <feature name='popcnt'>
+    <cpuid eax_in='0x01' ecx='0x00800000'/>
+  </feature>
+  <feature name='tsc-deadline'>
+    <cpuid eax_in='0x01' ecx='0x01000000'/>
+  </feature>
+  <feature name='aes'>
+    <cpuid eax_in='0x01' ecx='0x02000000'/>
+  </feature>
+  <feature name='xsave'>
+    <cpuid eax_in='0x01' ecx='0x04000000'/>
+  </feature>
+  <feature name='osxsave'>
+    <cpuid eax_in='0x01' ecx='0x08000000'/>
+  </feature>
+  <feature name='avx'>
+    <cpuid eax_in='0x01' ecx='0x10000000'/>
+  </feature>
+  <feature name='f16c'>
+    <cpuid eax_in='0x01' ecx='0x20000000'/>
+  </feature>
+  <feature name='rdrand'>
+    <cpuid eax_in='0x01' ecx='0x40000000'/>
+  </feature>
+  <feature name='hypervisor'>
+    <cpuid eax_in='0x01' ecx='0x80000000'/>
+  </feature>
+
+  <!-- Termal Power and Management -->
+  <feature name='arat'>
+    <cpuid eax_in='0x06' eax='0x00000004'/>
+  </feature>
+
+  <!-- cpuid function 0x7 ecx 0x0 features -->
+  <feature name='fsgsbase'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000001'/>
+  </feature>
+  <feature name='tsc_adjust'> <!-- tsc-adjust -->
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000002'/>
+  </feature>
+  <feature name='bmi1'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000008'/>
+  </feature>
+  <feature name='hle'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000010'/>
+  </feature>
+  <feature name='avx2'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000020'/>
+  </feature>
+  <feature name='smep'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000080'/>
+  </feature>
+  <feature name='bmi2'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000100'/>
+  </feature>
+  <feature name='erms'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000200'/>
+  </feature>
+  <feature name='invpcid'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000400'/>
+  </feature>
+  <feature name='rtm'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00000800'/>
+  </feature>
+  <feature name='cmt'> <!-- cqm -->
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00001000'/>
+  </feature>
+  <feature name='mpx'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00004000'/>
+  </feature>
+  <feature name='avx512f'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00010000'/>
+  </feature>
+  <feature name='avx512dq'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00020000'/>
+  </feature>
+  <feature name='rdseed'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00040000'/>
+  </feature>
+  <feature name='adx'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00080000'/>
+  </feature>
+  <feature name='smap'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00100000'/>
+  </feature>
+  <feature name='avx512ifma'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00200000'/>
+  </feature>
+  <feature name='pcommit'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00400000'/>
+  </feature>
+  <feature name='clflushopt'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x00800000'/>
+  </feature>
+  <feature name='clwb'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x01000000'/>
+  </feature>
+  <feature name='intel-pt'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x02000000'/>
+  </feature>
+  <feature name='avx512pf'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x04000000'/>
+  </feature>
+  <feature name='avx512er'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x08000000'/>
+  </feature>
+  <feature name='avx512cd'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x10000000'/>
+  </feature>
+  <feature name='sha-ni'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x20000000'/>
+  </feature>
+  <feature name='avx512bw'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x40000000'/>
+  </feature>
+  <feature name='avx512vl'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ebx='0x80000000'/>
+  </feature>
+
+  <feature name='avx512vbmi'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000002'/>
+  </feature>
+  <feature name='umip'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000004'/>
+  </feature>
+  <feature name='pku'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000008'/>
+  </feature>
+  <feature name='ospke'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000010'/>
+  </feature>
+  <feature name='waitpkg'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000020'/>
+  </feature>
+  <feature name='avx512vbmi2'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000040'/>
+  </feature>
+  <feature name='gfni'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000100'/>
+  </feature>
+  <feature name='vaes'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000200'/>
+  </feature>
+  <feature name='vpclmulqdq'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000400'/>
+  </feature>
+  <feature name='avx512vnni'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00000800'/>
+  </feature>
+  <feature name='avx512bitalg'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00001000'/>
+  </feature>
+  <feature name='avx512-vpopcntdq'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00004000'/>
+  </feature>
+  <feature name='la57'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00010000'/>
+  </feature>
+  <feature name='rdpid'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x00400000'/>
+  </feature>
+  <feature name='cldemote'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x02000000'/>
+  </feature>
+  <feature name='movdiri'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x08000000'/>
+  </feature>
+  <feature name='movdir64b'>
+    <cpuid eax_in='0x07' ecx_in='0x00' ecx='0x10000000'/>
+  </feature>
+
+  <feature name='avx512-4vnniw'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x00000004'/>
+  </feature>
+  <feature name='avx512-4fmaps'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x00000008'/>
+  </feature>
+  <feature name='fsrm'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x00000010'/>
+  </feature>
+  <feature name='md-clear'> <!-- md_clear -->
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x00000400'/>
+  </feature>
+  <feature name='pconfig'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x00040000'/>
+  </feature>
+  <feature name='spec-ctrl'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x04000000'/>
+  </feature>
+  <feature name='stibp'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x08000000'/>
+  </feature>
+  <feature name='arch-capabilities'> <!-- arch_capabilities, arch-facilities -->
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x20000000'/>
+  </feature>
+  <feature name='core-capability'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x40000000'/>
+  </feature>
+  <feature name='ssbd'>
+    <cpuid eax_in='0x07' ecx_in='0x00' edx='0x80000000'/>
+  </feature>
+
+  <feature name='avx-vnni'>
+    <cpuid eax_in='0x07' ecx_in='0x01' eax='0x00000010'/>
+  </feature>
+  <feature name='avx512-bf16'>
+    <cpuid eax_in='0x07' ecx_in='0x01' eax='0x00000020'/>
+  </feature>
+
+  <!-- Processor Extended State Enumeration sub leaf 1 -->
+  <feature name='xsaveopt'>
+    <cpuid eax_in='0x0d' ecx_in='0x01' eax='0x00000001'/>
+  </feature>
+  <feature name='xsavec'>
+    <cpuid eax_in='0x0d' ecx_in='0x01' eax='0x00000002'/>
+  </feature>
+  <feature name='xgetbv1'>
+    <cpuid eax_in='0x0d' ecx_in='0x01' eax='0x00000004'/>
+  </feature>
+  <feature name='xsaves' migratable='no'>
+    <cpuid eax_in='0x0d' ecx_in='0x01' eax='0x00000008'/>
+  </feature>
+
+  <!-- cpuid level 0x0000000f:1 (edx) -->
+  <feature name='mbm_total'>
+    <cpuid eax_in='0x0f' ecx_in='0x01' edx='0x00000002'/>
+  </feature>
+  <feature name='mbm_local'>
+    <cpuid eax_in='0x0f' ecx_in='0x01' edx='0x00000004'/>
+  </feature>
+
+  <!-- extended features, EDX -->
+  <feature name='syscall'>
+    <cpuid eax_in='0x80000001' edx='0x00000800'/>
+  </feature>
+  <feature name='nx'> <!-- xd -->
+    <cpuid eax_in='0x80000001' edx='0x00100000'/>
+  </feature>
+  <feature name='mmxext'>
+    <cpuid eax_in='0x80000001' edx='0x00400000'/>
+  </feature>
+  <feature name='fxsr_opt'> <!-- ffxsr, fxsr-opt -->
+    <cpuid eax_in='0x80000001' edx='0x02000000'/>
+  </feature>
+  <feature name='pdpe1gb'>
+    <cpuid eax_in='0x80000001' edx='0x04000000'/>
+  </feature>
+  <feature name='rdtscp'>
+    <cpuid eax_in='0x80000001' edx='0x08000000'/>
+  </feature>
+  <feature name='lm'> <!-- i64 -->
+    <cpuid eax_in='0x80000001' edx='0x20000000'/>
+  </feature>
+  <feature name='3dnowext'>
+    <cpuid eax_in='0x80000001' edx='0x40000000'/>
+  </feature>
+  <feature name='3dnow'>
+    <cpuid eax_in='0x80000001' edx='0x80000000'/>
+  </feature>
+
+  <!-- extended features, ECX -->
+  <feature name='lahf_lm'> <!-- lahf-lm -->
+    <cpuid eax_in='0x80000001' ecx='0x00000001'/>
+  </feature>
+  <feature name='cmp_legacy'> <!-- cmp-legacy -->
+    <cpuid eax_in='0x80000001' ecx='0x00000002'/>
+  </feature>
+  <feature name='svm'>
+    <cpuid eax_in='0x80000001' ecx='0x00000004'/>
+  </feature>
+  <feature name='extapic'>
+    <cpuid eax_in='0x80000001' ecx='0x00000008'/>
+  </feature>
+  <feature name='cr8legacy'>
+    <cpuid eax_in='0x80000001' ecx='0x00000010'/>
+  </feature>
+  <feature name='abm'>
+    <cpuid eax_in='0x80000001' ecx='0x00000020'/>
+  </feature>
+  <feature name='sse4a'>
+    <cpuid eax_in='0x80000001' ecx='0x00000040'/>
+  </feature>
+  <feature name='misalignsse'>
+    <cpuid eax_in='0x80000001' ecx='0x00000080'/>
+  </feature>
+  <feature name='3dnowprefetch'>
+    <cpuid eax_in='0x80000001' ecx='0x00000100'/>
+  </feature>
+  <feature name='osvw'>
+    <cpuid eax_in='0x80000001' ecx='0x00000200'/>
+  </feature>
+  <feature name='ibs'>
+    <cpuid eax_in='0x80000001' ecx='0x00000400'/>
+  </feature>
+  <feature name='xop'>
+    <cpuid eax_in='0x80000001' ecx='0x00000800'/>
+  </feature>
+  <feature name='skinit'>
+    <cpuid eax_in='0x80000001' ecx='0x00001000'/>
+  </feature>
+  <feature name='wdt'>
+    <cpuid eax_in='0x80000001' ecx='0x00002000'/>
+  </feature>
+  <feature name='lwp'>
+    <cpuid eax_in='0x80000001' ecx='0x00008000'/>
+  </feature>
+  <feature name='fma4'>
+    <cpuid eax_in='0x80000001' ecx='0x00010000'/>
+  </feature>
+  <feature name='tce'>
+    <cpuid eax_in='0x80000001' ecx='0x00020000'/>
+  </feature>
+  <feature name='cvt16'>
+    <cpuid eax_in='0x80000001' ecx='0x00040000'/>
+  </feature>
+  <feature name='nodeid_msr'> <!-- nodeid-msr -->
+    <cpuid eax_in='0x80000001' ecx='0x00080000'/>
+  </feature>
+  <feature name='tbm'>
+    <cpuid eax_in='0x80000001' ecx='0x00200000'/>
+  </feature>
+  <feature name='topoext'>
+    <cpuid eax_in='0x80000001' ecx='0x00400000'/>
+  </feature>
+  <feature name='perfctr_core'> <!-- perfctr-core -->
+    <cpuid eax_in='0x80000001' ecx='0x00800000'/>
+  </feature>
+  <feature name='perfctr_nb'> <!-- perfctr-nb -->
+    <cpuid eax_in='0x80000001' ecx='0x01000000'/>
+  </feature>
+
+  <!-- Advanced Power Management edx features -->
+  <feature name='invtsc' migratable='no'>
+    <cpuid eax_in='0x80000007' edx='0x00000100'/>
+  </feature>
+
+  <!-- More AMD-specific features -->
+  <feature name='clzero'>
+    <cpuid eax_in='0x80000008' ebx='0x00000001'/>
+  </feature>
+  <feature name='xsaveerptr'>
+    <cpuid eax_in='0x80000008' ebx='0x00000004'/>
+  </feature>
+  <feature name='wbnoinvd'>
+    <cpuid eax_in='0x80000008' ebx='0x00000200'/>
+  </feature>
+  <feature name='ibpb'>
+    <cpuid eax_in='0x80000008' ebx='0x00001000'/>
+  </feature>
+  <feature name='ibrs'>
+    <cpuid eax_in='0x80000008' ebx='0x00004000'/>
+  </feature>
+  <feature name='amd-stibp'>
+    <cpuid eax_in='0x80000008' ebx='0x00008000'/>
+  </feature>
+  <feature name='amd-ssbd'>
+    <cpuid eax_in='0x80000008' ebx='0x01000000'/>
+  </feature>
+  <feature name='virt-ssbd'>
+    <cpuid eax_in='0x80000008' ebx='0x02000000'/>
+  </feature>
+  <feature name='amd-no-ssb'>
+    <cpuid eax_in='0x80000008' ebx='0x04000000'/>
+  </feature>
+
+  <!-- SVM features -->
+  <feature name='npt'>
+    <cpuid eax_in='0x8000000a' edx='0x00000001'/>
+  </feature>
+  <feature name='lbrv'>
+    <cpuid eax_in='0x8000000a' edx='0x00000002'/>
+  </feature>
+  <feature name='svm-lock'>
+    <cpuid eax_in='0x8000000a' edx='0x00000004'/>
+  </feature>
+  <feature name='nrip-save'>
+    <cpuid eax_in='0x8000000a' edx='0x00000008'/>
+  </feature>
+  <feature name='tsc-scale'>
+    <cpuid eax_in='0x8000000a' edx='0x00000010'/>
+  </feature>
+  <feature name='vmcb-clean'>
+    <cpuid eax_in='0x8000000a' edx='0x00000020'/>
+  </feature>
+  <feature name='flushbyasid'>
+    <cpuid eax_in='0x8000000a' edx='0x00000040'/>
+  </feature>
+  <feature name='decodeassists'>
+    <cpuid eax_in='0x8000000a' edx='0x00000080'/>
+  </feature>
+  <feature name='pause-filter'>
+    <cpuid eax_in='0x8000000a' edx='0x00000400'/>
+  </feature>
+  <feature name='pfthreshold'>
+    <cpuid eax_in='0x8000000a' edx='0x00001000'/>
+  </feature>
+  <feature name='svme-addr-chk'>
+    <cpuid eax_in='0x8000000a' edx='0x10000000'/>
+  </feature>
+
+  <!-- IA32_ARCH_CAPABILITIES features -->
+  <feature name='rdctl-no'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000001'/>
+  </feature>
+  <feature name='ibrs-all'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000002'/>
+  </feature>
+  <feature name='rsba'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000004'/>
+  </feature>
+  <feature name='skip-l1dfl-vmentry'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000008'/>
+  </feature>
+  <feature name='ssb-no'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000010'/>
+  </feature>
+  <feature name='mds-no'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000020'/>
+  </feature>
+  <feature name='pschange-mc-no'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000040'/>
+  </feature>
+  <feature name='tsx-ctrl'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000080'/>
+  </feature>
+  <feature name='taa-no'>
+    <msr index='0x10a' edx='0x00000000' eax='0x00000100'/>
+  </feature>
+
+  <!-- IA32_CORE_CAPABILITIES features -->
+  <feature name='split-lock-detect'>
+    <msr index='0xcf' edx='0x00000000' eax='0x00000020'/>
+  </feature>
+</cpus>
