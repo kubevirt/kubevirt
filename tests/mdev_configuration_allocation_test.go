@@ -215,7 +215,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
 			// There should be only one node in this lane
 			singleNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), mdevTestLabel)
+			libnode.AddLabelToNode(virtClient, singleNode.Name, cleanup.TestLabelForNamespace(util.NamespaceTestDefault), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMIWithGuestAgent()

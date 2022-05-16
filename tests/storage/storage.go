@@ -128,7 +128,7 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateErrorDisk(nodeName)
 				var err error
-				_, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, util.NamespaceTestDefault)
+				_, pvc, err = tests.CreatePVandPVCwithFaultyDisk(virtClient, nodeName, device, util.NamespaceTestDefault)
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 
@@ -207,7 +207,7 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				tests.CreateFaultyDisk(nodeName, deviceName)
 				var err error
-				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, util.NamespaceTestDefault)
+				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(virtClient, nodeName, "/dev/mapper/"+deviceName, util.NamespaceTestDefault)
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 
@@ -402,13 +402,13 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				checks.SkipIfNonRoot("VirtioFS")
-				tests.CreateHostPathPv(pvc, filepath.Join(testsuite.HostPathBase, pvc))
+				tests.CreateHostPathPv(virtClient, pvc, filepath.Join(testsuite.HostPathBase, pvc))
 				tests.CreateHostPathPVC(pvc, "1G")
 			})
 
 			AfterEach(func() {
 				tests.DeletePVC(pvc)
-				tests.DeletePV(pvc)
+				tests.DeletePV(virtClient, pvc)
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
@@ -548,7 +548,7 @@ var _ = SIGDescribe("Storage", func() {
 					if pvName != "" && pvName != tests.DiskAlpineHostPath {
 						// PVs can't be reused
 						By("Deleting PV and PVC")
-						tests.DeletePvAndPvc(pvName)
+						tests.DeletePvAndPvc(virtClient, pvName)
 					}
 				})
 
@@ -640,7 +640,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
-				tests.CreateHostPathPv(tests.CustomHostPath, testsuite.HostPathCustom)
+				tests.CreateHostPathPv(virtClient, tests.CustomHostPath, testsuite.HostPathCustom)
 				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			})
 
@@ -867,7 +867,7 @@ var _ = SIGDescribe("Storage", func() {
 					}
 					for _, pvc := range pvcs {
 						hostpath := filepath.Join(testsuite.HostPathBase, pvc)
-						node = tests.CreateHostPathPv(pvc, hostpath)
+						node = tests.CreateHostPathPv(virtClient, pvc, hostpath)
 						tests.CreateHostPathPVC(pvc, "1G")
 						if checks.HasFeature(virtconfig.NonRoot) {
 							nodeSelector = map[string]string{"kubernetes.io/hostname": node}
@@ -884,7 +884,7 @@ var _ = SIGDescribe("Storage", func() {
 				AfterEach(func() {
 					for _, pvc := range pvcs {
 						tests.DeletePVC(pvc)
-						tests.DeletePV(pvc)
+						tests.DeletePV(virtClient, pvc)
 					}
 				})
 
@@ -1367,7 +1367,7 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateSCSIDisk(nodeName, []string{})
 				var err error
-				_, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, util.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+				_, pvc, err = tests.CreatePVandPVCwithSCSIDisk(virtClient, nodeName, device, util.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 			})
 

@@ -414,11 +414,13 @@ func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType
 }
 
 func BeforeTestCleanup() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
 	testsuite.EnsureKubevirtInfra()
-	CreateHostPathPv(osAlpineHostPath, testsuite.HostPathAlpine)
+	CreateHostPathPv(virtCli, osAlpineHostPath, testsuite.HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 }
 
@@ -568,40 +570,34 @@ func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVol
 	}
 }
 
-func DeleteAllSeparateDeviceHostPathPvs() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
+func DeleteAllSeparateDeviceHostPathPvs(virtCli kubecli.KubevirtClient) {
 
-	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
+	pvList, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	util2.PanicOnError(err)
 	for _, pv := range pvList.Items {
 		if pv.Spec.StorageClassName == StorageClassHostPathSeparateDevice {
 			// ignore error we want to attempt to delete them all.
-			_ = virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+			_ = virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		}
 	}
 
 	libstorage.DeleteStorageClass(StorageClassHostPathSeparateDevice)
 }
 
-func CreateAllSeparateDeviceHostPathPvs(osName string) {
+func CreateAllSeparateDeviceHostPathPvs(virtCli kubecli.KubevirtClient, osName string) {
 	libstorage.CreateStorageClass(StorageClassHostPathSeparateDevice, &wffc)
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
 	Eventually(func() int {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(virtCli)
 		if len(nodes.Items) > 0 {
 			for _, node := range nodes.Items {
-				createSeparateDeviceHostPathPv(osName, node.Name)
+				createSeparateDeviceHostPathPv(virtCli, osName, node.Name)
 			}
 		}
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
 }
 
-func createSeparateDeviceHostPathPv(osName, nodeName string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
+func createSeparateDeviceHostPathPv(virtCli kubecli.KubevirtClient, osName, nodeName string) {
 	name := fmt.Sprintf("separate-device-%s-pv", nodeName)
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -641,25 +637,22 @@ func createSeparateDeviceHostPathPv(osName, nodeName string) {
 		},
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+	_, err := virtCli.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util2.PanicOnError(err)
 	}
 }
 
-func CreateHostPathPv(osName, hostPath string) string {
-	return createHostPathPvWithSize(osName, hostPath, "1Gi")
+func CreateHostPathPv(virtCli kubecli.KubevirtClient, osName, hostPath string) string {
+	return createHostPathPvWithSize(virtCli, osName, hostPath, "1Gi")
 }
 
-func createHostPathPvWithSize(osName, hostPath, size string) string {
+func createHostPathPvWithSize(virtCli kubecli.KubevirtClient, osName, hostPath, size string) string {
 	sc := "manual"
-	return CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc)
+	return CreateHostPathPvWithSizeAndStorageClass(virtCli, osName, hostPath, size, sc)
 }
 
-func CreateHostPathPvWithSizeAndStorageClass(osName, hostPath, size, sc string) string {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
+func CreateHostPathPvWithSizeAndStorageClass(virtCli kubecli.KubevirtClient, osName, hostPath, size, sc string) string {
 	quantity, err := resource.ParseQuantity(size)
 	util2.PanicOnError(err)
 
@@ -771,12 +764,9 @@ func DeletePVC(os string) {
 	}
 }
 
-func DeletePV(os string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
+func DeletePV(virtCli kubecli.KubevirtClient, os string) {
 	name := fmt.Sprintf("%s-disk-for-tests", os)
-	err = virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
@@ -1447,11 +1437,8 @@ func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachi
 	return vmi
 }
 
-func DeletePvAndPvc(name string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	err = virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
+func DeletePvAndPvc(virtCli kubecli.KubevirtClient, name string) {
+	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}

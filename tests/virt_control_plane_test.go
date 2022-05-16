@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/framework"
+
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -35,7 +37,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k6sv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -56,17 +57,11 @@ const (
 
 var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resilience", func() {
 
-	var err error
-	var virtCli kubecli.KubevirtClient
+	f := framework.NewDefaultFramework("virt control plane")
 
 	RegisterFailHandler(Fail)
 
 	controlPlaneDeploymentNames := []string{"virt-api", "virt-controller"}
-
-	BeforeEach(func() {
-		virtCli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-	})
 
 	Context("pod eviction", func() {
 		var nodeList []k8sv1.Node
@@ -101,12 +96,12 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 		}
 
 		getPodList := func() (podList *k8sv1.PodList, err error) {
-			podList, err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+			podList, err = f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 			return
 		}
 
 		waitForDeploymentsToStabilize := func() (bool, error) {
-			deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
+			deploymentsClient := f.KubevirtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 			for _, deploymentName := range controlPlaneDeploymentNames {
 				deployment, err := deploymentsClient.Get(context.Background(), deploymentName, metav1.GetOptions{})
 				if err != nil {
@@ -130,12 +125,12 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 		setNodeUnschedulable := func(nodeName string) {
 			Eventually(func() error {
-				selectedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+				selectedNode, err := f.KubevirtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				selectedNode.Spec.Unschedulable = true
-				if _, err = virtCli.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
+				if _, err = f.KubevirtClient.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
@@ -144,12 +139,12 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 		setNodeSchedulable := func(nodeName string) {
 			Eventually(func() error {
-				selectedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+				selectedNode, err := f.KubevirtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				selectedNode.Spec.Unschedulable = false
-				if _, err = virtCli.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
+				if _, err = f.KubevirtClient.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
@@ -157,9 +152,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 		}
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-
-			nodeList = libnode.GetAllSchedulableNodes(virtCli).Items
+			nodeList = libnode.GetAllSchedulableNodes(f.KubevirtClient).Items
 			for _, node := range nodeList {
 				setNodeUnschedulable(node.Name)
 			}
@@ -175,9 +168,9 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
 			if isMultiReplica {
-				checks.SkipIfSingleReplica(virtCli)
+				checks.SkipIfSingleReplica(f.KubevirtClient)
 			} else {
-				checks.SkipIfMultiReplica(virtCli)
+				checks.SkipIfMultiReplica(f.KubevirtClient)
 			}
 			By(fmt.Sprintf("Try to evict all pods %s\n", podName))
 			podList, err := getPodList()
@@ -185,7 +178,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			runningPods := getRunningReadyPods(podList, []string{podName})
 			Expect(runningPods).ToNot(BeEmpty())
 			for index, pod := range runningPods {
-				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				err = f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				if index == len(runningPods)-1 {
 					if isMultiReplica {
 						Expect(err).To(HaveOccurred(), msg)
@@ -214,9 +207,9 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
 				// Single replica deployments do not create PDBs
-				checks.SkipIfSingleReplica(virtCli)
+				checks.SkipIfSingleReplica(f.KubevirtClient)
 
-				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
+				deploymentsClient := f.KubevirtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
 				deployments, err := deploymentsClient.List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -235,7 +228,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				}
 
 				By("check pod disruption budgets exist")
-				podDisruptionBudgetList, err := virtCli.PolicyV1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+				podDisruptionBudgetList, err := f.KubevirtClient.PolicyV1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, controlPlaneDeploymentName := range controlPlaneDeploymentNames {
 					pdbName := controlPlaneDeploymentName + "-pdb"
@@ -260,7 +253,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			componentName := "virt-handler"
 
 			getVirtHandler := func() *v1.DaemonSet {
-				daemonSet, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), componentName, metav1.GetOptions{})
+				daemonSet, err := f.KubevirtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), componentName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).NotTo(HaveOccurred())
 				return daemonSet
 			}
@@ -270,14 +263,14 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			}
 
 			blackHolePodFunc := func(addOrDel string) {
-				pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("kubevirt.io=%s", componentName)})
+				pods, err := f.KubevirtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("kubevirt.io=%s", componentName)})
 				Expect(err).NotTo(HaveOccurred())
 
-				serviceIp, err := tests.GetKubernetesApiServiceIp(virtCli)
+				serviceIp, err := tests.GetKubernetesApiServiceIp(f.KubevirtClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, pod := range pods.Items {
-					_, err = tests.ExecuteCommandOnPod(virtCli, &pod, componentName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
+					_, err = tests.ExecuteCommandOnPod(f.KubevirtClient, &pod, componentName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
 					Expect(err).NotTo(HaveOccurred())
 				}
 			}
@@ -302,7 +295,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 
 				By("changing a setting and ensuring that the config update watcher eventually resumes and picks it up")
 				migrationBandwidth := resource.MustParse("1Mi")
-				kv := util.GetCurrentKv(virtCli)
+				kv := util.GetCurrentKv(f.KubevirtClient)
 				kv.Spec.Configuration.MigrationConfiguration = &k6sv1.MigrationConfiguration{
 					BandwidthPerMigration: &migrationBandwidth,
 				}

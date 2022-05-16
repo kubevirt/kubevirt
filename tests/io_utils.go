@@ -185,15 +185,11 @@ func CreateFaultyDisk(nodeName, deviceName string) {
 	executeDeviceMapperOnNode(nodeName, args)
 }
 
-func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
-	return CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, "faulty-disks", "ioerrorpvc", "ioerrorpvc")
+func CreatePVandPVCwithFaultyDisk(virtClient kubecli.KubevirtClient, nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
+	return CreatePVandPVCwithSCSIDisk(virtClient, nodeName, devicePath, namespace, "faulty-disks", "ioerrorpvc", "ioerrorpvc")
 }
 
-func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, nil, err
-	}
+func CreatePVandPVCwithSCSIDisk(virtClient kubecli.KubevirtClient, nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
 
 	size := resource.MustParse("1Gi")
 	volumeMode := corev1.PersistentVolumeBlock
@@ -230,7 +226,7 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 			},
 		},
 	}
-	pv, err = virtClient.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+	pv, err := virtClient.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

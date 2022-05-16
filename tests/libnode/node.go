@@ -122,10 +122,7 @@ func GetNodeDrainKey() string {
 	return virtconfig.NodeDrainTaintDefaultKey
 }
 
-func addLabelAnnotationHelper(nodeName, key, value string, isLabel bool) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
-
+func addLabelAnnotationHelper(virtCli kubecli.KubevirtClient, nodeName, key, value string, isLabel bool) {
 	origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -141,17 +138,15 @@ func addLabelAnnotationHelper(nodeName, key, value string, isLabel bool) {
 	Expect(err).ShouldNot(HaveOccurred())
 }
 
-func AddLabelToNode(nodeName, key, value string) {
-	addLabelAnnotationHelper(nodeName, key, value, true)
+func AddLabelToNode(virtCli kubecli.KubevirtClient, nodeName, key, value string) {
+	addLabelAnnotationHelper(virtCli, nodeName, key, value, true)
 }
 
-func AddAnnotationToNode(nodeName, key, value string) {
-	addLabelAnnotationHelper(nodeName, key, value, false)
+func AddAnnotationToNode(virtCli kubecli.KubevirtClient, nodeName, key, value string) {
+	addLabelAnnotationHelper(virtCli, nodeName, key, value, false)
 }
 
-func RemoveLabelFromNode(nodeName string, key string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+func RemoveLabelFromNode(virtCli kubecli.KubevirtClient, nodeName string, key string) {
 	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -174,9 +169,7 @@ func RemoveLabelFromNode(nodeName string, key string) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+func Taint(virtCli kubecli.KubevirtClient, nodeName string, key string, effect k8sv1.TaintEffect) {
 	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 

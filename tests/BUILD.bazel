@@ -216,6 +216,7 @@ go_test(
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/framework/cleanup:go_default_library",
+        "//tests/framework/framework:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/launchsecurity:go_default_library",
         "//tests/libnet:go_default_library",

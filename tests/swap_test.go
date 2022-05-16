@@ -158,8 +158,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 			memToUseInTheVmKib := availableMemSizeKib + swapSizeToUseKib
 
 			//add label the node so we could schedule the vmi to it through node selector
-			libnode.AddLabelToNode(sourceNode.Name, "swaptest", "swaptest")
-			defer libnode.RemoveLabelFromNode(sourceNode.Name, "swaptest")
+			libnode.AddLabelToNode(virtClient, sourceNode.Name, "swaptest", "swaptest")
+			defer libnode.RemoveLabelFromNode(virtClient, sourceNode.Name, "swaptest")
 
 			By("Allowing post-copy")
 			kv := util.GetCurrentKv(virtClient)
@@ -193,8 +193,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 			}, 240*time.Second, 1*time.Second).Should(BeNumerically(">", totalMemKib))
 
 			//add the test label to the target node
-			libnode.AddLabelToNode(targetNode.Name, "swaptest", "swaptest")
-			defer libnode.RemoveLabelFromNode(targetNode.Name, "swaptest")
+			libnode.AddLabelToNode(virtClient, targetNode.Name, "swaptest", "swaptest")
+			defer libnode.RemoveLabelFromNode(virtClient, targetNode.Name, "swaptest")
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -232,8 +232,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 			memToUseInTargetNodeVmKib := availableMemSizeKib + swapSizeToUsekib - vmMemoryRequestkib
 
 			//add label the node so we could schedule the vmi to it through the targert node selector
-			libnode.AddLabelToNode(targetNode.Name, "swaptest", "swaptest")
-			defer libnode.RemoveLabelFromNode(targetNode.Name, "swaptest")
+			libnode.AddLabelToNode(virtClient, targetNode.Name, "swaptest", "swaptest")
+			defer libnode.RemoveLabelFromNode(virtClient, targetNode.Name, "swaptest")
 
 			//The vmi should have more memory than memToUseInTheVm
 			vmiMemSize := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTargetNodeVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
@@ -256,15 +256,15 @@ var _ = Describe("[Serial][sig-compute]SwapTest", func() {
 			vmiToMigrate.Spec.NodeSelector = map[string]string{"swaptestmigrate": "swaptestmigrate"}
 			vmiToMigrate.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
-			libnode.AddLabelToNode(sourceNode.Name, "swaptestmigrate", "swaptestmigrate")
-			defer libnode.RemoveLabelFromNode(sourceNode.Name, "swaptestmigrate")
+			libnode.AddLabelToNode(virtClient, sourceNode.Name, "swaptestmigrate", "swaptestmigrate")
+			defer libnode.RemoveLabelFromNode(virtClient, sourceNode.Name, "swaptestmigrate")
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
 			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 			//add label the target node so the vm could be scheduled to it
-			libnode.AddLabelToNode(targetNode.Name, "swaptestmigrate", "swaptestmigrate")
-			defer libnode.RemoveLabelFromNode(targetNode.Name, "swaptestmigrate")
+			libnode.AddLabelToNode(virtClient, targetNode.Name, "swaptestmigrate", "swaptestmigrate")
+			defer libnode.RemoveLabelFromNode(virtClient, targetNode.Name, "swaptestmigrate")
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
