@@ -48,3 +48,12 @@ var DefaultObsoleteCPUModels = map[string]bool{
 	"kvm64":      true,
 	"kvm32":      true,
 }
+
+func CpuModelExists(arrayCpuModels []string, cpuModel string) bool {
+	for _, currModel := range arrayCpuModels {
+		if currModel == cpuModel {
+			return true
+		}
+	}
+	return false
+}

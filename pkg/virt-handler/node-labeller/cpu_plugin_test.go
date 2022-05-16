@@ -136,6 +136,18 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuFeatures).To(HaveLen(2), "number of features doesn't match")
 	})
 
+	It("Should not include CpuModels that don't include minCPUModel's features", func() {
+		nlController.domCapabilitiesFileName = "virsh_domcapabilities_minCpuModel.xml"
+		err := nlController.loadDomCapabilities()
+		Expect(err).ToNot(HaveOccurred())
+
+		cpuModels := nlController.getSupportedCpuModels()
+
+		Expect(util.CpuModelExists(cpuModels, "Opteron_G1")).To(BeFalse(), "The minCPUModel(Penryn) includes the feature sse4.1 and Opteron_G1 doesn't")
+		Expect(util.CpuModelExists(cpuModels, "Opteron_G2")).To(BeFalse(), "The minCPUModel(Penryn) includes the feature sse4.1 and Opteron_G2 doesn't")
+
+	})
+
 	Context("should return correct host cpu", func() {
 		var hostCpuModel hostCPUModel
 
