@@ -70,9 +70,6 @@ func WithEthernet(name string, options ...NetworkDataInterfaceOption) NetworkDat
 
 func WithAddresses(addresses ...string) NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		if networkDataInterface.Addresses == nil {
-			networkDataInterface.Addresses = []string{}
-		}
 		networkDataInterface.Addresses = append(networkDataInterface.Addresses, addresses...)
 		return nil
 	}
