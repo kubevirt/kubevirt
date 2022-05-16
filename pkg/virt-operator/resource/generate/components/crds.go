@@ -585,7 +585,7 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     flavor.PluralPreferenceResourceName,
 			Singular:   flavor.SingularPreferenceResourceName,
-			ShortNames: []string{"vmp", "vmps"},
+			ShortNames: []string{"vmpref", "vmprefs", "vmp", "vmps"},
 			Kind:       "VirtualMachinePreference",
 			Categories: []string{"all"},
 		},
