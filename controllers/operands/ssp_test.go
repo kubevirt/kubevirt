@@ -24,9 +24,6 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
-
-	// TODO: remove this once SSP will also consume kubevirt.io/controller-lifecycle-operator-sdk v2.0.4
-	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
 var _ = Describe("SSP Operands", func() {
@@ -97,9 +94,9 @@ var _ = Describe("SSP Operands", func() {
 
 			replicas := int32(defaultTemplateValidatorReplicas * 2) // non-default value
 			existingResource.Spec.TemplateValidator.Replicas = &replicas
-			existingResource.Spec.NodeLabeller.Placement = (*api.NodePlacement)(&lifecycleapi.NodePlacement{
+			existingResource.Spec.NodeLabeller.Placement = &lifecycleapi.NodePlacement{
 				NodeSelector: map[string]string{"foo": "bar"},
-			})
+			}
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 

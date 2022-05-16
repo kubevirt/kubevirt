@@ -21,9 +21,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
-	// TODO: remove this once SSP will also consume kubevirt.io/controller-lifecycle-operator-sdk v2.0.4
-	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
 const (
@@ -167,11 +164,11 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 	}
 
 	if hc.Spec.Infra.NodePlacement != nil {
-		spec.TemplateValidator.Placement = (*api.NodePlacement)(hc.Spec.Infra.NodePlacement.DeepCopy())
+		spec.TemplateValidator.Placement = hc.Spec.Infra.NodePlacement.DeepCopy()
 	}
 
 	if hc.Spec.Workloads.NodePlacement != nil {
-		spec.NodeLabeller.Placement = (*api.NodePlacement)(hc.Spec.Workloads.NodePlacement.DeepCopy())
+		spec.NodeLabeller.Placement = hc.Spec.Workloads.NodePlacement.DeepCopy()
 	}
 
 	ssp := NewSSPWithNameOnly(hc)

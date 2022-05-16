@@ -627,10 +627,10 @@ kubevirt.io/controller-lifecycle-operator-sdk/api
 # kubevirt.io/node-maintenance-operator v0.11.3
 ## explicit; go 1.16
 kubevirt.io/node-maintenance-operator/api/v1beta1
-# kubevirt.io/ssp-operator/api v0.14.1
-## explicit; go 1.16
+# kubevirt.io/ssp-operator/api v0.15.0
+## explicit; go 1.17
 kubevirt.io/ssp-operator/api/v1beta1
-# sigs.k8s.io/controller-runtime v0.11.1
+# sigs.k8s.io/controller-runtime v0.11.2
 ## explicit; go 1.17
 sigs.k8s.io/controller-runtime
 sigs.k8s.io/controller-runtime/pkg/builder

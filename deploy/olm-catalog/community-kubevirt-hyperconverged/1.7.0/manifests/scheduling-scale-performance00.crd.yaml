@@ -277,8 +277,13 @@ spec:
                                           type: object
                                         resources:
                                           description: 'Resources represents the minimum
-                                            resources the volume should have. More
-                                            info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                                            resources the volume should have. If RecoverVolumeExpansionFailure
+                                            feature is enabled users are allowed to
+                                            specify resource requirements that are
+                                            lower than previous value but must still
+                                            be higher than capacity recorded in the
+                                            status field of the claim. More info:
+                                            https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                           properties:
                                             limits:
                                               additionalProperties:
@@ -536,6 +541,12 @@ spec:
                                                 to the virtual hard disk to migrate
                                                 from vCenter/ESXi
                                               type: string
+                                            initImageURL:
+                                              description: InitImageURL is an optional
+                                                URL to an image containing an extracted
+                                                VDDK library, overrides v2v-vmware
+                                                config map
+                                              type: string
                                             secretRef:
                                               description: SecretRef provides a reference
                                                 to a secret containing the username
@@ -731,6 +742,10 @@ spec:
                                   description: DataVolumeStatus contains the current
                                     status of the DataVolume
                                   properties:
+                                    claimName:
+                                      description: ClaimName is the name of the underlying
+                                        PVC used by the DataVolume.
+                                      type: string
                                     conditions:
                                       items:
                                         description: DataVolumeCondition represents
