@@ -32,7 +32,6 @@ import (
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
@@ -45,37 +44,32 @@ const (
 
 var nlController *NodeLabeller
 
-var _ = BeforeSuite(func() {
-	ctrl := gomock.NewController(GinkgoT())
-	virtClient := kubecli.NewMockKubevirtClient(ctrl)
-
-	kv := &kubevirtv1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt",
-			Namespace: "kubevirt",
-		},
-		Spec: kubevirtv1.KubeVirtSpec{
-			Configuration: kubevirtv1.KubeVirtConfiguration{
-				ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
-				MinCPUModel:       util.DefaultMinCPUModel,
-			},
-		},
-	}
-
-	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-
-	nlController = &NodeLabeller{
-		namespace:               k8sv1.NamespaceDefault,
-		clientset:               virtClient,
-		clusterConfig:           clusterConfig,
-		logger:                  log.DefaultLogger(),
-		volumePath:              "testdata",
-		domCapabilitiesFileName: "virsh_domcapabilities.xml",
-		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
-	}
-})
-
 var _ = Describe("Node-labeller config", func() {
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+
+		kv := &kubevirtv1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: kubevirtv1.KubeVirtSpec{
+				Configuration: kubevirtv1.KubeVirtConfiguration{
+					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
+					MinCPUModel:       util.DefaultMinCPUModel,
+				},
+			},
+		}
+
+		var err error
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+
+		nlController, err = newNodeLabeller(clusterConfig, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata")
+		Expect(err).ToNot(HaveOccurred())
+
+	})
+
 	It("should return correct cpu file path", func() {
 		p := getPathCPUFeatures(nlController.volumePath, x86PenrynXml)
 		correctPath := path.Join(nlController.volumePath, "cpu_map", x86PenrynXml)
@@ -95,17 +89,6 @@ var _ = Describe("Node-labeller config", func() {
 	})
 
 	It("should return correct cpu models, features and tsc freqnency", func() {
-		err := nlController.loadDomCapabilities()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = nlController.loadHostSupportedFeatures()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = nlController.loadCPUInfo()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = nlController.loadHostCapabilities()
-		Expect(err).ToNot(HaveOccurred())
 
 		cpuModels := nlController.getSupportedCpuModels()
 		cpuFeatures := nlController.getSupportedCpuFeatures()
@@ -152,9 +135,6 @@ var _ = Describe("Node-labeller config", func() {
 		var hostCpuModel hostCPUModel
 
 		BeforeEach(func() {
-			err := nlController.loadHostSupportedFeatures()
-			Expect(err).ToNot(HaveOccurred())
-
 			hostCpuModel = nlController.GetHostCpuModel()
 		})
 
