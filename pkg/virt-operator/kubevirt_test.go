@@ -85,8 +85,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 59
-	patchCount    = 40
+	resourceCount = 62
+	patchCount    = 43
 	updateCount   = 20
 )
 
@@ -2261,7 +2261,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(3))
-			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(14))
+			Expect(kvTestData.controller.stores.CrdCache.List()).To(HaveLen(15))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(3))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())

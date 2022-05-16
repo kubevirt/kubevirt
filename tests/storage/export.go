@@ -63,6 +63,8 @@ const (
 	archiveDircontentUrlTemplate = "%s/disk.img?x-kubevirt-export-token=%s"
 
 	certificates = "certificates"
+
+	pvcNotFoundReason = "pvcNotFound"
 )
 
 var _ = SIGDescribe("Export", func() {
@@ -223,18 +225,18 @@ var _ = SIGDescribe("Export", func() {
 		})
 	}
 
-	createExportTokenSecret := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Secret {
+	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
 		var err error
 		secret := &k8sv1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pvc.Namespace,
-				Name:      fmt.Sprintf("export-token-%s", pvc.Name),
+				Namespace: namespace,
+				Name:      fmt.Sprintf("export-token-%s", name),
 			},
 			StringData: map[string]string{
-				"token": pvc.Name,
+				"token": name,
 			},
 		}
-		token, err = virtClient.CoreV1().Secrets(pvc.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		token, err = virtClient.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return token
 	}
@@ -407,7 +409,7 @@ var _ = SIGDescribe("Export", func() {
 		pvc, comparison := populateFunction(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")
 		// For testing the token is the name of the source pvc.
-		token := createExportTokenSecret(pvc)
+		token := createExportTokenSecret(pvc.Name, pvc.Namespace)
 
 		vmExport := &exportv1.VirtualMachineExport{
 			ObjectMeta: metav1.ObjectMeta{
@@ -499,29 +501,34 @@ var _ = SIGDescribe("Export", func() {
 		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
-	createRunningExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
-		pvc, _ := populateKubeVirtContent(sc, volumeMode)
-		By("Creating the export token, we can export volumes using this token")
-		// For testing the token is the name of the source pvc.
-		token := createExportTokenSecret(pvc)
-
+	createExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {
 		vmExport := &exportv1.VirtualMachineExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
-				Namespace: pvc.Namespace,
+				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
 				TokenSecretRef: token.Name,
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &k8sv1.SchemeGroupVersion.Group,
 					Kind:     "PersistentVolumeClaim",
-					Name:     pvc.Name,
+					Name:     name,
 				},
 			},
 		}
 		By("Creating VMExport we can start exporting the volume")
-		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		export, err := virtClient.VirtualMachineExport(namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		return export
+	}
+
+	createRunningExport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *exportv1.VirtualMachineExport {
+		pvc, _ := populateKubeVirtContent(sc, volumeMode)
+		By("Creating the export token, we can export volumes using this token")
+		// For testing the token is the name of the source pvc.
+		token := createExportTokenSecret(pvc.Name, pvc.Namespace)
+
+		export := createExportObject(pvc.Name, pvc.Namespace, token)
 
 		Eventually(func() bool {
 			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
@@ -617,5 +624,59 @@ var _ = SIGDescribe("Export", func() {
 			exporterService = getExportService(vmExport)
 			return exporterService.UID
 		}, 30*time.Second, 1*time.Second).ShouldNot(BeEquivalentTo(serviceUID))
+	})
+
+	It("Should handle no pvc existing when export created, then creating and populating the pvc", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		dv := libstorage.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+		name := dv.Name
+		namespace := dv.Namespace
+		token := createExportTokenSecret(name, namespace)
+		export := createExportObject(name, namespace, token)
+		Eventually(func() string {
+			export, err = virtClient.VirtualMachineExport(namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if export.Status != nil {
+				for _, cond := range export.Status.Conditions {
+					if cond.Type == exportv1.ConditionPVC {
+						return cond.Reason
+					}
+				}
+			}
+			return ""
+		}, 60*time.Second, 1*time.Second).Should(BeEquivalentTo(pvcNotFoundReason), "export should report missing pvc")
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		var pvc *k8sv1.PersistentVolumeClaim
+		Eventually(func() error {
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			return err
+		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
+		ensurePVCBound(pvc)
+
+		By("Making sure the DV is successful")
+		Eventually(func() cdiv1.DataVolumePhase {
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			return dv.Status.Phase
+		}, 90*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+		By("Making sure the export becomes ready")
+		Eventually(func() bool {
+			export, err = virtClient.VirtualMachineExport(pvc.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			condReady := false
+			if export.Status != nil {
+				for _, cond := range export.Status.Conditions {
+					if cond.Type == exportv1.ConditionReady && cond.Status == k8sv1.ConditionTrue {
+						condReady = true
+					}
+				}
+			}
+			return condReady
+		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "export is expected to become ready")
 	})
 })

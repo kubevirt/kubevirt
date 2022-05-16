@@ -7444,6 +7444,195 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"virtualmachineexport": `openAPIV3Schema:
+  description: VirtualMachineExport defines the operation of exporting a VM source
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachineExportSpec is the spec for a VirtualMachineExport
+        resource
+      properties:
+        source:
+          description: TypedLocalObjectReference contains enough information to let
+            you locate the typed referenced object inside the same namespace.
+          properties:
+            apiGroup:
+              description: APIGroup is the group for the resource being referenced.
+                If APIGroup is not specified, the specified Kind must be in the core
+                API group. For any other third-party types, APIGroup is required.
+              type: string
+            kind:
+              description: Kind is the type of resource being referenced
+              type: string
+            name:
+              description: Name is the name of resource being referenced
+              type: string
+          required:
+          - kind
+          - name
+          type: object
+        tokenSecretRef:
+          description: TokenSecretRef is the name of the secret that contains the
+            token used by the export server pod
+          type: string
+      required:
+      - source
+      - tokenSecretRef
+      type: object
+    status:
+      description: VirtualMachineExportStatus is the status for a VirtualMachineExport
+        resource
+      properties:
+        conditions:
+          items:
+            description: Condition defines conditions
+            properties:
+              lastProbeTime:
+                format: date-time
+                nullable: true
+                type: string
+              lastTransitionTime:
+                format: date-time
+                nullable: true
+                type: string
+              message:
+                type: string
+              reason:
+                type: string
+              status:
+                type: string
+              type:
+                description: ConditionType is the const type for Conditions
+                type: string
+            required:
+            - status
+            - type
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        links:
+          description: VirtualMachineExportLinks contains the links that point the
+            exported VM resources
+          properties:
+            external:
+              description: VirtualMachineExportLink contains a list of volumes available
+                for export, as well as the URLs to obtain these volumes
+              properties:
+                cert:
+                  description: Cert is the public CA certificate base64 encoded
+                  type: string
+                volumes:
+                  description: Volumes is a list of available volumes to export
+                  items:
+                    description: VirtualMachineExportVolume contains the name and
+                      available formats for the exported volume
+                    properties:
+                      formats:
+                        items:
+                          description: VirtualMachineExportVolumeFormat contains the
+                            format type and URL to get the volume in that format
+                          properties:
+                            format:
+                              description: Format is the format of the image at the
+                                specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - format
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - format
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+            internal:
+              description: VirtualMachineExportLink contains a list of volumes available
+                for export, as well as the URLs to obtain these volumes
+              properties:
+                cert:
+                  description: Cert is the public CA certificate base64 encoded
+                  type: string
+                volumes:
+                  description: Volumes is a list of available volumes to export
+                  items:
+                    description: VirtualMachineExportVolume contains the name and
+                      available formats for the exported volume
+                    properties:
+                      formats:
+                        items:
+                          description: VirtualMachineExportVolumeFormat contains the
+                            format type and URL to get the volume in that format
+                          properties:
+                            format:
+                              description: Format is the format of the image at the
+                                specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - format
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - format
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+          type: object
+        phase:
+          description: VirtualMachineExportPhase is the current phase of the VirtualMachineExport
+          type: string
+        serviceName:
+          description: ServiceName is the name of the service created associated with
+            the Virtual Machine export. It will be used to create the internal URLs
+            for downloading the images
+          type: string
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"virtualmachineflavor": `openAPIV3Schema:
   description: VirtualMachineFlavor resource contains quantitative and resource related
     VirtualMachine configuration that can be used by multiple VirtualMachine resources.

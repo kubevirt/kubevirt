@@ -347,7 +347,7 @@ var _ = Describe("Export controlleer", func() {
 
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(int64(0)))
+		Expect(retry).To(BeEquivalentTo(time.Second))
 		service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
@@ -451,7 +451,7 @@ var _ = Describe("Export controlleer", func() {
 		})
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(int64(0)))
+		Expect(retry).To(BeEquivalentTo(time.Second))
 		service, err := k8sClient.CoreV1().Services(testNamespace).Get(context.Background(), fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name), metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))

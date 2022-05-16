@@ -324,14 +324,13 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 
 func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) (time.Duration, error) {
 	var retry time.Duration
+	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
 	pvc, exists, err := ctrl.getPvc(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
 		return 0, err
-	} else if !exists {
-		return 0, nil
+	} else if exists {
+		pvcs = append(pvcs, pvc)
 	}
-	pvcs := make([]*corev1.PersistentVolumeClaim, 0)
-	pvcs = append(pvcs, pvc)
 
 	pod, exists, err := ctrl.getExporterPod(vmExport)
 	inUse := false
@@ -343,15 +342,20 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 			return retry, err
 		}
 		if !inUse && len(pvcs) > 0 {
-			pod, err = ctrl.createExporterPod(vmExport, pvcs)
+			isPopulated, err := ctrl.isPVCPopulated(pvc)
 			if err != nil {
-				return 0, err
-			} else if pod == nil {
-				return retry, nil
-			}
+				return retry, err
+			} else if isPopulated {
+				pod, err = ctrl.createExporterPod(vmExport, pvcs)
+				if err != nil {
+					return 0, err
+				} else if pod == nil {
+					return retry, nil
+				}
 
-			if err := ctrl.getOrCreateCertSecret(vmExport, pod); err != nil {
-				return 0, err
+				if err := ctrl.getOrCreateCertSecret(vmExport, pod); err != nil {
+					return 0, err
+				}
 			}
 		}
 	} else {
@@ -368,6 +372,21 @@ func (ctrl *VMExportController) handleIsSourcePvc(vmExport *exportv1.VirtualMach
 
 	return ctrl.updateVMExportPvcStatus(vmExport, pvcs, pod, service, inUse)
 
+}
+
+func (ctrl *VMExportController) isPVCPopulated(pvc *corev1.PersistentVolumeClaim) (bool, error) {
+	return cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
+		obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(namespace, name))
+		if err != nil {
+			return nil, err
+		} else if exists {
+			dv, ok := obj.(*cdiv1.DataVolume)
+			if ok {
+				return dv, nil
+			}
+		}
+		return nil, fmt.Errorf("datavolume not found")
+	})
 }
 
 func (ctrl *VMExportController) getOrCreateCertSecret(vmExport *exportv1.VirtualMachineExport, ownerPod *corev1.Pod) error {
@@ -649,24 +668,21 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		return true
 	}
-	isKubevirt := false
-	ann := pvc.GetAnnotations()
-	if ann != nil {
-		value, ok := ann[annContentType]
-		isKubevirt = ok && value == string(cdiv1.DataVolumeKubeVirt)
+	isKubevirt := pvc.Annotations[annContentType] == string(cdiv1.DataVolumeKubeVirt)
+	if isKubevirt {
+		return true
 	}
-	if !isKubevirt {
-		ownerRef := metav1.GetControllerOf(pvc)
-		if ownerRef != nil {
-			if ownerRef.Kind == datavolumeGVK.Kind && ownerRef.APIVersion == datavolumeGVK.GroupVersion().String() {
-				obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(pvc.GetNamespace(), ownerRef.Name))
-				if err != nil {
-					log.Log.V(1).Infof("Error getting DataVolume %v", err)
-				} else if exists {
-					dv, ok := obj.(*cdiv1.DataVolume)
-					isKubevirt = ok && (dv.Spec.ContentType == cdiv1.DataVolumeKubeVirt || dv.Spec.ContentType == "")
-				}
-			}
+	ownerRef := metav1.GetControllerOf(pvc)
+	if ownerRef == nil {
+		return false
+	}
+	if ownerRef.Kind == datavolumeGVK.Kind && ownerRef.APIVersion == datavolumeGVK.GroupVersion().String() {
+		obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(pvc.GetNamespace(), ownerRef.Name))
+		if err != nil {
+			log.Log.V(1).Infof("Error getting DataVolume %v", err)
+		} else if exists {
+			dv, ok := obj.(*cdiv1.DataVolume)
+			isKubevirt = ok && (dv.Spec.ContentType == cdiv1.DataVolumeKubeVirt || dv.Spec.ContentType == "")
 		}
 	}
 	return isKubevirt
@@ -709,7 +725,7 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 	}
 
 	if len(pvcs) == 0 {
-		log.Log.V(1).Info("PVC(s) not found, updating status to not found")
+		log.Log.V(3).Info("PVC(s) not found, updating status to not found")
 		updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason), true)
 	} else {
 		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(pvcs), true)
@@ -776,7 +792,6 @@ func (ctrl *VMExportController) base64EncodeExportCa() (string, error) {
 	ctrl.ConfigMapInformer.GetStore().GetByKey(key)
 	obj, exists, err := ctrl.ConfigMapInformer.GetStore().GetByKey(key)
 	if err != nil || !exists {
-		log.DefaultLogger().Infof("CA Config Map not found, %v", ctrl.ConfigMapInformer.GetStore().ListKeys())
 		return "", err
 	}
 	cm := obj.(*corev1.ConfigMap).DeepCopy()
