@@ -19,7 +19,7 @@
 source $(dirname "$0")/../common.sh
 
 fail_if_cri_bin_missing
-readonly PROM_IMAGE="docker.io/prom/prometheus:v2.15.2"
+readonly PROM_IMAGE="quay.io/prometheus/prometheus:v2.15.2"
 
 function cleanup() {
     local cleanup_files=("${@:?}")
@@ -42,7 +42,7 @@ function unit_test() {
     local tests_file="${2:?}"
 
     ${KUBEVIRT_CRI} run --rm --entrypoint=/bin/promtool \
-        -v "$tests_file":/tmp/rules.test:ro \
+        -v "$tests_file":/tmp/rules.test:Z \
         -v "$target_file":/tmp/rules.verify:ro \
         "$PROM_IMAGE" \
         test rules /tmp/rules.test
