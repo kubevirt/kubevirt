@@ -78,11 +78,6 @@
       "kind": "cdiconfigs"
     },
     {
-      "group": "nodemaintenance.kubevirt.io",
-      "version": "v1beta1",
-      "kind": "nodemaintenances"
-    },
-    {
       "group": "networkaddonsoperator.network.kubevirt.io",
       "version": "v1alpha1",
       "kind": "networkaddonsconfigs"
