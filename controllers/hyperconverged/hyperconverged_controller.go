@@ -189,6 +189,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 			&monitoringv1.PrometheusRule{},
 			&routev1.Route{},
 			&consolev1.ConsoleCLIDownload{},
+			&consolev1.ConsoleQuickStart{},
 			&imagev1.ImageStream{},
 			&corev1.Namespace{},
 		}...)
