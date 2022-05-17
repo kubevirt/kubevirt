@@ -486,6 +486,19 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Record: "kubevirt_vmsnapshot_disks_restored_from_source_bytes",
 						Expr:   intstr.FromString("sum by(vm_name, vm_namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes * on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
 					},
+					{
+						Alert: "KubeVirtVMIExcessiveMigrations",
+						Expr:  intstr.FromString("floor(increase(sum by (vmi) (kubevirt_migrate_vmi_succeeded_total)[1d:1m])) >= 12"),
+						For:   "1m",
+						Annotations: map[string]string{
+							"description": "VirtualMachineInstance {{ $labels.vmi }} has been migrated more than 12 times during the last 24 hours",
+							"summary":     "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours.",
+							"runbook_url": runbookUrlBasePath + "KubeVirtVMIExcessiveMigrations",
+						},
+						Labels: map[string]string{
+							severityAlertLabelKey: "warning",
+						},
+					},
 				},
 			},
 		},

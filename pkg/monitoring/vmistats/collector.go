@@ -38,7 +38,7 @@ const none = "<none>"
 
 var (
 
-	// Preffixes used when transforming K8s metadata into metric labels
+	// Prefixes used when transforming K8s metadata into metric labels
 	annotationPrefix = "vm.kubevirt.io/"
 
 	// higher-level, telemetry-friendly metrics

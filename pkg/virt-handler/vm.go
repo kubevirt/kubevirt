@@ -585,15 +585,15 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	// When a successful migration is detected, we must transfer ownership of the VMI
 	// from the source node (this node) to the target node (node the domain was migrated to).
 	//
-	// Transfer owership by...
-	// 1. Marking vmi.Status.MigationState as completed
+	// Transfer ownership by...
+	// 1. Marking vmi.Status.MigrationState as completed
 	// 2. Update the vmi.Status.NodeName to reflect the target node's name
 	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
 	// 4. Clear the LauncherContainerImageVersion which virt-controller will detect
 	//    and accurately based on the version used on the target pod
 	//
 	// After a migration, the VMI's phase is no longer owned by this node. Only the
-	// MigrationState status field is elgible to be mutated.
+	// MigrationState status field is eligible to be mutated.
 	migrationHost := ""
 	if vmi.Status.MigrationState != nil {
 		migrationHost = vmi.Status.MigrationState.TargetNode
