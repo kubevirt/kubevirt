@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -72,7 +73,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	if ar.Request.Operation == admissionv1.Create {
 
 		// Apply flavor and preferences to newVMI
-		causes := mutator.applyFlavorPreferencesToVmi(newVMI)
+		preferenceSpec, causes := mutator.applyFlavorPreferencesToVmi(newVMI)
 		if len(causes) > 0 {
 			return webhookutils.ToAdmissionResponse(causes)
 		}
@@ -97,7 +98,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		mutator.setDefaultResourceRequests(newVMI)
 		mutator.setDefaultGuestCPUTopology(newVMI)
 		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
-		err = mutator.setDefaultNetworkInterface(newVMI)
+		err = mutator.setDefaultNetworkInterface(newVMI, preferenceSpec)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
@@ -213,11 +214,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	}
 }
 
-func (mutator *VMIsMutator) applyFlavorPreferencesToVmi(vmi *v1.VirtualMachineInstance) []metav1.StatusCause {
+func (mutator *VMIsMutator) applyFlavorPreferencesToVmi(vmi *v1.VirtualMachineInstance) (*flavorv1alpha1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
 
 	flavorSpec, err := mutator.FlavorMethods.FindFlavorSpec(vmi.Spec.Flavor, vmi.Namespace)
 	if err != nil {
-		return []metav1.StatusCause{{
+		return nil, []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
 			Message: fmt.Sprintf("Failure to find flavor: %v", err),
 			Field:   k8sfield.NewPath("spec", "flavor").String(),
@@ -226,7 +227,7 @@ func (mutator *VMIsMutator) applyFlavorPreferencesToVmi(vmi *v1.VirtualMachineIn
 
 	preferenceSpec, err := mutator.FlavorMethods.FindPreferenceSpec(vmi.Spec.Preference, vmi.Namespace)
 	if err != nil {
-		return []metav1.StatusCause{{
+		return nil, []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
 			Message: fmt.Sprintf("Failure to find preference: %v", err),
 			Field:   k8sfield.NewPath("spec", "preference").String(),
@@ -234,7 +235,7 @@ func (mutator *VMIsMutator) applyFlavorPreferencesToVmi(vmi *v1.VirtualMachineIn
 	}
 
 	if flavorSpec == nil && preferenceSpec == nil {
-		return nil
+		return nil, nil
 	}
 
 	conflicts := mutator.FlavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorSpec, preferenceSpec, &vmi.Spec)
@@ -244,7 +245,7 @@ func (mutator *VMIsMutator) applyFlavorPreferencesToVmi(vmi *v1.VirtualMachineIn
 		flavor.AddFlavorNameAnnotations(vmi.Spec.Flavor, vmi)
 		flavor.AddPreferenceNameAnnotations(vmi.Spec.Preference, vmi)
 
-		return nil
+		return preferenceSpec, nil
 	}
 
 	causes := make([]metav1.StatusCause, 0, len(conflicts))
@@ -255,11 +256,11 @@ func (mutator *VMIsMutator) applyFlavorPreferencesToVmi(vmi *v1.VirtualMachineIn
 			Field:   conflict.String(),
 		})
 	}
-	return causes
+	return nil, causes
 
 }
 
-func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) error {
+func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance, preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec) error {
 	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
 	if autoAttach != nil && *autoAttach == false {
 		return nil
@@ -282,6 +283,10 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 			}
 			defaultIface := v1.DefaultSlirpNetworkInterface()
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+		}
+
+		if preferenceSpec != nil && preferenceSpec.Devices != nil {
+			flavor.ApplyInterfacePreferences(preferenceSpec, &obj.Spec)
 		}
 
 		obj.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}

@@ -424,7 +424,7 @@ func applyDevicePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePrefere
 	}
 
 	applyDiskPreferences(preferenceSpec, vmiSpec)
-	applyInterfacePreferences(preferenceSpec, vmiSpec)
+	ApplyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
 
 }
@@ -471,7 +471,7 @@ func applyDiskPreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenc
 	}
 }
 
-func applyInterfacePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyInterfacePreferences(preferenceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
 		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {

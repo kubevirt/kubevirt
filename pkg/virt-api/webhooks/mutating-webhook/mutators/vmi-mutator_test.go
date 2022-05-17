@@ -1080,6 +1080,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				CPU: &flavorv1alpha1.CPUPreferences{
 					PreferredCPUTopology: flavorv1alpha1.PreferThreads,
 				},
+				Devices: &flavorv1alpha1.DevicePreferences{
+					PreferredInterfaceModel: "virtio",
+				},
 			}
 			p = &flavorv1alpha1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1299,6 +1302,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
 			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu"))
+		})
+
+		It("should apply Flavor and Preferences to default network interface", func() {
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: p.Name,
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+			Expect(vmiSpec.Domain.Devices.Interfaces[0].Model).To(Equal(p.Spec.Devices.PreferredInterfaceModel))
+
 		})
 	})
 
