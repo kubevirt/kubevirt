@@ -1267,13 +1267,13 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 
 func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 
-	flavorSpec, err := c.flavorMethods.FindFlavorSpec(vm)
+	flavorSpec, err := c.flavorMethods.FindFlavorSpec(vm.Spec.Flavor, vm.Namespace)
 
 	if err != nil {
 		return err
 	}
 
-	preferenceSpec, err := c.flavorMethods.FindPreferenceSpec(vm)
+	preferenceSpec, err := c.flavorMethods.FindPreferenceSpec(vm.Spec.Preference, vm.Namespace)
 
 	if err != nil {
 		return err

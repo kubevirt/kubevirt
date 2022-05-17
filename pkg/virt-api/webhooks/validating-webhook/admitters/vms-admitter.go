@@ -167,7 +167,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 }
 
 func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
-	flavorSpec, err := admitter.FlavorMethods.FindFlavorSpec(vm)
+	flavorSpec, err := admitter.FlavorMethods.FindFlavorSpec(vm.Spec.Flavor, vm.Namespace)
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
@@ -176,7 +176,7 @@ func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.Sta
 		}}
 	}
 
-	preferenceSpec, err := admitter.FlavorMethods.FindPreferenceSpec(vm)
+	preferenceSpec, err := admitter.FlavorMethods.FindPreferenceSpec(vm.Spec.Preference, vm.Namespace)
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,

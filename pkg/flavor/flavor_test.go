@@ -31,6 +31,9 @@ var _ = Describe("Flavor and Preferences", func() {
 		flavorMethods             flavor.Methods
 		vm                        *v1.VirtualMachine
 		vmi                       *v1.VirtualMachineInstance
+		flavorMatcher             *v1.FlavorMatcher
+		preferenceMatcher         *v1.PreferenceMatcher
+		namespace                 string
 	)
 
 	BeforeEach(func() {
@@ -39,45 +42,34 @@ var _ = Describe("Flavor and Preferences", func() {
 		preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
 		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
 		flavorMethods = flavor.NewMethods(flavorInformer.GetStore(), clusterFlavorInformer.GetStore(), preferenceInformer.GetStore(), clusterPreferenceInformer.GetStore())
+		namespace = "test-vm-namespace"
 	})
 
 	Context("Find Flavor Spec", func() {
 
-		BeforeEach(func() {
-			vm = &v1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vm",
-					Namespace: "test-vm-namespace",
-				},
-				Spec: v1.VirtualMachineSpec{
-					Flavor: &v1.FlavorMatcher{},
-				},
-			}
-		})
-
 		It("returns nil when no flavor is specified", func() {
-			vm.Spec.Flavor = nil
-			spec, err := flavorMethods.FindFlavorSpec(vm)
+			flavorMatcher = nil
+			spec, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec).To(BeNil())
 		})
 
 		It("returns error when invalid Flavor Kind is specified", func() {
-			vm.Spec.Flavor = &v1.FlavorMatcher{
+			flavorMatcher = &v1.FlavorMatcher{
 				Name: "foo",
 				Kind: "bar",
 			}
-			spec, err := flavorMethods.FindFlavorSpec(vm)
+			spec, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("got unexpected kind in FlavorMatcher"))
 			Expect(spec).To(BeNil())
 		})
 
 		Context("Using global ClusterFlavor", func() {
-			var flavor *flavorv1alpha1.VirtualMachineClusterFlavor
+			var clusterFlavor *flavorv1alpha1.VirtualMachineClusterFlavor
 
 			BeforeEach(func() {
-				flavor = &flavorv1alpha1.VirtualMachineClusterFlavor{
+				clusterFlavor = &flavorv1alpha1.VirtualMachineClusterFlavor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-cluster-flavor",
 					},
@@ -88,25 +80,25 @@ var _ = Describe("Flavor and Preferences", func() {
 					},
 				}
 
-				err := clusterFlavorInformer.GetStore().Add(flavor)
+				err := clusterFlavorInformer.GetStore().Add(clusterFlavor)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
-					Name: flavor.Name,
+				flavorMatcher = &v1.FlavorMatcher{
+					Name: clusterFlavor.Name,
 					Kind: apiflavor.ClusterSingularResourceName,
 				}
 			})
 
 			It("returns expected flavor", func() {
-				f, err := flavorMethods.FindFlavorSpec(vm)
+				f, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*f).To(Equal(flavor.Spec))
+				Expect(*f).To(Equal(clusterFlavor.Spec))
 			})
 
 			It("fails when flavor does not exist", func() {
-				vm.Spec.Flavor.Name = "non-existing-flavor"
+				flavorMatcher.Name = "non-existing-flavor"
 
-				_, err := flavorMethods.FindFlavorSpec(vm)
+				_, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -119,7 +111,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				flavor = &flavorv1alpha1.VirtualMachineFlavor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-flavor",
-						Namespace: vm.Namespace,
+						Namespace: namespace,
 					},
 					Spec: flavorv1alpha1.VirtualMachineFlavorSpec{
 						CPU: flavorv1alpha1.CPUFlavor{
@@ -131,30 +123,30 @@ var _ = Describe("Flavor and Preferences", func() {
 				err := flavorInformer.GetStore().Add(flavor)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				flavorMatcher = &v1.FlavorMatcher{
 					Name: flavor.Name,
 					Kind: "VirtualMachineFlavor",
 				}
 			})
 
 			It("returns expected flavor", func() {
-				f, err := flavorMethods.FindFlavorSpec(vm)
+				f, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*f).To(Equal(flavor.Spec))
 			})
 
 			It("fails when flavor does not exist", func() {
-				vm.Spec.Flavor.Name = "non-existing-flavor"
+				flavorMatcher.Name = "non-existing-flavor"
 
-				_, err := flavorMethods.FindFlavorSpec(vm)
+				_, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
 			It("fails when flavor is in different namespace", func() {
-				vm.Namespace = "other-namespace"
+				namespace = "other-namespace"
 
-				_, err := flavorMethods.FindFlavorSpec(vm)
+				_, err := flavorMethods.FindFlavorSpec(flavorMatcher, namespace)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -165,35 +157,34 @@ var _ = Describe("Flavor and Preferences", func() {
 		const flavorName = "flavor-name"
 
 		BeforeEach(func() {
-			vm = kubecli.NewMinimalVM("testvm")
-			vm.Spec.Flavor = &v1.FlavorMatcher{Name: flavorName}
+			flavorMatcher = &v1.FlavorMatcher{Name: flavorName}
 		})
 
 		It("should add flavor name annotation", func() {
-			vm.Spec.Flavor.Kind = apiflavor.SingularResourceName
+			flavorMatcher.Kind = apiflavor.SingularResourceName
 
 			meta := &metav1.ObjectMeta{}
-			flavor.AddFlavorNameAnnotations(vm, meta)
+			flavor.AddFlavorNameAnnotations(flavorMatcher, meta)
 
 			Expect(meta.Annotations[v1.FlavorAnnotation]).To(Equal(flavorName))
 			Expect(meta.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
 		})
 
 		It("should add cluster flavor name annotation", func() {
-			vm.Spec.Flavor.Kind = apiflavor.ClusterSingularResourceName
+			flavorMatcher.Kind = apiflavor.ClusterSingularResourceName
 
 			meta := &metav1.ObjectMeta{}
-			flavor.AddFlavorNameAnnotations(vm, meta)
+			flavor.AddFlavorNameAnnotations(flavorMatcher, meta)
 
 			Expect(meta.Annotations[v1.FlavorAnnotation]).To(Equal(""))
 			Expect(meta.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(flavorName))
 		})
 
 		It("should add cluster name annotation, if flavor.kind is empty", func() {
-			vm.Spec.Flavor.Kind = ""
+			flavorMatcher.Kind = ""
 
 			meta := &metav1.ObjectMeta{}
-			flavor.AddFlavorNameAnnotations(vm, meta)
+			flavor.AddFlavorNameAnnotations(flavorMatcher, meta)
 
 			Expect(meta.Annotations[v1.FlavorAnnotation]).To(Equal(""))
 			Expect(meta.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(flavorName))
@@ -203,10 +194,11 @@ var _ = Describe("Flavor and Preferences", func() {
 	Context("Find Preference Spec", func() {
 
 		BeforeEach(func() {
+			namespace = "test-vm-namespace"
 			vm = &v1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
-					Namespace: "test-vm-namespace",
+					Namespace: namespace,
 				},
 				Spec: v1.VirtualMachineSpec{
 					Preference: &v1.PreferenceMatcher{},
@@ -215,18 +207,18 @@ var _ = Describe("Flavor and Preferences", func() {
 		})
 
 		It("returns nil when no preference is specified", func() {
-			vm.Spec.Preference = nil
-			preference, err := flavorMethods.FindPreferenceSpec(vm)
+			preferenceMatcher = nil
+			preference, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preference).To(BeNil())
 		})
 
 		It("returns error when invalid Preference Kind is specified", func() {
-			vm.Spec.Preference = &v1.PreferenceMatcher{
+			preferenceMatcher := &v1.PreferenceMatcher{
 				Name: "foo",
 				Kind: "bar",
 			}
-			spec, err := flavorMethods.FindPreferenceSpec(vm)
+			spec, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
 			Expect(spec).To(BeNil())
@@ -250,22 +242,22 @@ var _ = Describe("Flavor and Preferences", func() {
 				err := clusterPreferenceInformer.GetStore().Add(preference)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Preference = &v1.PreferenceMatcher{
+				preferenceMatcher = &v1.PreferenceMatcher{
 					Name: preference.Name,
 					Kind: apiflavor.ClusterSingularPreferenceResourceName,
 				}
 			})
 
 			It("returns expected preference spec", func() {
-				s, err := flavorMethods.FindPreferenceSpec(vm)
+				s, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*s).To(Equal(preference.Spec))
 			})
 
 			It("fails when preference does not exist", func() {
-				vm.Spec.Preference.Name = "non-existing-flavor"
+				preferenceMatcher.Name = "non-existing-preference"
 
-				_, err := flavorMethods.FindPreferenceSpec(vm)
+				_, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -278,7 +270,7 @@ var _ = Describe("Flavor and Preferences", func() {
 				preference = &flavorv1alpha1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-preference",
-						Namespace: vm.Namespace,
+						Namespace: namespace,
 					},
 					Spec: flavorv1alpha1.VirtualMachinePreferenceSpec{
 						CPU: &flavorv1alpha1.CPUPreferences{
@@ -290,30 +282,30 @@ var _ = Describe("Flavor and Preferences", func() {
 				err := preferenceInformer.GetStore().Add(preference)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Preference = &v1.PreferenceMatcher{
+				preferenceMatcher = &v1.PreferenceMatcher{
 					Name: preference.Name,
 					Kind: apiflavor.SingularPreferenceResourceName,
 				}
 			})
 
 			It("returns expected preference spec", func() {
-				s, err := flavorMethods.FindPreferenceSpec(vm)
+				s, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*s).To(Equal(preference.Spec))
 			})
 
 			It("fails when preference does not exist", func() {
-				vm.Spec.Preference.Name = "non-existing-preference"
+				preferenceMatcher.Name = "non-existing-preference"
 
-				_, err := flavorMethods.FindPreferenceSpec(vm)
+				_, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
 			It("fails when preference is in different namespace", func() {
-				vm.Namespace = "other-namespace"
+				namespace = "other-namespace"
 
-				_, err := flavorMethods.FindPreferenceSpec(vm)
+				_, err := flavorMethods.FindPreferenceSpec(preferenceMatcher, namespace)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
@@ -324,35 +316,34 @@ var _ = Describe("Flavor and Preferences", func() {
 		const preferenceName = "preference-name"
 
 		BeforeEach(func() {
-			vm = kubecli.NewMinimalVM("testvm")
-			vm.Spec.Preference = &v1.PreferenceMatcher{Name: preferenceName}
+			preferenceMatcher = &v1.PreferenceMatcher{Name: preferenceName}
 		})
 
 		It("should add preference name annotation", func() {
-			vm.Spec.Preference.Kind = apiflavor.SingularPreferenceResourceName
+			preferenceMatcher.Kind = apiflavor.SingularPreferenceResourceName
 
 			meta := &metav1.ObjectMeta{}
-			flavor.AddPreferenceNameAnnotations(vm, meta)
+			flavor.AddPreferenceNameAnnotations(preferenceMatcher, meta)
 
 			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(preferenceName))
 			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
 		})
 
 		It("should add cluster preference name annotation", func() {
-			vm.Spec.Preference.Kind = apiflavor.ClusterSingularPreferenceResourceName
+			preferenceMatcher.Kind = apiflavor.ClusterSingularPreferenceResourceName
 
 			meta := &metav1.ObjectMeta{}
-			flavor.AddPreferenceNameAnnotations(vm, meta)
+			flavor.AddPreferenceNameAnnotations(preferenceMatcher, meta)
 
 			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(""))
 			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
 		})
 
 		It("should add cluster name annotation, if preference.kind is empty", func() {
-			vm.Spec.Preference.Kind = ""
+			preferenceMatcher.Kind = ""
 
 			meta := &metav1.ObjectMeta{}
-			flavor.AddPreferenceNameAnnotations(vm, meta)
+			flavor.AddPreferenceNameAnnotations(preferenceMatcher, meta)
 
 			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(""))
 			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))

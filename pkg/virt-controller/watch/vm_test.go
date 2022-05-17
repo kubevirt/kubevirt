@@ -2731,14 +2731,14 @@ var _ = Describe("VirtualMachine", func() {
 			const preferenceName = "test-preference"
 
 			BeforeEach(func() {
-				flavorMethods.FindFlavorSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+				flavorMethods.FindFlavorSpecFunc = func(_ *v1.FlavorMatcher, _ string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 					return &flavorv1alpha1.VirtualMachineFlavorSpec{
 						CPU: flavorv1alpha1.CPUFlavor{
 							Guest: uint32(2),
 						},
 					}, nil
 				}
-				flavorMethods.FindPreferenceSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+				flavorMethods.FindPreferenceSpecFunc = func(_ *v1.PreferenceMatcher, _ string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
 					return &flavorv1alpha1.VirtualMachinePreferenceSpec{}, nil
 				}
 			})
@@ -2773,7 +2773,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should fail if flavor does not exist", func() {
 				const errorMessage = "flavor not found"
-				flavorMethods.FindFlavorSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+				flavorMethods.FindFlavorSpecFunc = func(_ *v1.FlavorMatcher, _ string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 					return nil, fmt.Errorf(errorMessage)
 				}
 
@@ -2800,7 +2800,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should fail if preference does not exist", func() {
 				const errorMessage = "preference not found"
-				flavorMethods.FindPreferenceSpecFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+				flavorMethods.FindPreferenceSpecFunc = func(_ *v1.PreferenceMatcher, _ string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
 					return nil, fmt.Errorf(errorMessage)
 				}
 

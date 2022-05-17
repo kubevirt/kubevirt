@@ -18,9 +18,9 @@ import (
 )
 
 type Methods interface {
-	FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
+	FindFlavorSpec(flavorMatcher *virtv1.FlavorMatcher, namespace string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error)
 	ApplyToVmi(field *k8sfield.Path, flavorspec *flavorv1alpha1.VirtualMachineFlavorSpec, prefernceSpec *flavorv1alpha1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
-	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
+	FindPreferenceSpec(preferenceMatcher *virtv1.PreferenceMatcher, namespace string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error)
 }
 
 type Conflicts []*k8sfield.Path
@@ -75,23 +75,23 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, flavorSpec *flavorv1alpha1.Vi
 	return conflicts
 }
 
-func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+func (m *methods) FindPreferenceSpec(preferenceMatcher *virtv1.PreferenceMatcher, namespace string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
 
 	var err error
 	var preference *flavorv1alpha1.VirtualMachinePreference
 	var clusterPreference *flavorv1alpha1.VirtualMachineClusterPreference
 
-	if vm.Spec.Preference == nil {
+	if preferenceMatcher == nil {
 		return nil, nil
 	}
 
-	switch strings.ToLower(vm.Spec.Preference.Kind) {
+	switch strings.ToLower(preferenceMatcher.Kind) {
 	case apiflavor.SingularPreferenceResourceName, apiflavor.PluralPreferenceResourceName:
-		preference, err = m.findPreference(vm)
+		preference, err = m.findPreference(preferenceMatcher, namespace)
 	case apiflavor.ClusterSingularPreferenceResourceName, apiflavor.ClusterPluralPreferenceResourceName:
-		clusterPreference, err = m.findClusterPreference(vm)
+		clusterPreference, err = m.findClusterPreference(preferenceMatcher)
 	default:
-		err = fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", vm.Spec.Preference.Kind)
+		err = fmt.Errorf("got unexpected kind in PreferenceMatcher: %s", preferenceMatcher.Kind)
 	}
 
 	if err != nil {
@@ -109,13 +109,13 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1
 	return nil, nil
 }
 
-func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachinePreference, error) {
+func (m *methods) findPreference(preferenceMatcher *virtv1.PreferenceMatcher, namespace string) (*flavorv1alpha1.VirtualMachinePreference, error) {
 
-	if vm.Spec.Preference == nil {
+	if preferenceMatcher == nil {
 		return nil, nil
 	}
 
-	key := vm.Namespace + "/" + vm.Spec.Preference.Name
+	key := namespace + "/" + preferenceMatcher.Name
 	obj, exists, err := m.preferenceStore.GetByKey(key)
 	if err != nil {
 		return nil, err
@@ -127,13 +127,13 @@ func (m *methods) findPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 	return preference, nil
 }
 
-func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineClusterPreference, error) {
+func (m *methods) findClusterPreference(preferenceMatcher *virtv1.PreferenceMatcher) (*flavorv1alpha1.VirtualMachineClusterPreference, error) {
 
-	if vm.Spec.Preference == nil {
+	if preferenceMatcher == nil {
 		return nil, nil
 	}
 
-	key := vm.Spec.Preference.Name
+	key := preferenceMatcher.Name
 	obj, exists, err := m.clusterPreferenceStore.GetByKey(key)
 	if err != nil {
 		return nil, err
@@ -145,23 +145,23 @@ func (m *methods) findClusterPreference(vm *virtv1.VirtualMachine) (*flavorv1alp
 	return preference, nil
 }
 
-func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+func (m *methods) FindFlavorSpec(flavorMatcher *virtv1.FlavorMatcher, namespace string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 
 	var err error
 	var flavor *flavorv1alpha1.VirtualMachineFlavor
 	var clusterFlavor *flavorv1alpha1.VirtualMachineClusterFlavor
 
-	if vm.Spec.Flavor == nil {
+	if flavorMatcher == nil {
 		return nil, nil
 	}
 
-	switch strings.ToLower(vm.Spec.Flavor.Kind) {
+	switch strings.ToLower(flavorMatcher.Kind) {
 	case apiflavor.SingularResourceName, apiflavor.PluralResourceName:
-		flavor, err = m.findFlavor(vm)
+		flavor, err = m.findFlavor(flavorMatcher, namespace)
 	case apiflavor.ClusterSingularResourceName, apiflavor.ClusterPluralResourceName, "":
-		clusterFlavor, err = m.findClusterFlavor(vm)
+		clusterFlavor, err = m.findClusterFlavor(flavorMatcher)
 	default:
-		err = fmt.Errorf("got unexpected kind in FlavorMatcher: %s", vm.Spec.Flavor.Kind)
+		err = fmt.Errorf("got unexpected kind in FlavorMatcher: %s", flavorMatcher.Kind)
 	}
 
 	if err != nil {
@@ -179,13 +179,13 @@ func (m *methods) FindFlavorSpec(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Vir
 	return nil, nil
 }
 
-func (m *methods) findFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavor, error) {
+func (m *methods) findFlavor(flavorMatcher *virtv1.FlavorMatcher, namespace string) (*flavorv1alpha1.VirtualMachineFlavor, error) {
 
-	if vm.Spec.Flavor == nil {
+	if flavorMatcher == nil {
 		return nil, nil
 	}
 
-	key := vm.Namespace + "/" + vm.Spec.Flavor.Name
+	key := namespace + "/" + flavorMatcher.Name
 	obj, exists, err := m.flavorStore.GetByKey(key)
 	if err != nil {
 		return nil, err
@@ -197,13 +197,13 @@ func (m *methods) findFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.Virtual
 	return flavor, nil
 }
 
-func (m *methods) findClusterFlavor(vm *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineClusterFlavor, error) {
+func (m *methods) findClusterFlavor(flavorMatcher *virtv1.FlavorMatcher) (*flavorv1alpha1.VirtualMachineClusterFlavor, error) {
 
-	if vm.Spec.Flavor == nil {
+	if flavorMatcher == nil {
 		return nil, nil
 	}
 
-	key := vm.Spec.Flavor.Name
+	key := flavorMatcher.Name
 	obj, exists, err := m.clusterFlavorStore.GetByKey(key)
 	if err != nil {
 		return nil, err
@@ -249,35 +249,35 @@ func applyCpu(field *k8sfield.Path, flavorSpec *flavorv1alpha1.VirtualMachineFla
 	return nil
 }
 
-func AddFlavorNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
-	if vm.Spec.Flavor == nil {
+func AddFlavorNameAnnotations(flavorMatcher *virtv1.FlavorMatcher, target metav1.Object) {
+	if flavorMatcher == nil {
 		return
 	}
 
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}
-	switch strings.ToLower(vm.Spec.Flavor.Kind) {
+	switch strings.ToLower(flavorMatcher.Kind) {
 	case apiflavor.PluralResourceName, apiflavor.SingularResourceName:
-		target.GetAnnotations()[virtv1.FlavorAnnotation] = vm.Spec.Flavor.Name
+		target.GetAnnotations()[virtv1.FlavorAnnotation] = flavorMatcher.Name
 	case "", apiflavor.ClusterPluralResourceName, apiflavor.ClusterSingularResourceName:
-		target.GetAnnotations()[virtv1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
+		target.GetAnnotations()[virtv1.ClusterFlavorAnnotation] = flavorMatcher.Name
 	}
 }
 
-func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
-	if vm.Spec.Preference == nil {
+func AddPreferenceNameAnnotations(preferenceMatcher *virtv1.PreferenceMatcher, target metav1.Object) {
+	if preferenceMatcher == nil {
 		return
 	}
 
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}
-	switch strings.ToLower(vm.Spec.Preference.Kind) {
+	switch strings.ToLower(preferenceMatcher.Kind) {
 	case apiflavor.PluralPreferenceResourceName, apiflavor.SingularPreferenceResourceName:
-		target.GetAnnotations()[virtv1.PreferenceAnnotation] = vm.Spec.Preference.Name
+		target.GetAnnotations()[virtv1.PreferenceAnnotation] = preferenceMatcher.Name
 	case "", apiflavor.ClusterPluralPreferenceResourceName, apiflavor.ClusterSingularPreferenceResourceName:
-		target.GetAnnotations()[virtv1.ClusterPreferenceAnnotation] = vm.Spec.Preference.Name
+		target.GetAnnotations()[virtv1.ClusterPreferenceAnnotation] = preferenceMatcher.Name
 	}
 }
 
