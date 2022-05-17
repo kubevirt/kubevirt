@@ -1236,6 +1236,14 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
+	// Copy the FlavorMatcher and PreferenceMatcher from the VM, overwrite anything already set in the VMI spec
+	if vm.Spec.Flavor != nil {
+		vmi.Spec.Flavor = vm.Spec.Flavor.DeepCopy()
+	}
+	if vm.Spec.Preference != nil {
+		vmi.Spec.Preference = vm.Spec.Preference.DeepCopy()
+	}
+
 	if hasStartPausedRequest(vm) {
 		strategy := virtv1.StartStrategyPaused
 		vmi.Spec.StartStrategy = &strategy
