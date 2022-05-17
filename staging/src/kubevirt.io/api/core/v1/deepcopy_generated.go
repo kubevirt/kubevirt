@@ -4549,6 +4549,16 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Flavor != nil {
+		in, out := &in.Flavor, &out.Flavor
+		*out = new(FlavorMatcher)
+		**out = **in
+	}
+	if in.Preference != nil {
+		in, out := &in.Preference, &out.Preference
+		*out = new(PreferenceMatcher)
+		**out = **in
+	}
 	return
 }
 

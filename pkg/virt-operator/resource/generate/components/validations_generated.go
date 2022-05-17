@@ -5629,6 +5629,23 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualMachineInstance should be migrated instead of shut-off
                     in case of a node drain.
                   type: string
+                flavor:
+                  description: FlavorMatcher references a flavor that is used to fill
+                    fields in DomainSpec
+                  properties:
+                    kind:
+                      description: 'Kind specifies which flavor resource is referenced.
+                        Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+                        If not specified, "VirtualMachineClusterFlavor" is used by
+                        default.'
+                      type: string
+                    name:
+                      description: Name is the name of the VirtualMachineFlavor or
+                        VirtualMachineClusterFlavor
+                      type: string
+                  required:
+                  - name
+                  type: object
                 hostname:
                   description: Specifies the hostname of the vmi If not specified,
                     the hostname will be set to the name of the vmi, if dhcp or cloud-init
@@ -5807,6 +5824,23 @@ var CRDsValidation map[string]string = map[string]string{
                   description: 'NodeSelector is a selector which must be true for
                     the vmi to fit on a node. Selector which must match a node''s
                     labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                  type: object
+                preference:
+                  description: PreferenceMatcher references a set of preference that
+                    is used to fill fields in DomainSpec
+                  properties:
+                    kind:
+                      description: 'Kind specifies which preference resource is referenced.
+                        Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
+                        If not specified, "VirtualMachineClusterPreference" is used
+                        by default.'
+                      type: string
+                    name:
+                      description: Name is the name of the VirtualMachinePreference
+                        or VirtualMachineClusterPreference
+                      type: string
+                  required:
+                  - name
                   type: object
                 priorityClassName:
                   description: If specified, indicates the pod's priority. If not
@@ -9650,6 +9684,21 @@ var CRDsValidation map[string]string = map[string]string{
           description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance
             should be migrated instead of shut-off in case of a node drain.
           type: string
+        flavor:
+          description: FlavorMatcher references a flavor that is used to fill fields
+            in DomainSpec
+          properties:
+            kind:
+              description: 'Kind specifies which flavor resource is referenced. Allowed
+                values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+                If not specified, "VirtualMachineClusterFlavor" is used by default.'
+              type: string
+            name:
+              description: Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+              type: string
+          required:
+          - name
+          type: object
         hostname:
           description: Specifies the hostname of the vmi If not specified, the hostname
             will be set to the name of the vmi, if dhcp or cloud-init is configured
@@ -9819,6 +9868,21 @@ var CRDsValidation map[string]string = map[string]string{
           description: 'NodeSelector is a selector which must be true for the vmi
             to fit on a node. Selector which must match a node''s labels for the vmi
             to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+          type: object
+        preference:
+          description: PreferenceMatcher references a set of preference that is used
+            to fill fields in DomainSpec
+          properties:
+            kind:
+              description: 'Kind specifies which preference resource is referenced.
+                Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
+                If not specified, "VirtualMachineClusterPreference" is used by default.'
+              type: string
+            name:
+              description: Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
+              type: string
+          required:
+          - name
           type: object
         priorityClassName:
           description: If specified, indicates the pod's priority. If not specified,
@@ -13933,6 +13997,23 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualMachineInstance should be migrated instead of shut-off
                     in case of a node drain.
                   type: string
+                flavor:
+                  description: FlavorMatcher references a flavor that is used to fill
+                    fields in DomainSpec
+                  properties:
+                    kind:
+                      description: 'Kind specifies which flavor resource is referenced.
+                        Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+                        If not specified, "VirtualMachineClusterFlavor" is used by
+                        default.'
+                      type: string
+                    name:
+                      description: Name is the name of the VirtualMachineFlavor or
+                        VirtualMachineClusterFlavor
+                      type: string
+                  required:
+                  - name
+                  type: object
                 hostname:
                   description: Specifies the hostname of the vmi If not specified,
                     the hostname will be set to the name of the vmi, if dhcp or cloud-init
@@ -14111,6 +14192,23 @@ var CRDsValidation map[string]string = map[string]string{
                   description: 'NodeSelector is a selector which must be true for
                     the vmi to fit on a node. Selector which must match a node''s
                     labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                  type: object
+                preference:
+                  description: PreferenceMatcher references a set of preference that
+                    is used to fill fields in DomainSpec
+                  properties:
+                    kind:
+                      description: 'Kind specifies which preference resource is referenced.
+                        Allowed values are: "VirtualMachinePreference" and "VirtualMachineClusterPreference".
+                        If not specified, "VirtualMachineClusterPreference" is used
+                        by default.'
+                      type: string
+                    name:
+                      description: Name is the name of the VirtualMachinePreference
+                        or VirtualMachineClusterPreference
+                      type: string
+                  required:
+                  - name
                   type: object
                 priorityClassName:
                   description: If specified, indicates the pod's priority. If not
@@ -17623,6 +17721,23 @@ var CRDsValidation map[string]string = map[string]string{
                             if the VirtualMachineInstance should be migrated instead
                             of shut-off in case of a node drain.
                           type: string
+                        flavor:
+                          description: FlavorMatcher references a flavor that is used
+                            to fill fields in DomainSpec
+                          properties:
+                            kind:
+                              description: 'Kind specifies which flavor resource is
+                                referenced. Allowed values are: "VirtualMachineFlavor"
+                                and "VirtualMachineClusterFlavor". If not specified,
+                                "VirtualMachineClusterFlavor" is used by default.'
+                              type: string
+                            name:
+                              description: Name is the name of the VirtualMachineFlavor
+                                or VirtualMachineClusterFlavor
+                              type: string
+                          required:
+                          - name
+                          type: object
                         hostname:
                           description: Specifies the hostname of the vmi If not specified,
                             the hostname will be set to the name of the vmi, if dhcp
@@ -17808,6 +17923,23 @@ var CRDsValidation map[string]string = map[string]string{
                             for the vmi to fit on a node. Selector which must match
                             a node''s labels for the vmi to be scheduled on that node.
                             More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                          type: object
+                        preference:
+                          description: PreferenceMatcher references a set of preference
+                            that is used to fill fields in DomainSpec
+                          properties:
+                            kind:
+                              description: 'Kind specifies which preference resource
+                                is referenced. Allowed values are: "VirtualMachinePreference"
+                                and "VirtualMachineClusterPreference". If not specified,
+                                "VirtualMachineClusterPreference" is used by default.'
+                              type: string
+                            name:
+                              description: Name is the name of the VirtualMachinePreference
+                                or VirtualMachineClusterPreference
+                              type: string
+                          required:
+                          - name
                           type: object
                         priorityClassName:
                           description: If specified, indicates the pod's priority.
@@ -22153,6 +22285,23 @@ var CRDsValidation map[string]string = map[string]string{
                                 if the VirtualMachineInstance should be migrated instead
                                 of shut-off in case of a node drain.
                               type: string
+                            flavor:
+                              description: FlavorMatcher references a flavor that
+                                is used to fill fields in DomainSpec
+                              properties:
+                                kind:
+                                  description: 'Kind specifies which flavor resource
+                                    is referenced. Allowed values are: "VirtualMachineFlavor"
+                                    and "VirtualMachineClusterFlavor". If not specified,
+                                    "VirtualMachineClusterFlavor" is used by default.'
+                                  type: string
+                                name:
+                                  description: Name is the name of the VirtualMachineFlavor
+                                    or VirtualMachineClusterFlavor
+                                  type: string
+                              required:
+                              - name
+                              type: object
                             hostname:
                               description: Specifies the hostname of the vmi If not
                                 specified, the hostname will be set to the name of
@@ -22344,6 +22493,24 @@ var CRDsValidation map[string]string = map[string]string{
                                 be true for the vmi to fit on a node. Selector which
                                 must match a node''s labels for the vmi to be scheduled
                                 on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                              type: object
+                            preference:
+                              description: PreferenceMatcher references a set of preference
+                                that is used to fill fields in DomainSpec
+                              properties:
+                                kind:
+                                  description: 'Kind specifies which preference resource
+                                    is referenced. Allowed values are: "VirtualMachinePreference"
+                                    and "VirtualMachineClusterPreference". If not
+                                    specified, "VirtualMachineClusterPreference" is
+                                    used by default.'
+                                  type: string
+                                name:
+                                  description: Name is the name of the VirtualMachinePreference
+                                    or VirtualMachineClusterPreference
+                                  type: string
+                              required:
+                              - name
                               type: object
                             priorityClassName:
                               description: If specified, indicates the pod's priority.

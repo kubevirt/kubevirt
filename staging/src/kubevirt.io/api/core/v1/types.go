@@ -154,6 +154,14 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=atomic
 	// +optional
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
+
+	// FlavorMatcher references a flavor that is used to fill fields in DomainSpec
+	// +optional
+	Flavor *FlavorMatcher `json:"flavor,omitempty" optional:"true"`
+
+	// PreferenceMatcher references a set of preference that is used to fill fields in DomainSpec
+	// +optional
+	Preference *PreferenceMatcher `json:"preference,omitempty" optional:"true"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {

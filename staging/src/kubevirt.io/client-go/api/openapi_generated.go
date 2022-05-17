@@ -21353,12 +21353,24 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 					},
+					"flavor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FlavorMatcher references a flavor that is used to fill fields in DomainSpec",
+							Ref:         ref("kubevirt.io/api/core/v1.FlavorMatcher"),
+						},
+					},
+					"preference": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferenceMatcher references a set of preference that is used to fill fields in DomainSpec",
+							Ref:         ref("kubevirt.io/api/core/v1.PreferenceMatcher"),
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/api/core/v1.AccessCredential", "kubevirt.io/api/core/v1.DomainSpec", "kubevirt.io/api/core/v1.Network", "kubevirt.io/api/core/v1.Probe", "kubevirt.io/api/core/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/api/core/v1.AccessCredential", "kubevirt.io/api/core/v1.DomainSpec", "kubevirt.io/api/core/v1.FlavorMatcher", "kubevirt.io/api/core/v1.Network", "kubevirt.io/api/core/v1.PreferenceMatcher", "kubevirt.io/api/core/v1.Probe", "kubevirt.io/api/core/v1.Volume"},
 	}
 }
 

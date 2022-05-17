@@ -18042,6 +18042,10 @@
       "description": "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.",
       "type": "string"
      },
+     "flavor": {
+      "description": "FlavorMatcher references a flavor that is used to fill fields in DomainSpec",
+      "$ref": "#/definitions/v1.FlavorMatcher"
+     },
      "hostname": {
       "description": "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
       "type": "string"
@@ -18063,6 +18067,10 @@
       "additionalProperties": {
        "type": "string"
       }
+     },
+     "preference": {
+      "description": "PreferenceMatcher references a set of preference that is used to fill fields in DomainSpec",
+      "$ref": "#/definitions/v1.PreferenceMatcher"
      },
      "priorityClassName": {
       "description": "If specified, indicates the pod's priority. If not specified, the pod priority will be default or zero if there is no default.",
