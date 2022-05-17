@@ -30,13 +30,13 @@ func (m *MockFlavorMethods) FindPreferenceSpec(preferenceMatcher *v1.PreferenceM
 
 func NewMockFlavorMethods() *MockFlavorMethods {
 	return &MockFlavorMethods{
-		FindFlavorSpecFunc: func(flavorMatcher *v1.FlavorMatcher, namespace string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
+		FindFlavorSpecFunc: func(_ *v1.FlavorMatcher, _ string) (*flavorv1alpha1.VirtualMachineFlavorSpec, error) {
 			return nil, nil
 		},
 		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorSpec, _ *flavorv1alpha1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
 			return nil
 		},
-		FindPreferenceSpecFunc: func(preferenceMatcher *v1.PreferenceMatcher, namespace string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
+		FindPreferenceSpecFunc: func(_ *v1.PreferenceMatcher, _ string) (*flavorv1alpha1.VirtualMachinePreferenceSpec, error) {
 			return nil, nil
 		},
 	}

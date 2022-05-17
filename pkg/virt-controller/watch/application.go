@@ -30,8 +30,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
-	"kubevirt.io/kubevirt/pkg/flavor"
-
 	"github.com/emicklei/go-restful"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -581,7 +579,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore(), vca.preferenceInformer.GetStore(), vca.clusterPreferenceInformer.GetStore()),
 		recorder,
 		vca.clientSet)
 }

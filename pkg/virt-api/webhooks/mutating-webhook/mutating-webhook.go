@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
@@ -78,7 +79,18 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtco
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers) {
-	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer, NamespaceLimitsInformer: informers.NamespaceLimitsInformer})
+	flavorMethods := flavor.NewMethods(
+		informers.FlavorInformer.GetStore(),
+		informers.ClusterFlavorInformer.GetStore(),
+		informers.PreferenceInformer.GetStore(),
+		informers.ClusterPreferenceInformer.GetStore(),
+	)
+	serve(resp, req, &mutators.VMIsMutator{
+		ClusterConfig:           clusterConfig,
+		VMIPresetInformer:       informers.VMIPresetInformer,
+		NamespaceLimitsInformer: informers.NamespaceLimitsInformer,
+		FlavorMethods:           flavorMethods,
+	})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {

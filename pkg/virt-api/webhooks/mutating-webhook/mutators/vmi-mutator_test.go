@@ -22,6 +22,7 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	rt "runtime"
 
 	"k8s.io/utils/pointer"
@@ -34,12 +35,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
+	apiflavor "kubevirt.io/api/flavor"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -58,6 +63,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var namespaceLimitInformer cache.SharedIndexInformer
 	var kvInformer cache.SharedIndexInformer
 	var mutator *VMIsMutator
+
+	var flavorMethods *testutils.MockFlavorMethods
 
 	memoryLimit := "128M"
 	cpuModelFromConfig := "Haswell"
@@ -90,6 +97,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiMeta := &k8smetav1.ObjectMeta{}
 		vmiStatus := &v1.VirtualMachineInstanceStatus{}
 		patch := []utiltypes.PatchOperation{
+
 			{Value: vmiSpec},
 			{Value: vmiMeta},
 			{Value: vmiStatus},
@@ -182,10 +190,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		namespaceLimitInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		namespaceLimitInformer.GetIndexer().Add(namespaceLimit)
 
+		flavorMethods = testutils.NewMockFlavorMethods()
+
 		mutator = &VMIsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		mutator.VMIPresetInformer = presetInformer
 		mutator.NamespaceLimitsInformer = namespaceLimitInformer
+		mutator.FlavorMethods = flavorMethods
+
 	})
 
 	It("should apply presets on VMI create", func() {
@@ -1007,4 +1019,287 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
 	})
+
+	Context("Flavor and preferences", func() {
+
+		var (
+			namespace                 string
+			f                         *flavorv1alpha1.VirtualMachineFlavor
+			fs                        flavorv1alpha1.VirtualMachineFlavorSpec
+			cf                        *flavorv1alpha1.VirtualMachineClusterFlavor
+			p                         *flavorv1alpha1.VirtualMachinePreference
+			ps                        flavorv1alpha1.VirtualMachinePreferenceSpec
+			cp                        *flavorv1alpha1.VirtualMachineClusterPreference
+			flavorInformer            cache.SharedIndexInformer
+			clusterFlavorInformer     cache.SharedIndexInformer
+			preferenceInformer        cache.SharedIndexInformer
+			clusterPreferenceInformer cache.SharedIndexInformer
+		)
+
+		BeforeEach(func() {
+
+			namespace = "namespace"
+			vmi.Namespace = namespace
+
+			// Reset the preset informer to avoid apply any presets during these tests
+			presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
+			mutator.VMIPresetInformer = presetInformer
+
+			flavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineFlavor{})
+			clusterFlavorInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterFlavor{})
+			preferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachinePreference{})
+			clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&flavorv1alpha1.VirtualMachineClusterPreference{})
+
+			flavorMemory := resource.MustParse("128M")
+			fs = flavorv1alpha1.VirtualMachineFlavorSpec{
+				CPU: flavorv1alpha1.CPUFlavor{
+					Guest: uint32(2),
+				},
+				Memory: flavorv1alpha1.MemoryFlavor{
+					Guest: &flavorMemory,
+				},
+			}
+			f = &flavorv1alpha1.VirtualMachineFlavor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "flavor",
+					Namespace: namespace,
+				},
+				Spec: fs,
+			}
+			flavorInformer.GetIndexer().Add(f)
+
+			cf = &flavorv1alpha1.VirtualMachineClusterFlavor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "clusterFlavor",
+				},
+				Spec: fs,
+			}
+			clusterFlavorInformer.GetIndexer().Add(cf)
+
+			ps = flavorv1alpha1.VirtualMachinePreferenceSpec{
+				CPU: &flavorv1alpha1.CPUPreferences{
+					PreferredCPUTopology: flavorv1alpha1.PreferThreads,
+				},
+			}
+			p = &flavorv1alpha1.VirtualMachinePreference{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "preference",
+					Namespace: namespace,
+				},
+				Spec: ps,
+			}
+			preferenceInformer.GetIndexer().Add(p)
+
+			cp = &flavorv1alpha1.VirtualMachineClusterPreference{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "clusterPreference",
+				},
+				Spec: ps,
+			}
+			clusterPreferenceInformer.GetIndexer().Add(cp)
+
+			mutator.FlavorMethods = flavor.NewMethods(
+				flavorInformer.GetStore(),
+				clusterFlavorInformer.GetStore(),
+				preferenceInformer.GetStore(),
+				clusterPreferenceInformer.GetStore(),
+			)
+
+		})
+
+		It("should apply VirtualMachineFlavor to VirtualMachineInstance", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			vmiMeta, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+			Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(f.Spec.CPU.Guest))
+			Expect(*vmiSpec.Domain.Memory.Guest).To(Equal(*f.Spec.Memory.Guest))
+			Expect(vmiMeta.Annotations[v1.FlavorAnnotation]).To(Equal(f.Name))
+		})
+
+		It("should apply VirtualMachineClusterFlavor to VirtualMachineInstance", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: cf.Name,
+				Kind: apiflavor.ClusterSingularResourceName,
+			}
+
+			vmiMeta, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+			Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(cf.Spec.CPU.Guest))
+			Expect(*vmiSpec.Domain.Memory.Guest).To(Equal(*cf.Spec.Memory.Guest))
+			Expect(vmiMeta.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(cf.Name))
+		})
+
+		It("should apply VirtualMachinePreference to VirtualMachineInstance", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: p.Name,
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			vmiMeta, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+			Expect(vmiSpec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
+			Expect(vmiMeta.Annotations[v1.FlavorAnnotation]).To(Equal(f.Name))
+			Expect(vmiMeta.Annotations[v1.PreferenceAnnotation]).To(Equal(p.Name))
+		})
+		It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: cp.Name,
+				Kind: apiflavor.ClusterSingularPreferenceResourceName,
+			}
+
+			vmiMeta, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+			Expect(vmiSpec.Domain.CPU.Threads).To(Equal(f.Spec.CPU.Guest))
+			Expect(vmiMeta.Annotations[v1.FlavorAnnotation]).To(Equal(f.Name))
+			Expect(vmiMeta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(cp.Name))
+		})
+
+		It("should reject request if an invalid FlavorMatcher Kind is provided", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: "foobar",
+			}
+
+			resp := admitVMI()
+
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("got unexpected kind in FlavorMatcher"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("got unexpected kind in FlavorMatcher"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
+		})
+
+		It("should reject the request if a VirtualMachineFlavor cannot be found", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: "foobar",
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			resp := admitVMI()
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Failure to find flavor"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Failure to find flavor"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
+
+		})
+
+		It("should reject the request if a VirtualMachineClusterFlavor cannot be found", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: "foobar",
+				Kind: apiflavor.ClusterSingularResourceName,
+			}
+
+			resp := admitVMI()
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Failure to find flavor"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Failure to find flavor"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.flavor"))
+
+		})
+
+		It("should reject the request if an invalid PreferenceMatcher Kind is provided", func() {
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: p.Name,
+				Kind: "foobar",
+			}
+
+			resp := admitVMI()
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.preference"))
+
+		})
+
+		It("should reject the request if a VirtualMachinePreference cannot be found", func() {
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "foobar",
+				Kind: apiflavor.SingularPreferenceResourceName,
+			}
+
+			resp := admitVMI()
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Failure to find preference"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Failure to find preference"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.preference"))
+
+		})
+
+		It("should reject the request if a VirtualMachineClusterPreference cannot be found", func() {
+
+			vmi.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "foobar",
+				Kind: apiflavor.ClusterSingularPreferenceResourceName,
+			}
+
+			resp := admitVMI()
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Failure to find preference"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Failure to find preference"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.preference"))
+
+		})
+
+		It("should reject the request if a VirtualMachineFlavor conflicts with the VirtualMachineInstance", func() {
+
+			vmi.Spec.Flavor = &v1.FlavorMatcher{
+				Name: f.Name,
+				Kind: apiflavor.SingularResourceName,
+			}
+
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Sockets: uint32(1),
+				Cores:   uint32(4),
+				Threads: uint32(1),
+			}
+
+			resp := admitVMI()
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("VMI field conflicts with selected Flavor"))
+			Expect(resp.Result.Reason).To(Equal(k8smetav1.StatusReasonInvalid))
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu"))
+		})
+	})
+
 })

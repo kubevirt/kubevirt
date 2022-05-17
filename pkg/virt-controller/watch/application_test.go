@@ -105,7 +105,6 @@ var _ = Describe("Application", func() {
 		vmExportInformer, _ := testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		configMapInformer, _ := testutils.NewFakeInformerFor(&kubev1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-		flavorMethods := testutils.NewMockFlavorMethods()
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 
 		var qemuGid int64 = 107
@@ -135,7 +134,6 @@ var _ = Describe("Application", func() {
 			dataVolumeInformer,
 			pvcInformer,
 			crInformer,
-			flavorMethods,
 			recorder,
 			virtClient)
 		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
