@@ -260,7 +260,7 @@ func createNamespaces() {
 			},
 		}
 		_, err = virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-		if !errors.IsAlreadyExists(err) {
+		if err != nil {
 			util.PanicOnError(err)
 		}
 	}
