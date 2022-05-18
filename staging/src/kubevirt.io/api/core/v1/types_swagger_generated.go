@@ -453,6 +453,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"imageTag":                "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
 		"imageRegistry":           "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
 		"imagePullPolicy":         "The ImagePullPolicy to use.",
+		"imagePullSecrets":        "The imagePullSecrets to pull the container images from\nDefaults to none\n+listType=atomic",
 		"monitorNamespace":        "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
 		"serviceMonitorNamespace": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
 		"monitorAccount":          "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",

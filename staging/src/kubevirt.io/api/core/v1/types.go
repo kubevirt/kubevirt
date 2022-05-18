@@ -1712,6 +1712,11 @@ type KubeVirtSpec struct {
 	// The ImagePullPolicy to use.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 
+	// The imagePullSecrets to pull the container images from
+	// Defaults to none
+	// +listType=atomic
+	ImagePullSecrets []k8sv1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
 	// The namespace Prometheus is deployed in
 	// Defaults to openshift-monitor
 	MonitorNamespace string `json:"monitorNamespace,omitempty"`

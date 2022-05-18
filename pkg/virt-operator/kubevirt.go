@@ -744,6 +744,8 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "kubevirt-operator",
 					RestartPolicy:      k8sv1.RestartPolicyNever,
+					ImagePullSecrets:   config.GetImagePullSecrets(),
+
 					Containers: []k8sv1.Container{
 						{
 							Name:            "install-strategy-upload",

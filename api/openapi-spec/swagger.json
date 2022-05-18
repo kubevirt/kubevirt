@@ -16952,6 +16952,14 @@
       "description": "The ImagePullPolicy to use.",
       "type": "string"
      },
+     "imagePullSecrets": {
+      "description": "The imagePullSecrets to pull the container images from Defaults to none",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "imageRegistry": {
       "description": "The image registry to pull the container images from Defaults to the same registry the operator's container image is pulled from.",
       "type": "string"
