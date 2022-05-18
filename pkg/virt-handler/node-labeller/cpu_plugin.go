@@ -68,12 +68,9 @@ func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []
 
 func (n *NodeLabeller) getSupportedCpuFeatures() cpuFeatures {
 	supportedCpuFeatures := make(cpuFeatures)
-	minCpuFeatures := n.getMinCpuFeature()
 
 	for _, feature := range n.supportedFeatures {
-		if _, exist := minCpuFeatures[feature]; !exist {
-			supportedCpuFeatures[feature] = true
-		}
+		supportedCpuFeatures[feature] = true
 	}
 
 	return supportedCpuFeatures
@@ -91,8 +88,6 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	}
 
 	usableModels := make([]string, 0)
-	minCpuFeatures := n.getMinCpuFeature()
-	log.Log.Infof("CPU features of a minimum baseline CPU model: %+v", minCpuFeatures)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Name == v1.CPUModeHostModel {
 			n.cpuModelVendor = mode.Vendor.Name
@@ -109,7 +104,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 			n.hostCPUModel.fallback = hostCpuModel.Fallback
 
 			for _, feature := range mode.Feature {
-				if _, isMinCpuFeature := minCpuFeatures[feature.Name]; !isMinCpuFeature && feature.Policy == isRequired {
+				if feature.Policy == isRequired {
 					n.hostCPUModel.requiredFeatures[feature.Name] = true
 				}
 			}
